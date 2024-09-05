@@ -8,7 +8,7 @@
 
 spp_run <- spp_lookup$species_pooled
 
-output_loc <- here("freshwater", "output", "CU")
+output_loc <- here("output", "freshwater", "CU")
 
 if(exists("PCIC_stats")) rm(PCIC_stats)
 
@@ -74,10 +74,10 @@ for(s in 1:length(unique(cu_run$spp)))  {
       rename_with(~str_replace(., '2055.07.02', "prct_change")) 
       
     #calculate median absolute deviation for each indicator and time period
-    temp_MAD <- PCIC.CU_data %>%
+    temp_SD <- PCIC.CU_data %>%
       group_by(spp, cu, cuid) %>%
-      summarize(across(contains(names(PCIC.CU)), \(x) mad(x, na.rm = TRUE))) %>%
-      rename_with(~str_c(., ".MAD"), .cols = -c(1:3))
+      summarize(across(contains(names(PCIC.CU)), \(x) sd(x, na.rm = TRUE))) %>%
+      rename_with(~str_c(., ".SD"), .cols = -c(1:3))
     
     # temp_MAD_ave <- PCIC.CU_data %>%
     #   group_by(spp, cu) %>%
@@ -87,7 +87,7 @@ for(s in 1:length(unique(cu_run$spp)))  {
     
     
     #bind stats into one object
-    temp_stats <- cbind(temp_stats, temp_diff[,-c(1:3)], temp_MAD[,-c(1:3)])
+    temp_stats <- cbind(temp_stats, temp_diff[,-c(1:3)], temp_SD[,-c(1:3)])
     
     if(!exists("PCIC_stats")) {
       PCIC_stats <- temp_stats
@@ -132,7 +132,7 @@ for(s in 1:length(unique(cu_run$spp)))  {
       # 
     }
     
-    rm(temp_diff, temp_MAD, temp_stats, PCIC.CU, PCIC.CU_data, cu_boundary.i)
+    rm(temp_diff, temp_SD, temp_stats, PCIC.CU, PCIC.CU_data, cu_boundary.i)
   }  # end CU loop
   
   rm(obs.spawning.s, spawning.s)
@@ -141,4 +141,6 @@ for(s in 1:length(unique(cu_run$spp)))  {
 
 write.csv(PCIC_stats, here(output_loc, "PCIC_stats.csv") )
 
+save(PCIC_stats,
+  file = here( "output", paste0(today, "_fw_stats_output.Rdata")))
 

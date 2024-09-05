@@ -15,7 +15,7 @@
 # Conservation Unit boundaries for Fraser CUs (all species)
 #------------------------------------------------------------------------------
 
-cu_boundary <- st_read(here(dat_root, "fraser_cus.shp")) %>%
+cu_boundary <- st_read(here(dat_root, "CU_boundaries", "fraser_cus.shp")) %>%
   st_transform(crs = 4269)
 
 # Are all CUs in cu_run in cu_boundary?
@@ -70,7 +70,7 @@ sf_use_s2(FALSE)
 # Load shoreline data (for mapping only)
 #------------------------------------------------------------------------------
 
-shoreline <- st_read(here(dat_root, "layers", "GSHHS_i_L1.shp")) %>%
+shoreline <- st_read(here(dat_root, "layers", "shoreline", "GSHHS_i_L1.shp")) %>%
   st_transform(crs = 4269)
 
 #shoreline_Albers <- st_transform(shoreline, crs = 3005)
@@ -79,7 +79,7 @@ shoreline <- st_read(here(dat_root, "layers", "GSHHS_i_L1.shp")) %>%
 # Load river basin data (for clipping primarily)
 #------------------------------------------------------------------------------
 
-basins <- st_read(here(dat_root, "BC_Basins", "BC_Basins_GoogleMapPL.shp")) %>%
+basins <- st_read(here(dat_root, "layers", "BC_Basins", "BC_Basins_GoogleMapPL.shp")) %>%
   st_cast("POLYGON")
 st_crs(basins) <- 4269
 
@@ -109,14 +109,14 @@ for (i in 1:nrow(cu_boundary)) {
 #------------------------------------------------------------------------------
 
 # Read in PCIC grid
-grid_points <- read.csv("freshwater/output/PCIC-grid-points_bccoast.csv") 
+grid_points <- read.csv(here("data", "freshwater", "processed-data", "PCIC-grid-points_bccoast.csv")) 
 #read.csv("freshwater/data/processed-data/PCIC-grid-points_fraser.csv") 
 
 # Convert grid points to spatial object 
 grid_points <- st_as_sf(grid_points, coords = c("lon", "lat"), crs = 4269)
 
 #import polygon grid - see 2x_fw_create_inputs_grid.R file
-grid_polys <- readRDS(file = here("freshwater", "data", "grid_polys_fw.rds"))
+grid_polys <- readRDS(file = here("data", "freshwater", "processed-data", "grid_polys_fw.rds"))
 
 #subset Fraser basin
 pick_Fr <- lengths(st_intersects(grid_polys, Fr_basin)) > 0
@@ -137,7 +137,7 @@ PCIC_files <- list.files(here(dat_root, "PCIC_indicators"))
 
 #load selected indicators for available time periods and combine into a star object
 for(i in 1:length(PCIC_indies)){
-  pick_files <- PCIC_files[grepl(PCIC_indies[i], PCIC_files)]
+  pick_files <- PCIC_files[grepl(PCIC_file_choose[i], PCIC_files)]
   
   for(p in 1:length(t_periods)) {
     temp_star <- read_ncdf(here(dat_root, "PCIC_indicators", pick_files[p]))
@@ -174,3 +174,6 @@ PCIC <- st_crop(PCIC, grid_polys)
 #   model = "ensMean",
 #   rcp = 45 # Which GCM?
 # )
+
+save(PCIC, grid_points, grid_polys, Fr_basin, shoreline, streams, cu_boundary,
+     file = here("data", "freshwater", "processed-data", paste0(today, "fw_spatial_inputs.Rdata")))

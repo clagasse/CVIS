@@ -1,0 +1,301 @@
+---
+title: "Climate Vulnerability Indicators for Salmon"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+
+#load packages and set root project directory
+
+library(here)
+library(tidyverse)
+library(stars)   #package for data cubes (multi-dimensional spatial arrays)
+library(sf)      #spatial features
+library(wesanderson); library(viridis)  #colour palettes
+`%notin%` <- Negate(`%in%`)
+library(gridExtra)  #for multi-panel ggplots
+library(kableExtra)
+library(units)
+
+
+setwd(here())
+
+#load script settings
+load(here("data", "settings.Rdata"))
+
+#load spatial objects
+load(here("data", "freshwater", "processed-data", "2024-09-04_fw_spatial_inputs.Rdata"))
+
+#load summary stat results
+load(here("output", "2024-09-04_fw_stats_output.Rdata"))
+
+
+```
+
+```{r, comment=NA, warning=FALSE,message=FALSE, results="asis"}
+
+theme_custom <- function(base_size = 14) {
+  theme_bw(base_size = base_size) %+replace%
+    theme(
+      # L'ensemble de la figure
+      plot.title = element_text(size = rel(1), face = "bold", margin = margin(0,0,5,0), hjust = 0),
+      # Zone où se situe le graphique
+      panel.grid.minor = element_blank(),
+      panel.border = element_blank(),
+      # Les axes
+      axis.title = element_text(size = rel(0.85), face = "bold"),
+      axis.text = element_text(size = rel(0.70), face = "bold"),
+      #axis.line = element_line(color = "black", arrow = arrow(length = unit(0.3, "lines"), type = "closed")),
+      axis.line = element_line(color = "black"),
+      # La légende
+      legend.title = element_text(size = rel(0.85), face = "bold"),
+      legend.text = element_text(size = rel(0.70), face = "bold"),
+      legend.key = element_rect(fill = "transparent", colour = NA),
+      legend.key.size = unit(1.5, "lines"),
+      legend.background = element_rect(fill = "transparent", colour = NA),
+      # Les étiquettes dans le cas d'un facetting
+      strip.background = element_rect(fill = "#17252D", color = "#17252D"),
+      strip.text = element_text(size = rel(0.85), face = "bold", color = "white", margin = margin(5,0,5,0))
+    )
+}
+
+theme_set(theme_custom())
+```
+
+## Overview  
+
+The preliminary outputs below compare the PCIC gridded model outputs for the historic period of 1971-2000 to the future period of 2041-2070.  For each CU and time period, the average indicator value for grid cells within the CU boundary is calculated and plotted. 
+
+PCIC indicators for flow and temperature are summarized.
+
+**Flow Indicators:**  
+peakQmag - annual maximum peak flow (m3/s)\
+peakQday - date of maximum peak flow in the year (day of year)\
+lowQ05 - number of days per year with low flow events below 95th percentile\
+highQ95 - number of days per year with high flow events above 95th percentile (not currently shown)\
+
+**Temperature Indicators:**  
+POT19freq - number of days per year above 19deg\
+POT19dur - length of consecutive days above 19 degrees\
+
+## Comparisons of PCIC indicators for Fraser CUs
+
+### Flow indicators
+
+
+```{r, comment=NA, warning=FALSE,message=FALSE, results="asis"}
+flow_indies <- c("peakQmag_year", "peakQday_year", "lowQ05_year")  #, "highQ95_year")
+
+# flow_stats <- PCIC_stats %>%
+#   select(c("spp", "cu", "cuid"), contains(c(flow_indies)))
+# 
+# for (a in 1:length(flow_indies)) {
+#   flow_attr <- select(flow_stats, contains(flow_indies[a])) %>%
+#     mutate(attr = flow_indies[a], .before = everything()) %>%
+#     rename_with(~str_replace(., paste0( flow_indies[a], "."), ""))
+#   
+#   cat("\n", flow_indies[a])
+#   print(kable(flow_attr))
+#   cat("\n\n")
+# }
+
+
+
+p1 <- ggplot(PCIC_stats) +
+  geom_point(aes(x=peakQmag_year.1985.07.02.mean, y=peakQmag_year.2055.07.02.mean, colour = spp), size = 2) +
+  geom_text(aes(x=peakQmag_year.1985.07.02.mean, y=peakQmag_year.2055.07.02.mean,
+                 label = cu, colour = spp), size = 2.5, vjust = -1.) +
+  # scale_x_continuous(limits=xy.limits) +
+  # scale_y_continuous(limits=xy.limits) +
+  # coord_fixed( ratio=1) +
+  geom_abline(aes(intercept = 0, slope = 1), linetype = 2) +
+  labs(title = "Peak annual flow (m3/s)")
+
+
+p2 <- ggplot(PCIC_stats) +
+  geom_point(aes(x=peakQday_year.1985.07.02.mean, y=peakQday_year.2055.07.02.mean, colour = spp), size = 2) +
+  geom_text(aes(x=peakQday_year.1985.07.02.mean, y=peakQday_year.2055.07.02.mean,
+                 label = cu, colour = spp), size = 2.5, vjust = -1.) +
+  # scale_x_continuous(limits=xy.limits) +
+  # scale_y_continuous(limits=xy.limits) +
+  # coord_fixed( ratio=1) +
+  geom_abline(aes(intercept = 0, slope = 1), linetype = 2) +
+  labs(title = "Calendar day of maximum flow")
+
+p3 <- ggplot(PCIC_stats) +
+  geom_point(aes(x=lowQ05_year.1985.07.02.mean, y=lowQ05_year.2055.07.02.mean, colour = spp), size = 2) +
+  geom_text(aes(x=lowQ05_year.1985.07.02.mean, y=lowQ05_year.2055.07.02.mean,
+                 label = cu, colour = spp), size = 2.5, vjust = -1.) +
+  # scale_x_continuous(limits=xy.limits) +
+  # scale_y_continuous(limits=xy.limits) +
+  # coord_fixed( ratio=1) +
+  geom_abline(aes(intercept = 0, slope = 1), linetype = 2) +
+  labs(title = "Number of days with low flow events below 5%")
+
+  print(p1)
+  print(p2)
+  print(p3)
+
+```
+
+### Temperature indicators
+
+```{r, comment=NA, warning=FALSE,message=FALSE, results="asis"}
+
+temp_indies <- c("POT19freq_year", "POT19dur_year")
+# 
+# temp_stats <- PCIC_stats %>%
+#   select(c("spp", "cu", "cuid"), contains(c(temp_indies))) %>%
+#   arrange(POT19freq_year.diff.mean, decreasing = TRUE)
+
+# for (a in 1:length(temp_indies)) {
+#   temp_attr <- select(temp_stats, contains(temp_indies[a])) %>%
+#     mutate(attr = temp_indies[a], .before = everything()) %>%
+#     rename_with(~str_replace(., paste0( temp_indies[a], "."), ""))
+#   
+#   cat("\n", temp_indies[a])
+#   print(kable(temp_attr))
+#   cat("\n\n")
+# }
+
+# ggplot(temp_stats) +
+#   geom_boxplot(aes(y=POT19freq_year.diff.mean, x = spp)) 
+# 
+# ggplot(temp_stats) +
+#   geom_boxplot(aes(y=POT19dur_year.diff.mean, x = spp))
+
+
+#xy.limits <- range( c(temp$st,y) )
+
+p1 <- ggplot(PCIC_stats) +
+  geom_point(aes(x=POT19freq_year.1985.07.02.mean, y=POT19freq_year.2055.07.02.mean, colour = spp), size = 2) +
+  geom_text(aes(x=POT19freq_year.1985.07.02.mean, y=POT19freq_year.2055.07.02.mean,
+                 label = cu, colour = spp), size = 2.5, vjust = -1.) +
+  # scale_x_continuous(limits=xy.limits) +
+  # scale_y_continuous(limits=xy.limits) +
+  # coord_fixed( ratio=1) +
+  geom_abline(aes(intercept = 0, slope = 1), linetype = 2) +
+  labs(title = "Number of days above 19 C")
+
+
+p2 <- ggplot(PCIC_stats) +
+  geom_point(aes(x=POT19dur_year.1985.07.02.mean, y=POT19dur_year.2055.07.02.mean, colour = spp), size = 2) +
+  geom_text(aes(x=POT19dur_year.1985.07.02.mean, y=POT19dur_year.2055.07.02.mean,
+                 label = cu, colour = spp), size = 2.5, vjust = -1.) +
+  # scale_x_continuous(limits=xy.limits) +
+  # scale_y_continuous(limits=xy.limits) +
+  # coord_fixed( ratio=1) +
+  geom_abline(aes(intercept = 0, slope = 1), linetype = 2) +
+  labs(title = "Consecutive days above 19 C")
+
+
+  print(p1)
+  print(p2)
+
+```
+
+## Spatial plots of PCIC indicators
+
+
+```{r, echo = FALSE, comment=NA, warning=FALSE,message=FALSE, results="asis"}
+  for(p in 1:length(PCIC)) {
+    p.list[[p]] <- ggplot() +
+      geom_stars(data = PCIC[p]) +
+      facet_wrap(~time) +
+      scale_fill_viridis() +
+      theme_minimal()
+  }
+  
+  grid.arrange(p.list[[1]], p.list[[2]], nrow = 2, ncol = 1)
+  grid.arrange(p.list[[3]], p.list[[4]], nrow = 2, ncol=1)
+```
+
+
+## Summary by CU
+
+Statistics on indicator values for temperature and flow are outputted for each CU below, including spatial plots of the PCIC gridded model output within CU boundaries.
+
+Currently subsetted to show Coho only
+
+```{r, echo = FALSE, comment=NA, warning=FALSE,message=FALSE, results="asis"}
+sf_use_s2(FALSE)  #geometry interpretation - set to FALSE to avoid error
+cu_rmd <- arrange(cu_run, Species) %>%
+  filter( Species == "Coho")
+
+for(i in 1:nrow(cu_rmd)) {
+  
+  cu_pick <- cu_rmd$cuid[i]
+  
+  cat(" \n### ", cu_rmd$cuname[i], " - ", cu_rmd$Species[i], "\n")
+
+  cu_stats <- filter(PCIC_stats, cuid == cu_pick) %>%
+    ungroup() %>%
+    select(-c("spp", "cuid")) %>%
+    drop_units()
+  
+  cu_qmag <- select(cu_stats, contains(flow_indies[1])) %>%
+    mutate(attr = flow_indies[1], .before = everything()) %>%
+    rename_with(~str_replace(., flow_indies[1], ""))
+  
+  cu_qday <- select(cu_stats, contains(flow_indies[2])) %>%
+    mutate(attr = flow_indies[2], .before = everything()) %>%
+    rename_with(~str_replace(., flow_indies[2], ""))
+  
+  cu_q95high <- select(cu_stats, contains(flow_indies[3])) %>%
+    mutate(attr = flow_indies[3], .before = everything()) %>%
+    rename_with(~str_replace(., flow_indies[3], ""))
+  
+  cu_19freq <- select(cu_stats, contains(temp_indies[1])) %>%
+    mutate(attr = temp_indies[1], .before = everything()) %>%
+    rename_with(~str_replace(., temp_indies[1], ""))
+  
+  cu_19dur <- select(cu_stats, contains(temp_indies[2])) %>%
+    mutate(attr = temp_indies[2], .before = everything()) %>%
+    rename_with(~str_replace(., temp_indies[2], ""))
+  
+  print(kable(rbind(cu_qmag, cu_qday, cu_q95high, cu_19freq, cu_19dur), digits = 1))
+  cat("\n\n")
+  
+  cu_boundary.i <- filter(cu_boundary, CUID == cu_pick)
+  
+  PCIC.CU <- PCIC[cu_boundary.i]
+  
+  PCIC.CU.temp <- PCIC.CU[temp_indies]
+  PCIC.CU.flow <- PCIC.CU[flow_indies]
+
+  p.list <- list()
+  
+  for(p in 1:length(PCIC.CU)) {
+    
+    # PCIC_plot <- drop_units(PCIC.CU[p]) %>%
+    #   st_redimension()
+    
+    p.list[[p]] <- ggplot() +
+      geom_stars(data = PCIC.CU[p]) +
+      facet_wrap(~time) +
+      scale_fill_viridis() +
+      theme_minimal() +
+      geom_sf(data = cu_boundary.i, fill = NA, color = "black") 
+      
+  }
+  
+  #print(p1)
+  grid.arrange(p.list[[1]], p.list[[2]], nrow = 2, ncol = 1)
+  grid.arrange(p.list[[3]], p.list[[4]], nrow = 2, ncol=1)
+  
+      
+  # nbr <- 8
+  # plot(PCIC.CU.flow[1], main = "Max Flows")#, nbreaks = nbr, col = viridis(nbr - 1))
+  # plot(PCIC.CU.flow[3], main = "Freq High Flows")#, nbreaks = nbr, col = viridis(nbr - 1))
+  # plot(PCIC.CU.temp[1], main = "Days >19Deg")#, nbreaks = nbr, col = viridis(nbr - 1))
+  # 
+  cat(" \n\n\\pagebreak\n")
+}
+
+
+```

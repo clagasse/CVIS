@@ -4,7 +4,7 @@
 
 
 # Read in PCIC grid
-grid_points0 <- read.csv("freshwater/output/PCIC-grid-points_bccoast.csv") 
+grid_points0 <- read.csv("data/freshwater/processed-data/PCIC-grid-points_bccoast.csv") 
 #read.csv("freshwater/data/processed-data/PCIC-grid-points_fraser.csv") 
 # Create grid polys
 n <- length(grid_points0$lon)

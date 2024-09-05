@@ -8,7 +8,7 @@
 
 spp_run <- spp_lookup$species_pooled
 
-output_loc <- here("freshwater", "output", "species")
+output_loc <- here("output", "freshwater", "species")
 
 # For each species
 for(s in 1:length(spp_run))  {
@@ -64,19 +64,19 @@ for(s in 1:length(spp_run))  {
     summarize(across(5:last_col(), \(x) mean(x, na.rm = TRUE)))
   
   #calculate median absolute deviation for each indicator and time period
-  temp_MAD <- PCIC.species_data %>%
+  temp_SD <- PCIC.species_data %>%
     group_by(spp, time) %>%
-    summarize(across(5:last_col(), \(x) mad(x, na.rm = TRUE)))
+    summarize(across(5:last_col(), \(x) sd(x, na.rm = TRUE)))
   
   #calculate difference in means between time periods
   PCIC.species_diff <- temp_mean[2,-1] - temp_mean[1,-1] 
   
   if(s == 1) {
     PCIC.species_mean <- temp_mean
-    PCIC.species_MAD  <- temp_MAD
+    PCIC.species_SD  <- temp_SD
   }  else {
     PCIC.species_mean <- rbind(PCIC.species_mean, temp_mean)
-    PCIC.species_MAD <- rbind(PCIC.species_MAD, temp_MAD)
+    PCIC.species_SD <- rbind(PCIC.species_SD, temp_SD)
   }
   #------------------------------------------------------------------------
   # PLOTS
@@ -122,5 +122,5 @@ for(s in 1:length(spp_run))  {
 }
 
 write.csv(PCIC.species_mean, here(output_loc, "PCIC_mean_ind.csv") )
-write.csv(PCIC.species_MAD, here(output_loc, "PCIC_mad_ind.csv") )
+write.csv(PCIC.species_SD, here(output_loc, "PCIC_mad_ind.csv") )
   
