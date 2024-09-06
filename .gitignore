@@ -16,11 +16,6 @@
 *.utf8.md
 *.knit.md
 
-# Large html files created by R markdown
-*.html
-
-README.Rmd
-
 # Output figures and data files
 output/*.pdf
 output/*.Rdata
