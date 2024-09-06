@@ -67,29 +67,38 @@ theme_custom <- function(base_size = 14) {
 theme_set(theme_custom())
 ```
 
-## Overview  
+## Overview
 
-The preliminary outputs below compare the PCIC gridded model outputs for the historic period of 1971-2000 to the future period of 2041-2070.  For each CU and time period, the average indicator value for grid cells within the CU boundary is calculated and plotted. 
+The preliminary outputs below compare the PCIC gridded model projections for the historic period of 1971-2000 to the future period of 2041-2070. For each CU and time period, the average indicator value for grid cells within the CU boundary is calculated and plotted.
 
-PCIC indicators for flow and temperature are summarized.
-
-**Flow Indicators:**  
+**Flow Indicators:**\
 peakQmag - annual maximum peak flow (m3/s)\
 peakQday - date of maximum peak flow in the year (day of year)\
 lowQ05 - number of days per year with low flow events below 95th percentile\
 highQ95 - number of days per year with high flow events above 95th percentile (not currently shown)\
 
-**Temperature Indicators:**  
+**Temperature Indicators:**\
 POT19freq - number of days per year above 19deg\
 POT19dur - length of consecutive days above 19 degrees\
 
+### Data sources
+
+**BCFishPass** - using a version developed for PSF including observed and modelled presence/absence by species and life stage (spawning and rearing). Currently this is only used for plotting in the outputs for each CU, but future versions will consider specific overlap between streams and grid cells for more accurate statistical summaries of indicators.
+
+**CU boundaries** - spatial boundaries for CUs based on Freshwater Adaptive Zones. Taken from PSF data library [<https://data.salmonwatersheds.ca/result?datasetid=104>]\
+**PCIC gridded model output** - indicators from the Salmon Climate Impacts portal [<https://pacificclimate.org/analysis-tools/salmon-climate-impacts-portal>]
+
 ## Comparisons of PCIC indicators for Fraser CUs
+
+These plots show indicator values for all CUs in the Fraser Basin comparing the historic to future time period. The dashed 1:1 line represents similar conditions between historic and future periods.
 
 ### Flow indicators
 
-
 ```{r, comment=NA, warning=FALSE,message=FALSE, results="asis"}
 flow_indies <- c("peakQmag_year", "peakQday_year", "lowQ05_year")  #, "highQ95_year")
+
+p.list <- list()
+p.diff <- list()
 
 # flow_stats <- PCIC_stats %>%
 #   select(c("spp", "cu", "cuid"), contains(c(flow_indies)))
@@ -103,7 +112,6 @@ flow_indies <- c("peakQmag_year", "peakQday_year", "lowQ05_year")  #, "highQ95_y
 #   print(kable(flow_attr))
 #   cat("\n\n")
 # }
-
 
 
 p1 <- ggplot(PCIC_stats) +
@@ -201,26 +209,54 @@ p2 <- ggplot(PCIC_stats) +
 
 ## Spatial plots of PCIC indicators
 
+Plots below show the PCIC gridded model outputs for the Fraser basin for historic and future time periods.
 
 ```{r, echo = FALSE, comment=NA, warning=FALSE,message=FALSE, results="asis"}
-  for(p in 1:length(PCIC)) {
+
+# PCIC_diff <- st_apply(PCIC, 3, FUN=`-`)
+# PCIC_diff <- PCIC_diff * -1
+# 
+# PCIC_diff <- st_apply(PCIC, c("x","y"), FUN=function(x) x)
+# PCIC_diff <- aperm(PCIC, c(2,3,1))
+# d <- st_apply(PCIC_diff, 1, FUN = `-`)
+# 
+# d<- PCIC - PCIC_diff
+
+for(p in 1:length(PCIC)) {
+  
+  if(p %in% c(1,2,5,6)) {
     p.list[[p]] <- ggplot() +
       geom_stars(data = PCIC[p]) +
       facet_wrap(~time) +
       scale_fill_viridis() +
       theme_minimal()
+  } else {
+        p.list[[p]] <- ggplot() +
+      geom_stars(data = PCIC[p]) +
+      facet_wrap(~time) +
+      scale_fill_viridis(option = "inferno") +
+      theme_minimal()
   }
   
-  grid.arrange(p.list[[1]], p.list[[2]], nrow = 2, ncol = 1)
-  grid.arrange(p.list[[3]], p.list[[4]], nrow = 2, ncol=1)
-```
+    grid.arrange(p.list[[p]])
+    
+    # p.diff[[p]] <-   ggplot() +
+    #   geom_stars(data = PCIC_diff[p]) +
+    #   scale_fill_viridis() +
+    #   theme_minimal()
+    # 
+    # grid.arrange(p.diff[[p]])
+}
 
+```
 
 ## Summary by CU
 
 Statistics on indicator values for temperature and flow are outputted for each CU below, including spatial plots of the PCIC gridded model output within CU boundaries.
 
-Currently subsetted to show Coho only
+White lines in the plot represent spawning streams for the species within the CU boundary, based on observed and modelled spawning occurrence from the BCFishPass database.
+
+**Currently subsetted to show Coho only**
 
 ```{r, echo = FALSE, comment=NA, warning=FALSE,message=FALSE, results="asis"}
 sf_use_s2(FALSE)  #geometry interpretation - set to FALSE to avoid error
@@ -261,12 +297,18 @@ for(i in 1:nrow(cu_rmd)) {
   print(kable(rbind(cu_qmag, cu_qday, cu_q95high, cu_19freq, cu_19dur), digits = 1))
   cat("\n\n")
   
+  ### get CU spatial objects
   cu_boundary.i <- filter(cu_boundary, CUID == cu_pick)
   
   PCIC.CU <- PCIC[cu_boundary.i]
+
+  # Subset spawning streams for the CU (this is a bit slow)
+  streams.int <- st_intersects(streams, cu_boundary.i, sparse = FALSE)
+  streams.CU <- streams[which(streams.int == TRUE),]
+  spawning.CU <- streams.CU %>%
+    filter(.data[[paste0("model_spawning_co")]] == 1)
   
-  PCIC.CU.temp <- PCIC.CU[temp_indies]
-  PCIC.CU.flow <- PCIC.CU[flow_indies]
+  #incl_spawn.i <- PCIC.CU[spawning.s]
 
   p.list <- list()
   
@@ -274,26 +316,30 @@ for(i in 1:nrow(cu_rmd)) {
     
     # PCIC_plot <- drop_units(PCIC.CU[p]) %>%
     #   st_redimension()
-    
+    if(p %in% c(1,2,5,6)) {
     p.list[[p]] <- ggplot() +
       geom_stars(data = PCIC.CU[p]) +
       facet_wrap(~time) +
       scale_fill_viridis() +
       theme_minimal() +
-      geom_sf(data = cu_boundary.i, fill = NA, color = "black") 
+      geom_sf(data = cu_boundary.i, fill = NA, color = "black") +
+      geom_sf(data = spawning.CU, color = "white", lwd =0.6)  
+    } else {
+          p.list[[p]] <- ggplot() +
+      geom_stars(data = PCIC.CU[p]) +
+      facet_wrap(~time) +
+      scale_fill_viridis(option = "inferno") +
+      theme_minimal() +
+      geom_sf(data = cu_boundary.i, fill = NA, color = "black") +
+      geom_sf(data = spawning.CU, color = "white", lwd =0.6)  
+    }
+    
       
   }
   
-  #print(p1)
   grid.arrange(p.list[[1]], p.list[[2]], nrow = 2, ncol = 1)
   grid.arrange(p.list[[3]], p.list[[4]], nrow = 2, ncol=1)
   
-      
-  # nbr <- 8
-  # plot(PCIC.CU.flow[1], main = "Max Flows")#, nbreaks = nbr, col = viridis(nbr - 1))
-  # plot(PCIC.CU.flow[3], main = "Freq High Flows")#, nbreaks = nbr, col = viridis(nbr - 1))
-  # plot(PCIC.CU.temp[1], main = "Days >19Deg")#, nbreaks = nbr, col = viridis(nbr - 1))
-  # 
   cat(" \n\n\\pagebreak\n")
 }
 
