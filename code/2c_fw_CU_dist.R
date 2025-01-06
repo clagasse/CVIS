@@ -45,6 +45,16 @@ for(s in 1:length(unique(cu_run$spp)))  {
     #PCIC.CU.spawn <- PCIC.CU[spawning.s]
     #PCIC.obs.spawn <- PCIC.CU[obs.spawning.s]
     
+    
+    ### ENM output
+    ENM_45_CU <- st_intersects(ENMs_45_co, cu_boundary.i, sparse = FALSE)
+    ENM_45_CU <- ENMs_45_co[which(ENM_45_CU == TRUE),]
+    
+    ENM_base_CU <- st_intersects(ENMs_base_co, cu_boundary.i, sparse = FALSE)
+    ENM_base_CU <- ENMs_base_co[which(ENM_base_CU == TRUE),]
+    
+    ENM_45_sum <- sum(ENM_45_CU$RASTERVALU)
+    
     #---------------------------------------------------------------------------
     ## STATISTICS by CU
     

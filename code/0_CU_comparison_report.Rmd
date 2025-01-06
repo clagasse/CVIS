@@ -1,0 +1,207 @@
+---
+title: "CU Freshwater Climate Vulnerability Indicators"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+date: today
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F)
+
+library(kableExtra)
+
+```
+
+
+```{r, comment=NA, warning=FALSE,message=FALSE, results="asis"}
+
+theme_custom <- function(base_size = 14) {
+  theme_bw(base_size = base_size) %+replace%
+    theme(
+      # L'ensemble de la figure
+      plot.title = element_text(size = rel(1), face = "bold", margin = margin(0,0,5,0), hjust = 0),
+      # Zone où se situe le graphique
+      panel.grid.minor = element_blank(),
+      panel.border = element_blank(),
+      # Les axes
+      axis.title = element_text(size = rel(0.85), face = "bold"),
+      axis.text = element_text(size = rel(0.70), face = "bold"),
+      #axis.line = element_line(color = "black", arrow = arrow(length = unit(0.3, "lines"), type = "closed")),
+      axis.line = element_line(color = "black"),
+      # La légende
+      legend.title = element_text(size = rel(0.85), face = "bold"),
+      legend.text = element_text(size = rel(0.70), face = "bold"),
+      legend.key = element_rect(fill = "transparent", colour = NA),
+      legend.key.size = unit(1.5, "lines"),
+      legend.background = element_rect(fill = "transparent", colour = NA),
+      # Les étiquettes dans le cas d'un facetting
+      strip.background = element_rect(fill = "#17252D", color = "#17252D"),
+      strip.text = element_text(size = rel(0.85), face = "bold", color = "white", margin = margin(5,0,5,0))
+    )
+}
+
+theme_set(theme_custom())
+```
+
+## Overview
+
+The outputs below provide indicators of climate exposure for a subset of conservation units of Pacific salmon in the Fraser Basin. The indicators are based on outputs from the Thermalscapes model of August mean temperature and the PCIC gridded hydrologic model.
+Outputs use a historic period of 1981-2000 for Thermalscapes and 1971-2000 for the PCIC model, and mid-century period of 2041-2060 for Thermalscapes and 2041-2070 for PCIC. For each CU and time period, the average indicator value for streams or grid cells within the CU boundary is calculated and plotted.
+
+Output is subsetted to accessible streams only, as modelled by BC Fish Pass.
+
+**Flow Indicators (PCIC):**\
+peakQday - date of maximum peak flow in the year (day of year)\
+lowQ05 - number of days per year with low flow events below 95th percentile from historic period\
+
+
+**Temperature Indicators:**\
+Aug_T_proj - average August mean temperatures, weighted by stream length\
+prop18proj - proportion of streams with August mean temperature above 18 degrees\
+Aug_T_z    - z-score of mid-century August mean temperature compared to historic period\
+
+
+### Data sources
+
+**BCFishPass** - Freshwater fish habitat accessibility model used to subset accessible streams.  https://smnorris.github.io/bcfishpass/index.html
+**CU boundaries** - spatial boundaries for CUs based on Freshwater Adaptive Zones. Taken from PSF data library [<https://data.salmonwatersheds.ca/result?datasetid=104>]\
+**PCIC gridded model output** - indicators from the Salmon Climate Impacts portal [<https://pacificclimate.org/analysis-tools/salmon-climate-impacts-portal>]
+**PSF CU-Specific Life History Timing** - timing of freshwater life history events for each CU, used to subset PCIC model outputs for upstream migration timing. 
+
+
+## List of Conservation Units
+Subset of CUs included in analysis  
+```{r}
+kable(select(cu_run, 1:5)) %>%
+  kable_classic()
+
+```
+
+## Summary of statistics across CUs
+
+### Thermalscapes statistics
+```{r}
+
+kable(tscapes_CU_stats) %>%
+  kable_classic()
+
+p1 <- ggplot(tscapes_CU_stats) +
+  geom_point(aes(x=w_Tw8_0_00_0, y=w_Tw8_9_45_3, colour = Species_simple), size = 2) +
+  geom_text(aes(x=w_Tw8_0_00_0, y=w_Tw8_9_45_3,
+                 label = cuname, colour = Species_simple), size = 2.5, vjust = -1.) +
+  scale_x_continuous(limits=c(5,20)) +
+  scale_y_continuous(limits=c(5,20)) +
+  geom_abline(aes(intercept = 0, slope = 1), linetype = 2) +
+  labs(title = "1981-2000 vs 2041-2060 August mean temperature")
+
+
+p2 <- ggplot(tscapes_CU_stats) +
+  geom_point(aes(x=prop_hist, y=prop_mid, colour = Species_simple), size = 2) +
+  geom_text(aes(x=prop_hist, y=prop_mid,
+                 label = cuname, colour = Species_simple), size = 2.5, vjust = -1.) +
+  geom_abline(aes(intercept = 0, slope = 1), linetype = 2) +
+  labs(title = "Proportion of streams above 18C August mean temperature")
+
+  print(p1)
+  print(p2)
+
+
+```
+
+### PCIC statistics
+```{r}
+
+kable(PCIC_CU_stats) %>%
+  kable_classic()
+
+p1 <- ggplot(PCIC_CU_stats) +
+  geom_point(aes(x=flow_aug_hist_mean, y=flow_aug_proj_mean, colour = Species_simple), size = 2) +
+  geom_text(aes(x=flow_aug_hist_mean, y=flow_aug_proj_mean,
+                 label = cuname, colour = Species_simple), size = 2.5, vjust = -1.) +
+  # scale_x_continuous(limits=xy.limits) +
+  # scale_y_continuous(limits=xy.limits) +
+  # coord_fixed( ratio=1) +
+  geom_abline(aes(intercept = 0, slope = 1), linetype = 2) +
+  labs(title = "Gridded August mean flow 1970-2000 vs 2041-2070")
+
+p2 <- ggplot(PCIC_CU_stats) +
+  geom_point(aes(x=peakQday_hist, y=peakQday_proj, colour = Species_simple), size = 2) +
+  geom_text(aes(x=peakQday_hist, y=peakQday_proj,
+                 label = cuname, colour = Species_simple), size = 2.5, vjust = -1.) +
+  geom_abline(aes(intercept = 0, slope = 1), linetype = 2) +
+  labs(title = "Peak flow day 1970-2000 vs 2041-2070")
+
+  print(p1)
+  print(p2)
+
+```
+
+## CU Output 
+
+```{r}
+
+#choose subset of CUs to create plots for
+for(i in 1:2) {
+  
+  cat(" \n #### ", cu_run$cuid[i]," - ", cu_run$cuname[i], " - ", cu_run$Species_simple[i], "\n")
+  
+  source(file.path("2e_fw_CU_plots.R"))
+  # p.list <- list()
+  # 
+  # for(d in 1:2) {
+  #   
+  #   p.list[[d]] <- ggplot() +
+  #     geom_stars(data = PCIC_May_CU_hist[d]) +
+  #     scale_fill_viridis() +
+  #     theme_minimal() +
+  #     geom_sf(data = cu_boundary_i, color = "black", alpha = 0.2)
+  #   p.list[[d+2]] <- ggplot() +
+  #     geom_stars(data = PCIC_May_CU_proj[d]) +
+  #     scale_fill_viridis() +
+  #     theme_minimal() +
+  #     geom_sf(data = cu_boundary_i, color = "black", alpha = 0.2)
+  #   
+  #   p.list[[d]] <- ggplot() +
+  #     geom_stars(data = PCIC_Aug_CU_hist[d]) +
+  #     scale_fill_viridis() +
+  #     theme_minimal() +
+  #     geom_sf(data = cu_boundary_i, color = "black", alpha = 0.2) +
+  #     geom_sf(data = st_zm(bcfp_cu), aes(color = Tw8_0_00_0))
+  #   
+  #   p.list[[d+2]] <- ggplot() +
+  #     geom_stars(data = PCIC_Aug_CU_proj[d]) +
+  #     scale_fill_viridis() +
+  #     theme_minimal() +
+  #     geom_sf(data = cu_boundary_i, color = "black", alpha = 0.2) +
+  #     geom_sf(data = st_zm(bcfp_cu), aes(color = Tw8_9_45_3))
+  #   
+  # }
+  # 
+  # cat(" \n### ", cu_run$cuid[i]," - ", cu_run$cuname[i], " - ", cu_run$Species_simple[i], "\n")
+  # 
+  # cat(" \n Thermalscapes August mean: \n")
+  # print(tscapes_CU_mean[i,])
+  # 
+  # cat(" \n PCIC Quantiles:              0%   25%   50%   75%   100% \n")
+  # cat(" \n AUG Temperature historic :", round(tq_hist_Aug, 1))
+  # cat(" \n AUG Temperature projected:", round(tq_proj_Aug, 1))
+  # cat(" \n AUG Temperature difference:", round(tq_proj_Aug- tq_hist_Aug, 1))
+  # cat(" \n AUG Flow        historic :", round(fq_hist_Aug, 1))
+  # cat(" \n AUG Flow        projected:", round(fq_proj_Aug, 1))
+  # cat(" \n AUG Flow        difference:", round(fq_proj_Aug- fq_hist_Aug, 1))
+  # 
+  # cat(" \n MAY Flow        historic :", round(fq_hist_May, 1))
+  # cat(" \n MAY Flow        projected:", round(fq_proj_May, 1))
+  # cat(" \n MAY Flow        difference:", round(fq_proj_May- fq_hist_May, 1))
+  # 
+  # grid.arrange(p.list[[1]], p.list[[3]], nrow = 1, ncol = 2)
+  # grid.arrange(p.list[[2]], p.list[[4]], nrow = 1, ncol = 2)
+  # 
+  # cat(" \n\n\\pagebreak\n")
+  # 
+  
+}
+
+```

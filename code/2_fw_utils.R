@@ -104,6 +104,79 @@ calc_mean_diff <- function(
 }
 
 
+##########################################################################
+### FWA functions
+###################################################################
+
+
+#function to subset downstream paths from a stream
+downstream_path <- function(FWA, stream_pick, code_type = "bcfp") {
+  
+  FWA_code <- stream_pick$localcode
+  st <- str_length(FWA_code)
+  if(code_type == "FWA") {
+    FWA_code <- stream_pick$FWA_WATERS
+    st <- str_locate(FWA_code, "000000")[1] - 2   #get stream code last position
+  }
+
+  st_level <- (st+4)/7
+  
+  for(n in 1:st_level) {
+    
+    #get FWA code for current FWA level of iteration
+    c_cut <- (n-1) * 7
+    s_pick <- str_sub(FWA_code, 1, st - c_cut)
+    if(code_type == "FWA") s_pick <- str_c(s_pick, "-000000")
+    
+    #get candidate streams with lower FWA code
+    ind <- str_equal(FWA$localcode, s_pick)
+    if(code_type == "FWA") ind <- str_starts(FWA$FWA_WATERS, s_pick)
+    candidates <- FWA[ind,] %>%
+      filter(STREAM_ORD >= max(stream_pick$STREAM_ORD), STREAM_MAG >= max(stream_pick$STREAM_MAG))
+    
+    #get streams with lower FWA code that intersect with migration reaches
+    FWA_int <- st_intersects(candidates, stream_pick, sparse = FALSE)
+    FWA_int <- candidates[which(apply(FWA_int, 1, sum) > 0),]
+    
+    #get downstream_route_measure range from lowest intersecting reach
+    if(code_type == "bcfp") {
+      dd <- min(FWA_int$downstream_route_measure)
+      #take candidate streams with lower downstream_route_measure range
+      low_stream <- filter(candidates, DOWNSTREAM <= dd)
+    }
+    
+    if(code_type == "FWA") {
+      dd <- min(FWA_int$DOWNSTREAM)
+      low_stream <- filter(candidates, DOWNSTREAM <= dd)
+}
+    
+    #take all streams with downstream_route_measure distance below intersect
+    stream_pick <- bind_rows(stream_pick, low_stream)
+  }
+  return(stream_pick)
+}
+
+#function to choose stream within a CU boundary for subsequent path analysis
+choose_CU_stream <- function(FWA, cu_boundary, subset_order = FALSE, min_order = 5) {
+  
+  cu_FWA <- st_contains(cu_boundary, FWA)
+  cu_FWA <- FWA[cu_FWA[[1]],]  #%>%
+  
+  if(subset_order == TRUE) cu_FWA <- filter(cu_FWA, stream_order >= min_order) 
+  boundary_centre <- st_centroid(cu_boundary)
+  
+  cu_FWA_pick <- st_nearest_feature(boundary_centre, cu_FWA)
+  cu_FWA_pick <- cu_FWA[cu_FWA_pick,]
+  
+  return(cu_FWA_pick)
+}
+
+#mat <- st_coordinates(cu_FWA)
+#mat_loc <- median(mat[,3])
+#mid
+
+
+
 
 #------------------------------------------------------------------------------
 # Plot map
