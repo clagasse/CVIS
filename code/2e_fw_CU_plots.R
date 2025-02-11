@@ -38,25 +38,34 @@ PCIC_day_summary <- PCIC_day_CU %>%
          month = month(time),
          day = yday(time))
 
+if(p_sp == "Chinook") p_sp_pick <- 1  #choose which species to plot observation points
+if(p_sp == "Coho") p_sp_pick <- 2 
+if(p_sp == "Sockeye") p_sp_pick <- 3
+if(p_sp == "Pink" | p_sp == "Chum") p_sp_pick <- 0
+
+cat("####", "CU Boundary Outputs \n")
+
 cu_acc_p <- ggplot() +
-  geom_sf(data = st_zm(FWA_cu), color = "grey", alpha = 0.4) + 
+  geom_sf(data = st_zm(FWA_cu), color = "grey", alpha = 0.6) + 
   geom_sf(data = tscapes_CU, aes(color = model_access_salmon)) +
-  geom_sf(data = cu_boundary_i, color = "black", alpha = 0.2) +
-  geom_sf(data = chin_sp, color = "darkgreen", alpha = 0.8, show.legend = "point") + 
-  geom_sf(data = coho_sp, color = "darkblue", alpha = 0.8, show.legend = "point") +
-  geom_sf(data = sockeye_sp, color = "darkred", alpha = 0.8, show.legend = "point") + 
+  geom_sf(data = cu_boundary_i, color = "black", alpha = 0.3) +
+  {switch(p_sp_pick, geom_sf(data = chin_sp, color = "darkgreen", alpha = 0.6), 
+  geom_sf(data = coho_sp, color = "darkblue", alpha = 0.6),
+  geom_sf(data = sockeye_sp, color = "darkred", alpha = 0.6))} + 
   coord_sf(xlim = st_bbox(cu_boundary_i)[c(1,3)],
            ylim = st_bbox(cu_boundary_i)[c(2,4)]) +
-  labs(subtitle = paste("CU ", cu_run$cuname[i]))
+  labs(subtitle = paste("CU ", cu_run$cuname[i])) +
+  theme_minimal()
 
 ts_hist_p <- ggplot() +
   geom_sf(data = tscapes_CU, aes(color = Tw8_0_00_0)) +
   scale_color_gradientn(colours = wesanderson::wes_palette("Zissou1", 100, type = "continuous"),
                         limits = c(5,25)) + 
-  geom_sf(data = cu_boundary_i, color = "black", alpha = 0.2) +
+  geom_sf(data = cu_boundary_i, color = "black", alpha = 0.3) +
   coord_sf(xlim = st_bbox(cu_boundary_i)[c(1,3)],
            ylim = st_bbox(cu_boundary_i)[c(2,4)]) +
-  labs(subtitle = paste("August stream T, 1981-2000"))
+  labs(subtitle = paste("August T, Thermalscapes, 1981-2000")) +
+  theme_minimal()
 
 ts_proj_p <- ggplot() +
   #geom_sf(data = st_zm(FWA_cu), color = "grey", alpha = 0.4) + 
@@ -65,16 +74,17 @@ ts_proj_p <- ggplot() +
   geom_sf(data = tscapes_CU, aes(color = Tw8_9_45_3)) +
   scale_color_gradientn(colours = wesanderson::wes_palette("Zissou1", 100, type = "continuous"),
                         limits = c(5,25)) + 
-  geom_sf(data = cu_boundary_i, color = "black", alpha = 0.2) +
+  geom_sf(data = cu_boundary_i, color = "black", alpha = 0.3) +
   coord_sf(xlim = st_bbox(cu_boundary_i)[c(1,3)],
            ylim = st_bbox(cu_boundary_i)[c(2,4)]) +
-  labs(subtitle = paste("August stream T, 2041-2060 -", cu_boundary$cuname[i]))
+  labs(subtitle = paste("August T, Thermalscapes, 2041-2060")) +
+  theme_minimal()
 
 tPCIC_hist_p <- ggplot() +
   geom_stars(data = PCIC_Aug_CU_hist["tw_month"]) +
   scale_fill_gradientn(colours = wesanderson::wes_palette("Zissou1", 100, type = "continuous"),
                        limits = c(5,25)) + 
-  geom_sf(data = cu_boundary_i, color = "black", alpha = 0.2) +
+  geom_sf(data = cu_boundary_i, color = "black", alpha = 0.3) +
   #geom_sf(data = st_zm(FWA_cu), color = "black", alpha = 0.6) + 
   coord_sf(xlim = st_bbox(cu_boundary_i)[c(1,3)],
            ylim = st_bbox(cu_boundary_i)[c(2,4)]) + 
@@ -84,7 +94,7 @@ tPCIC_proj_p <- ggplot() +
   geom_stars(data = PCIC_Aug_CU_proj["tw_month"]) +
   scale_fill_gradientn(colours = wesanderson::wes_palette("Zissou1", 100, type = "continuous"),
                        limits = c(5,25)) + 
-  geom_sf(data = cu_boundary_i, color = "black", alpha = 0.2) +
+  geom_sf(data = cu_boundary_i, color = "black", alpha = 0.3) +
   #geom_sf(data = st_zm(FWA_cu), color = "black", alpha = 0.6) + 
   coord_sf(xlim = st_bbox(cu_boundary_i)[c(1,3)],
            ylim = st_bbox(cu_boundary_i)[c(2,4)]) + 
@@ -97,7 +107,7 @@ max_plot_flow <- max(max_hist_flow, max_proj_flow)
 qPCIC_hist_p <- ggplot() + 
   geom_stars(data = PCIC_Aug_CU_hist["flow_month"]) +
   scale_fill_viridis(limits = c(0, max_plot_flow)) +
-  geom_sf(data = cu_boundary_i, color = "black", alpha = 0.2) +
+  geom_sf(data = cu_boundary_i, color = "black", alpha = 0.3) +
   #geom_sf(data = st_zm(FWA_cu), color = "black", alpha = 0.6) + 
   coord_sf(xlim = st_bbox(cu_boundary_i)[c(1,3)],
            ylim = st_bbox(cu_boundary_i)[c(2,4)]) + 
@@ -106,7 +116,7 @@ qPCIC_hist_p <- ggplot() +
 qPCIC_proj_p <- ggplot() + 
   geom_stars(data = PCIC_Aug_CU_proj["flow_month"]) +
   scale_fill_viridis(limits = c(0, max_plot_flow)) + 
-  geom_sf(data = cu_boundary_i, color = "black", alpha = 0.2) +
+  geom_sf(data = cu_boundary_i, color = "black", alpha = 0.3) +
   #geom_sf(data = st_zm(FWA_cu), color = "black", alpha = 0.6) + 
   coord_sf(xlim = st_bbox(cu_boundary_i)[c(1,3)],
            ylim = st_bbox(cu_boundary_i)[c(2,4)]) + 
@@ -123,16 +133,24 @@ tw_day_plot <- ggplot(data = PCIC_day_summary, aes(x = day, y = tw_day, colour =
   scale_colour_viridis(option = "plasma") +
   labs(subtitle = "PCIC mean temperature within CU boundary accessible cells")
 
-grid.arrange(cu_acc_p, nrow = 1, ncol = 1)
-grid.arrange(ts_hist_p, ts_proj_p, nrow = 1, ncol = 2)
-grid.arrange(tPCIC_hist_p, tPCIC_proj_p, nrow =1, ncol =2)
-grid.arrange(qPCIC_hist_p, qPCIC_proj_p, nrow =1, ncol =2)
-grid.arrange(hydro_day_plot, tw_day_plot, nrow = 2, ncol = 1)
+#printcu_acc_p, nrow = 1, ncol = 1)
+#grid.arrange(ts_hist_p, ts_proj_p, nrow = 1, ncol = 2)
+print(cu_acc_p)
+print(ts_hist_p)
+print(ts_proj_p)
+print(tPCIC_hist_p | tPCIC_proj_p)
+print(qPCIC_hist_p | qPCIC_proj_p)
+print(hydro_day_plot / tw_day_plot)
+#grid.arrange(tPCIC_hist_p, tPCIC_proj_p, nrow =1, ncol =2)
+#grid.arrange(qPCIC_hist_p, qPCIC_proj_p, nrow =1, ncol =2)
+#grid.arrange(hydro_day_plot, tw_day_plot, nrow = 2, ncol = 1)
 
+
+cat("####", "CU Migration Path Outputs \n")
 
 ### Upstream Migration Plots
-timing_s <- cu_timing$rt_start[cu_timing$cuid == cuid_i]
-timing_e <- cu_timing$rt_end[cu_timing$cuid == cuid_i]
+timing_s <- cu_timing$rt_start[cu_timing$cuid == cuid[i]]
+timing_e <- cu_timing$rt_end[cu_timing$cuid == cuid[i]]
 
 PCIC_migr_hist_CU <- st_crop(PCIC_day, path_CU) %>%
   filter(yday(time) >= timing_s, yday(time) <= timing_e, year(time) == 1985) %>%
@@ -160,21 +178,25 @@ migr_proj_T_plot <- ggplot() +
   geom_sf(data = st_zm(path_CU)) + 
   labs(subtitle = paste("PCIC temp 2041-2070" ,"days",timing_s, "-", timing_e))
 
+max_hist_flow <- max(PCIC_migr_hist_CU$flow_day, na.rm = T)
+max_proj_flow <- max(PCIC_migr_hist_CU$flow_day, na.rm = T)
+max_plot_flow <- max(max_hist_flow, max_proj_flow)
+
 migr_hist_Q_plot <- ggplot() +
   geom_stars(data = PCIC_migr_hist_CU["flow_day"]) +
-  scale_fill_viridis(limits = c(0, 2000)) +
+  scale_fill_viridis(limits = c(0, max_plot_flow)) + 
   theme_minimal() +
   geom_sf(data = cu_boundary_i, color = "black", alpha = 0.2) +
   geom_sf(data = st_zm(path_CU)) + 
-  labs(subtitle = paste("PCIC flow 1970-2000" ,"days",timing_s, "-", timing_e))
+  labs(subtitle = paste("PCIC flow 1970-2000:" ,"days",timing_s, "-", timing_e))
 
 migr_proj_Q_plot <- ggplot() +
   geom_stars(data = PCIC_migr_proj_CU["flow_day"]) +
-  scale_fill_viridis(limits = c(0, 2000)) +
+  scale_fill_viridis(limits = c(0, max_plot_flow)) + 
   theme_minimal() +
   geom_sf(data = cu_boundary_i, color = "black", alpha = 0.2) +
   geom_sf(data = st_zm(path_CU)) + 
-  labs(subtitle = paste("PCIC flow 2041-2070" ,"days",timing_s, "-", timing_e))
+  labs(subtitle = paste("PCIC flow 2041-2070:" ,"days",timing_s, "-", timing_e))
 
 
 grid.arrange(migr_hist_T_plot, migr_proj_T_plot, nrow =1, ncol =2)

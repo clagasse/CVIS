@@ -7,10 +7,12 @@
 # Up-to-date CU list (taken from database)
 #------------------------------------------------------------------------------
 
-cu_list <- read.csv(file.path(salmon_dat, "CCVA_CU_List.csv")) %>%
+cu_list <- read.csv(file.path(salmon_dat, "CCVA_CU_List.csv"), skip = 1) %>%
+  mutate(cuid = as.integer(cuid)) %>%
   subset(Area_Region == "FRASER") %>%
-  filter(COSEWIC_status != "Extinct" | is.na(COSEWIC_status), !is.na(FULL_CU_IN))
-  #filter(!is.na(cuid))
+  filter(COSEWIC_status != "Extinct" | is.na(COSEWIC_status), !is.na(FULL_CU_IN)) %>%
+  filter(!is.na(DU_number)) %>%
+  arrange(FULL_CU_IN)
 
 
 # # Create lookup for spawning and rearing fields in the geodatabase
@@ -32,9 +34,10 @@ cu_list <- read.csv(file.path(salmon_dat, "CCVA_CU_List.csv")) %>%
 ## Import timing data compiled by PSF
 #########################################################################
 
-cu_timing <- read.csv(file.path(salmon_dat, "Timing data PSF", "3Life_cycle_timing_by_CU_CL.csv")) %>%
+cu_timing <- read.csv(file.path(salmon_dat, "Timing data", 
+                                "Life Cycle Timing by CU - CCVA old", "3Life_cycle_timing_by_CU_CL.csv")) %>%
   filter(region == "fraser", !is.na(cuid)) %>%
-  left_join(select(cu_list, cuid, cuname, cu_acronym), join_by(cuid))
+  left_join(select(cu_list, cuid, cu_acronym), join_by(cuid))
 
 cu_runtime_long <- cu_timing %>%
   pivot_longer(cols = c(rt_start, rt_end),

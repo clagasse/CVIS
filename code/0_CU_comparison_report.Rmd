@@ -1,5 +1,5 @@
 ---
-title: "CU Freshwater Climate Vulnerability Indicators"
+title: "Climate Vulnerability Indicators for Salmon"
 output:
   html_document:
     df_print: paged
@@ -45,7 +45,7 @@ theme_custom <- function(base_size = 14) {
 theme_set(theme_custom())
 ```
 
-## Overview
+### Overview
 
 The outputs below provide indicators of climate exposure for a subset of conservation units of Pacific salmon in the Fraser Basin. The indicators are based on outputs from the Thermalscapes model of August mean temperature and the PCIC gridded hydrologic model.
 Outputs use a historic period of 1981-2000 for Thermalscapes and 1971-2000 for the PCIC model, and mid-century period of 2041-2060 for Thermalscapes and 2041-2070 for PCIC. For each CU and time period, the average indicator value for streams or grid cells within the CU boundary is calculated and plotted.
@@ -97,15 +97,15 @@ p1 <- ggplot(tscapes_CU_stats) +
   labs(title = "1981-2000 vs 2041-2060 August mean temperature")
 
 
-p2 <- ggplot(tscapes_CU_stats) +
-  geom_point(aes(x=prop_hist, y=prop_mid, colour = Species_simple), size = 2) +
-  geom_text(aes(x=prop_hist, y=prop_mid,
-                 label = cuname, colour = Species_simple), size = 2.5, vjust = -1.) +
-  geom_abline(aes(intercept = 0, slope = 1), linetype = 2) +
-  labs(title = "Proportion of streams above 18C August mean temperature")
+# p2 <- ggplot(tscapes_CU_stats) +
+#   geom_point(aes(x=prop_hist, y=prop_mid, colour = Species_simple), size = 2) +
+#   geom_text(aes(x=prop_hist, y=prop_mid,
+#                  label = cuname, colour = Species_simple), size = 2.5, vjust = -1.) +
+#   geom_abline(aes(intercept = 0, slope = 1), linetype = 2) +
+#   labs(title = "Proportion of streams above 18C August mean temperature")
 
   print(p1)
-  print(p2)
+#  print(p2)
 
 
 ```
@@ -117,8 +117,8 @@ kable(PCIC_CU_stats) %>%
   kable_classic()
 
 p1 <- ggplot(PCIC_CU_stats) +
-  geom_point(aes(x=flow_aug_hist_mean, y=flow_aug_proj_mean, colour = Species_simple), size = 2) +
-  geom_text(aes(x=flow_aug_hist_mean, y=flow_aug_proj_mean,
+  geom_point(aes(x=augT_PCIC_hist_mean, y=augT_PCIC_proj_mean, colour = Species_simple), size = 2) +
+  geom_text(aes(x=augT_PCIC_hist_mean, y=augT_PCIC_proj_mean,
                  label = cuname, colour = Species_simple), size = 2.5, vjust = -1.) +
   # scale_x_continuous(limits=xy.limits) +
   # scale_y_continuous(limits=xy.limits) +
@@ -138,70 +138,83 @@ p2 <- ggplot(PCIC_CU_stats) +
 
 ```
 
-## CU Output 
-
+### PCIC - Thermalscapes comparison
 ```{r}
 
-#choose subset of CUs to create plots for
-for(i in 1:2) {
-  
-  cat(" \n #### ", cu_run$cuid[i]," - ", cu_run$cuname[i], " - ", cu_run$Species_simple[i], "\n")
-  
-  source(file.path("2e_fw_CU_plots.R"))
-  # p.list <- list()
-  # 
-  # for(d in 1:2) {
-  #   
-  #   p.list[[d]] <- ggplot() +
-  #     geom_stars(data = PCIC_May_CU_hist[d]) +
-  #     scale_fill_viridis() +
-  #     theme_minimal() +
-  #     geom_sf(data = cu_boundary_i, color = "black", alpha = 0.2)
-  #   p.list[[d+2]] <- ggplot() +
-  #     geom_stars(data = PCIC_May_CU_proj[d]) +
-  #     scale_fill_viridis() +
-  #     theme_minimal() +
-  #     geom_sf(data = cu_boundary_i, color = "black", alpha = 0.2)
-  #   
-  #   p.list[[d]] <- ggplot() +
-  #     geom_stars(data = PCIC_Aug_CU_hist[d]) +
-  #     scale_fill_viridis() +
-  #     theme_minimal() +
-  #     geom_sf(data = cu_boundary_i, color = "black", alpha = 0.2) +
-  #     geom_sf(data = st_zm(bcfp_cu), aes(color = Tw8_0_00_0))
-  #   
-  #   p.list[[d+2]] <- ggplot() +
-  #     geom_stars(data = PCIC_Aug_CU_proj[d]) +
-  #     scale_fill_viridis() +
-  #     theme_minimal() +
-  #     geom_sf(data = cu_boundary_i, color = "black", alpha = 0.2) +
-  #     geom_sf(data = st_zm(bcfp_cu), aes(color = Tw8_9_45_3))
-  #   
-  # }
-  # 
-  # cat(" \n### ", cu_run$cuid[i]," - ", cu_run$cuname[i], " - ", cu_run$Species_simple[i], "\n")
-  # 
-  # cat(" \n Thermalscapes August mean: \n")
-  # print(tscapes_CU_mean[i,])
-  # 
-  # cat(" \n PCIC Quantiles:              0%   25%   50%   75%   100% \n")
-  # cat(" \n AUG Temperature historic :", round(tq_hist_Aug, 1))
-  # cat(" \n AUG Temperature projected:", round(tq_proj_Aug, 1))
-  # cat(" \n AUG Temperature difference:", round(tq_proj_Aug- tq_hist_Aug, 1))
-  # cat(" \n AUG Flow        historic :", round(fq_hist_Aug, 1))
-  # cat(" \n AUG Flow        projected:", round(fq_proj_Aug, 1))
-  # cat(" \n AUG Flow        difference:", round(fq_proj_Aug- fq_hist_Aug, 1))
-  # 
-  # cat(" \n MAY Flow        historic :", round(fq_hist_May, 1))
-  # cat(" \n MAY Flow        projected:", round(fq_proj_May, 1))
-  # cat(" \n MAY Flow        difference:", round(fq_proj_May- fq_hist_May, 1))
-  # 
-  # grid.arrange(p.list[[1]], p.list[[3]], nrow = 1, ncol = 2)
-  # grid.arrange(p.list[[2]], p.list[[4]], nrow = 1, ncol = 2)
-  # 
-  # cat(" \n\n\\pagebreak\n")
-  # 
-  
-}
+all_CU_stats$diff_ts_PCIC_hist <- all_CU_stats$augT_PCIC_hist_mean - all_CU_stats$w_Tw8_0_00_0
+all_CU_stats$diff_ts_PCIC_proj <- all_CU_stats$augT_PCIC_proj_mean - all_CU_stats$w_Tw8_9_45_3
+
+p1 <- ggplot(all_CU_stats) +
+  geom_point(aes(x=w_Tw8_0_00_0, y=augT_PCIC_hist_mean, colour = Species_simple), size = 2) +
+  geom_text(aes(x=w_Tw8_0_00_0, y=augT_PCIC_hist_mean,
+                 label = cuname, colour = Species_simple), size = 2.5, vjust = -1.) +
+  geom_abline(aes(intercept = 0, slope = 1), linetype = 2) +
+  xlim(7,19) +
+  ylim(7,19) +
+  labs(title = "August mean T 1970-2000 (PCIC) vs 1981-2000 (Thermalscapes)")
+
+p2 <- ggplot(all_CU_stats) +
+  geom_point(aes(x=w_Tw8_9_45_3, y=augT_PCIC_proj_mean, colour = Species_simple), size = 2) +
+  geom_text(aes(x=w_Tw8_9_45_3, y=augT_PCIC_proj_mean,
+                 label = cuname, colour = Species_simple), size = 2.5, vjust = -1.) +
+  geom_abline(aes(intercept = 0, slope = 1), linetype = 2) +
+  xlim(7,19) +
+  ylim(7,19) +
+  labs(title = "August mean T 1970-2000 (PCIC) vs 1981-2000 (Thermalscapes)")
+
+p3 <- ggplot(all_CU_stats) +
+  geom_boxplot(aes(x=diff_ts_PCIC_hist, colour = Species_simple)) +
+  labs(title = "August mean T 1970-2000 (PCIC) vs 1981-2000 (Thermalscapes)") +
+  xlim(-1,6) +
+  theme_minimal()
+
+p4 <- ggplot(all_CU_stats) +
+  geom_boxplot(aes(x=diff_ts_PCIC_proj, colour = Species_simple)) +
+  labs(title = "August mean T 2041-2070 (PCIC) vs 2041-2060 (Thermalscapes)") +
+  xlim(-1,6) +
+  theme_minimal()
+
+print(p1)
+print(p2)
+print(p3)
+print(p4)
+
+p1 
+p3 / p4
+
+```
+
+
+### Indicator plots
+```{r, echo=FALSE}
+
+nuseds_Ck <- nuseds_Fr %>%
+  filter(SPECIES == "Chinook")
+
+cu_boundary_show <- cu_boundary %>%
+  filter(CUID %in% cuid) %>%
+  left_join(select(CVIS_CU, -cuname), by = c("CUID" = "cuid"))
+
+cu_boundary_labels <- as_sf_point(cu_boundary_show)
+
+ggplot(CVIS_CU) +
+  geom_sf(data = cu_boundary_show, aes(fill = projT_spn), alpha = 0.3) +
+  geom_sf_text(data = cu_boundary_show, aes(label = cuname)) +
+  scale_fill_gradientn(colours = wesanderson::wes_palette("Zissou1", 100, type = "continuous")) + 
+  geom_label(data = cu_boundary_show, aes(label = CUID), size = 2) +
+  #geom_sf(data = nuseds_Ck, colour = "darkgreen", alpha = 0.6) +
+  geom_sf(data = Fr_basin, colour = "black", fill = NA, alpha = 0.3) +
+
+  # {switch(p_sp_pick, geom_sf(data = chin_sp, color = "darkgreen", alpha = 0.6),
+  #         geom_sf(data = coho_sp, color = "darkblue", alpha = 0.6),
+  #         geom_sf(data = sockeye_sp, color = "darkred", alpha = 0.6))} +
+  # coord_sf(xlim = st_bbox(cu_boundary_i)[c(1,3)],
+  #          ylim = st_bbox(cu_boundary_i)[c(2,4)]) +
+  labs(subtitle = paste("August mean temperature 2041-2060")) +
+  theme_minimal()
+#geom_sf(aes(x=projT_spn, colour = Species_simple))
+#labs(title = "August mean T 1970-2000 (PCIC) vs 1981-2000 (Thermalscapes)")
+
+
 
 ```

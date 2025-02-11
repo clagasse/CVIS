@@ -83,7 +83,7 @@ Fr_basin <- filter(basins, BASIN == "FRASER")   #fraser basin only
 # Dated 2023-Dec-08 09:11 
 #------------------------------------------------------------------------------
 
-# bcfp <- st_read(file.path(spatial_dat, "freshwater_fish_habitat_accessibility_MODEL", "freshwater_fish_habitat_accessibility_MODEL.gpkg"), layer = "model_access") %>%
+#bcfp <- st_read(file.path(spatial_dat, "freshwater_fish_habitat_accessibility_MODEL", "freshwater_fish_habitat_accessibility_MODEL.gpkg"), layer = "model_access") #%>%
 #   st_transform(crs = 4269)
 # bcfp_a <- filter(bcfp, model_access_salmon == "OBSERVED")
 # bcfp_b <- filter(bcfp, model_access_salmon == "INFERRED")
@@ -93,12 +93,18 @@ Fr_basin <- filter(basins, BASIN == "FRASER")   #fraser basin only
 
 #load full FWA to get stream lengths for joining to BC fishpass
 FWA_Fr_high <- st_read(file.path(spatial_dat, "FWA_Fraser", "FWA_Fraser.shp")) %>% 
-  filter(STREAM_ORD > 3)  %>%
+  filter(STREAM_ORD > 2)  %>%
   st_transform(crs = 4269) 
 
-bcfp <- st_read(file.path(spatial_dat, "freshwater_fish_habitat_accessibility_MODEL", "fw_salmon_accessible.gpkg")) %>%
-  select(-c(barriers_ch_cm_co_pk_sk_dnstr:remediated_dnstr_ind))  %>%
-  st_transform(crs = 4269) 
+# bcfp <- st_read(file.path(spatial_dat, "freshwater_fish_habitat_accessibility_MODEL", "fw_salmon_accessible.gpkg")) #%>%
+#   select(-c(barriers_ch_cm_co_pk_sk_dnstr:remediated_dnstr_ind))  %>%
+#   st_transform(crs = 4269) 
+  
+#alternate version of bcfp containing catchment area (upstream_area_ha) and modelled habitat by species
+#bcfp_PSF <- st_read(file.path(spatial_dat, "bcfishpass_Fraser.gdb"))
+    
+  
+  
 
 #-------------------------
 # Load Thermalscapes stream network data
@@ -106,11 +112,21 @@ tscapes <- st_read(file.path(climate_dat, "bc_stream_thermalscapes.gdb"), layer 
   st_transform(crs = 4269) %>%
   left_join(select(as_tibble(bcfp), linear_feature_id, model_access_salmon), 
             join_by(LINEAR_FEATURE_ID == linear_feature_id),
-            multiple = "first")
+            multiple = "first")    #%>% #join to bcfp to get model access 
+  # left_join(select(as_tibble(bcfp_PSF), linear_feature_id, upstream_area_ha), 
+  #           join_by(LINEAR_FEATURE_ID == linear_feature_id),
+  #           multiple = "first") %>% #join to bcfp PSF version to get upstream area
+
 
 ## join column showing which streams are accessible
-
 tscapes_acc <- filter(tscapes, model_access_salmon %in% c("OBSERVED", "INFERRED"))
+
+#filter out tscapes with catchment area > 30km2 for more comparable estimate to PCIC grid cells
+#tscapes_bigc <- filter(tscapes, upstream_area_ha > 3000)
+
+
+### get 7DECM model values
+T7DECM <- read_csv(file.path(climate_dat, "ThreshRisk_7DEC_Fraser.csv"))
 
 ##join to bcfp and subset tscapes RCP 45 scenario, ensemble model (=9), and historic and mid-century
 # bcfp <- bcfp %>%
@@ -142,9 +158,12 @@ bcfp_Fr_high <- filter(bcfp_Fr, stream_order > 2)
 # Load shoreline data (for mapping only)
 #------------------------------------------------------------------------------
 
-shoreline <- st_read(file.path(spatial_dat, "shoreline", "GSHHS_i_L1.shp")) %>%
-  st_transform(crs = 4269)
+# shoreline <- st_read(file.path(spatial_dat, "shoreline", "GSHHS_i_L1.shp")) %>%
+#   st_make_valid() %>%
+#   st_crop(xmin = -127.5, xmax = -121.5, ymin = 48.5, ymax = 54.5)
 
+library(pacea)  #bc_coast shapefile
+#bc_coast
 
 #------------------------------------------------------------------------------
 # PCIC grid points and polygon
@@ -242,9 +261,25 @@ st_crs(PCIC_month) <- 4269 #change CRS to NAD83/Albers from default of WGS84
 ## Load PCIC flow network model
 #######################################################
 
-#flow_fwa <- st_read(file.path(climate_dat, "Fraserflow", "fraser_ensemble_means_rcp45_2020_2100.gdb"))
-#st_layers(file.path(climate_dat, "Fraserflow", "fraser_ensemble_means_rcp45_2020_2100.gdb"))
+flow_fwa <- st_read(file.path(climate_dat, "Fraserflow", "fraser_ensemble_means_rcp45_2020_2100.gdb"))
 
+flow_hist_fwa <- st_read(file.path(climate_dat, "Fraserflow", "Historic_Flow_Data.gdb"))
+
+#join to tscapes_accessible streams
+fw_acc_indies <- tscapes_acc %>%
+  left_join(select(as_tibble(flow_fwa), LINEAR_FEATURE_ID,  
+                   mean_17_40, #mean annual flows - 
+                   mean_1_40, mean_2_40, mean_3_40, mean_4_40, mean_5_40, mean_6_40, 
+                   mean_7_40, mean_8_40, mean_9_40, mean_10_40, mean_11_40, mean_12_40, #monthly flows
+                   min_8_40,  max_8_40), #min and max august flows - min is the lowest monthly value across  the year range
+            by = c("LINEAR_FEATURE_ID"), 
+            multiple = "first") %>%
+  left_join(select(as_tibble(flow_hist_fwa), LINEAR_FEATURE_ID, #may flows
+                   mean_flow_m3s_17_1,
+                   mean_flow_m3s_1_1, mean_flow_m3s_2_1, mean_flow_m3s_3_1, mean_flow_m3s_4_1, mean_flow_m3s_5_1, mean_flow_m3s_6_1, 
+                   mean_flow_m3s_7_1, mean_flow_m3s_8_1, mean_flow_m3s_9_1, mean_flow_m3s_10_1, mean_flow_m3s_11_1, mean_flow_m3s_12_1), 
+            by = c("LINEAR_FEATURE_ID"), 
+            multiple = "first")
 
 #join to BC fishpass model
 #bcfp_flow <- bcfp %>%
@@ -272,29 +307,105 @@ st_crs(PCIC_month) <- 4269 #change CRS to NAD83/Albers from default of WGS84
 # Load salmon spawner locations
 #########################################################
 
-chin_sp <- st_read(file.path(salmon_dat, "FIA", "2023 Chinook Master.gpx"), layer = "waypoints") %>%
-  st_transform(crs = 4269)
+nuseds_Fr <- read_csv(file.path(salmon_dat, "NuSEDS_CU_System_sites_202406.csv")) %>%
+  st_as_sf(coords = c("X_LONGT", "Y_LAT"), crs = 4269) %>%
+  filter(USAGE != "REMOVE")
 
-coho_sp <- st_read(file.path(salmon_dat, "FIA", "2021 Coho Master.gpx"), layer = "waypoints") %>%
-                st_transform(crs = 4269)
+# chin_sp <- st_read(file.path(salmon_dat, "FIA", "2023 Chinook Master.gpx"), layer = "waypoints") %>%
+#   st_transform(crs = 4269)
+# 
+# coho_sp <- st_read(file.path(salmon_dat, "FIA", "2021 Coho Master.gpx"), layer = "waypoints") %>%
+#                 st_transform(crs = 4269)
+# 
+# sox_layers <- st_layers(file.path(salmon_dat, "FIA", "Fraser Sockeye Spawning", "doc.kml"))
+# 
+# for(i in 1:length(sox_layers$name)) {
+#   
+#   temp <- st_read(file.path(salmon_dat, "FIA", "Fraser Sockeye Spawning", "doc.kml"), layer = sox_layers$name[i])
+#   
+#   if(i == 1) sockeye_sp <- temp
+#   if(i > 1) sockeye_sp <- bind_rows(sockeye_sp, temp)
+# }
 
-sox_layers <- st_layers(file.path(salmon_dat, "FIA", "Fraser Sockeye Spawning", "doc.kml"))
 
-for(i in 1:length(sox_layers$name)) {
+######################################################
+# Load cumulative stressors index for the Fraser
+######################################################
+
+fw_stress <- st_read(file.path(spatial_dat, "CumulativeThreatScore", "CumulativeThreat_FRB.shp"))
+
+#add cumulative threat score to tscapes_acc 
+fw_acc_indies <- fw_acc_indies %>%
+  left_join(as_tibble(select(fw_stress, LINEAR_FEA, CT_anad)), 
+            by = c("LINEAR_FEATURE_ID" = "LINEAR_FEA"), 
+            multiple = "first")
   
-  temp <- st_read(file.path(salmon_dat, "FIA", "Fraser Sockeye Spawning", "doc.kml"), layer = sox_layers$name[i])
-  
-  if(i == 1) sockeye_sp <- temp
-  if(i > 1) sockeye_sp <- bind_rows(sockeye_sp, temp)
-}
 
+# add 7DECM temperature model to fw_acc_indies
+fw_acc_indies <- fw_acc_indies %>%
+  left_join(select(T7DECM, - c(STREAM_ORDER, region)), by = c("LINEAR_FEATURE_ID" = "LINEAR_FEATURE_ID"), multiple = "first") %>%
+  mutate(Risk20_9_45_3 = ifelse(Tav_9_45_3 < 20 & ThiPI_9_45_3 < 20, "Low", ifelse(Tav_9_45_3 < 20 & ThiPI_9_45_3 > 20, "Moderate",
+                                                                                   ifelse(Tav_9_45_3 > 20 & TlowPI_9_45_3 < 20, "High", "Severe"))),
+         Risk24_9_45_3 = ifelse(Tav_9_45_3 < 24 & ThiPI_9_45_3 < 24, "Low", ifelse(Tav_9_45_3 < 24 & ThiPI_9_45_3 > 24, "Moderate",
+                                                                                   ifelse(Tav_9_45_3 > 24 & TlowPI_9_45_3 < 24, "High", "Severe"))),
+         Risk16_mod_len = Risk16_9_45_3 %in% c("Moderate", "High", "Very High") * Shape_Length,
+         Risk20_mod_len = Risk20_9_45_3 %in% c("Moderate", "High", "Very High") * Shape_Length,
+         Risk24_mod_len = Risk24_9_45_3 %in% c("Moderate", "High", "Very High") * Shape_Length)
+         
+         
 #### Save files to Rdata objects         
 
 save(PCIC_indies, PCIC_month, PCIC_day, grid_points, grid_polys, 
      Fr_basin, shoreline, cu_boundary, FAZ, FAZ_Fr,
-     FWA_Fr_high, bcfp, bcfp_Fr, tscapes, tscapes_acc,
-     chin_sp, coho_sp, sockeye_sp,
+     FWA_Fr_high, bcfp, bcfp_Fr, bcfp_Fr_high, 
+     tscapes, tscapes_acc, T7DECM,
+     nuseds_Fr,
+     fw_acc_indies,
      file = here("data", "freshwater", "processed-data", paste0(today, "_fw_spatial_inputs.Rdata")))
 
 #save(access, 
 #     file = here("data", "freshwater", "processed-data", paste0(today, "BCfishpass_access.Rdata")))
+
+
+
+# SSC <- read_ncdf(file.path(climate_dat, "SalishSeaCast-VNR023_1d_grid_T_mean12.nc"), proxy = FALSE)
+# 
+# SSC_surf <- read_ncdf(file.path(climate_dat, "SalishSeaCast-VNR023_1d_grid_T_mean12.nc"),proxy = FALSE)
+#  SSC <-  st_transform(SSC, 4269)
+# SSC_mask <- read_ncdf(file.path(climate_dat, "mesh_mask202108us.nc"),var = c("nav_lat", "nav_lon"), proxy = FALSE)
+# 
+# 
+# surf_nc_lon <- as.vector(SSC_mask$nav_lon)
+# surf_nc_lat <- as.vector(SSC_mask$nav_lat)
+# surf_var    <- as.vector(SSC$votemper[,,1,1])
+# 
+# # These are points
+# surf_dat <- data.frame(x = surf_nc_lon,
+#                        y = surf_nc_lat,
+#                        value = surf_var) %>%
+#   st_as_sf(coords = c("x", "y"),
+#            crs = "EPSG:4326") %>%
+#   st_transform(crs = "EPSG:3005")
+# 
+# # expect_equal(summary(surf_var),
+# #              summary(surf_dat$value))
+# 
+# surf_dat_cave <- surf_dat %>%
+#   na.omit() %>%
+#   concaveman::concaveman()
+# 
+# ggplot() +
+#   geom_sf(data = bc_coast) +
+#   geom_sf(data = surf_dat_cave, col = NA, fill = "red")
+# 
+
+# SSC_mask_x <- merge(SSC_mask)
+# st_crs(SSC_mask) <- 4269
+# 
+# SSC_fix2 <- st_crop(SSC, SSC_mask)
+# 
+# SSC_fix <- SSC[,st_get_dimension_values(SSC, "x") < 0]
+# SSC_fix <- SSC_fix[,,st_get_dimension_values(SSC, "y") > 0]
+# 
+# ggplot() +
+#   geom_stars(data = SSC_fix[2,,,1,1])

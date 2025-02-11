@@ -17,7 +17,6 @@
 ###############################################################################
 ## Path analysis - upstream migration route
 
-
 for(i in 1:n.CUs) {
   
   stream_pick <- choose_CU_stream(FWA_Fr_high, cu_boundary[cu_boundary$CUID == cuid[i],], subset_order = FALSE)
@@ -39,21 +38,42 @@ save(path_list,
 
 ###############################################################################
 ## CU Boundary analysis 
-##determine which thermalscape streams are contained within each CU boundary
+##determine which streams are contained within each CU boundary
 
 ## This takes a long time to run!
-cu_tscapes <- matrix(ncol = n.CUs, nrow = nrow(tscapes_acc))
+stream_cu_picks <- matrix(ncol = n.CUs, nrow = nrow(fw_acc_indies))
 
 for(i in 1:n.CUs) {
   cu_pick <- cu_boundary[cu_boundary$CUID == cuid[i],]
-  pick_tscapes <- lengths(st_intersects(tscapes_acc, cu_pick)) > 0
-  cu_tscapes[,i] <- pick_tscapes
+  pick_st <- lengths(st_intersects(fw_acc_indies, cu_pick)) > 0
+  stream_cu_picks[,i] <- pick_st
   
   print(paste("CU", cuid[i], "boundary stream selection done"))
 }
 
-colnames(cu_tscapes) <- cuid
+colnames(stream_cu_picks) <- cuid
 
-save(cu_tscapes, 
+save(stream_cu_picks, 
      file = here("data", "freshwater", "processed-data", paste0(today, "_fw_cu_streams.Rdata")))
+
+
+#############################################################################
+## FAZ Boundary analysis
+
+# n.FAZ <- nrow(FAZ_Fr)
+# 
+# stream_FAZ_picks <- matrix(ncol = n.FAZ, nrow = nrow(fw_acc_indies))
+#                            
+# for(i in 1:n.FAZ) {
+#   FAZ_pick <- FAZ_Fr[i,]
+#   pick_st <- lengths(st_intersects(fw_acc_indies, FAZ_pick)) > 0
+#   stream_FAZ_picks[,i] <- pick_st
+#   
+#   print(paste("FAZ", FAZ_Fr$FAZ_Name[i], "boundary stream selection done"))
+# }
+# 
+# colnames(stream_FAZ_picks) <- FAZ_Fr$FAZ_Acrony
+# 
+# save(stream_FAZ_picks, 
+#      file = here("data", "freshwater", "processed-data", paste0(today, "_fw_FAZ_streams.Rdata")))
 
