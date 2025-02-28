@@ -1,6 +1,6 @@
 ################################################################################
 #
-# 2c_fw_CU_analysis.R
+# 2b_FW_spatial_subset.R
 #
 #  Stream network analysis of upstream migration routes and CU boundaries
 #
@@ -33,7 +33,7 @@ for(i in 1:n.CUs) {
 names(path_list) <- cuid
 
 save(path_list,
-     file = here("data", "freshwater", "processed-data", paste0(today, "_fw_upstream_paths.Rdata")))
+     file = here("processed_data", "freshwater", paste0(today, "_fw_upstream_paths.Rdata")))
 
 
 ###############################################################################
@@ -54,7 +54,7 @@ for(i in 1:n.CUs) {
 colnames(stream_cu_picks) <- cuid
 
 save(stream_cu_picks, 
-     file = here("data", "freshwater", "processed-data", paste0(today, "_fw_cu_streams.Rdata")))
+     file = here("processed_data", "freshwater", paste0(today, "_fw_cu_streams.Rdata")))
 
 
 #############################################################################
@@ -75,5 +75,5 @@ save(stream_cu_picks,
 # colnames(stream_FAZ_picks) <- FAZ_Fr$FAZ_Acrony
 # 
 # save(stream_FAZ_picks, 
-#      file = here("data", "freshwater", "processed-data", paste0(today, "_fw_FAZ_streams.Rdata")))
+#      file = here("processed_data", "freshwater",  paste0(today, "_fw_FAZ_streams.Rdata")))
 

@@ -1,6 +1,6 @@
+## 2c_FW_CU_stats.R
 
-#######################################################################
-## FW CU Statistics
+################# CREATE DATAFRAMES #############################
 
 tscape_tspan <- (2050 - 1990) / 10  #number of decades between time periods
 PCIC_tspan <- (2055 - 1985) / 10
@@ -191,6 +191,8 @@ migr_CU_stats <- select(fw_CU_stats, cuid, cuname, FULL_CU_IN, Species_simple) %
           Qmigr_propdiff      = NA)
 
 
+###########################CALCULATE CU STATISTICS ####################################
+
 if(do_FAZ == TRUE) n.iter <- n.FAZ else n.iter <- n.CUs
 
 for(i in 1:n.iter) {
@@ -311,7 +313,7 @@ for(i in 1:n.iter) {
   
   #mask cells that overlap with accessible streams within CU spawning boundary
   PCIC_Aug_CU_hist <- PCIC_month[fw_acc_CU] %>%   #change to CU_boundary_i for all grid cells
-    filter(month(time) == 8, year(time) == 1985) 
+    filter(month(time) == 8, year(time) == hist_ystart) 
   PCIC_Aug_CU_proj <- PCIC_month[fw_acc_CU] %>%
     filter(month(time) == 8, year(time) == 2055) 
   
@@ -334,7 +336,7 @@ for(i in 1:n.iter) {
   PCIC_CU_stats$mayQ_diff[i]      <- PCIC_CU_stats$mayQ_proj_mean[i] - PCIC_CU_stats$mayQ_hist_mean[i]
   PCIC_CU_stats$mayQ_z[i]         <- PCIC_CU_stats$mayQ_diff[i] / PCIC_CU_stats$mayQ_hist_sd[i]  
   
-  PCIC_CU_stats$augT_PCIC_hist_mean[i] <- mean(PCIC_Aug_CU_hist$tw_month, na.rm =T)
+  PCIC_CU_stats$augT_PCIC_hist_mean[i] <- mean(PCIC_Aug_CU_hist$waterTemperature, na.rm =T)
   PCIC_CU_stats$augT_PCIC_hist_sd[i]   <- sd(PCIC_Aug_CU_hist$tw_month, na.rm =T)
   PCIC_CU_stats$augT_PCIC_proj_mean[i] <- mean(PCIC_Aug_CU_proj$tw_month, na.rm =T)
   PCIC_CU_stats$augT_PCIC_proj_sd[i]   <- sd(PCIC_Aug_CU_proj$tw_month, na.rm =T)
@@ -349,16 +351,16 @@ for(i in 1:n.iter) {
   #get daily mean flow and temperature for all cells within CU in each time period
   PCIC_day_summary <- PCIC_day_CU %>%
     group_by(time) %>%
-    dplyr::summarize(tw_day = mean(tw_day, na.rm=T),
-                     flow_day = mean(flow_day, na.rm = T),
-                     Q05    = quantile(flow_day, probs = 0.05, na.rm = T)) %>%
+    dplyr::summarize(tw_day = mean(waterTemperature, na.rm=T),
+                     flow_day = mean(discharge, na.rm = T),
+                     Q05    = quantile(discharge, probs = 0.05, na.rm = T)) %>%
     mutate(year = year(time), 
            month = month(time),
            day = yday(time))
   
   #get 5th percentile flow for historic period
   PCIC_Q05_hist_CU <- PCIC_day_CU %>%
-    filter(year(time) == 1985) %>%
+    filter(year(time) == hist_ystart) %>%
     group_by(lon, lat) %>%
     dplyr::summarize(Q05_hist = quantile(flow_day, probs = 0.05, na.rm = T),
                      MAD_hist = mean(flow_day, na.rm = T),
@@ -382,8 +384,8 @@ for(i in 1:n.iter) {
   PCIC_CU_stats$peakQday_hist[i] <- which.max(filter(PCIC_day_summary, year == 1985)$flow_day)
   PCIC_CU_stats$peakQday_proj[i] <- which.max(filter(PCIC_day_summary, year == 2055)$flow_day)
   PCIC_CU_stats$peakQday_diff[i] <- PCIC_CU_stats$peakQday_proj[i] - PCIC_CU_stats$peakQday_hist[i]
-  PCIC_CU_stats$peakT_hist[i]    <- max((filter(PCIC_day_summary, year == 1985)$tw_day))
-  PCIC_CU_stats$peakT_proj[i]    <- max((filter(PCIC_day_summary, year == 2055)$tw_day))
+  PCIC_CU_stats$peakT_hist[i]    <- max((filter(PCIC_day_summary, year == hist_ystart)$tw_day))
+  PCIC_CU_stats$peakT_proj[i]    <- max((filter(PCIC_day_summary, year == proj_ystart)$tw_day))
   PCIC_CU_stats$dayQ05_proj_mean[i]   <- mean(PCIC_Q05_proj_CU$day_Q05, na.rm = T)
   PCIC_CU_stats$dayQ05_proj_sd[i]     <- sd(PCIC_Q05_proj_CU$day_Q05, na.rm = T)
   PCIC_CU_stats$dayMAD05_hist_mean[i]   <- mean(PCIC_Q05_proj_CU$day_MAD05, na.rm = T)
@@ -425,7 +427,7 @@ for(i in 1:n.iter) {
   print(paste("CU", cuid_i, "stats done"))
 }
 
-
+########################## CREATE AND SAVE OUTPUTS ##############################################
 #make hydrological table
 
 monthly_Q <- pivot_longer(fw_CU_stats,

@@ -162,7 +162,6 @@ bcfp_Fr_high <- filter(bcfp_Fr, stream_order > 2)
 #   st_make_valid() %>%
 #   st_crop(xmin = -127.5, xmax = -121.5, ymin = 48.5, ymax = 54.5)
 
-library(pacea)  #bc_coast shapefile
 #bc_coast
 
 #------------------------------------------------------------------------------
@@ -170,15 +169,14 @@ library(pacea)  #bc_coast shapefile
 #------------------------------------------------------------------------------
 
 # Read in PCIC grid
-grid_points <- read.csv(here("data", "freshwater", "processed-data", "PCIC-grid-points_bccoast.csv")) 
-#read.csv("freshwater/data/processed-data/PCIC-grid-points_fraser.csv") 
+grid_points <- read.csv(here("processed_data", "freshwater", "PCIC-grid-points_bccoast.csv")) 
 
 # Convert grid points to spatial object 
 grid_points <- st_as_sf(grid_points, coords = c("lon", "lat"), crs = 4269) %>%
   st_transform(4269)
 
 #import polygon grid - see 2x_fw_create_inputs_grid.R file
-grid_polys <- readRDS(file = here("data", "freshwater", "processed-data", "grid_polys_fw.rds")) %>%
+grid_polys <- readRDS(file = here("processed_data", "freshwater", "grid_polys_fw.rds")) %>%
   st_transform(4269)
 
 #subset Fraser basin
@@ -193,62 +191,65 @@ grid_points <- grid_points[pick_Fr,]
 # Load PCIC indicator data
 #-----------------------------------------------------------------------------
 
-#get PCIC file names in directory
-PCIC_files <- list.files(file.path(climate_dat, "PCIC_indicators"))
-PCIC_files <- PCIC_files[grep(".aux.xml", PCIC_files, invert=TRUE)]
-
-#load selected indicators for available time periods and combine into a star object
-PCIC_file_choose <- PCIC_indies_pick
-for(i in 1:length(PCIC_indies_pick)){
-  pick_files <- PCIC_files[grepl(PCIC_file_choose[i], PCIC_files)]
-  
-  for(p in 1:length(t_periods)) {
-    temp_star <- read_ncdf(file.path(climate_dat, "PCIC_indicators", pick_files[p]))
-    
-    if(p == 1)  ind_star <- temp_star
-    else if(p > 1)  ind_star <- c(ind_star, temp_star, nms = t_periods)
-    rm(temp_star)
-  }
-  
-  if(i == 1) PCIC_indies <- ind_star
-  else if(i > 1) PCIC_indies <- c(PCIC_indies, ind_star)
-}
-
-PCIC_file_choose <- PCIC_day_files
-for(i in 1:length(PCIC_file_choose)){
-  pick_files <- PCIC_files[grepl(PCIC_file_choose[i], PCIC_files)]
-  
-  for(p in 1:length(t_periods)) {
-    temp_star <- read_ncdf(file.path(climate_dat, "PCIC_indicators", pick_files[p]))
-    
-    if(p == 1)  ind_star <- temp_star
-    else if(p > 1)  ind_star <- c(ind_star, temp_star, nms = t_periods)
-    rm(temp_star)
-  }
-  
-  if(i == 1) PCIC_day <- ind_star
-  else if(i > 1) PCIC_day <- c(PCIC_day, ind_star)
-}
-
-PCIC_file_choose <- PCIC_month_files
-for(i in 1:length(PCIC_file_choose)){
-  pick_files <- PCIC_files[grepl(PCIC_file_choose[i], PCIC_files)]
-  
-  for(p in 1:length(t_periods)) {
-    temp_star <- read_ncdf(file.path(climate_dat, "PCIC_indicators", pick_files[p]))
-    
-    if(p == 1)  ind_star <- temp_star
-    else if(p > 1)  ind_star <- c(ind_star, temp_star, nms = t_periods)
-    rm(temp_star)
-  }
-  
-  if(i == 1) PCIC_month <- ind_star
-  else if(i > 1) PCIC_month <- c(PCIC_month, ind_star)
-}
-
-st_crs(PCIC_indies) <- 4269 #change CRS to NAD83/Albers from default of WGS84
-st_crs(PCIC_day) <- 4269 #change CRS to NAD83/Albers from default of WGS84
-st_crs(PCIC_month) <- 4269 #change CRS to NAD83/Albers from default of WGS84
+PCIC_day <- read_mdim(file.path(climate_dat, "PCIC_processed", "PCIC_daily.nc"))
+PCIC_month <- read_mdim(file.path(climate_dat, "PCIC_processed", "PCIC_monthly.nc"))
+# 
+# #get PCIC file names in directory
+# PCIC_files <- list.files(file.path(climate_dat, "PCIC_indicators"))
+# PCIC_files <- PCIC_files[grep(".aux.xml", PCIC_files, invert=TRUE)]
+# 
+# #load selected indicators for available time periods and combine into a star object
+# PCIC_file_choose <- PCIC_indies_pick
+# for(i in 1:length(PCIC_indies_pick)){
+#   pick_files <- PCIC_files[grepl(PCIC_file_choose[i], PCIC_files)]
+#   
+#   for(p in 1:length(t_periods)) {
+#     temp_star <- read_ncdf(file.path(climate_dat, "PCIC_indicators", pick_files[p]))
+#     
+#     if(p == 1)  ind_star <- temp_star
+#     else if(p > 1)  ind_star <- c(ind_star, temp_star, nms = t_periods)
+#     rm(temp_star)
+#   }
+#   
+#   if(i == 1) PCIC_indies <- ind_star
+#   else if(i > 1) PCIC_indies <- c(PCIC_indies, ind_star)
+# }
+# 
+# PCIC_file_choose <- PCIC_day_files
+# for(i in 1:length(PCIC_file_choose)){
+#   pick_files <- PCIC_files[grepl(PCIC_file_choose[i], PCIC_files)]
+#   
+#   for(p in 1:length(t_periods)) {
+#     temp_star <- read_ncdf(file.path(climate_dat, "PCIC_indicators", pick_files[p]))
+#     
+#     if(p == 1)  ind_star <- temp_star
+#     else if(p > 1)  ind_star <- c(ind_star, temp_star, nms = t_periods)
+#     rm(temp_star)
+#   }
+#   
+#   if(i == 1) PCIC_day <- ind_star
+#   else if(i > 1) PCIC_day <- c(PCIC_day, ind_star)
+# }
+# 
+# PCIC_file_choose <- PCIC_month_files
+# for(i in 1:length(PCIC_file_choose)){
+#   pick_files <- PCIC_files[grepl(PCIC_file_choose[i], PCIC_files)]
+#   
+#   for(p in 1:length(t_periods)) {
+#     temp_star <- read_ncdf(file.path(climate_dat, "PCIC_indicators", pick_files[p]))
+#     
+#     if(p == 1)  ind_star <- temp_star
+#     else if(p > 1)  ind_star <- c(ind_star, temp_star, nms = t_periods)
+#     rm(temp_star)
+#   }
+#   
+#   if(i == 1) PCIC_month <- ind_star
+#   else if(i > 1) PCIC_month <- c(PCIC_month, ind_star)
+# }
+# 
+# st_crs(PCIC_indies) <- 4269 #change CRS to NAD83/Albers from default of WGS84
+# st_crs(PCIC_day) <- 4269 #change CRS to NAD83/Albers from default of WGS84
+# st_crs(PCIC_month) <- 4269 #change CRS to NAD83/Albers from default of WGS84
 
 #crop to Fraser basin
 #PCIC_indies <- st_crop(PCIC_indies, grid_polys)
@@ -361,51 +362,9 @@ save(PCIC_indies, PCIC_month, PCIC_day, grid_points, grid_polys,
      tscapes, tscapes_acc, T7DECM,
      nuseds_Fr,
      fw_acc_indies,
-     file = here("data", "freshwater", "processed-data", paste0(today, "_fw_spatial_inputs.Rdata")))
+     file = here("processed_data", "freshwater", paste0(today, "_fw_spatial_inputs.Rdata")))
 
 #save(access, 
-#     file = here("data", "freshwater", "processed-data", paste0(today, "BCfishpass_access.Rdata")))
+#     file = here("processed_data", "freshwater", paste0(today, "BCfishpass_access.Rdata")))
 
 
-
-# SSC <- read_ncdf(file.path(climate_dat, "SalishSeaCast-VNR023_1d_grid_T_mean12.nc"), proxy = FALSE)
-# 
-# SSC_surf <- read_ncdf(file.path(climate_dat, "SalishSeaCast-VNR023_1d_grid_T_mean12.nc"),proxy = FALSE)
-#  SSC <-  st_transform(SSC, 4269)
-# SSC_mask <- read_ncdf(file.path(climate_dat, "mesh_mask202108us.nc"),var = c("nav_lat", "nav_lon"), proxy = FALSE)
-# 
-# 
-# surf_nc_lon <- as.vector(SSC_mask$nav_lon)
-# surf_nc_lat <- as.vector(SSC_mask$nav_lat)
-# surf_var    <- as.vector(SSC$votemper[,,1,1])
-# 
-# # These are points
-# surf_dat <- data.frame(x = surf_nc_lon,
-#                        y = surf_nc_lat,
-#                        value = surf_var) %>%
-#   st_as_sf(coords = c("x", "y"),
-#            crs = "EPSG:4326") %>%
-#   st_transform(crs = "EPSG:3005")
-# 
-# # expect_equal(summary(surf_var),
-# #              summary(surf_dat$value))
-# 
-# surf_dat_cave <- surf_dat %>%
-#   na.omit() %>%
-#   concaveman::concaveman()
-# 
-# ggplot() +
-#   geom_sf(data = bc_coast) +
-#   geom_sf(data = surf_dat_cave, col = NA, fill = "red")
-# 
-
-# SSC_mask_x <- merge(SSC_mask)
-# st_crs(SSC_mask) <- 4269
-# 
-# SSC_fix2 <- st_crop(SSC, SSC_mask)
-# 
-# SSC_fix <- SSC[,st_get_dimension_values(SSC, "x") < 0]
-# SSC_fix <- SSC_fix[,,st_get_dimension_values(SSC, "y") > 0]
-# 
-# ggplot() +
-#   geom_stars(data = SSC_fix[2,,,1,1])

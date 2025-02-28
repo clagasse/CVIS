@@ -4,8 +4,7 @@
 
 
 # Read in PCIC grid
-grid_points0 <- read.csv("data/freshwater/processed-data/PCIC-grid-points_bccoast.csv") 
-#read.csv("freshwater/data/processed-data/PCIC-grid-points_fraser.csv") 
+grid_points0 <- read.csv("processed_data/freshwater/PCIC-grid-points_bccoast.csv") 
 # Create grid polys
 n <- length(grid_points0$lon)
 d <- 1/16
@@ -20,4 +19,4 @@ grid_polys <- st_as_sf(data.frame(
   summarise(geometry = st_combine(geometry)) %>%
   st_cast("POLYGON") 
 
-saveRDS(grid_polys, file = here("freshwater", "data", "grid_polys_fw.rds"))
+saveRDS(grid_polys, file = here("processed_data", "freshwater", "grid_polys_fw.rds"))

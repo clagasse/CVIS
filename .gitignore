@@ -27,8 +27,4 @@ docs
 .DS_Store
 
 # Large data and output files
-
-data/freshwater/spatial/PCIC_indicators
-data/freshwater/spatial/bcfishpass.gdb
-data/freshwater/spatial/bcfishpass_migrations.gdb
-data/freshwater/processed-data
+processed_data
