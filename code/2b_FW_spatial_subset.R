@@ -33,7 +33,7 @@ for(i in 1:n.CUs) {
 names(path_list) <- cuid
 
 save(path_list,
-     file = here("processed_data", "freshwater", paste0(today, "_fw_upstream_paths.Rdata")))
+     file = here("processed_data", "freshwater", "R_data", paste0(today, "_fw_upstream_paths.Rdata")))
 
 
 ###############################################################################
@@ -41,11 +41,11 @@ save(path_list,
 ##determine which streams are contained within each CU boundary
 
 ## This takes a long time to run!
-stream_cu_picks <- matrix(ncol = n.CUs, nrow = nrow(fw_acc_indies))
+stream_cu_picks <- matrix(ncol = n.CUs, nrow = nrow(fw_amod))
 
 for(i in 1:n.CUs) {
   cu_pick <- cu_boundary[cu_boundary$CUID == cuid[i],]
-  pick_st <- lengths(st_intersects(fw_acc_indies, cu_pick)) > 0
+  pick_st <- lengths(st_intersects(fw_amod, cu_pick)) > 0
   stream_cu_picks[,i] <- pick_st
   
   print(paste("CU", cuid[i], "boundary stream selection done"))
@@ -54,7 +54,7 @@ for(i in 1:n.CUs) {
 colnames(stream_cu_picks) <- cuid
 
 save(stream_cu_picks, 
-     file = here("processed_data", "freshwater", paste0(today, "_fw_cu_streams.Rdata")))
+     file = here("processed_data", "freshwater", "R_data", paste0(today, "_fw_cu_streams.Rdata")))
 
 
 #############################################################################
@@ -62,11 +62,11 @@ save(stream_cu_picks,
 
 # n.FAZ <- nrow(FAZ_Fr)
 # 
-# stream_FAZ_picks <- matrix(ncol = n.FAZ, nrow = nrow(fw_acc_indies))
+# stream_FAZ_picks <- matrix(ncol = n.FAZ, nrow = nrow(fw_amod))
 #                            
 # for(i in 1:n.FAZ) {
 #   FAZ_pick <- FAZ_Fr[i,]
-#   pick_st <- lengths(st_intersects(fw_acc_indies, FAZ_pick)) > 0
+#   pick_st <- lengths(st_intersects(fw_amod, FAZ_pick)) > 0
 #   stream_FAZ_picks[,i] <- pick_st
 #   
 #   print(paste("FAZ", FAZ_Fr$FAZ_Name[i], "boundary stream selection done"))
@@ -76,4 +76,5 @@ save(stream_cu_picks,
 # 
 # save(stream_FAZ_picks, 
 #      file = here("processed_data", "freshwater",  paste0(today, "_fw_FAZ_streams.Rdata")))
+
 

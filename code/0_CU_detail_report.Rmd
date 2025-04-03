@@ -1,9 +1,7 @@
 ---
 title: "Climate Vulnerability Indicators for Salmon:
         PRELIMINARY Freshwater Outputs"
-output:
-  html_document:
-    df_print: paged
+output: html_notebook
     toc: yes
 date: today
 ---
@@ -71,7 +69,8 @@ Most plots are subsetted to accessible streams only, as modelled by BC Fish Pass
 
 
 ```{r, results='asis'}
-
+#| column: screen
+#| out-width: 90%
 if(do_FAZ == TRUE) n.iter <- n.FAZ else n.iter <- n.CUs
 
 #choose subset of CUs to create plots for
@@ -95,19 +94,19 @@ for(i in 1:n.CUs) {
   #subset nuseds observations
   nuseds_CU <- nuseds_Fr[nuseds_Fr$FULL_CU_IN == cu_run$FULL_CU_IN[i],]
   
-  fw_indies_CU <- fw_acc_indies[stream_cu_picks[,i],] #%>%
+  amod_CU <- fw_amod[stream_cu_picks[,i],] #%>%
     #filter(!is.na(Tw8_0_00_0))
   } else if (do_FAZ == TRUE) {
   cu_boundary_i <- FAZ_Fr[i,]
   FWA_cu <- st_crop(FWA_Fr_high, cu_boundary_i)
   
   nuseds_CU <- nuseds_Fr
-  fw_indies_CU <- fw_acc_indies[stream_FAZ_picks[,i],]
+  amod_CU <- fw_amod[stream_FAZ_picks[,i],]
   }
   
-  PCIC_Aug_CU_hist <- st_crop(PCIC_month, fw_indies_CU) %>%
+  PCIC_Aug_CU_hist <- st_crop(PCIC_month, amod_CU) %>%
     filter(month(time) == 8, year(time) == 1985) 
-  PCIC_Aug_CU_proj <- st_crop(PCIC_month, fw_indies_CU) %>%
+  PCIC_Aug_CU_proj <- st_crop(PCIC_month, amod_CU) %>%
     filter(month(time) == 8, year(time) == 2055) 
   
   PCIC_CU_diff <- PCIC_Aug_CU_proj %>%
@@ -155,12 +154,12 @@ for(i in 1:n.CUs) {
            )
   
   
-  # ts_gcms <- fw_indies_CU %>%
+  # ts_gcms <- amod_CU %>%
   #   pivot_longer(cols = c(Tw8_9_45_3, Tw8_1_45_3, Tw8_2_45_3, Tw8_3_45_3, Tw8_4_45_3, Tw8_5_45_3, Tw8_6_45_3),
   #                 names_to = "model",
   #                 values_to = "value")
   # 
-  # ts_models <- fw_indies_CU %>%
+  # ts_models <- amod_CU %>%
   #   pivot_longer(cols = c(Tw8_9_45_3, Tav_9_45_3, Risk20_mod_len),
   #                 names_to = "model",
   #                 values_to = "value")
@@ -171,7 +170,7 @@ for(i in 1:n.CUs) {
   
   cu_acc_p <- ggplot() +
     geom_sf(data = st_zm(FWA_cu), color = "grey", alpha = 0.6) + 
-    geom_sf(data = fw_indies_CU, aes(color = model_access_salmon)) +
+    geom_sf(data = amod_CU, aes(color = model_access_salmon)) +
     geom_sf(data = cu_boundary_i, color = "black", alpha = 0.3) +
     geom_sf(data = nuseds_CU, aes(color = SPECIES), alpha = 0.6) +
     # {switch(p_sp_pick, geom_sf(data = chin_sp, color = "darkgreen", alpha = 0.6),
@@ -183,7 +182,7 @@ for(i in 1:n.CUs) {
     theme_minimal()
   
   ct_anad_p <- ggplot() +
-    geom_sf(data = fw_indies_CU, aes(color = CT_anad), linewidth = 1.) +
+    geom_sf(data = amod_CU, aes(color = CT_anad), linewidth = 1.) +
     scale_color_viridis(limits = c(0,5.5)) + 
     geom_sf(data = cu_boundary_i, color = "black", alpha = 0.3) +
     coord_sf(xlim = st_bbox(cu_boundary_i)[c(1,3)],
@@ -192,7 +191,7 @@ for(i in 1:n.CUs) {
     theme_minimal()
   
   ts_hist_p <- ggplot() +
-    geom_sf(data = fw_indies_CU, aes(color = Tw8_0_00_0), linewidth = 1.) +
+    geom_sf(data = amod_CU, aes(color = Tw8_0_00_0), linewidth = 1.) +
     scale_color_gradientn(colours = wesanderson::wes_palette("Zissou1", 100, type = "continuous"),
                           limits = c(5,25)) + 
     geom_sf(data = cu_boundary_i, color = "black", alpha = 0.3) +
@@ -205,7 +204,7 @@ for(i in 1:n.CUs) {
     #geom_sf(data = st_zm(FWA_cu), color = "grey", alpha = 0.4) + 
     #geom_stars(data = PCIC_Aug_CU_proj["tw_month"]) +
     #scale_fill_gradientn(colours = wesanderson::wes_palette("Zissou1", 100, type = "continuous")) + 
-    geom_sf(data = fw_indies_CU, aes(color = Tav_9_45_3), linewidth = 1.) +
+    geom_sf(data = amod_CU, aes(color = Tav_9_45_3), linewidth = 1.) +
     scale_color_gradientn(colours = wesanderson::wes_palette("Zissou1", 100, type = "continuous"),
                           limits = c(5,25)) + 
     geom_sf(data = cu_boundary_i, color = "black", alpha = 0.3) +
@@ -215,15 +214,15 @@ for(i in 1:n.CUs) {
     theme_minimal()
   
   # ggplot() + 
-  #   geom_histogram(data = fw_indies_CU, aes(x = ThiPI_9_45_3), bins = 30, colour = "green")
-  #   #geom_histogram(data = fw_indies_CU, aes(x = Tw8_9_45_3), bins = 30, colour = "blue") 
+  #   geom_histogram(data = amod_CU, aes(x = ThiPI_9_45_3), bins = 30, colour = "green")
+  #   #geom_histogram(data = amod_CU, aes(x = Tw8_9_45_3), bins = 30, colour = "blue") 
   
-  max_hist_flow <- max(fw_indies_CU$mean_flow_m3s_17_1, na.rm = T)
-  max_proj_flow <- max(fw_indies_CU$mean_17_40, na.rm = T)
+  max_hist_flow <- max(amod_CU$mean_flow_m3s_17_1, na.rm = T)
+  max_proj_flow <- max(amod_CU$mean_17_40, na.rm = T)
   max_plot_flow <- max(max_hist_flow, max_proj_flow)
   
   flow_hist_p <- ggplot() +
-    geom_sf(data = fw_indies_CU, aes(color = mean_flow_m3s_17_1), linewidth = 1.) +
+    geom_sf(data = amod_CU, aes(color = mean_flow_m3s_17_1), linewidth = 1.) +
     scale_color_viridis(limits = c(0, max_plot_flow)) + 
     geom_sf(data = cu_boundary_i, color = "black", alpha = 0.3) +
     coord_sf(xlim = st_bbox(cu_boundary_i)[c(1,3)],
@@ -232,7 +231,7 @@ for(i in 1:n.CUs) {
     theme_minimal()
   
   flow_proj_p <- ggplot() +
-    geom_sf(data = fw_indies_CU, aes(color = mean_17_40), linewidth = 1.) +
+    geom_sf(data = amod_CU, aes(color = mean_17_40), linewidth = 1.) +
     scale_color_viridis(limits = c(0, max_plot_flow)) + 
     geom_sf(data = cu_boundary_i, color = "black", alpha = 0.3) +
     coord_sf(xlim = st_bbox(cu_boundary_i)[c(1,3)],
@@ -297,7 +296,7 @@ for(i in 1:n.CUs) {
   #   labs(fill = "Global Climate Model", subtitle = "Thermalscapes August mean temperature 2041-2060")
   
   # ct_stream_p <- ggplot() +
-  #   geom_histogram(data = fw_indies_CU, aes(x = CT_anad))
+  #   geom_histogram(data = amod_CU, aes(x = CT_anad))
   
   
   timing_s <- cu_timing$sp_start[cu_timing$cuid == cuid[i]]

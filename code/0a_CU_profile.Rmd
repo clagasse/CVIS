@@ -1,0 +1,584 @@
+---
+title: "CU Profile"
+output:
+  html_document:
+    toc: true
+    number-sections: true
+params:
+  FULL_CU_IN: "CK-3"
+
+---
+
+```{r custom theme, echo = FALSE, message = F, warning = F}
+
+knitr::opts_chunk$set(message = F, echo = F, warning = F)
+
+theme_cvis <- function(base_size = 14) {
+  theme_bw(base_size = base_size) %+replace%
+    theme(
+      # L'ensemble de la figure
+      plot.title = element_text(size = rel(1), face = "bold", margin = margin(0,0,5,0), hjust = 0),
+      # Zone où se situe le graphique
+      panel.grid.minor = element_blank(),
+      panel.border = element_blank(),
+      # Les axes
+      axis.title = element_text(size = rel(0.85), face = "bold"),
+      axis.text = element_text(size = rel(0.70), face = "bold"),
+      axis.line = element_line(color = "black"),
+      # La légende
+      legend.title = element_text(size = rel(0.85), face = "bold"),
+      legend.text = element_text(size = rel(0.70), face = "bold"),
+      legend.key = element_rect(fill = "transparent", colour = NA),
+      legend.key.size = unit(1.5, "lines"),
+      legend.background = element_rect(fill = "transparent", colour = NA),
+      # Les étiquettes dans le cas d'un facetting
+      strip.background = element_rect(fill = "#17252D", color = "#17252D"),
+      strip.text = element_text(size = rel(0.85), face = "bold", color = "white", margin = margin(5,0,5,0))
+    )
+}
+theme_set(theme_cvis())
+```
+
+```{r subset CU}
+
+cu_run_i <- cu_run[cu_run$FULL_CU_IN == params$FULL_CU_IN,]
+
+cuid_i <- cu_run_i$cuid
+sp_pick <- cu_run_i$Species_simple
+sp_pick_abb <- cu_run_i$spp
+
+```
+
+
+# Climate Vulnerability Indicators For `r cu_run$CU_NAME[i]`
+
+This report summarizes climate vulnerability information for a conservation unit of Pacific salmon.
+
+## Summary of Vulnerability Indicators
+
+The following tables show the raw (untransformed) and standardized indicator values. Standardized values are between 0 and 1, with 1 indicating a higher risk score. The mean value of indicators across all Fraser basin CUs for the species are shown for comparison of relative risk. 
+
+```{r indicators summary, results = "asis"}
+
+STD_all_i <- STD_all[STD_all$cuid == cuid[i],]
+CVIS_all_i <- CVIS_all[CVIS_all$cuid == cuid[i],]
+
+CVIS_STD_all_i <- CVIS_STD_all[CVIS_STD_all$cuid == cuid[i],]
+
+STD_all_spec <- STD_all %>%
+  group_by(STD_Species_simple) %>%
+  summarise(across(STD_FW_SPN_EXP_projT_9:last_col(), \(x) mean(x, na.rm = T)))
+
+CVIS_all_spec <- CVIS_all %>%
+  group_by(Species_simple) %>%
+  summarise(across(FW_SPN_EXP_projT_9:last_col(), \(x) mean(x, na.rm = T)))
+
+dem_table <- names(select(CVIS_all_i, contains("DEM"))) %>%
+  bind_cols(t(select(CVIS_all_i, contains("DEM")))) %>%
+  bind_cols(t(select(STD_all_i, contains("DEM")))) %>%
+  bind_cols(t(select(CVIS_all_spec, contains("DEM")))) %>%
+  bind_cols(t(select(STD_all_spec, contains("DEM"))))
+names(dem_table) <- c("Indicator", "CU_Raw", "CU_Std", "Species_Raw", "Species_Std")
+
+spn_table <- names(select(CVIS_all_i, contains("FW_SPN"))) %>%
+  bind_cols(t(select(CVIS_all_i, contains("FW_SPN")))) %>%
+  bind_cols(t(select(STD_all_i, contains("FW_SPN")))) %>%
+  bind_cols(t(select(CVIS_all_spec, contains("FW_SPN")))) %>%
+  bind_cols(t(select(STD_all_spec, contains("FW_SPN"))))
+names(spn_table) <- c("Indicator", "CU_Raw", "CU_Std", "Mean_Species_Raw", "Mean_Species_Std")
+spn_table <- spn_table %>%
+  mutate(above_mean = if_else(CU_Std > Mean_Species_Std, T, F))
+
+mig_table <- names(select(CVIS_all_i, contains("FW_MIG"))) %>%
+  bind_cols(t(select(CVIS_all_i, contains("FW_MIG")))) %>%
+  bind_cols(t(select(STD_all_i, contains("FW_MIG")))) %>%
+  bind_cols(t(select(CVIS_all_spec, contains("FW_MIG")))) %>%
+  bind_cols(t(select(STD_all_spec, contains("FW_MIG"))))
+names(mig_table) <- c("Indicator", "CU_Raw", "CU_Std", "Mean_Species_Raw", "Mean_Species_Std")
+mig_table <- mig_table %>%
+  mutate(above_mean = if_else(CU_Std > Mean_Species_Std, T, F))
+
+dem_table %>%
+  kbl(caption = "Demographic indicators", digits = 2) %>%
+  kable_classic()
+  
+spn_table %>%
+  kbl(caption = "Freshwater spawning to rearing indicators", digits = 2) %>%
+  kable_classic()
+
+colors <- c("CU" = "blue", "Species Mean" = "black", "FALSE" = "forestgreen", "TRUE" = "darkred")
+ggplot(spn_table, aes(x=Indicator)) +
+  geom_segment( aes(xend=Indicator, y=Mean_Species_Std, yend=CU_Std, color = above_mean), size = 2) +
+  geom_point( aes(y=CU_Std, color = "CU"), size=3) +
+  geom_point( aes(y=Mean_Species_Std, color = "Species Mean"), size=3) +
+  coord_flip()+
+  labs(x = "",
+       y = "Standardized Value",
+       color = "Legend") +
+  scale_color_manual(values = colors) +
+  ylim(0,1)
+
+
+mig_table %>% 
+  kbl(caption = "Freshwater upstream migration indicators", digits = 2) %>%
+  kable_classic()
+
+
+ggplot(mig_table, aes(x=Indicator)) +
+  geom_segment( aes(xend=Indicator, y=Mean_Species_Std, yend=CU_Std, color=above_mean),  size = 2) +
+  geom_point( aes(y=CU_Std, color = "CU"), size=4) +
+  geom_point( aes(y=Mean_Species_Std, color = "Species Mean"), size=4) +
+  coord_flip()+
+  labs(x = "",
+       y = "Standardized Value",
+       color = "Legend") +
+  scale_color_manual(values = colors) +
+  ylim(0,1)
+
+```
+
+
+
+## Conservation Unit Demographic Overview
+ 
+### Status, abundance and enhancement
+```{r demographics summary , echo = FALSE, warning = FALSE, message = FALSE}
+
+dem_details <- cu_run_i %>%
+  select(FULL_CU_IN, CU_NAME, 
+         gen_length, 
+         WSP_population_status, Most_Recent_Generational_Average,
+         SEP_avg_annual_releases_actual, SEP_primary_prod_objective)
+
+dem_details %>%
+  kbl(digits = 2) %>%
+  kable_classic()
+
+
+```
+
+
+### Timing and life history
+
+Timing by life history stage is taken from Wilson and Peacock (2025) [https://cdnsciencepub.com/doi/10.1139/cjfas-2024-0213].
+
+Data quality is rated on a scale of 1 to 5 based on number of observations and their recentness, with 1 being the highest quality data.
+
+```{r timing summary, echo = FALSE}
+
+# Extract spawning and migration details
+timing_i <- cu_timing_long %>%
+  filter(cuid == cuid_i) %>%
+  arrange(desc(life_stage))
+
+timing_wide_i <- timing_i %>%
+  pivot_wider(names_from = life_stage, values_from = c(start, peak, end, dat_qual)) %>%
+  select(c(FULL_CU_IN, culabel, oe_age, peak_freshwater_migration, peak_ocean_entry, peak_run_timing, peak_spawning)) 
+
+timing_wide_i %>%
+  kbl() %>%
+  kable_classic()
+
+sp_timing_s <- round(cu_timing_Fr$sp_start[cu_timing_Fr$cuid == cuid_i])
+sp_timing_e <- round(cu_timing_Fr$sp_end[cu_timing_Fr$cuid == cuid_i])
+sp_timing_peak <- round(cu_timing_Fr$sp_end[cu_timing_Fr$cuid == cuid_i])
+rt_s <- round(cu_timing_Fr$rt_start[cu_timing_Fr$cuid == cuid_i])
+rt_e <- round(cu_timing_Fr$rt_end[cu_timing_Fr$cuid == cuid_i])
+rt_peak <- round(cu_timing_Fr$rt_peak[cu_timing_Fr$cuid == cuid_i])
+oe_s <- round(cu_timing_Fr$oe_start[cu_timing_Fr$cuid == cuid_i])
+oe_e <- round(cu_timing_Fr$oe_end[cu_timing_Fr$cuid == cuid_i])
+oe_peak <- round(cu_timing_Fr$oe_peak[cu_timing_Fr$cuid == cuid_i]) 
+
+#ridgeline timing plot
+# ggplot(timing_i, aes(x = date, y = life_stage, fill = life_stage)) +
+#   geom_density_ridges() +
+#   theme_ridges() + 
+#   theme(legend.position = "none")
+
+#timing plot
+colors <- c("peak" = "maroon", "95th perc" = "darkblue")
+timing_p <- ggplot( timing_i, aes(x=life_stage, xend=life_stage, 
+                                  y=as.Date("2000-01-01") + start, 
+                                  yend=as.Date("2000-01-01") + end), color="grey") +
+  geom_segment(color="grey", linewidth = 4) +
+  geom_point( aes(y=as.Date("2000-01-01") + start, color="95th perc"), size=3 ) +
+  geom_point( aes(y=as.Date("2000-01-01") + end, color="95th perc"), size=3 ) +
+  geom_point( aes(x=life_stage, y=as.Date("2000-01-01") + peak, color="peak"), size=3 ) +
+  geom_text( aes(x=life_stage, y=as.Date("2000-01-01") + 350, label = paste("Data \n Quality:", dat_qual)), size=3) +
+  scale_y_date(date_breaks = "1 month", date_labels = "%b", limits =   c(as.Date("2000-01-01"), as.Date("2000-12-31"))) +
+  coord_flip()+
+  xlab("Life Stage") +
+  ylab("Date") +
+  labs(subtitle = paste("Ocean Entry Age: ", timing_wide_i$oe_age),
+       color = "Legend")
+  
+print(timing_p)
+
+```
+
+
+## Freshwater Information
+
+### Spawning to rearing
+The CU boundary is used to subset streams and migration paths for the CU.
+```{r spawning to rearing, echo = FALSE, warnings = F, message = F}
+
+cu_boundary_i <- cu_boundary[cu_boundary$CUID == cuid_i, ]
+FWA_cu <- st_crop(FWA_Fr_high, cu_boundary_i)
+
+colnames(stream_cu_picks) == cuid_i
+stream_cu_sub <- stream_cu_picks[,colnames(stream_cu_picks) == cuid_i]
+amod_CU <- fw_amod[stream_cu_sub,]
+
+#subset nuseds observations
+nuseds_CU <- nuseds_Fr[nuseds_Fr$FULL_CU_IN == cu_run$FULL_CU_IN[i],]
+
+amod_CU <- amod_CU %>%
+  mutate(nuseds_presence = replace_na(str_detect(nuseds_sp, sp_pick), F))
+
+# get species-specific ENM reaches
+reaches_ENM_sp <- get(paste0("reaches_ENM_", sp_pick_abb))
+pick_st <- lengths(st_intersects(reaches_ENM_sp, cu_boundary_i)) > 0
+reaches_ENM_cu <- reaches_ENM_sp[pick_st,] %>%
+  mutate(Fav_diff = Fav_f.9_45_3 - Fav_f.0_00_1)
+
+spn_stats_CU <- all_spn_stats[all_spn_stats$cuid == cuid_i,] %>%
+  select(c(CU_NAME, FULL_CU_IN, cuid, n_streams, length_sum, avg_length, avg_order, cu_area))
+
+spn_stats_CU %>%
+  kbl() %>%
+  kable_classic()
+
+
+PCIC_day_CU <-  st_crop(PCIC_day, cu_boundary_i) %>% 
+  as_tibble()
+
+PCIC_day_summary <- PCIC_day_CU %>%
+  group_by(time) %>%
+  dplyr::summarize(waterTemperature_mean = mean(waterTemperature, na.rm=T),
+                   waterTemperature_q10 = quantile(waterTemperature, c(0.10), na.rm = T),
+                   waterTemperature_q90 = quantile(waterTemperature, c(0.90), na.rm = T),
+                   discharge_mean = mean(discharge, na.rm = T),
+                   discharge_q10 = quantile(discharge, c(0.10), na.rm = T),
+                   discharge_q90 = quantile(discharge, c(0.90), na.rm = T))%>%
+  mutate(year = as.factor(year(time)), 
+         month = month(time),
+         day = yday(time))
+
+
+## plots
+order_p <- ggplot(amod_CU) +
+  geom_histogram(aes(x = STREAM_ORDER, fill = nuseds_presence)) +
+  labs(fill = "NuSEDS site")
+
+cu_acc_p <- ggplot() +
+    geom_sf(data = st_zm(FWA_cu), color = "grey", alpha = 0.6) + 
+    geom_sf(data = amod_CU, aes(color = model_access_salmon)) +
+    geom_sf(data = cu_boundary_i, color = "black", alpha = 0.3) +
+    geom_sf(data = nuseds_CU, aes(color = SPECIES), alpha = 0.6) +
+    coord_sf(xlim = st_bbox(cu_boundary_i)[c(1,3)],
+             ylim = st_bbox(cu_boundary_i)[c(2,4)]) +
+    labs(subtitle = paste(cu_run_i$CU_NAME), colour = "BC FishPass")
+
+
+  ### plotting of hydroloy
+  hydro_day_plot <- ggplot(data = PCIC_day_summary, aes(x = as.Date(paste0(hist_ystart, "-01-01")) + yday(time),
+                                                       y = discharge_mean, ymin = discharge_q10, ymax = discharge_q90,
+                                                       colour = year)) +
+    geom_ribbon(alpha = 0.1) +
+    geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + sp_timing_s, 
+               linetype = "dashed", colour = "forestgreen", size = 1) +
+    geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + sp_timing_e, 
+               linetype = "dashed", colour = "forestgreen", size = 1) +
+    geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + sp_timing_peak, 
+               linetype = "dotted", colour = "forestgreen", size = 1) +
+    geom_text(aes(x = as.Date(paste0(hist_ystart, "-01-01")) + sp_timing_peak, y = 0), 
+              label = "Spawning", colour = "forestgreen", size = 3) +
+    geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + rt_s, linetype = "dashed", linewidth = 1) +
+    geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + rt_e, linetype = "dashed", linewidth = 1) +
+    geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + rt_peak, linetype = "dotted", linewidth = 1) +
+    geom_text(aes(x = as.Date(paste0(hist_ystart, "-01-01")) + rt_peak, y = 0), 
+              label = "Run timing", colour = "black", size = 3) +
+    geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + oe_s, 
+               linetype = "dashed", colour = "goldenrod", linewidth = 1) +
+    geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + oe_e, 
+               linetype = "dashed", colour = "goldenrod", linewidth = 1) +
+    geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + oe_peak, 
+               linetype = "dotted", colour = "goldenrod", linewidth = 1) +
+    geom_text(aes(x = as.Date(paste0(hist_ystart, "-01-01")) + oe_peak, y = 0), 
+              label = "Ocean Entry", colour = "goldenrod", size = 3) +
+        geom_point() +
+    geom_line() +
+    scale_x_date(date_breaks = "1 month", date_labels = "%b") +
+    scale_colour_discrete(labels=c(paste0(hist_ystart,"-",hist_ystart+20), paste0(proj_ystart,"-", proj_ystart+20))) +
+    labs(subtitle = "PCIC daily flow within CU boundary accessible cells (80% range)", colour = "Year range",
+         x = "Date", y = "Daily Flow")
+  
+  tw_day_plot <- ggplot(data = PCIC_day_summary, aes(x = as.Date(paste0(hist_ystart, "-01-01")) + yday(time), y = waterTemperature_mean, ymin = waterTemperature_q10, ymax = waterTemperature_q90, colour = year)) +
+    geom_ribbon(alpha = 0.1) +
+    geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + sp_timing_s, 
+               linetype = "dashed", colour = "forestgreen", linewidth = 1) +
+    geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + sp_timing_e,
+               linetype = "dashed", colour = "forestgreen", linewidth = 1) +
+    geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + sp_timing_peak,
+               linetype = "dotted", colour = "forestgreen", linewidth = 1) +
+    geom_text(aes(x = as.Date(paste0(hist_ystart, "-01-01")) + sp_timing_peak, y = 0), 
+              label = "Spawning", colour = "forestgreen", size = 3) +
+    geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + rt_s, 
+               linetype = "dashed", linewidth = 1) +
+    geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + rt_e, 
+               linetype = "dashed", linewidth = 1) +
+    geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + rt_peak, 
+               linetype = "dotted", linewidth = 1) +
+    geom_text(aes(x = as.Date(paste0(hist_ystart, "-01-01")) + rt_peak, y = 0), 
+              label = "Run timing", colour = "black", size = 3) +
+    geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + oe_s, 
+               linetype = "dashed", colour = "goldenrod", linewidth = 1) +
+    geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + oe_e, 
+               linetype = "dashed", colour = "goldenrod", linewidth = 1) +
+    geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + oe_peak, 
+               linetype = "dotted", colour = "goldenrod", linewidth = 1) +
+    geom_text(aes(x = as.Date(paste0(hist_ystart, "-01-01")) + oe_peak, y = 0), 
+              label = "Ocean Entry", colour = "goldenrod", size = 3) +
+    geom_point() +
+    geom_line() +
+    scale_x_date(date_breaks = "1 month", date_labels = "%b") +
+    scale_colour_discrete(labels=c(paste0(hist_ystart,"-",hist_ystart+20), paste0(proj_ystart,"-", proj_ystart+20))) +
+    labs(subtitle = "PCIC daily temperature within CU boundary accessible cells (80% range)", colour = "Year range",
+         x = "Date", y = "Daily Temperature")
+
+
+ct_anad_p <- ggplot() +
+  geom_sf(data = amod_CU, aes(color = CT_anad), linewidth = 1.) +
+  scale_color_viridis(limits = c(0,5.5)) + 
+  geom_sf(data = cu_boundary_i, color = "black", alpha = 0.3) +
+  coord_sf(xlim = st_bbox(cu_boundary_i)[c(1,3)],
+           ylim = st_bbox(cu_boundary_i)[c(2,4)]) +
+  labs(subtitle = paste("Cumulative stressor score (anadromous)"), color = "Threat Score")
+
+ct_anad_h <- ggplot(amod_CU) +
+  geom_histogram(aes(x = CT_anad, fill = nuseds_presence)) +
+  geom_vline(aes(xintercept = mean(CT_anad, na.rm = T)), color = "red", linetype = "dashed") +
+  geom_vline(aes(xintercept = median(CT_anad, na.rm = T)), color = "blue", linetype = "dashed") +
+  geom_text(aes(x = mean(CT_anad, na.rm = T), y = 20, label = "mean"), color = "red") +
+  geom_text(aes(x = median(CT_anad, na.rm = T), y = 0, label = "median"), color = "blue") +
+  labs(fill = "NuSEDS site")
+
+ts_hist_p <- ggplot() +
+  geom_sf(data = amod_CU, aes(color = Tw8_0_00_1), linewidth = 1.) +
+  scale_color_gradientn(colours = wesanderson::wes_palette("Zissou1", 100, type = "continuous"),
+                        limits = c(5,25)) + 
+  geom_sf(data = cu_boundary_i, color = "black", alpha = 0.3) +
+  coord_sf(xlim = st_bbox(cu_boundary_i)[c(1,3)],
+           ylim = st_bbox(cu_boundary_i)[c(2,4)]) +
+  labs(subtitle = paste("August T, Thermalscapes, 2001-2020"), color = "T (deg C)")
+
+ts_hist_h <- ggplot(amod_CU) +
+  geom_histogram(aes(x = Tw8_0_00_1, fill = nuseds_presence)) +
+  geom_vline(aes(xintercept = mean(Tw8_0_00_1, na.rm = T)), color = "red", linetype = "dashed") +
+  geom_vline(aes(xintercept = median(Tw8_0_00_1, na.rm = T)), color = "blue", linetype = "dashed") +
+  geom_text(aes(x = mean(Tw8_0_00_1, na.rm = T), y = 20, label = "mean"), color = "red") +
+  geom_text(aes(x = median(Tw8_0_00_1, na.rm = T), y = 0, label = "median"), color = "blue") +
+  labs(fill = "NuSEDS site")
+
+ts_proj_p <- ggplot() +
+  geom_sf(data = amod_CU, aes(color = Tw8_9_45_3), linewidth = 1.) +
+  scale_color_gradientn(colours = wesanderson::wes_palette("Zissou1", 100, type = "continuous"),
+                        limits = c(5,25)) + 
+  geom_sf(data = cu_boundary_i, color = "black", alpha = 0.3) +
+  coord_sf(xlim = st_bbox(cu_boundary_i)[c(1,3)],
+           ylim = st_bbox(cu_boundary_i)[c(2,4)]) +
+  labs(subtitle = paste("August T, Thermalscapes, 2041-2060"), color = "T (deg C)")
+
+ts_proj_h <- ggplot(amod_CU) +
+  geom_histogram(aes(x = Tw8_9_45_3, fill = nuseds_presence)) +
+  geom_vline(aes(xintercept = mean(Tw8_9_45_3, na.rm = T)), color = "red", linetype = "dashed") +
+  geom_vline(aes(xintercept = median(Tw8_9_45_3, na.rm = T)), color = "blue", linetype = "dashed") +
+  geom_text(aes(x = mean(Tw8_9_45_3, na.rm = T), y = 20, label = "mean"), color = "red") +
+  geom_text(aes(x = median(Tw8_9_45_3, na.rm = T), y = 0, label = "median"), color = "blue") +
+  labs(fill = "NuSEDS site")
+
+### plot indicators
+
+rateT_p <- ggplot() +
+  geom_sf(data = amod_CU, aes(color = FW_SPN_EXP_rateT_9), linewidth = 1.) +
+  scale_color_gradientn(colours = wesanderson::wes_palette("Zissou1", 100, type = "continuous"),
+                        limits = c(0,1)) +
+  geom_sf(data = cu_boundary_i, color = "black", alpha = 0.3) +
+  coord_sf(xlim = st_bbox(cu_boundary_i)[c(1,3)],
+           ylim = st_bbox(cu_boundary_i)[c(2,4)]) +
+  labs(subtitle = paste("Rate of August mean temperature change, 01-20 to 41-60"), color = "deg C/decade") +
+  theme_cvis()
+
+rateT_h <- ggplot(amod_CU) +
+  geom_histogram(aes(x = FW_SPN_EXP_rateT_9, fill = nuseds_presence)) +
+  geom_vline(aes(xintercept = mean(FW_SPN_EXP_rateT_9, na.rm = T)), color = "red", linetype = "dashed") +
+  geom_vline(aes(xintercept = median(FW_SPN_EXP_rateT_9, na.rm = T)), color = "blue", linetype = "dashed") +
+  annotate("text", x = mean(amod_CU$FW_SPN_EXP_rateT_9, na.rm = T), y = 20, label = "mean", color = "red") +
+  annotate("text", x = median(amod_CU$FW_SPN_EXP_rateT_9, na.rm = T), y = 20, label = "median", color = "blue") 
+
+### ENM favourability within CU boundary
+ENM_proj_p <- ggplot() +
+  geom_sf(data = reaches_ENM_cu, aes(color = Fav_f.9_45_3)) + 
+  geom_sf(data = cu_boundary_i, color = "black", alpha = 0.2) +
+  scale_color_viridis()
+
+ENM_diff_p <- ggplot() +
+  geom_sf(data = reaches_ENM_cu, aes(color = Fav_diff)) + 
+  geom_sf(data = cu_boundary_i, color = "black", alpha = 0.2) +
+  scale_color_viridis()
+
+ENM_proj_h <- ggplot() +
+  geom_histogram(data = reaches_ENM_cu, aes(x = Fav_f.9_45_3)) 
+
+ENM_diff_h <- ggplot() +
+  geom_histogram(data = reaches_ENM_cu, aes(x = Fav_diff))
+
+
+order_p
+cu_acc_p
+hydro_day_plot / tw_day_plot
+ct_anad_p + ct_anad_h
+ts_hist_p + ts_hist_h
+ts_proj_p + ts_proj_h
+rateT_p + rateT_h
+ENM_proj_p + ENM_proj_h
+ENM_diff_p + ENM_diff_h
+
+```
+
+
+### Upstream migration
+
+```{r upstream migration, echo = FALSE}
+
+# Subset CU migration path
+
+path_CU <- path_list[names(path_list) == cuid_i]
+path_CU <- path_CU[[1]]
+
+path_bbox <- st_bbox(path_CU)
+boundary_bbox <- st_bbox(cu_boundary_i)
+plot_bbox <- st_bbox(c(xmin = min(path_bbox[1], boundary_bbox[1]), ymin = min(path_bbox[2], boundary_bbox[2]), 
+               xmax = max(path_bbox[3], boundary_bbox[3]), ymax = max(path_bbox[4], boundary_bbox[4])), crs = st_crs(4269))
+
+#coast crop 
+coast_crop <- st_transform(bc_coast, crs = 4269) %>%
+  st_make_valid() %>%
+  st_crop(plot_bbox)
+
+
+PCIC_migr_CU <- PCIC_day[path_CU] 
+
+PCIC_migr_hist_CU <- PCIC_migr_CU %>%
+  filter(yday(time) >= rt_s, yday(time) <= sp_timing_peak, year(time) == hist_ystart) %>%
+    aggregate(by = "year", FUN = mean)
+PCIC_migr_proj_CU <- PCIC_migr_CU %>%
+  filter(yday(time) >= rt_s, yday(time) <= sp_timing_peak, year(time) == proj_ystart) %>%
+    aggregate(by = "year", FUN = mean)
+
+
+PCIC_migr_day_CU <-  as_tibble(PCIC_migr_CU) %>%
+  filter(!is.na(waterTemperature))
+
+PCIC_migr_day_summary <- PCIC_migr_day_CU %>%
+  group_by(time) %>%
+  dplyr::summarize(waterTemperature_mean = mean(waterTemperature, na.rm=T),
+                   waterTemperature_q10 = quantile(waterTemperature, c(0.10), na.rm = T),
+                   waterTemperature_q90 = quantile(waterTemperature, c(0.90), na.rm = T),
+                   discharge_mean = mean(discharge, na.rm = T),
+                   discharge_q10 = quantile(discharge, c(0.10), na.rm = T),
+                   discharge_q90 = quantile(discharge, c(0.90), na.rm = T))%>%
+  mutate(year = as.factor(year(time)), 
+         month = month(time),
+         day = yday(time))
+
+
+
+#----------------------- Migration Plots-------------------------------------------
+
+migr_day_p <- ggplot(data = PCIC_migr_day_summary, aes(x = as.Date(paste0(hist_ystart, "-01-01")) + yday(time), y = waterTemperature_mean, ymin = waterTemperature_q10, ymax = waterTemperature_q90, colour = year)) +
+  geom_ribbon(alpha = 0.1) +
+  geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + sp_timing_s, 
+             linetype = "dashed", colour = "forestgreen", linewidth = 1) +
+    geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + sp_timing_e, 
+               linetype = "dashed", colour = "forestgreen", linewidth = 1) +
+    geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + sp_timing_peak, 
+               linetype = "dotted", colour = "forestgreen", linewidth = 1) +
+    geom_text(aes(x = as.Date(paste0(hist_ystart, "-01-01")) + sp_timing_peak, y = 0), 
+              label = "Spawning", colour = "forestgreen", size = 3) +
+    geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + rt_s, 
+               linetype = "dashed", linewidth = 1) +
+    geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + rt_e, 
+               linetype = "dashed", linewidth = 1) +
+    geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + rt_peak, 
+               linetype = "dotted", linewidth = 1) +
+    geom_text(aes(x = as.Date(paste0(hist_ystart, "-01-01")) + rt_peak, y = 0), 
+              label = "Run timing", colour = "black", size = 3) +
+    geom_point() +
+  geom_line() +
+  scale_x_date(date_breaks = "1 month", date_labels = "%b") +
+  scale_colour_discrete(labels=c(paste0(hist_ystart,"-",hist_ystart+20), paste0(proj_ystart,"-", proj_ystart+20))) +
+  labs(subtitle = "PCIC average temperature over CU migration path (80% range)", colour = "Year range",
+       x = "Date", y = "Daily Temperature")
+
+flow_day_p <- ggplot(data = PCIC_migr_day_summary, aes(x = as.Date(paste0(hist_ystart, "-01-01")) + yday(time), y = discharge_mean, ymin = discharge_q10, ymax = discharge_q90, colour = year)) +
+  geom_ribbon(alpha = 0.1) +
+  geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + sp_timing_s, 
+             linetype = "dashed", colour = "forestgreen", linewidth = 1) +
+  geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + sp_timing_e, 
+             linetype = "dashed", colour = "forestgreen", linewidth = 1) +
+  geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + sp_timing_peak, 
+             linetype = "dotted", colour = "forestgreen", linewidth = 1) +
+  geom_text(aes(x = as.Date(paste0(hist_ystart, "-01-01")) + sp_timing_peak, y = 0), 
+            label = "Spawning", colour = "forestgreen", size = 3) +
+  geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + rt_s, 
+             linetype = "dashed", linewidth = 1) +
+  geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + rt_e, 
+             linetype = "dashed", linewidth = 1) +
+  geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + rt_peak, 
+             linetype = "dotted", linewidth = 1) +
+  geom_text(aes(x = as.Date(paste0(hist_ystart, "-01-01")) + rt_peak, y = 0), 
+            label = "Run timing", colour = "black", size = 3) +
+    geom_point() +
+  geom_line() +
+  scale_x_date(date_breaks = "1 month", date_labels = "%b") +
+  scale_colour_discrete(labels=c(paste0(hist_ystart,"-",hist_ystart+20), paste0(proj_ystart,"-", proj_ystart+20))) +
+  labs(subtitle = "PCIC average discharge over CU migration path (80% range)", colour = "Year range",
+       x = "Date", y = "Discharge")
+
+#merge_path <- st_union(path_CU, cu_boundary_i)
+
+# path_plot <- ggplot() +
+#   geom_sf(data = cu_boundary_i, color = "black", alpha = 0.2) +
+#   geom_sf(data = path_CU) +
+#   geom_sf(data = bc_coast, color = "black", alpha = 0.2) +
+#   coord_sf(xlim = st_bbox(st_union(path_CU, cu_boundary_i))[c(1,3)],
+#            ylim = st_bbox(st_union(path_CU, cu_boundary_i))[c(2,4)]) +
+#   theme_cvis() +
+#   labs(subtitle = paste("CU migration path"))
+
+migr_hist_T_plot <- ggplot() +
+  geom_stars(data = PCIC_migr_hist_CU["waterTemperature"]) +
+  scale_fill_gradientn(colours = wesanderson::wes_palette("Zissou1", 100, type = "continuous"),
+                       limits = c(5,25)) + 
+  geom_sf(data = coast_crop, alpha = 0.1) +
+  geom_sf(data = cu_boundary_i, color = "black", alpha = 0.1) +
+  geom_sf(data = st_zm(path_CU)) + 
+  labs(subtitle = "PCIC temp 2001-2020")
+ 
+migr_proj_T_plot <- ggplot() +
+  geom_stars(data = PCIC_migr_proj_CU["waterTemperature"]) +
+  scale_fill_gradientn(colours = wesanderson::wes_palette("Zissou1", 100, type = "continuous"),
+                       limits = c(5,25)) + 
+  geom_sf(data = coast_crop, alpha = 0.1) +
+  geom_sf(data = cu_boundary_i, color = "black", alpha = 0.1) +
+  geom_sf(data = st_zm(path_CU)) + 
+  labs(subtitle = "PCIC temp 2041-2060")
+ 
+migr_day_p / flow_day_p
+migr_hist_T_plot
+migr_proj_T_plot
+
+```
+

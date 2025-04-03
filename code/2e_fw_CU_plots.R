@@ -1,61 +1,100 @@
 ################################################################################
 #
-# 2e_fw_CU_plots.R
+# 2e_FW_CU_plots.R
 #
-
 ###############################################################################
-## Plotting for CU outputs
 
-# Subset CU boundary
-cu_boundary_i <- cu_boundary[cu_boundary$CUID == cuid[i], ]
-FWA_cu <- st_crop(FWA_Fr_high, cu_boundary_i)
+## CU boundary diagnostics
 
+# 1. Accessible vs non-accessible reaches by number and length
+# 2. FWA stream orders distribution
+# 2. Lakes and dams within CU boundaries
+# 4. NuSEDS sites 
+# 5. Thermalscapes temperatures
+  # - violin diagram
+  # proportion above each 1 degree threshold
+  # map of mean August temperatures
+  # temperature gauge locations?
+# 6. Reach level PCIC flows
+  # MAD histogram for streams
+  # mean discharge by month - historical and projected
+# 7. Cumulative threat scores - violin diagram
+# 8. ENM favourability - violin diagram
+
+
+
+i <- 1
+
+## Subset CU boundary data
+cuid_i <- cu_run$cuid[i]
+cu_boundary_i <- cu_boundary[cu_boundary$CUID == cuid_i, ]
+sp_pick <- cu_run$spp[cu_run$cuid == cuid_i] #species abbr
 path_CU <- path_list[[i]]
 
+FWA_cu <- st_crop(FWA_Fr_high, cu_boundary_i)
 
-tscapes_CU <- tscapes_acc[cu_tscapes[,i],] %>%
-  filter(!is.na(Tw8_0_00_0))
+#subset nuseds observations
+nuseds_CU <- nuseds_Fr[nuseds_Fr$FULL_CU_IN == cu_run$FULL_CU_IN[i],]
 
-PCIC_Aug_CU_hist <- st_crop(PCIC_month, tscapes_CU) %>%
-  filter(month(time) == 8, year(time) == 1985) 
-PCIC_Aug_CU_proj <- st_crop(PCIC_month, tscapes_CU) %>%
-  filter(month(time) == 8, year(time) == 2055) 
+amod_CU <- fw_amod[stream_cu_picks[,i],] #%>%
 
-PCIC_CU_diff <- PCIC_Aug_CU_proj %>%
-  st_set_dimensions(3, values = as.POSIXct("1985-08-15", "UTC"), names = "time")
+# get species-specific ENM reaches
+reaches_ENM_sp <- get(paste0("reaches_ENM_", sp_pick))
+pick_st <- lengths(st_intersects(reaches_ENM_sp, cu_boundary_i)) > 0
+reaches_ENM_cu <- reaches_ENM_sp[pick_st,]
 
-PCIC_CU_diff <- PCIC_CU_diff - PCIC_Aug_CU_hist
-PCIC_CU_prop <- PCIC_CU_diff / PCIC_Aug_CU_hist
+cu_boundary_table <- all_CU_stats[i,]
 
-PCIC_day_CU <-  st_crop(PCIC_day, cu_boundary_i) %>% 
-  as_tibble()
+cu_boundary_table <- cu_boundary_table %>%
+  mutate(length_sum = length_sum/1000) %>%
+  mutate(CU_area_km2 = (st_area(cu_boundary_i) %>% units::set_units("km^2"))) %>%
+  select(CU_area_km2, n_streams, length_sum, ThiPI_9_45_3, Tw_rate, MADprop_8_diff,
+         MADprop_win_diff, peakQday_diff, CT_anad_mean) %>%
+  rename("CU Boundary Area (km2)" = CU_area_km2,
+        "Number of stream segments" = n_streams,
+         "Total stream length (km)" = length_sum,
+         "7DEC High T 2041-2060" = ThiPI_9_45_3,
+         "Temperature Rate of Change (deg C/10y)" = Tw_rate,
+         "Change in August flow as %MAD" = MADprop_8_diff,
+         "Change in winter flow as %MAD" = MADprop_win_diff,
+         "Change in peak flow day"       = peakQday_diff,
+         "Cumulative threat score"       = CT_anad_mean
+  )
 
-PCIC_day_summary <- PCIC_day_CU %>%
-  group_by(time) %>%
-  dplyr::summarize(tw_day = mean(tw_day, na.rm=T),
-                   flow_day = mean(flow_day, na.rm = T)) %>%
-  mutate(year = year(time), 
-         month = month(time),
-         day = yday(time))
 
-if(p_sp == "Chinook") p_sp_pick <- 1  #choose which species to plot observation points
-if(p_sp == "Coho") p_sp_pick <- 2 
-if(p_sp == "Sockeye") p_sp_pick <- 3
-if(p_sp == "Pink" | p_sp == "Chum") p_sp_pick <- 0
+amod_CU_long <- pivot_longer(amod_CU, 
+                             cols = c("FW_SPN_EXP_rateT_9", "FW_SPN_EXP_projT_9", "FW_SPN_EXP_winQ", "FW_SPN_EXP_augQ"),
+                             names_to = "indicator", values_to = "value")
 
-cat("####", "CU Boundary Outputs \n")
+
+#Ridgeline plot of indicator distributions
+ggplot(amod_CU_long ) +
+  geom_density_ridges_gradient(aes(x = value, y = indicator, fill = ..x..), scale = 3, rel_min_height = 0.01) +
+  scale_fill_viridis(option = "C") +
+  labs(title = 'Temperatures in Lincoln NE in 2016') +
+  theme(
+    legend.position="none",
+    panel.spacing = unit(0.1, "lines"),
+    strip.text.x = element_text(size = 8)
+  )
+
+
+## CU accessibility and FWA diagnostics
 
 cu_acc_p <- ggplot() +
   geom_sf(data = st_zm(FWA_cu), color = "grey", alpha = 0.6) + 
-  geom_sf(data = tscapes_CU, aes(color = model_access_salmon)) +
+  geom_sf(data = fw_indies_CU, aes(color = model_access_salmon)) +
   geom_sf(data = cu_boundary_i, color = "black", alpha = 0.3) +
-  {switch(p_sp_pick, geom_sf(data = chin_sp, color = "darkgreen", alpha = 0.6), 
-  geom_sf(data = coho_sp, color = "darkblue", alpha = 0.6),
-  geom_sf(data = sockeye_sp, color = "darkred", alpha = 0.6))} + 
+  geom_sf(data = nuseds_CU, aes(color = SPECIES), alpha = 0.6) +
   coord_sf(xlim = st_bbox(cu_boundary_i)[c(1,3)],
            ylim = st_bbox(cu_boundary_i)[c(2,4)]) +
-  labs(subtitle = paste("CU ", cu_run$cuname[i])) +
+  labs(subtitle = paste("CU ", cu_run$cuname[i]), colour = "BC FishPass Accessibility") +
   theme_minimal()
+
+
+print(cu_acc_p)
+
+
 
 ts_hist_p <- ggplot() +
   geom_sf(data = tscapes_CU, aes(color = Tw8_0_00_0)) +
@@ -123,6 +162,19 @@ qPCIC_proj_p <- ggplot() +
   labs(subtitle = "August flow 2041-2070")
 
 
+### ENM favourability within CU boundary
+ENM_hist_p <- ggplot() +
+  geom_sf(data = reaches_ENM_cu, aes(color = Fav_f.0_00_1)) + 
+  geom_sf(data = cu_pick, color = "black", alpha = 0.2) +
+  scale_color_viridis()
+
+ENM_proj_p <- ggplot() +
+  geom_sf(data = reaches_ENM_cu, aes(color = Fav_f.9_45_3)) + 
+  geom_sf(data = cu_pick, color = "black", alpha = 0.2) +
+  scale_color_viridis()
+
+
+
 ### plotting of hydrological regime
 hydro_day_plot <- ggplot(data = PCIC_day_summary) +
   geom_point(aes(x = day, y = flow_day, color = year)) +
@@ -144,6 +196,9 @@ print(hydro_day_plot / tw_day_plot)
 #grid.arrange(tPCIC_hist_p, tPCIC_proj_p, nrow =1, ncol =2)
 #grid.arrange(qPCIC_hist_p, qPCIC_proj_p, nrow =1, ncol =2)
 #grid.arrange(hydro_day_plot, tw_day_plot, nrow = 2, ncol = 1)
+
+
+
 
 
 cat("####", "CU Migration Path Outputs \n")

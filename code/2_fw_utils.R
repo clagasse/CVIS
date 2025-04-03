@@ -175,6 +175,36 @@ choose_CU_stream <- function(FWA, cu_boundary, subset_order = FALSE, min_order =
 #mat_loc <- median(mat[,3])
 #mid
 
+#----------------------rainfall plot-----------------------------------------
+
+rainfall_plot <- function(data) {
+    ggplot(data, aes(x = factor(STREAM_ORDER), y = CT_anad, fill = factor(STREAM_ORDER))) +
+  # Add half-violin from {ggdist} package
+  stat_halfeye(
+    adjust = 0.5,
+    justification = -0.2,
+    .width = 0,
+    point_colour = NA
+  ) +
+  geom_boxplot(
+    width = 0.12,
+    outlier.color = NA,
+    alpha = 0.5
+  ) +
+  stat_dots(
+    side = "left",
+    justification = 0.1,
+    binwidth = 0.25,
+    size = 0.1
+  ) +
+  scale_fill_viridis(discrete = TRUE) +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(size = 11)
+  ) +
+  ggtitle("Stream Orders within CU boundary") +
+  xlab("")
+}
 
 
 

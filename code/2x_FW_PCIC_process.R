@@ -68,6 +68,8 @@ rm(PCIC, PCIC_m, PCIC_d)
 write_mdim(PCIC_month, file.path(climate_dat, "PCIC_processed", "PCIC_monthly.nc"))
 write_mdim(PCIC_day, file.path(climate_dat, "PCIC_processed", "PCIC_daily.nc"))
 
-
-
-
+# 
+# BCCM <- read_ncdf(file.path(climate_dat, "BCCM", "bcc42_bioNew_his_1986to2005_monSST.nc"), var = c("lon_rho", "lat_rho", "temp")) %>%
+#   st_set_dimensions(lon_rho)
+# 
+# st_dimensions(BCCM)
