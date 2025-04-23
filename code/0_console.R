@@ -62,9 +62,13 @@ dplyr.summarise.inform <- FALSE  #remove messages when using summarise()
 # Loading data and scripts
 source(file.path(code_root, "1a_CU_import.R"))   #CU table
 # Select subset of CUs to run for analysis
-cu_run <- filter(cu_Fr, spp %in% c("ck")) #cuid != 742)  #remove widgeon (throws error)
-cuid <- cu_run$cuid[order(cu_run$spp)] # Create vector of CUs to analyze, ordered CK, CM, CO, PKO, SEL, SER, SH
-n.CUs <- length (cuid)
+cu_run <- cu_Fr %>%
+  filter(spp %in% c("ck", "co", "cm", "sk"), cuid != c(742, 745)) %>%
+  arrange(spp)    #remove widgeon (throws error)
+cuid    <- cu_run$cuid# Create vector of CUs to analyze, ordered CK, CM, CO, PKO, SEL, SER, SH
+cu_seq  <- cu_run$FULL_CU_IN # Create vector of CUs to analyze, ordered CK, CM, CO, PKO, SEL, SER, SH
+
+n.CUs   <- nrow(cu_run)
 
 #load freshwater functions
 source(file.path(code_root, "2_fw_utils.R"))
@@ -72,23 +76,22 @@ source(file.path(code_root, "2_fw_utils.R"))
 ### Load freshwater spatial data
 
 
-load(here("processed_data", "freshwater", "R_data", "2025-03-24_fw_spatial_inputs.Rdata"))
+load(here("processed_data", "freshwater", "R_data", "2025-04-04_fw_spatial_inputs.Rdata"))
 
-load(here("processed_data", "freshwater", "R_data",  "2025-01-30_fw_cu_streams.Rdata"))
-load(here("processed_data", "freshwater", "R_data",  "2025-01-30_fw_upstream_paths.Rdata"))
+load(here("processed_data", "freshwater", "R_data",  "2025-04-22_fw_cu_streams.Rdata"))
+load(here("processed_data", "freshwater", "R_data",  "2025-04-22_fw_upstream_paths.Rdata"))
 
 #load(here("processed_data", "freshwater", "R_data", "2025-01-24_fw_FAZ_streams.Rdata"))   #FAZ selections of streams
 
 #load summary stat results
-load(here("processed_data", "freshwater", "R_data",  "2025-03-25_fw_spn_stats.Rdata"))
-load(here("processed_data", "freshwater", "R_data",  "2025-03-25_fw_migr_stats.Rdata"))
+load(here("processed_data", "freshwater", "R_data",  "2025-04-04_SPN_stats.Rdata"))
+load(here("processed_data", "freshwater", "R_data",  "2025-04-04_MIGr_stats.Rdata"))
 
 #load(here("processed_data", "freshwater", "R_data",  "2025-01-24_fw_FAZstats_output.Rdata"))
 
 
 
 ######################## FRESHWATER SCRIPTS #########################
-
 
 
 ### run script to import freshwater data layers
@@ -103,8 +106,6 @@ load(here("processed_data", "freshwater", "R_data",  "2025-03-25_fw_migr_stats.R
 ### run script to calculate statistics and indicators for migration paths
 #source(file.path(code_root, "2d_FW_migration_stats.R"))
 
-### script containing plots for CUs
-#source(file.path(code_root, "2e_FW_CU_plots.R"))
 
 
 ######################## STANDARDIZATION AND SCORING #########################
@@ -115,19 +116,24 @@ source(file.path(code_root, "4a_CU_scoring.R"))
 
 
 for(i in 1:n.CUs) {
-  
-i <- 13
+
 CU_IN_i <- cu_run$FULL_CU_IN[i]
+CU_IN_i <- "CK-12"
   
 rmarkdown::render(
   file.path(here(),"code","0a_CU_profile.Rmd"),
-  output_file = paste(today, cu_run$FULL_CU_IN[i], "_profile.html", sep = "_"),
-  output_dir = here("output"),
-  output_format = "html_document")
-  execute_params = list(FULL_CU_IN = CU_IN_i) 
-  
+  output_file = paste(today, CU_IN_i, "_profile.html", sep = "_"),
+  output_dir = here("output", "CU_profiles"),
+  output_format = "html_document", 
+  params = list(FULL_CU_IN = CU_IN_i))
+
 }
 
+rmarkdown::render(
+  file.path(here("code","0b_CVIS_overview.Rmd")),
+  output_file = paste(today, "CVIS_overview.html", sep = "_"),
+  output_dir = here("output"),
+  output_format = "html_document")
 
 # rmarkdown::render(
 #   file.path(here("code","0_CU_comparison_report.Rmd")),

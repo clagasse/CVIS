@@ -41,16 +41,19 @@ theme_set(theme_cvis())
 
 ```{r subset CU}
 
+#params$FULL_CU_IN <- "CK-17"
+
 cu_run_i <- cu_run[cu_run$FULL_CU_IN == params$FULL_CU_IN,]
 
 cuid_i <- cu_run_i$cuid
 sp_pick <- cu_run_i$Species_simple
 sp_pick_abb <- cu_run_i$spp
 
+
 ```
 
 
-# Climate Vulnerability Indicators For `r cu_run$CU_NAME[i]`
+# Climate Vulnerability Indicators For `r cu_run_i$CU_NAME`
 
 This report summarizes climate vulnerability information for a conservation unit of Pacific salmon.
 
@@ -60,43 +63,48 @@ The following tables show the raw (untransformed) and standardized indicator val
 
 ```{r indicators summary, results = "asis"}
 
-STD_all_i <- STD_all[STD_all$cuid == cuid[i],]
-CVIS_all_i <- CVIS_all[CVIS_all$cuid == cuid[i],]
+STD_all_i <- STD_all[STD_all$cuid == cuid_i,]
+CVIS_all_i <- CVIS_all[CVIS_all$cuid == cuid_i,]
 
-CVIS_STD_all_i <- CVIS_STD_all[CVIS_STD_all$cuid == cuid[i],]
+CVIS_STD_all_i <- CVIS_STD_all[CVIS_STD_all$cuid == cuid_i,]
 
 STD_all_spec <- STD_all %>%
   group_by(STD_Species_simple) %>%
-  summarise(across(STD_FW_SPN_EXP_projT_9:last_col(), \(x) mean(x, na.rm = T)))
+  summarise(across(STD_SPN_EXP_projT_9:last_col(), \(x) mean(x, na.rm = T)))
 
 CVIS_all_spec <- CVIS_all %>%
   group_by(Species_simple) %>%
-  summarise(across(FW_SPN_EXP_projT_9:last_col(), \(x) mean(x, na.rm = T)))
+  summarise(across(SPN_EXP_projT_9:last_col(), \(x) mean(x, na.rm = T)))
+
+CVIS_spec <- filter(CVIS_all_spec, Species_simple == sp_pick)
+STD_spec <- filter(STD_all_spec, STD_Species_simple == sp_pick)
 
 dem_table <- names(select(CVIS_all_i, contains("DEM"))) %>%
   bind_cols(t(select(CVIS_all_i, contains("DEM")))) %>%
   bind_cols(t(select(STD_all_i, contains("DEM")))) %>%
-  bind_cols(t(select(CVIS_all_spec, contains("DEM")))) %>%
-  bind_cols(t(select(STD_all_spec, contains("DEM"))))
+  bind_cols(t(select(CVIS_spec, contains("DEM")))) %>%
+  bind_cols(t(select(STD_spec, contains("DEM"))))
 names(dem_table) <- c("Indicator", "CU_Raw", "CU_Std", "Species_Raw", "Species_Std")
 
-spn_table <- names(select(CVIS_all_i, contains("FW_SPN"))) %>%
-  bind_cols(t(select(CVIS_all_i, contains("FW_SPN")))) %>%
-  bind_cols(t(select(STD_all_i, contains("FW_SPN")))) %>%
-  bind_cols(t(select(CVIS_all_spec, contains("FW_SPN")))) %>%
-  bind_cols(t(select(STD_all_spec, contains("FW_SPN"))))
+spn_table <- names(select(CVIS_all_i, contains("SPN"))) %>%
+  bind_cols(t(select(CVIS_all_i, contains("SPN")))) %>%
+  bind_cols(t(select(STD_all_i, contains("SPN")))) %>%
+  bind_cols(t(select(CVIS_spec, contains("SPN")))) %>%
+  bind_cols(t(select(STD_spec, contains("SPN"))))
 names(spn_table) <- c("Indicator", "CU_Raw", "CU_Std", "Mean_Species_Raw", "Mean_Species_Std")
 spn_table <- spn_table %>%
-  mutate(above_mean = if_else(CU_Std > Mean_Species_Std, T, F))
+  mutate(above_mean = if_else(is.nan(Mean_Species_Std), NA, 
+                                    if_else(CU_Std > Mean_Species_Std, T, F)))
 
-mig_table <- names(select(CVIS_all_i, contains("FW_MIG"))) %>%
-  bind_cols(t(select(CVIS_all_i, contains("FW_MIG")))) %>%
-  bind_cols(t(select(STD_all_i, contains("FW_MIG")))) %>%
-  bind_cols(t(select(CVIS_all_spec, contains("FW_MIG")))) %>%
-  bind_cols(t(select(STD_all_spec, contains("FW_MIG"))))
+mig_table <- names(select(CVIS_all_i, contains("MIG"))) %>%
+  bind_cols(t(select(CVIS_all_i, contains("MIG")))) %>%
+  bind_cols(t(select(STD_all_i, contains("MIG")))) %>%
+  bind_cols(t(select(CVIS_spec, contains("MIG")))) %>%
+  bind_cols(t(select(STD_spec, contains("MIG"))))
 names(mig_table) <- c("Indicator", "CU_Raw", "CU_Std", "Mean_Species_Raw", "Mean_Species_Std")
 mig_table <- mig_table %>%
-  mutate(above_mean = if_else(CU_Std > Mean_Species_Std, T, F))
+  mutate(above_mean = if_else(is.na(Mean_Species_Std), NA, 
+                                    if_else(CU_Std > Mean_Species_Std, T, F)))
 
 dem_table %>%
   kbl(caption = "Demographic indicators", digits = 2) %>%
@@ -142,7 +150,7 @@ ggplot(mig_table, aes(x=Indicator)) +
 ## Conservation Unit Demographic Overview
  
 ### Status, abundance and enhancement
-```{r demographics summary , echo = FALSE, warning = FALSE, message = FALSE}
+```{r demographics summary}
 
 dem_details <- cu_run_i %>%
   select(FULL_CU_IN, CU_NAME, 
@@ -164,7 +172,7 @@ Timing by life history stage is taken from Wilson and Peacock (2025) [https://cd
 
 Data quality is rated on a scale of 1 to 5 based on number of observations and their recentness, with 1 being the highest quality data.
 
-```{r timing summary, echo = FALSE}
+```{r timing summary}
 
 # Extract spawning and migration details
 timing_i <- cu_timing_long %>%
@@ -221,7 +229,7 @@ print(timing_p)
 
 ### Spawning to rearing
 The CU boundary is used to subset streams and migration paths for the CU.
-```{r spawning to rearing, echo = FALSE, warnings = F, message = F}
+```{r spawning to rearing}
 
 cu_boundary_i <- cu_boundary[cu_boundary$CUID == cuid_i, ]
 FWA_cu <- st_crop(FWA_Fr_high, cu_boundary_i)
@@ -231,7 +239,7 @@ stream_cu_sub <- stream_cu_picks[,colnames(stream_cu_picks) == cuid_i]
 amod_CU <- fw_amod[stream_cu_sub,]
 
 #subset nuseds observations
-nuseds_CU <- nuseds_Fr[nuseds_Fr$FULL_CU_IN == cu_run$FULL_CU_IN[i],]
+nuseds_CU <- nuseds_Fr[nuseds_Fr$FULL_CU_IN == params$FULL_CU_IN,]
 
 amod_CU <- amod_CU %>%
   mutate(nuseds_presence = replace_na(str_detect(nuseds_sp, sp_pick), F))
@@ -391,17 +399,17 @@ ts_proj_p <- ggplot() +
   labs(subtitle = paste("August T, Thermalscapes, 2041-2060"), color = "T (deg C)")
 
 ts_proj_h <- ggplot(amod_CU) +
-  geom_histogram(aes(x = Tw8_9_45_3, fill = nuseds_presence)) +
+  geom_histogram(aes(x = Tw8_9_45_3)) +
   geom_vline(aes(xintercept = mean(Tw8_9_45_3, na.rm = T)), color = "red", linetype = "dashed") +
-  geom_vline(aes(xintercept = median(Tw8_9_45_3, na.rm = T)), color = "blue", linetype = "dashed") +
-  geom_text(aes(x = mean(Tw8_9_45_3, na.rm = T), y = 20, label = "mean"), color = "red") +
-  geom_text(aes(x = median(Tw8_9_45_3, na.rm = T), y = 0, label = "median"), color = "blue") +
-  labs(fill = "NuSEDS site")
+  #geom_vline(aes(xintercept = median(Tw8_9_45_3, na.rm = T)), color = "blue", linetype = "dashed") +
+  geom_text(aes(x = mean(Tw8_9_45_3, na.rm = T), y = 20, label = "mean"), color = "red") 
+  #geom_text(aes(x = median(Tw8_9_45_3, na.rm = T), y = 0, label = "median"), color = "blue") +
+  #labs(fill = "NuSEDS site")
 
 ### plot indicators
 
 rateT_p <- ggplot() +
-  geom_sf(data = amod_CU, aes(color = FW_SPN_EXP_rateT_9), linewidth = 1.) +
+  geom_sf(data = amod_CU, aes(color = SPN_EXP_rateT_9), linewidth = 1.) +
   scale_color_gradientn(colours = wesanderson::wes_palette("Zissou1", 100, type = "continuous"),
                         limits = c(0,1)) +
   geom_sf(data = cu_boundary_i, color = "black", alpha = 0.3) +
@@ -411,11 +419,11 @@ rateT_p <- ggplot() +
   theme_cvis()
 
 rateT_h <- ggplot(amod_CU) +
-  geom_histogram(aes(x = FW_SPN_EXP_rateT_9, fill = nuseds_presence)) +
-  geom_vline(aes(xintercept = mean(FW_SPN_EXP_rateT_9, na.rm = T)), color = "red", linetype = "dashed") +
-  geom_vline(aes(xintercept = median(FW_SPN_EXP_rateT_9, na.rm = T)), color = "blue", linetype = "dashed") +
-  annotate("text", x = mean(amod_CU$FW_SPN_EXP_rateT_9, na.rm = T), y = 20, label = "mean", color = "red") +
-  annotate("text", x = median(amod_CU$FW_SPN_EXP_rateT_9, na.rm = T), y = 20, label = "median", color = "blue") 
+  geom_histogram(aes(x = SPN_EXP_rateT_9, fill = nuseds_presence)) +
+  geom_vline(aes(xintercept = mean(SPN_EXP_rateT_9, na.rm = T)), color = "red", linetype = "dashed") +
+  geom_vline(aes(xintercept = median(SPN_EXP_rateT_9, na.rm = T)), color = "blue", linetype = "dashed") +
+  annotate("text", x = mean(amod_CU$SPN_EXP_rateT_9, na.rm = T), y = 20, label = "mean", color = "red") +
+  annotate("text", x = median(amod_CU$SPN_EXP_rateT_9, na.rm = T), y = 20, label = "median", color = "blue") 
 
 ### ENM favourability within CU boundary
 ENM_proj_p <- ggplot() +
@@ -450,7 +458,7 @@ ENM_diff_p + ENM_diff_h
 
 ### Upstream migration
 
-```{r upstream migration, echo = FALSE}
+```{r upstream migrationm, error = TRUE}
 
 # Subset CU migration path
 
@@ -460,23 +468,21 @@ path_CU <- path_CU[[1]]
 path_bbox <- st_bbox(path_CU)
 boundary_bbox <- st_bbox(cu_boundary_i)
 plot_bbox <- st_bbox(c(xmin = min(path_bbox[1], boundary_bbox[1]), ymin = min(path_bbox[2], boundary_bbox[2]), 
-               xmax = max(path_bbox[3], boundary_bbox[3]), ymax = max(path_bbox[4], boundary_bbox[4])), crs = st_crs(4269))
+                       xmax = max(path_bbox[3], boundary_bbox[3]), ymax = max(path_bbox[4], boundary_bbox[4])), crs = st_crs(4269))
 
 #coast crop 
 coast_crop <- st_transform(bc_coast, crs = 4269) %>%
   st_make_valid() %>%
   st_crop(plot_bbox)
 
-
 PCIC_migr_CU <- PCIC_day[path_CU] 
 
 PCIC_migr_hist_CU <- PCIC_migr_CU %>%
   filter(yday(time) >= rt_s, yday(time) <= sp_timing_peak, year(time) == hist_ystart) %>%
-    aggregate(by = "year", FUN = mean)
+  aggregate(by = "year", FUN = mean)
 PCIC_migr_proj_CU <- PCIC_migr_CU %>%
   filter(yday(time) >= rt_s, yday(time) <= sp_timing_peak, year(time) == proj_ystart) %>%
-    aggregate(by = "year", FUN = mean)
-
+  aggregate(by = "year", FUN = mean)
 
 PCIC_migr_day_CU <-  as_tibble(PCIC_migr_CU) %>%
   filter(!is.na(waterTemperature))
@@ -493,7 +499,25 @@ PCIC_migr_day_summary <- PCIC_migr_day_CU %>%
          month = month(time),
          day = yday(time))
 
+PCIC_daymigr_thr <- PCIC_migr_day_CU %>%
+  mutate(year = year(time), 
+         month = month(time),
+         day = yday(time),
+         T_19 = if_else(waterTemperature > 19, T, F),
+         T_21 = if_else(waterTemperature > 21, T, F),
+         T_23 = if_else(waterTemperature > 23, T, F))
+group_by(year, day) %>%
+  summarize(
+    n = n(),
+    T_19 = sum(T_19, na.rm = T) / n,
+    T_21 = sum(T_21, na.rm = T) / n,
+    T_23 = sum(T_23, na.rm = T) / n)
 
+# long version for plotting
+PCIC_daymigr_long <- pivot_longer(PCIC_daymigr_thr, 
+                                  cols = c(T_19, T_21, T_23), 
+                                  names_to = "T_threshold", values_to = "prop") %>%
+  mutate(year = as.factor(year))
 
 #----------------------- Migration Plots-------------------------------------------
 
@@ -521,6 +545,30 @@ migr_day_p <- ggplot(data = PCIC_migr_day_summary, aes(x = as.Date(paste0(hist_y
   scale_colour_discrete(labels=c(paste0(hist_ystart,"-",hist_ystart+20), paste0(proj_ystart,"-", proj_ystart+20))) +
   labs(subtitle = "PCIC average temperature over CU migration path (80% range)", colour = "Year range",
        x = "Date", y = "Daily Temperature")
+
+plot_cols <- c(T_19 = "black", T_21 = "orange", T_23 = "red")
+  
+migr_thr_p <-   ggplot(PCIC_daymigr_long, aes(x = as.Date(paste0(hist_ystart, "-01-01")) + day, y = prop, linetype = year, colour = T_threshold)) +
+    geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + rt_s, 
+               linetype = "dotted", colour = "darkgrey", linewidth = 1) +
+    geom_text(aes(x = as.Date(paste0(hist_ystart, "-01-01")) + rt_s, y = -0.02), 
+              label = "Run timing start", colour = "darkgrey",size = 3) +
+    geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + rt_e, 
+               linetype = "dotted", colour = "darkgrey", linewidth = 1) +
+    geom_text(aes(x = as.Date(paste0(hist_ystart, "-01-01")) + rt_e, y = -0.02), 
+              label = "Run timing end", colour = "darkgrey",size = 3) +
+    geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + sp_timing_peak, 
+               linetype = "dashed", colour = "darkgrey", linewidth = 1) +
+    geom_text(aes(x = as.Date(paste0(hist_ystart, "-01-01")) + sp_timing_peak, y = -0.05), 
+              label = "Spawning peak", colour = "darkgrey", size = 3) +
+    geom_line(linewidth = 1.3) +
+    scale_x_date(date_breaks = "1 month", date_labels = "%b") +
+    scale_color_manual(values = plot_cols) +
+    scale_linetype_discrete(labels=c(paste0(hist_ystart,"-",hist_ystart+20), paste0(proj_ystart,"-", proj_ystart+20))) +
+    labs(color = "T threshold", y = "Proportion of migration path", x = "Date") +
+    xlim( as.Date(paste0(hist_ystart, "-01-01")) +rt_s-50, as.Date(paste0(hist_ystart, "-01-01")) + sp_timing_peak + 50) +
+    ylim(-0.05,1)
+
 
 flow_day_p <- ggplot(data = PCIC_migr_day_summary, aes(x = as.Date(paste0(hist_ystart, "-01-01")) + yday(time), y = discharge_mean, ymin = discharge_q10, ymax = discharge_q90, colour = year)) +
   geom_ribbon(alpha = 0.1) +
@@ -577,6 +625,7 @@ migr_proj_T_plot <- ggplot() +
   labs(subtitle = "PCIC temp 2041-2060")
  
 migr_day_p / flow_day_p
+migr_thr_p
 migr_hist_T_plot
 migr_proj_T_plot
 

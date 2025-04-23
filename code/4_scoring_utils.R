@@ -11,12 +11,12 @@ linear_std <- function(x, xmin = NA, xmax = NA) {
   
   for(i in 1:length(x)) {
     if(is.na(x[i])) next
-    z <- ifelse(x[i] < xmin, xmin, ifelse(x[i] > xmax, xmax, x[i]))
+    z <- ifelse(x[i] < xmin, xmin, 
+                ifelse(x[i] > xmax, xmax, x[i]))
     y[i] <- (z - xmin) / (xmax - xmin)
   }
 
-  
-  return((x - xmin) / (xmax - xmin))
+  return(y)
 }
 
 #inverse raw standardization function with 1 corresponding to lowest value
@@ -125,6 +125,16 @@ enh_std <- function(x, z) {
     if(x[i] > 0 && grepl("Harvest", z[i]))  y[i] <- 1
   }
   return(y)
+}
+
+simulate_range <- function(x, n = 100) {
+  
+  minx <- min(x, na.rm = T)
+  maxx <- max(x, na.rm = T)
+  
+  y <- seq(from = minx, to = maxx, length.out = n)
+  return(y)
+  
 }
 
 

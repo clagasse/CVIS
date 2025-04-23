@@ -110,7 +110,7 @@ calc_mean_diff <- function(
 
 
 #function to subset downstream paths from a stream
-downstream_path <- function(FWA, stream_pick, code_type = "bcfp") {
+downstream_path <- function(FWA, stream_pick, code_type = "FWA") {
   
   FWA_code <- stream_pick$localcode
   st <- str_length(FWA_code)
@@ -154,6 +154,102 @@ downstream_path <- function(FWA, stream_pick, code_type = "bcfp") {
     stream_pick <- bind_rows(stream_pick, low_stream)
   }
   return(stream_pick)
+}
+
+#measure distance to ocean entry for each stream segment in a migration paths object
+measure_downstream <- function(paths, code_type = "FWA") {
+ 
+  dvec <- vector(length = nrow(paths))
+  paths <- st_zm(paths)
+  
+  for(j in 1:nrow(paths)) {
+    stream_pick <- paths[j,]
+    
+    FWA_code <- stream_pick$localcode
+    st <- str_length(FWA_code)
+    
+    if(code_type == "FWA") {
+      FWA_code <- stream_pick$FWA_WATERS
+      st <- str_locate(FWA_code, "000000")[1] - 2   #get stream code last position
+    }
+    
+    st_level <- (st+4)/7
+    
+    if(code_type == "FWA") s_pick <- str_sub(FWA_code,1,st)
+    
+    for(k in 1:st_level){
+      # if(k == 1) {
+      #   code <- paste0(str_sub(s_pick,1,3), "-000000")
+      #   candidates <- filter(paths,  str_starts(FWA_WATERS, code))
+      # }
+      #if(k > 1)  {
+      c_cut <- (k-1) * 7
+      code <- paste0(str_sub(FWA_code, 1, st - c_cut), "-000000")
+      #if(k == 1) code <- paste0(str_sub(s_pick,1,3), "-000000")
+      temp_path <- filter(paths, str_starts(FWA_WATERS, code))
+      
+      if(k == 1) {
+        candidates <- temp_path
+        candidates <- filter(candidates, DOWNSTREAM <= stream_pick$DOWNSTREAM)
+        
+        
+        #FWA_int <- st_intersects(candidates, stream_pick, sparse = FALSE)
+        #path_int <- candidates[which(apply(FWA_int, 1, sum) > 0),]
+        #candidates <- filter(candidates, DOWNSTREAM < max(path_int$DOWNSTREAM))
+      } 
+      if(k > 1) {
+        #get streams with lower FWA code that intersect with migration reaches
+        FWA_int <- st_intersects(temp_path, candidates, sparse = FALSE)
+        FWA_int <- temp_path[which(apply(FWA_int, 1, sum) > 0),]
+        if(nrow(FWA_int) == 0) next
+        temp_path <- filter(temp_path, DOWNSTREAM <= FWA_int$DOWNSTREAM)
+        candidates <- bind_rows(candidates, temp_path)
+      }
+      
+      #if(k == st_level) tempcan <- filter(paths, FWA_WATERS == FWA_code &  DOWNSTREAM < stream_pick$DOWNSTREAM)
+      
+      candidates <- candidates %>%
+        filter(STREAM_ORD >= max(stream_pick$STREAM_ORD, na.rm = T), STREAM_MAG >= max(stream_pick$STREAM_MAG, na.rm = T))
+      
+      
+    }
+
+    
+    
+
+    # if(code_type == "FWA") {
+    #   candidates_1 <- filter(paths, FWA_WATERS == FWA_code)
+    #   candidates_2 <- filter(paths, str_starts(FWA_WATERS == paste0(s_pick, "-000000"))) 
+    #   
+    #   str_starts(paths$FWA_WATERS, paste0(s_pick, "-000000"))
+    #   candidates <- candidates$
+    #   ind <- paths$FWA_WATERS %in% code
+    #   
+    # candidates <- paths[str_detect(paths, paste(codes, collapse="|")),] %>%
+    #  filter((FWA_WATERS == FWA_code & DOWNSTREAM < stream_pick$DOWNSTREAM) | FWA_WATERS != FWA_code)
+    #  
+    #  remove <- filter(candidates, FWA_WATERS == FWA_code & DOWNSTREAM < stream_pick$DOWNSTREAM)
+    
+    # #get FWA code for stream
+    # c_cut <- (st_level-1) * 7
+    # s_pick <- str_sub(FWA_code, 1, st - c_cut)
+    # if(code_type == "FWA") s_pick <- str_c(s_pick, "-000000")
+    # if(code_type == "FWA") s_pick <- str_sub(FWA_code,1,st)
+    # 
+    # #get streams with lower FWA code
+    # ind <- str_equal(paths$localcode, s_pick)
+    # if(code_type == "FWA") ind <- str_starts(paths$FWA_WATERS, s_pick)
+    # candidates <- paths[ind,] %>%
+    #   filter(STREAM_ORD >= max(stream_pick$STREAM_ORD), STREAM_MAG >= max(stream_pick$STREAM_MAG))
+    # 
+    #get downstream_route_measure range from lowest intersecting reach
+    if(code_type == "FWA") {
+      dd <- sum(candidates$LENGTH_MET, na.rm = T) - (stream_pick$LENGTH_MET / 2)
+    }
+    
+    dvec[j] <- dd
+  }
+  return(dvec)
 }
 
 #function to choose stream within a CU boundary for subsequent path analysis

@@ -3,9 +3,7 @@
 # 2a_fw_import.R
 #
 # This code reads in a number of spatial datasets related to salmon distribution
-# in the **Fraser region** and determines, for each Conservation Unit (CU),  
-# which PCIC grid cells should be used in assessments of climate change exposure  
-# for freshwater life stages.
+# in the **Fraser region**.
 #
 ###############################################################################
 
@@ -19,14 +17,17 @@
 
 cu_boundary <- st_read(file.path(spatial_dat, "CU_boundaries", "fraser_cus.shp")) %>%
   st_make_valid() %>%
-  st_transform(crs = 4269)   #crs 3005 is NAD83/BC Albers
+  st_transform(crs = 4269)  %>%  #crs 3005 is NAD83/BC Albers
+  left_join(select(cu_list, cuid, FULL_CU_IN, spp), 
+            join_by(CUID == cuid))
+
 
 # Are all CUs in cu_run in cu_boundary?
 #cu_list$cuid %in% cu_boundary$CUID # Yes
 #cu_boundary$CUID %in% cu_list$cuid
 
 #remove CUs that are not in the cu_boundary list
-cu_run <- cu_run[cu_run$cuid %in% cu_boundary$CUID,]
+#cu_run <- cu_run[cu_run$cuid %in% cu_boundary$CUID,]
 
 #remove CU shapes that are not being run
 # cu_boundary <- cu_boundary[cu_boundary$CUID %in% cu_run$cuid,] %>%
@@ -235,7 +236,7 @@ ENMs_GBM_ck <- read_csv(file.path(climate_dat, "Salmon-ENMs-2023-master", "Chino
 ENMs_GBM_co <- read_csv(file.path(climate_dat, "Salmon-ENMs-2023-master", "Coho_Proj_all_FavChange_GBM_102023.csv")) %>%
   rename(Fav_f.0_00_0 = `0_00_01`, Fav_f.0_00_1 = `0_00_12`, Fav_f.9_45_3 = `9_45_34`, Fav_f.9_45_5 = `9_45_56`,
          Prob_f.0_00_1 = `0_00_1`, Prob_f.9_45_3 = `9_45_3`, Prob_f.9_45_5 = `9_45_5`)
-ENMs_GBM_so <- read_csv(file.path(climate_dat, "Salmon-ENMs-2023-master", "Sockeye_Proj_all_FavChange_GBM_072023.csv"))
+ENMs_GBM_sk <- read_csv(file.path(climate_dat, "Salmon-ENMs-2023-master", "Sockeye_Proj_all_FavChange_GBM_072023.csv"))
 ENMs_GBM_pk <- read_csv(file.path(climate_dat, "Salmon-ENMs-2023-master", "Pink_Proj_all_FavChange_GBM_072023.csv"))
 ENMs_GBM_cm <- read_csv(file.path(climate_dat, "Salmon-ENMs-2023-master", "Chum_Proj_all_FavChange_GBM_072023.csv"))
 
@@ -247,8 +248,8 @@ reaches_ENM_co <- reaches_ENM %>%
   left_join(ENMs_GBM_co, by = c("SDM_ID_all")) %>%
   select(SDM_ID_all, presence, x, y, Fav_f.0_00_0, Fav_f.0_00_1, Fav_f.9_45_3, Fav_f.9_45_5, 
          Prob_f.0_00_1, Prob_f.9_45_3, Prob_f.9_45_5)
-reaches_ENM_so <- reaches_ENM %>%
-  left_join(ENMs_GBM_so, by = c("SDM_ID_all")) %>%
+reaches_ENM_sk <- reaches_ENM %>%
+  left_join(ENMs_GBM_sk, by = c("SDM_ID_all")) %>%
   select(SDM_ID_all, presence, x, y, Fav_f.0_00_0, Fav_f.0_00_1, Fav_f.9_45_3, Fav_f.9_45_5, 
          Prob_f.0_00_1, Prob_f.9_45_3, Prob_f.9_45_5)
 reaches_ENM_pk <- reaches_ENM %>%
@@ -263,22 +264,22 @@ reaches_ENM_cm <- reaches_ENM %>%
 #--------------------- Calculate indicators -----------------------------------
 
 #Aug temperature rate of change
-fw_amod$FW_SPN_EXP_rateT_9 <- (fw_amod$Tw8_9_45_3 - fw_amod$Tw8_0_00_1) / tspan
-fw_amod$FW_SPN_EXP_rateT_1 <- (fw_amod$Tw8_1_45_3 - fw_amod$Tw8_0_00_1) / tspan
-fw_amod$FW_SPN_EXP_rateT_2 <- (fw_amod$Tw8_2_45_3 - fw_amod$Tw8_0_00_1) / tspan
-fw_amod$FW_SPN_EXP_rateT_3 <- (fw_amod$Tw8_3_45_3 - fw_amod$Tw8_0_00_1) / tspan
-fw_amod$FW_SPN_EXP_rateT_4 <- (fw_amod$Tw8_4_45_3 - fw_amod$Tw8_0_00_1) / tspan
-fw_amod$FW_SPN_EXP_rateT_5 <- (fw_amod$Tw8_5_45_3 - fw_amod$Tw8_0_00_1) / tspan
-fw_amod$FW_SPN_EXP_rateT_6 <- (fw_amod$Tw8_6_45_3 - fw_amod$Tw8_0_00_1) / tspan
+fw_amod$SPN_EXP_rateT_9 <- (fw_amod$Tw8_9_45_3 - fw_amod$Tw8_0_00_1) / tspan
+fw_amod$SPN_EXP_rateT_1 <- (fw_amod$Tw8_1_45_3 - fw_amod$Tw8_0_00_1) / tspan
+fw_amod$SPN_EXP_rateT_2 <- (fw_amod$Tw8_2_45_3 - fw_amod$Tw8_0_00_1) / tspan
+fw_amod$SPN_EXP_rateT_3 <- (fw_amod$Tw8_3_45_3 - fw_amod$Tw8_0_00_1) / tspan
+fw_amod$SPN_EXP_rateT_4 <- (fw_amod$Tw8_4_45_3 - fw_amod$Tw8_0_00_1) / tspan
+fw_amod$SPN_EXP_rateT_5 <- (fw_amod$Tw8_5_45_3 - fw_amod$Tw8_0_00_1) / tspan
+fw_amod$SPN_EXP_rateT_6 <- (fw_amod$Tw8_6_45_3 - fw_amod$Tw8_0_00_1) / tspan
 
 #Projected temperature
-fw_amod$FW_SPN_EXP_projT_9 <- fw_amod$Tw8_9_45_3
-fw_amod$FW_SPN_EXP_projT_1 <- fw_amod$Tw8_1_45_3
-fw_amod$FW_SPN_EXP_projT_2 <- fw_amod$Tw8_2_45_3
-fw_amod$FW_SPN_EXP_projT_3 <- fw_amod$Tw8_3_45_3
-fw_amod$FW_SPN_EXP_projT_4 <- fw_amod$Tw8_4_45_3
-fw_amod$FW_SPN_EXP_projT_5 <- fw_amod$Tw8_5_45_3
-fw_amod$FW_SPN_EXP_projT_6 <- fw_amod$Tw8_6_45_3
+fw_amod$SPN_EXP_projT_9 <- fw_amod$Tw8_9_45_3
+fw_amod$SPN_EXP_projT_1 <- fw_amod$Tw8_1_45_3
+fw_amod$SPN_EXP_projT_2 <- fw_amod$Tw8_2_45_3
+fw_amod$SPN_EXP_projT_3 <- fw_amod$Tw8_3_45_3
+fw_amod$SPN_EXP_projT_4 <- fw_amod$Tw8_4_45_3
+fw_amod$SPN_EXP_projT_5 <- fw_amod$Tw8_5_45_3
+fw_amod$SPN_EXP_projT_6 <- fw_amod$Tw8_6_45_3
 
 #mean historic winter flow
 fw_amod$mean_flow_m3s_win_1 <- (fw_amod$mean_flow_m3s_11_1 + fw_amod$mean_flow_m3s_12_1 +
@@ -302,8 +303,8 @@ fw_amod$MADprop_1_proj  <- fw_amod$mean_1_40 / fw_amod$mean_flow_m3s_17_1
 fw_amod$MADprop_2_proj  <- fw_amod$mean_2_40 / fw_amod$mean_flow_m3s_17_1
 fw_amod$MADprop_win_proj <- fw_amod$mean_win_40 / fw_amod$mean_flow_m3s_17_1
 
-fw_amod$FW_SPN_EXP_winQ <- fw_amod$MADprop_win_proj - fw_amod$MADprop_win_hist
-fw_amod$FW_SPN_EXP_augQ <- fw_amod$MADprop_8_proj - fw_amod$MADprop_8_hist
+fw_amod$SPN_EXP_winQ <- fw_amod$MADprop_win_proj - fw_amod$MADprop_win_hist
+fw_amod$SPN_EXP_augQ <- fw_amod$MADprop_8_proj - fw_amod$MADprop_8_hist
 
 nuseds_matches <- select(as_tibble(fw_amod), LINEAR_FEATURE_ID, FWA_WATERSHED_CODE) %>%
   left_join(select(as_tibble(nuseds_Fr), FWA_WATERSHED_CDE, SPECIES_LOOKUP),
@@ -415,7 +416,7 @@ save(PCIC_month, PCIC_day, grid_points, grid_polys,
      Fr_basin, shoreline, cu_boundary, FAZ, FAZ_Fr,
      FWA_Fr_high, bcfp, bcfp_Fr, bcfp_Fr_high, 
      tscapes, T7DECM, flow_fwa, flow_hist_fwa, fw_stress,
-     reaches_ENM_ck, reaches_ENM_co, reaches_ENM_so, reaches_ENM_pk, reaches_ENM_cm,
+     reaches_ENM_ck, reaches_ENM_co, reaches_ENM_sk, reaches_ENM_pk, reaches_ENM_cm,
      nuseds_Fr,
      fw_models, fw_amod,
      file = here("processed_data", "freshwater", "R_data", paste0(today, "_fw_spatial_inputs.Rdata")))

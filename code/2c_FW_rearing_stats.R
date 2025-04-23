@@ -77,9 +77,9 @@ spn_stats <- tibble(cuid) %>% #,select(as_tibble(fw_amod[1:n.CUs,]), Tw8_0_00_0,
          MADprop_8_diff = NA,
          MADprop_win_diff = NA,
          
-         FW_SPN_ENM_fav_hist = NA,
-         FW_SPN_ENM_fav_proj = NA,
-         FW_SPN_ENM_fav_diff = NA
+         SPN_ENM_fav_hist = NA,
+         SPN_ENM_fav_proj = NA,
+         SPN_ENM_fav_diff = NA
          )  %>%
   left_join(select(cu_list, cuid, CU_NAME, FULL_CU_IN, Species_simple), join_by(cuid)) %>%
   relocate(CU_NAME:Species_simple)
@@ -178,37 +178,37 @@ for(i in 1:n.iter) {
   spn_stats$sd_Tw8_9_45_3[i] <- sqrt(Hmisc::wtd.var(amod_CU$Tw8_9_45_3, amod_CU$Shape_Length))
   #spn_stats$Tw_z_score[i]    <- (spn_stats$Tw8_9_45_3[i] -  spn_stats$Tw8_0_00_1[i]) / spn_stats$sd_Tw8_0_00_1[i]
   
-  spn_stats$FW_SPN_EXP_rateT_9[i] <- Hmisc::wtd.mean(amod_CU$FW_SPN_EXP_rateT_9, amod_CU$Shape_Length)
-  spn_stats$FW_SPN_EXP_rateT_1[i] <- Hmisc::wtd.mean(amod_CU$FW_SPN_EXP_rateT_1, amod_CU$Shape_Length)
-  spn_stats$FW_SPN_EXP_rateT_2[i] <- Hmisc::wtd.mean(amod_CU$FW_SPN_EXP_rateT_2, amod_CU$Shape_Length)
-  spn_stats$FW_SPN_EXP_rateT_3[i] <- Hmisc::wtd.mean(amod_CU$FW_SPN_EXP_rateT_3, amod_CU$Shape_Length)
-  spn_stats$FW_SPN_EXP_rateT_4[i] <- Hmisc::wtd.mean(amod_CU$FW_SPN_EXP_rateT_4, amod_CU$Shape_Length)
-  spn_stats$FW_SPN_EXP_rateT_5[i] <- Hmisc::wtd.mean(amod_CU$FW_SPN_EXP_rateT_5, amod_CU$Shape_Length)
-  spn_stats$FW_SPN_EXP_rateT_6[i] <- Hmisc::wtd.mean(amod_CU$FW_SPN_EXP_rateT_6, amod_CU$Shape_Length)
+  spn_stats$SPN_EXP_rateT_9[i] <- Hmisc::wtd.mean(amod_CU$SPN_EXP_rateT_9, amod_CU$Shape_Length)
+  spn_stats$SPN_EXP_rateT_1[i] <- Hmisc::wtd.mean(amod_CU$SPN_EXP_rateT_1, amod_CU$Shape_Length)
+  spn_stats$SPN_EXP_rateT_2[i] <- Hmisc::wtd.mean(amod_CU$SPN_EXP_rateT_2, amod_CU$Shape_Length)
+  spn_stats$SPN_EXP_rateT_3[i] <- Hmisc::wtd.mean(amod_CU$SPN_EXP_rateT_3, amod_CU$Shape_Length)
+  spn_stats$SPN_EXP_rateT_4[i] <- Hmisc::wtd.mean(amod_CU$SPN_EXP_rateT_4, amod_CU$Shape_Length)
+  spn_stats$SPN_EXP_rateT_5[i] <- Hmisc::wtd.mean(amod_CU$SPN_EXP_rateT_5, amod_CU$Shape_Length)
+  spn_stats$SPN_EXP_rateT_6[i] <- Hmisc::wtd.mean(amod_CU$SPN_EXP_rateT_6, amod_CU$Shape_Length)
   
-  spn_stats$FW_SPN_EXP_projT_9[i] <- Hmisc::wtd.mean(amod_CU$FW_SPN_EXP_projT_9, amod_CU$Shape_Length)
-  spn_stats$FW_SPN_EXP_projT_1[i] <- Hmisc::wtd.mean(amod_CU$FW_SPN_EXP_projT_1, amod_CU$Shape_Length)
-  spn_stats$FW_SPN_EXP_projT_2[i] <- Hmisc::wtd.mean(amod_CU$FW_SPN_EXP_projT_2, amod_CU$Shape_Length)
-  spn_stats$FW_SPN_EXP_projT_3[i] <- Hmisc::wtd.mean(amod_CU$FW_SPN_EXP_projT_3, amod_CU$Shape_Length)
-  spn_stats$FW_SPN_EXP_projT_4[i] <- Hmisc::wtd.mean(amod_CU$FW_SPN_EXP_projT_4, amod_CU$Shape_Length)
-  spn_stats$FW_SPN_EXP_projT_5[i] <- Hmisc::wtd.mean(amod_CU$FW_SPN_EXP_projT_5, amod_CU$Shape_Length)
-  spn_stats$FW_SPN_EXP_projT_6[i] <- Hmisc::wtd.mean(amod_CU$FW_SPN_EXP_projT_6, amod_CU$Shape_Length)
+  spn_stats$SPN_EXP_projT_9[i] <- Hmisc::wtd.mean(amod_CU$SPN_EXP_projT_9, amod_CU$Shape_Length)
+  spn_stats$SPN_EXP_projT_1[i] <- Hmisc::wtd.mean(amod_CU$SPN_EXP_projT_1, amod_CU$Shape_Length)
+  spn_stats$SPN_EXP_projT_2[i] <- Hmisc::wtd.mean(amod_CU$SPN_EXP_projT_2, amod_CU$Shape_Length)
+  spn_stats$SPN_EXP_projT_3[i] <- Hmisc::wtd.mean(amod_CU$SPN_EXP_projT_3, amod_CU$Shape_Length)
+  spn_stats$SPN_EXP_projT_4[i] <- Hmisc::wtd.mean(amod_CU$SPN_EXP_projT_4, amod_CU$Shape_Length)
+  spn_stats$SPN_EXP_projT_5[i] <- Hmisc::wtd.mean(amod_CU$SPN_EXP_projT_5, amod_CU$Shape_Length)
+  spn_stats$SPN_EXP_projT_6[i] <- Hmisc::wtd.mean(amod_CU$SPN_EXP_projT_6, amod_CU$Shape_Length)
   
-  spn_stats$FW_SPN_EXP_projTp05_9[i] <- Hmisc::wtd.quantile(amod_CU$FW_SPN_EXP_projT_9, amod_CU$Shape_Length, 0.05)
-  spn_stats$FW_SPN_EXP_projTp05_1[i] <- Hmisc::wtd.quantile(amod_CU$FW_SPN_EXP_projT_1, amod_CU$Shape_Length, 0.05)
-  spn_stats$FW_SPN_EXP_projTp05_2[i] <- Hmisc::wtd.quantile(amod_CU$FW_SPN_EXP_projT_2, amod_CU$Shape_Length, 0.05)
-  spn_stats$FW_SPN_EXP_projTp05_3[i] <- Hmisc::wtd.quantile(amod_CU$FW_SPN_EXP_projT_3, amod_CU$Shape_Length, 0.05)
-  spn_stats$FW_SPN_EXP_projTp05_4[i] <- Hmisc::wtd.quantile(amod_CU$FW_SPN_EXP_projT_4, amod_CU$Shape_Length, 0.05)
-  spn_stats$FW_SPN_EXP_projTp05_5[i] <- Hmisc::wtd.quantile(amod_CU$FW_SPN_EXP_projT_5, amod_CU$Shape_Length, 0.05)
-  spn_stats$FW_SPN_EXP_projTp05_6[i] <- Hmisc::wtd.quantile(amod_CU$FW_SPN_EXP_projT_6, amod_CU$Shape_Length, 0.05)
+  spn_stats$SPN_EXP_projTp05_9[i] <- Hmisc::wtd.quantile(amod_CU$SPN_EXP_projT_9, amod_CU$Shape_Length, 0.05)
+  spn_stats$SPN_EXP_projTp05_1[i] <- Hmisc::wtd.quantile(amod_CU$SPN_EXP_projT_1, amod_CU$Shape_Length, 0.05)
+  spn_stats$SPN_EXP_projTp05_2[i] <- Hmisc::wtd.quantile(amod_CU$SPN_EXP_projT_2, amod_CU$Shape_Length, 0.05)
+  spn_stats$SPN_EXP_projTp05_3[i] <- Hmisc::wtd.quantile(amod_CU$SPN_EXP_projT_3, amod_CU$Shape_Length, 0.05)
+  spn_stats$SPN_EXP_projTp05_4[i] <- Hmisc::wtd.quantile(amod_CU$SPN_EXP_projT_4, amod_CU$Shape_Length, 0.05)
+  spn_stats$SPN_EXP_projTp05_5[i] <- Hmisc::wtd.quantile(amod_CU$SPN_EXP_projT_5, amod_CU$Shape_Length, 0.05)
+  spn_stats$SPN_EXP_projTp05_6[i] <- Hmisc::wtd.quantile(amod_CU$SPN_EXP_projT_6, amod_CU$Shape_Length, 0.05)
   
-  spn_stats$FW_SPN_EXP_projTp95_9[i] <- Hmisc::wtd.quantile(amod_CU$FW_SPN_EXP_projT_9, amod_CU$Shape_Length, 0.95)
-  spn_stats$FW_SPN_EXP_projTp95_1[i] <- Hmisc::wtd.quantile(amod_CU$FW_SPN_EXP_projT_1, amod_CU$Shape_Length, 0.95)
-  spn_stats$FW_SPN_EXP_projTp95_2[i] <- Hmisc::wtd.quantile(amod_CU$FW_SPN_EXP_projT_2, amod_CU$Shape_Length, 0.95)
-  spn_stats$FW_SPN_EXP_projTp95_3[i] <- Hmisc::wtd.quantile(amod_CU$FW_SPN_EXP_projT_3, amod_CU$Shape_Length, 0.95)
-  spn_stats$FW_SPN_EXP_projTp95_4[i] <- Hmisc::wtd.quantile(amod_CU$FW_SPN_EXP_projT_4, amod_CU$Shape_Length, 0.95)
-  spn_stats$FW_SPN_EXP_projTp95_5[i] <- Hmisc::wtd.quantile(amod_CU$FW_SPN_EXP_projT_5, amod_CU$Shape_Length, 0.95)
-  spn_stats$FW_SPN_EXP_projTp95_6[i] <- Hmisc::wtd.quantile(amod_CU$FW_SPN_EXP_projT_6, amod_CU$Shape_Length, 0.95)
+  spn_stats$SPN_EXP_projTp95_9[i] <- Hmisc::wtd.quantile(amod_CU$SPN_EXP_projT_9, amod_CU$Shape_Length, 0.95)
+  spn_stats$SPN_EXP_projTp95_1[i] <- Hmisc::wtd.quantile(amod_CU$SPN_EXP_projT_1, amod_CU$Shape_Length, 0.95)
+  spn_stats$SPN_EXP_projTp95_2[i] <- Hmisc::wtd.quantile(amod_CU$SPN_EXP_projT_2, amod_CU$Shape_Length, 0.95)
+  spn_stats$SPN_EXP_projTp95_3[i] <- Hmisc::wtd.quantile(amod_CU$SPN_EXP_projT_3, amod_CU$Shape_Length, 0.95)
+  spn_stats$SPN_EXP_projTp95_4[i] <- Hmisc::wtd.quantile(amod_CU$SPN_EXP_projT_4, amod_CU$Shape_Length, 0.95)
+  spn_stats$SPN_EXP_projTp95_5[i] <- Hmisc::wtd.quantile(amod_CU$SPN_EXP_projT_5, amod_CU$Shape_Length, 0.95)
+  spn_stats$SPN_EXP_projTp95_6[i] <- Hmisc::wtd.quantile(amod_CU$SPN_EXP_projT_6, amod_CU$Shape_Length, 0.95)
   
   # spn_stats$Tav_0_00_1[i]    <- Hmisc::wtd.mean(amod_CU$Tav_0_00_1, amod_CU$Shape_Length)
   # spn_stats$ThiPI_0_00_1[i]  <- Hmisc::wtd.mean(amod_CU$ThiPI_0_00_1, amod_CU$Shape_Length)
@@ -268,15 +268,15 @@ for(i in 1:n.iter) {
   # spn_stats$MADprop_8_proj[i]   <- Hmisc::wtd.quantile(amod_CU$MADprop_8_proj, amod_CU$Shape_Length, probs = 0.5)
   # spn_stats$MADprop_win_proj[i] <- Hmisc::wtd.quantile(amod_CU$MADprop_win_proj, amod_CU$Shape_Length, probs = 0.5)
   
-  spn_stats$FW_SPN_EXP_winQ[i] <- Hmisc::wtd.mean(amod_CU$FW_SPN_EXP_winQ, amod_CU$Shape_Length, na.rm = T)
-  spn_stats$FW_SPN_EXP_augQ[i] <- Hmisc::wtd.mean(amod_CU$FW_SPN_EXP_augQ, amod_CU$Shape_Length, na.rm = T)
+  spn_stats$SPN_EXP_winQ[i] <- Hmisc::wtd.mean(amod_CU$SPN_EXP_winQ, amod_CU$Shape_Length, na.rm = T)
+  spn_stats$SPN_EXP_augQ[i] <- Hmisc::wtd.mean(amod_CU$SPN_EXP_augQ, amod_CU$Shape_Length, na.rm = T)
   
   #ENM model statistics
-  spn_stats$FW_SPN_ENM_fav_hist[i]     <- Hmisc::wtd.mean(reaches_ENM_cu$Fav_f.0_00_1, na.rm = T)
-  spn_stats$FW_SPN_ENM_fav_proj[i]     <- Hmisc::wtd.mean(reaches_ENM_cu$Fav_f.9_45_3, na.rm = T)
-  spn_stats$FW_SPN_ENM_fav_proj_5[i]     <- Hmisc::wtd.mean(reaches_ENM_cu$Fav_f.9_45_5, na.rm = T)
-  spn_stats$FW_SPN_ENM_fav_diff[i]     <- spn_stats$FW_SPN_ENM_fav_proj[i] - spn_stats$FW_SPN_ENM_fav_hist[i]
-  spn_stats$FW_SPN_ENM_fav_diff_5[i]     <- spn_stats$FW_SPN_ENM_fav_proj_5[i] - spn_stats$FW_SPN_ENM_fav_hist[i]
+  spn_stats$SPN_ENM_fav_hist[i]     <- Hmisc::wtd.mean(reaches_ENM_cu$Fav_f.0_00_1, na.rm = T)
+  spn_stats$SPN_ENM_fav_proj[i]     <- Hmisc::wtd.mean(reaches_ENM_cu$Fav_f.9_45_3, na.rm = T)
+  spn_stats$SPN_ENM_fav_proj_5[i]     <- Hmisc::wtd.mean(reaches_ENM_cu$Fav_f.9_45_5, na.rm = T)
+  spn_stats$SPN_ENM_fav_diff[i]     <- spn_stats$SPN_ENM_fav_proj[i] - spn_stats$SPN_ENM_fav_hist[i]
+  spn_stats$SPN_ENM_fav_diff_5[i]     <- spn_stats$SPN_ENM_fav_proj_5[i] - spn_stats$SPN_ENM_fav_hist[i]
   
   #----------------------PCIC monthly stats ------------------------------------
   
@@ -375,17 +375,17 @@ all_spn_stats <- spn_stats %>%
 
 CVIS_spn <- all_spn_stats %>%
   select(cuid, CU_NAME, FULL_CU_IN, Species_simple,
-         FW_SPN_EXP_projT_9, FW_SPN_EXP_rateT_9, FW_SPN_EXP_augQ, FW_SPN_EXP_winQ, 
-         peakQday_diff, CT_anad_mean, dur_spn, ENM_fav_diff) %>%
-  rename(FW_SPN_EXP_peakQday = peakQday_diff, FW_SPN_SEN_CT_anad = CT_anad_mean,
-         FW_SPN_SEN_dur = dur_spn, FW_SPN_ENM_fav_diff = ENM_fav_diff)
+         SPN_EXP_projT_9, SPN_EXP_rateT_9, SPN_EXP_augQ, SPN_EXP_winQ, 
+         peakQday_diff, CT_anad_mean, dur_spn, SPN_ENM_fav_diff) %>%
+  rename(SPN_EXP_peakQday = peakQday_diff, SPN_SEN_CT_anad = CT_anad_mean,
+         SPN_SEN_dur = dur_spn)
 
 # test correlation
 cor_stats <- cor(CVIS_spn %>% select(-c(cuid, CU_NAME, FULL_CU_IN, Species_simple)), use = "pairwise.complete.obs")
 
 ## save output
 save(spn_stats, spn_PCIC_CU, all_spn_stats, CVIS_spn, cor_stats,
-     file = here("processed_data", "freshwater", "R_data", paste0(today, "_fw_spn_stats.Rdata")))
+     file = here("processed_data", "freshwater", "R_data", paste0(today, "_SPN_stats.Rdata")))
 
 #write_csv(all_spn_stats, here("processed_data", "freshwater", paste0(today, "_fw_all_spnstats.csv")))
 #write_csv(as_tibble(cor_stats), here("processed_data", "freshwater", paste0(today, "_fw_cor_stats.csv")))
@@ -426,7 +426,6 @@ save(spn_stats, spn_PCIC_CU, all_spn_stats, CVIS_spn, cor_stats,
   
 }
 
-corrplot(cor_stats,  method = "number", tl.col = "black")
 
 #write_csv(PCIC_ts_compare, here("output", paste0(today, "_fw_all_stats.csv")))
 
