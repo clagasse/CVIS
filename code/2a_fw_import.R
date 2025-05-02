@@ -167,6 +167,13 @@ nuseds_Fr <- read_csv(file.path(salmon_dat, "NuSEDS_CU_System_sites_202406.csv")
 tscapes <- st_read(file.path(climate_dat, "bc_stream_thermalscapes.gdb"), layer = "thermalscape_fraser") %>%
   st_transform(crs = 4269)
   
+tscapes_nest <- tscapes %>%
+  mutate(Tw8_45_3 = pmap(select(., ends_with("45_3")), c),
+         Tw8_45_5 = pmap(select(., ends_with("45_5")), c),
+         Tw8_85_3 = pmap(select(., ends_with("85_3")), c),
+         Tw8_85_5 = pmap(select(., ends_with("85_5")), c)) 
+  #select(-c(contains("45"), contains("85"), contains("26")))
+
   #join to bcfp PSF version to get upstream area
   # left_join(select(as_tibble(bcfp_PSF), linear_feature_id, upstream_area_ha), 
   #           join_by(LINEAR_FEATURE_ID == linear_feature_id),
@@ -318,6 +325,132 @@ nuseds_matches <- select(as_tibble(fw_amod), LINEAR_FEATURE_ID, FWA_WATERSHED_CO
 fw_amod <- fw_amod %>%
   left_join(nuseds_matches, join_by(FWA_WATERSHED_CODE))
 
+
+#----------------------Load low flow projections ------------------------------
+
+stations_stats <- read.csv(file.path(climate_dat, "Ruzzante_low_flows", "stations_performance.csv"))
+
+watershed_flow <- st_read(file.path(climate_dat, "Ruzzante_low_flows", "watersheds.gpkg")) %>%
+  st_transform(crs = 4269) %>%
+  left_join(select(stations_stats, ID, regime), by = c("ID" = "ID")) %>%
+  mutate(regime = as.factor(regime))
+
+stations_flow <- st_read(file.path(climate_dat, "Ruzzante_low_flows", "stations.gpkg")) %>%
+  st_transform(crs = 4269)
+
+flow_in_cu <- lengths(st_contains(cu_boundary, stations_flow)) > 0 
+cu_boundary$has_flow <- flow_in_cu
+
+projections_list <- list.files(file.path(climate_dat, "Ruzzante_low_flows", "regressionProjections"), pattern = ".csv")
+
+for(i in 1:length(projections_list)) {
+  projections_csv <- read.csv(file.path(climate_dat, "Ruzzante_low_flows", "regressionProjections", projections_list[i])) %>%
+    mutate(ID = str_sub(projections_list[i],1,-5))%>%
+    nest(.by = c("ID", "source_id",  "experiment_id", "Year")) #%>%
+    #nest(.by = c("ID", "source_id", "experiment_id"))
+
+  if(i == 1) watershed_proj <- projections_csv
+  else if(i > 1) watershed_proj <- bind_rows(watershed_proj, projections_csv)
+}
+
+wp_sub <- filter(watershed_proj, experiment_id %in% c("historical", "ssp370"))
+
+wp_vm <- wp_sub %>% 
+  mutate(mean = map_dbl(data, ~mean(.x$predMean.m3s_8))) %>%
+  nest(.by = c("ID", "experiment_id", "Year"))
+
+wp_mean <- wp_vm %>%
+  mutate(mean = map_dbl(data, ~mean(.x$mean))) %>%
+  select(-data) %>%
+  mutate(period = if_else(Year >= 1981 & Year <= 2000, 0,
+                          if_else(Year >= 2001 & Year <= 2020, 1,
+                                  if_else(Year >= 2021 & Year <= 2040, 2,
+                                          if_else(Year >= 2041 & Year <= 2060, 3,
+                                                  if_else(Year >= 2061 & Year <= 2080, 4,
+                                                          if_else(Year >= 2081 & Year <= 2100, 5, NA)))))))
+
+wp_pmean <- wp_mean %>%
+  filter(!is.na(period)) %>%
+  group_by(ID, experiment_id, period) %>%
+  summarise(mean = mean(mean)) %>%
+  ungroup() %>%
+  mutate(period = as.factor(period)) %>%
+  pivot_wider(names_from = c(experiment_id, period), values_from = mean) %>%
+  mutate(Qdelta_3 = ssp370_3 - historical_0,
+         Qdelta_5 = ssp370_5 - historical_0,
+         Qprop_3 = (Qdelta_3 / historical_0),
+         Qprop_5 = (Qdelta_5 / historical_0))
+
+stations_flow <- stations_flow %>%
+  left_join(wp_pmean, by = c("ID" = "ID")) 
+
+watershed_flow <- watershed_flow %>%
+  left_join(wp_pmean, by = c("ID" = "ID")) 
+
+cu_cont <- st_contains(cu_boundary, stations_flow)
+
+#take average of stations in each CU boundary
+
+calculate_subset_means_all <- function(df, index_list) {
+  # Select only numeric columns
+  numeric_df <- df %>% select_if(is.numeric)
+  
+  # For each subset, calculate means of all numeric columns
+  map_df(index_list, function(indices) {
+    numeric_df[indices, ] %>%
+      summarise(across(everything(), \(x) mean(x, na.rm = TRUE)))
+  }, .id = "subset")
+}
+
+greater_zero <- function(x) {
+  if_else(x > 0, T, F)
+}
+
+  
+cu_wp_pmean <- calculate_subset_means_all(wp_pmean, cu_cont)
+
+cu_boundary_flow <- bind_cols(cu_boundary, cu_wp_pmean)
+
+cu_PCIC_flow <- cu_boundary_flow %>%
+  left_join(CVIS_spn, by = c("CUID" = "cuid"))
+
+
+station_cont <- t(st_contains(cu_boundary, stations_flow, sparse = F)) %>%
+  apply(1, sum) %>%
+  greater_zero() %>%
+  as_tibble()
+
+stations_flow <- bind_cols(stations_flow, station_cont) %>%
+  rename(in_CU = value)
+
+
+  
+  
+
+#get average historic and projected summer flows for each watershed
+
+ggplot() + 
+  geom_sf(data = filter(cu_boundary_flow, Species == "Chinook"), aes(fill = Qprop_3)) +
+  scale_fill_viridis(direction = -1) +
+  geom_sf(data = watershed_flow, colour = "darkred", alpha = 0.2) +
+  geom_sf(data = stations_flow) 
+
+
+ggplot() +
+  geom_sf(data = filter(cu_PCIC_flow, Species == "Chinook"), aes(fill = SPN_EXP_augQ)) + 
+  geom_sf(data = stations_flow) + 
+  scale_fill_viridis(direction = -1)
+
+
+ggplot(cu_PCIC_flow, x = Qprop_3, y = SPN_EXP_augQ) +
+  geom_point(aes(x = Qprop_3, y = SPN_EXP_augQ, color = Species)) +
+  xlim(-1,0) +
+  ylim(-1,0)
+
+ggplot() +
+  
+
+  
 
 #----------------------PCIC grid points and polygon----------------------------
 # Read in PCIC grid

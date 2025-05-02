@@ -99,8 +99,6 @@ for(i in 1:n.iter) {
     filter(year(time) == hist_ystart) %>%
     aggregate(by = "year", FUN = mean)
   
-  plot(PCIC_tibble$downstream_distance.x, PCIC_tibble$downstream_distance.y)
-  
   PCIC_migr_CU <- c(PCIC_migr_CU, temp)
   
   
@@ -109,10 +107,7 @@ for(i in 1:n.iter) {
   
   path_CU_test <- mutate(mean_temp <- st_extract(PCIC_migr_CU, path_CU, fun = mean, na.rm = TRUE))
   
-  measure_downstream(path_CU)
-  
-  # PCIC_migr_CU <- PCIC_migr_CU %>%
-  #   extract(path_CU$prop_paths)
+
   
   PCIC_migr_hist_CU <- PCIC_migr_CU %>%
     filter(year(time) == hist_ystart) #, yday(time) >= rt_s, yday(time) <= sp_timing_peak, ) %>%
