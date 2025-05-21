@@ -128,87 +128,95 @@ spn_PCIC_CU <- select(spn_stats, cuid, CU_NAME, FULL_CU_IN, Species_simple) %>%
 
 #----------------------CALCULATE CU STATISTICS --------------------------------
 
-if(do_FAZ == TRUE) n.iter <- n.FAZ else n.iter <- n.CUs
 
-#n.iter <- 3
+for(i in 1:2) {
 
-for(i in 1:n.iter) {
+  cu_i <- cu_run$FULL_CU_IN[i]
+  sp_pick <- cu_run$spp[cu_run$FULL_CU_IN == cu_i] #species abbr
+  sp_pick_bcfp <- spp_lookup$spp_abr_bcfp[spp_lookup$spp_abr == sp_pick]  #BCFP species abbr (different for Chinook)
+  # Subset CU boundary
+  cu_boundary_i <- cu_boundary[cu_boundary$FULL_CU_IN == cu_i,]
+  #subset CU migration path
+  #path_CU <- flatten(path_list[names(path_list) == cuid_i])
   
-  if(do_FAZ == FALSE) {
-    cuid_i <- cu_run$cuid[i]
-    sp_pick <- cu_run$spp[cu_run$cuid == cuid_i] #species abbr
-    # Subset CU boundary
-    cu_boundary_i <- cu_boundary[cu_boundary$CUID == cuid_i,]
-    #subset CU migration path
-    #path_CU <- flatten(path_list[names(path_list) == cuid_i])
-    
-    #subset thermalscapes accessible streams within CU boundary
-    amod_CU <- fw_amod[stream_cu_picks[,i],] #%>%
-      #filter(!is.na(Tw8_0_00_1))
-    
-    # get species-specific ENM reaches
-    reaches_ENM_sp <- get(paste0("reaches_ENM_", sp_pick))
-    
-    #subset ENM outputs for CU
-    pick_st <- lengths(st_intersects(reaches_ENM_sp, cu_boundary_i)) > 0
-    reaches_ENM_cu <- reaches_ENM_sp[pick_st,]
-    
+  
+  bcfp_cu <- bcfpa[stream_cu_picks[,i],] %>%
+    select(segmented_stream_id:mad_m3s, 
+           contains(sp_pick_bcfp)) %>%  #subset model for CU species
+    rename(model_spawning = starts_with("model_spawning"),
+           model_rearing  = starts_with("model_rearing")) %>%
+    mutate(model_rs = if_any(starts_with("model"), ~ . == TRUE))  #get boolean for model spawning and rearing
+  
+  bcfp_cu_rs <- filter(bcfp_cu, model_rs == TRUE)
+  
+  fwT_cu <- fwT[stream_cu_picks[,i],] %>%
+    filter(bcfp_cu$model_rs == TRUE)
+  fwQ_cu <- fwQ[stream_cu_picks[,i],] %>%
+    filter(bcfp_cu$model_rs == TRUE)
+  fwct_cu<- fwct[stream_cu_picks[,i],] %>%
+    filter(bcfp_cu$model_rs == TRUE)
+  
+  ENM_cu <- reaches_ENM_all[ENM_cu_picks[,i],]
 
-  }  else if(do_FAZ == TRUE) {
-    cuid_i <- FAZ_Fr$FAZ_Acrony[i]
-    cu_boundary_i <- FAZ_Fr[FAZ_Fr$FAZ_Acrony == cuid_i,]
-    amod_CU <- fw_amod[stream_FAZ_picks[,i],] %>%
-      filter(!is.na(Tw8_0_00_1))
-  }
+  
+  ggplot() +
+    geom_sf(data = cu_boundary_i, alpha = 0.5) +
+    geom_sf(data = bcfp_cu, aes(colour = model_rs))
+
+  
   
   spn_stats$dur_spn[i] = cu_run$Peak_Spawn_To_Ocean_Entry_Days[cu_run$cuid == cuid_i]
   
-  total_length = sum(amod_CU$Shape_Length, na.rm=T)
+  spn_stats$total_length[i]    <- sum(bcfp_cu$length_metre, na.rm = T)
+  spn_stats$total_length_acc[i]   <- sum(bcfp_cu$length_metre, na.rm=T)
+  spn_stats$total_length_rear[i]  <- sum(bcfp_cu$length_metre[bcfp_cu$model_rearing == TRUE])
+  spn_stats$total_length_spawn[i] <- sum(bcfp_cu$length_metre[bcfp_cu$model_spawning == TRUE])
   
-  spn_stats$length_sum[i]    <- sum(amod_CU$Shape_Length, na.rm = T)
-  spn_stats$avg_length[i]    <- mean(amod_CU$Shape_Length, na.rm = T)
-  spn_stats$avg_order[i]     <- mean(amod_CU$STREAM_ORDER, na.rm = T)
-  spn_stats$n_streams[i]     <- nrow(amod_CU)
+  spn_stats$avg_order[i]     <- mean(bcfp_cu$stream_order, na.rm = T)
+  spn_stats$n_streams[i]     <- length(unique(bcfp_cu$linear_feature_id))
   spn_stats$cu_area[i]       <- st_area(cu_boundary_i) / 1e6
   
   # Temperautre statistics
-  spn_stats$Tw8_0_00_0[i]  <- Hmisc::wtd.mean(amod_CU$Tw8_0_00_0, amod_CU$Shape_Length)
-  spn_stats$Tw8_0_00_1[i]  <- Hmisc::wtd.mean(amod_CU$Tw8_0_00_1, amod_CU$Shape_Length)
-  spn_stats$sd_Tw8_0_00_1[i] <- sqrt(Hmisc::wtd.var(amod_CU$Tw8_0_00_1, amod_CU$Shape_Length))
-  spn_stats$sd_Tw8_9_45_3[i] <- sqrt(Hmisc::wtd.var(amod_CU$Tw8_9_45_3, amod_CU$Shape_Length))
+  spn_stats$Tw8_0_00_0[i]  <- Hmisc::wtd.mean(fwT_cu$Tw8_0_00_0, fwT_cu$Shape_Length)
+  spn_stats$Tw8_0_00_1[i]  <- Hmisc::wtd.mean(fwT_cu$Tw8_0_00_1, fwT_cu$Shape_Length)
+  spn_stats$sd_Tw8_0_00_1[i] <- sqrt(Hmisc::wtd.var(fwT_cu$Tw8_0_00_1, fwT_cu$Shape_Length))
+  spn_stats$sd_Tw8_9_45_3[i] <- sqrt(Hmisc::wtd.var(fwT_cu$Tw8_9_45_3, fwT_cu$Shape_Length))
   #spn_stats$Tw_z_score[i]    <- (spn_stats$Tw8_9_45_3[i] -  spn_stats$Tw8_0_00_1[i]) / spn_stats$sd_Tw8_0_00_1[i]
   
-  spn_stats$SPN_EXP_rateT_9[i] <- Hmisc::wtd.mean(amod_CU$SPN_EXP_rateT_9, amod_CU$Shape_Length)
-  spn_stats$SPN_EXP_rateT_1[i] <- Hmisc::wtd.mean(amod_CU$SPN_EXP_rateT_1, amod_CU$Shape_Length)
-  spn_stats$SPN_EXP_rateT_2[i] <- Hmisc::wtd.mean(amod_CU$SPN_EXP_rateT_2, amod_CU$Shape_Length)
-  spn_stats$SPN_EXP_rateT_3[i] <- Hmisc::wtd.mean(amod_CU$SPN_EXP_rateT_3, amod_CU$Shape_Length)
-  spn_stats$SPN_EXP_rateT_4[i] <- Hmisc::wtd.mean(amod_CU$SPN_EXP_rateT_4, amod_CU$Shape_Length)
-  spn_stats$SPN_EXP_rateT_5[i] <- Hmisc::wtd.mean(amod_CU$SPN_EXP_rateT_5, amod_CU$Shape_Length)
-  spn_stats$SPN_EXP_rateT_6[i] <- Hmisc::wtd.mean(amod_CU$SPN_EXP_rateT_6, amod_CU$Shape_Length)
+  spn_stats$Tw8_9_45_3[i]  <- Hmisc::wtd.mean(fwT_cu$Tw8_9_45_3, fwT_cu$length_metre)
   
-  spn_stats$SPN_EXP_projT_9[i] <- Hmisc::wtd.mean(amod_CU$SPN_EXP_projT_9, amod_CU$Shape_Length)
-  spn_stats$SPN_EXP_projT_1[i] <- Hmisc::wtd.mean(amod_CU$SPN_EXP_projT_1, amod_CU$Shape_Length)
-  spn_stats$SPN_EXP_projT_2[i] <- Hmisc::wtd.mean(amod_CU$SPN_EXP_projT_2, amod_CU$Shape_Length)
-  spn_stats$SPN_EXP_projT_3[i] <- Hmisc::wtd.mean(amod_CU$SPN_EXP_projT_3, amod_CU$Shape_Length)
-  spn_stats$SPN_EXP_projT_4[i] <- Hmisc::wtd.mean(amod_CU$SPN_EXP_projT_4, amod_CU$Shape_Length)
-  spn_stats$SPN_EXP_projT_5[i] <- Hmisc::wtd.mean(amod_CU$SPN_EXP_projT_5, amod_CU$Shape_Length)
-  spn_stats$SPN_EXP_projT_6[i] <- Hmisc::wtd.mean(amod_CU$SPN_EXP_projT_6, amod_CU$Shape_Length)
   
-  spn_stats$SPN_EXP_projTp05_9[i] <- Hmisc::wtd.quantile(amod_CU$SPN_EXP_projT_9, amod_CU$Shape_Length, 0.05)
-  spn_stats$SPN_EXP_projTp05_1[i] <- Hmisc::wtd.quantile(amod_CU$SPN_EXP_projT_1, amod_CU$Shape_Length, 0.05)
-  spn_stats$SPN_EXP_projTp05_2[i] <- Hmisc::wtd.quantile(amod_CU$SPN_EXP_projT_2, amod_CU$Shape_Length, 0.05)
-  spn_stats$SPN_EXP_projTp05_3[i] <- Hmisc::wtd.quantile(amod_CU$SPN_EXP_projT_3, amod_CU$Shape_Length, 0.05)
-  spn_stats$SPN_EXP_projTp05_4[i] <- Hmisc::wtd.quantile(amod_CU$SPN_EXP_projT_4, amod_CU$Shape_Length, 0.05)
-  spn_stats$SPN_EXP_projTp05_5[i] <- Hmisc::wtd.quantile(amod_CU$SPN_EXP_projT_5, amod_CU$Shape_Length, 0.05)
-  spn_stats$SPN_EXP_projTp05_6[i] <- Hmisc::wtd.quantile(amod_CU$SPN_EXP_projT_6, amod_CU$Shape_Length, 0.05)
+  spn_stats$SPN_EXP_rateT_9[i] <- Hmisc::wtd.mean(fwT_cu$SPN_EXP_rateT_9, fwT_cu$Shape_Length)
+  spn_stats$SPN_EXP_rateT_1[i] <- Hmisc::wtd.mean(fwT_cu$SPN_EXP_rateT_1, fwT_cu$Shape_Length)
+  spn_stats$SPN_EXP_rateT_2[i] <- Hmisc::wtd.mean(fwT_cu$SPN_EXP_rateT_2, fwT_cu$Shape_Length)
+  spn_stats$SPN_EXP_rateT_3[i] <- Hmisc::wtd.mean(fwT_cu$SPN_EXP_rateT_3, fwT_cu$Shape_Length)
+  spn_stats$SPN_EXP_rateT_4[i] <- Hmisc::wtd.mean(fwT_cu$SPN_EXP_rateT_4, fwT_cu$Shape_Length)
+  spn_stats$SPN_EXP_rateT_5[i] <- Hmisc::wtd.mean(fwT_cu$SPN_EXP_rateT_5, fwT_cu$Shape_Length)
+  spn_stats$SPN_EXP_rateT_6[i] <- Hmisc::wtd.mean(fwT_cu$SPN_EXP_rateT_6, fwT_cu$Shape_Length)
   
-  spn_stats$SPN_EXP_projTp95_9[i] <- Hmisc::wtd.quantile(amod_CU$SPN_EXP_projT_9, amod_CU$Shape_Length, 0.95)
-  spn_stats$SPN_EXP_projTp95_1[i] <- Hmisc::wtd.quantile(amod_CU$SPN_EXP_projT_1, amod_CU$Shape_Length, 0.95)
-  spn_stats$SPN_EXP_projTp95_2[i] <- Hmisc::wtd.quantile(amod_CU$SPN_EXP_projT_2, amod_CU$Shape_Length, 0.95)
-  spn_stats$SPN_EXP_projTp95_3[i] <- Hmisc::wtd.quantile(amod_CU$SPN_EXP_projT_3, amod_CU$Shape_Length, 0.95)
-  spn_stats$SPN_EXP_projTp95_4[i] <- Hmisc::wtd.quantile(amod_CU$SPN_EXP_projT_4, amod_CU$Shape_Length, 0.95)
-  spn_stats$SPN_EXP_projTp95_5[i] <- Hmisc::wtd.quantile(amod_CU$SPN_EXP_projT_5, amod_CU$Shape_Length, 0.95)
-  spn_stats$SPN_EXP_projTp95_6[i] <- Hmisc::wtd.quantile(amod_CU$SPN_EXP_projT_6, amod_CU$Shape_Length, 0.95)
+  spn_stats$SPN_EXP_projT_9[i] <- Hmisc::wtd.mean(fwT_cu$SPN_EXP_projT_9, fwT_cu$Shape_Length)
+  spn_stats$SPN_EXP_projT_1[i] <- Hmisc::wtd.mean(fwT_cu$SPN_EXP_projT_1, fwT_cu$Shape_Length)
+  spn_stats$SPN_EXP_projT_2[i] <- Hmisc::wtd.mean(fwT_cu$SPN_EXP_projT_2, fwT_cu$Shape_Length)
+  spn_stats$SPN_EXP_projT_3[i] <- Hmisc::wtd.mean(fwT_cu$SPN_EXP_projT_3, fwT_cu$Shape_Length)
+  spn_stats$SPN_EXP_projT_4[i] <- Hmisc::wtd.mean(fwT_cu$SPN_EXP_projT_4, fwT_cu$Shape_Length)
+  spn_stats$SPN_EXP_projT_5[i] <- Hmisc::wtd.mean(fwT_cu$SPN_EXP_projT_5, fwT_cu$Shape_Length)
+  spn_stats$SPN_EXP_projT_6[i] <- Hmisc::wtd.mean(fwT_cu$SPN_EXP_projT_6, fwT_cu$Shape_Length)
+  
+  spn_stats$SPN_EXP_projTp05_9[i] <- Hmisc::wtd.quantile(fwT_cu$SPN_EXP_projT_9, fwT_cu$Shape_Length, 0.05)
+  spn_stats$SPN_EXP_projTp05_1[i] <- Hmisc::wtd.quantile(fwT_cu$SPN_EXP_projT_1, fwT_cu$Shape_Length, 0.05)
+  spn_stats$SPN_EXP_projTp05_2[i] <- Hmisc::wtd.quantile(fwT_cu$SPN_EXP_projT_2, fwT_cu$Shape_Length, 0.05)
+  spn_stats$SPN_EXP_projTp05_3[i] <- Hmisc::wtd.quantile(fwT_cu$SPN_EXP_projT_3, fwT_cu$Shape_Length, 0.05)
+  spn_stats$SPN_EXP_projTp05_4[i] <- Hmisc::wtd.quantile(fwT_cu$SPN_EXP_projT_4, fwT_cu$Shape_Length, 0.05)
+  spn_stats$SPN_EXP_projTp05_5[i] <- Hmisc::wtd.quantile(fwT_cu$SPN_EXP_projT_5, fwT_cu$Shape_Length, 0.05)
+  spn_stats$SPN_EXP_projTp05_6[i] <- Hmisc::wtd.quantile(fwT_cu$SPN_EXP_projT_6, fwT_cu$Shape_Length, 0.05)
+  
+  spn_stats$SPN_EXP_projTp95_9[i] <- Hmisc::wtd.quantile(fwT_cu$SPN_EXP_projT_9, fwT_cu$Shape_Length, 0.95)
+  spn_stats$SPN_EXP_projTp95_1[i] <- Hmisc::wtd.quantile(fwT_cu$SPN_EXP_projT_1, fwT_cu$Shape_Length, 0.95)
+  spn_stats$SPN_EXP_projTp95_2[i] <- Hmisc::wtd.quantile(fwT_cu$SPN_EXP_projT_2, fwT_cu$Shape_Length, 0.95)
+  spn_stats$SPN_EXP_projTp95_3[i] <- Hmisc::wtd.quantile(fwT_cu$SPN_EXP_projT_3, fwT_cu$Shape_Length, 0.95)
+  spn_stats$SPN_EXP_projTp95_4[i] <- Hmisc::wtd.quantile(fwT_cu$SPN_EXP_projT_4, fwT_cu$Shape_Length, 0.95)
+  spn_stats$SPN_EXP_projTp95_5[i] <- Hmisc::wtd.quantile(fwT_cu$SPN_EXP_projT_5, fwT_cu$Shape_Length, 0.95)
+  spn_stats$SPN_EXP_projTp95_6[i] <- Hmisc::wtd.quantile(fwT_cu$SPN_EXP_projT_6, fwT_cu$Shape_Length, 0.95)
   
   # spn_stats$Tav_0_00_1[i]    <- Hmisc::wtd.mean(amod_CU$Tav_0_00_1, amod_CU$Shape_Length)
   # spn_stats$ThiPI_0_00_1[i]  <- Hmisc::wtd.mean(amod_CU$ThiPI_0_00_1, amod_CU$Shape_Length)

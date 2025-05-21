@@ -101,20 +101,24 @@ save(path_list,
 ## CU Boundary analysis 
 ##determine which streams are contained within each CU boundary
 
-stream_cu_picks <- matrix(ncol = n.CUs, nrow = nrow(fw_amod))
+stream_cu_picks <- matrix(ncol = n.CUs, nrow = nrow(bcfpa))
+colnames(stream_cu_picks) <- cu_seq
 
-for(i in 1:n.CUs) {
+ENM_cu_picks <- matrix(ncol = n.CUs, nrow = nrow(reaches_ENM_all))
+
+for(i in 1:2) {
   cu_pick <- cu_boundary[cu_boundary$FULL_CU_IN == cu_seq[i],]
-  pick_st <- lengths(st_intersects(fw_amod, cu_pick)) > 0
+  pick_st <- lengths(st_intersects(st_zm(bcfpa), cu_pick)) > 0
   stream_cu_picks[,i] <- pick_st
+  
+  pick_st <- lengths(st_intersects(st_zm(reaches_ENM_all), cu_pick)) > 0
+  ENM_cu_picks[,i] <- pick_st
   
   print(paste(cu_seq[i], "boundary stream selection done"))
 }
 
-colnames(stream_cu_picks) <- cu_seq
-
-save(stream_cu_picks, 
-     file = here("processed_data", "freshwater", "R_data", paste0(today, "_fw_cu_streams.Rdata")))
+save(stream_cu_picks, ENM_cu_picks,
+     file = here("processed_data", "freshwater", paste0(today, "_fw_cu_streams.Rdata")))
 
 
 #############################################################################

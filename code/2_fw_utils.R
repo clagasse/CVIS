@@ -3,6 +3,24 @@
 
 ###############################################################################
 
+## simple calculation functions
+calculate_subset_means_all <- function(df, index_list) {
+  # Select only numeric columns
+  numeric_df <- df %>% select_if(is.numeric)
+  
+  # For each subset, calculate means of all numeric columns
+  map_df(index_list, function(indices) {
+    numeric_df[indices, ] %>%
+      summarise(across(everything(), \(x) mean(x, na.rm = TRUE)))
+  }, .id = "subset")
+}
+
+greater_zero <- function(x) {
+  if_else(x > 0, T, F)
+}
+
+
+
 ###############################################################################
 # Function to load PCIC model output for given model and variable
 ###############################################################################
@@ -83,25 +101,6 @@ loadPCIC_ind <- function(
 
 
 
-#------------------------------------------------------------------------------
-# Function to calculate mean difference between historic and projected
-#------------------------------------------------------------------------------
-
-calc_mean_diff <- function(
-    indicator = "peakFlow"
-) {
-  
-  indicator_hist <- indicator[,1]
-  
-  indicator_proj <- indicator[,2]
-  
-  hist_mean <- mean(indicator_hist, na.rm = T)
-  proj_mean <- mean(indicator_proj, na.rm = T)
-  
-  diff <- proj_mean - hist_mean
-  
-  return(diff)
-}
 
 
 ##########################################################################

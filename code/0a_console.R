@@ -7,14 +7,9 @@
 rm(list=ls())
 
 library(here)
-library(tidyverse)
-library(stars)   #package for data cubes (multi-dimensional spatial arrays)
-library(sf)      #spatial features
-library(wesanderson); library(viridis)  #colour palettes
-`%notin%` <- Negate(`%in%`)
-library(gridExtra)  #for multi-panel ggplots
-library(patchwork) #for multi-panel plots
-library(units)   #for unit conversion
+setwd(here(".."))
+source(file.path(here(), "code", "0_setup.R"))
+
 library(corrplot)  #correlation matrix plots
 library(pacea)  #bc_coast shapefile
 library(skimr)  #summary statistics
@@ -26,20 +21,6 @@ library(ggdist)
 #library(bcdata)   #retrieving from BC data catalogue
 #install.packages("fwatlasbc", repos = c('https://poissonconsulting.r-universe.dev', 'https://cloud.r-project.org'))
 #library(fwatlasbc)
-
-
-#setwd("C:/Users/LAGASSEC/OneDrive - DFO-MPO/0.Workspace/CVIS")
-setwd(here(".."))
-
-today <- Sys.Date()
-
-# Set root for spatial datasets
-dat_root <- file.path("..", "0.Workspace")
-climate_dat <- file.path(dat_root, "0_data_climate")
-spatial_dat <- file.path(dat_root, "0_data_spatial")
-salmon_dat  <- file.path(dat_root, "0_data_salmon")
-code_root <- file.path(here(), "code")
-
 
 
 ######################## SETTINGS ######################################
@@ -63,19 +44,16 @@ dplyr.summarise.inform <- FALSE  #remove messages when using summarise()
 source(file.path(code_root, "1a_CU_import.R"))   #CU table
 # Select subset of CUs to run for analysis
 cu_run <- cu_Fr %>%
-  filter(spp %in% c("ck", "co", "cm", "sk"), cuid != c(742, 745)) %>%
+  filter(spp %in% c("ck", "co", "cm", "sk"), 
+         FULL_CU_IN %notin% c("SER-02", "SER-03")) %>%
   arrange(spp)    #remove widgeon (throws error)
 cuid    <- cu_run$cuid# Create vector of CUs to analyze, ordered CK, CM, CO, PKO, SEL, SER, SH
 cu_seq  <- cu_run$FULL_CU_IN # Create vector of CUs to analyze, ordered CK, CM, CO, PKO, SEL, SER, SH
 
 n.CUs   <- nrow(cu_run)
 
-#load freshwater functions
-source(file.path(code_root, "2_fw_utils.R"))
 
 ### Load freshwater spatial data
-
-
 load(here("processed_data", "freshwater", "R_data", "2025-04-04_fw_spatial_inputs.Rdata"))
 
 load(here("processed_data", "freshwater", "R_data",  "2025-04-22_fw_cu_streams.Rdata"))
