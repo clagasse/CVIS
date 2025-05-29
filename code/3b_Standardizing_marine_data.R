@@ -52,7 +52,7 @@ CI_points<-read_sf(file.path(spatial_dat, "CumulativeImpacts_shp", "CI_points.sh
 EEZ<-read_sf(file.path(  spatial_dat, "BC_EEZ", "BC_EEZ.shp"))                              # Full BC EEZ 
 SSCbox<-read_sf(file.path(climate_dat, "SalishSeaCast_MonthlyData", "SSC_boundingbox.shp")) # Box of full SSC extent
 BCCM_mask<-read_sf(file.path(climate_dat, "BCCM", "BCCM_mask2.shp"))                         # EEZ excluding north west corner 
-SSC_mask<-read_sf(file.path(climate_dat, "SalishSeaCast_MonthlyData", "SSC_mask.shp"))      # surrounds the SSC data but excludes inlets and USA 
+SSC_mask<-read_sf(file.path(climate_dat, "SalishSeaCast_MonthlyData", "SSC_mask2.shp"))      # surrounds the SSC data with values but excludes inlets and USA, and NA values 
 NEP_mask<-read_sf(file.path(climate_dat, "NEP36_MonthlyData", "NEP_mask.shp"))              # Clips out uncertain results including those on East coast of Haida Gwaii
 CI_mask<-read_sf(file.path(  spatial_dat, "CumulativeImpacts_shp", "CI_mask.shp"))         # EEZ polygon made from extent of original CI layer
 
@@ -70,6 +70,96 @@ BCCM_mask= subset(BCCM_mask, select = -c(id, area, perimeter))
 SSC_mask= subset(SSC_mask, select = -c(NAME_E, MAZ_Acrony, CI_AvgScor, Long_name))
 NEP_mask= subset(NEP_mask, select = -c(FID, disolve))
 
+########## Interpolation Function from PACEA ######
+point2rast <- function(data, spatobj, loc = c("x", "y"), cellsize, nnmax = 4, 
+                       as = c("SpatRast","SpatVect")) {
+  
+  requireNamespace("methods", quietly = TRUE)
+  requireNamespace("terra", quietly = TRUE)
+  requireNamespace("gstat", quietly = TRUE)
+  requireNamespace("sf", quietly = TRUE)
+  requireNamespace("stats", quietly = TRUE)
+  
+  stopifnot("must provide cellsize value" = exists("cellsize"))
+  stopifnot("must specify valid value for 'as'" = as %in% c("SpatRast", "SpatVect"))
+  
+  if(!any(sapply(c("sf", "Spatial"), function(cl) methods::is(data, cl)))) {
+    
+    data <- as.data.frame(data)
+    
+    if(!length(dim(loc))){
+      
+      stopifnot("loc vector must of be of length==2 " = length(loc)==2)
+      stopifnot("loc names not found in data" = loc %in% names(data))
+      
+      coords <- setNames(as.data.frame(data[, loc]), c("x", "y"))
+      
+      tdat <- as.data.frame(data[, -which(colnames(data) %in% loc), drop = FALSE])
+      
+    } else { 
+      
+      stopifnot("loc data must be a matrix or dataframe of two columns" = 
+                  length(dim(loc)) == 2 & dim(loc)[2] == 2)
+      stopifnot("loc data is not of equal length to data" = nrow(data) == nrow(loc))
+      
+      coords <- setNames(as.data.frame(loc), c("x", "y"))
+      
+      tdat <- as.data.frame(data[, !colnames(data) %in% colnames(loc), drop = FALSE])
+      
+    }
+  }
+  
+  if(methods::is(data, "Spatial")) {
+    coords <- setNames(as.data.frame(data)[,c("coords.x1", "coords.x2")], c("x", "y"))
+    tdat <- as.data.frame(data)[, names(data), drop = FALSE]    
+  }
+  
+  if(methods::is(data, "sf")) {
+    coords <- setNames(as.data.frame(matrix(unlist(data$geometry), ncol=2, byrow = TRUE)), c("x", "y"))
+    tdat <- as.data.frame(data)[, -which(names(data) == "geometry"), drop = FALSE]
+  }
+  
+  tbb <- terra::ext(spatobj)
+  if(!any(coords$x >= tbb$xmin & coords$x <= tbb$xmax & 
+          coords$y >= tbb$ymin & coords$y <= tbb$ymax)) {
+    warning("'loc' coordinates within spatobj extent = 0; check crs or extent of spatobj")
+  }
+  
+  terror <- try(terra::crs(spatobj), silent = TRUE)
+  if("try-error" %in% class(terror)) {
+    r <- terra::rast(terra::ext(spatobj), res = c(cellsize))
+  } else {
+    r <- terra::rast(terra::ext(spatobj), res = c(cellsize), crs = terra::crs(spatobj))
+  }
+  
+  nn.pred <- apply(tdat, 2, FUN = nnfit, r=r, loc=loc, coords=coords, nnmax=nnmax)
+  xyz <- cbind(as.data.frame(suppressWarnings(terra::crds(r))), nn.pred)
+  
+  if(as[1]=="SpatRast"){
+    spat <- terra::rast(xyz, type="xyz", crs = terra::crs(r))
+  } 
+  if(as[1]=="SpatVect"){
+    spat <- terra::vect(xyz, geom = c("x", "y"), crs = terra::crs(r))
+  } 
+  
+  return(spat)
+}
+
+#' nearest neighbour fit function
+#' @noRd
+nnfit <- function(x, r, loc, coords, nnmax) {
+  
+  requireNamespace("stats", quietly = TRUE)
+  
+  xdat <- stats::na.omit(data.frame(xvar = as.vector(x), coords))
+  
+  f <- paste0("xvar", " ~ 1")
+  lf <- paste0("~", paste(loc, collapse = "+"))
+  
+  gs <- gstat::gstat(formula = xvar~1, locations = ~x+y, data = xdat, nmax = nnmax, set=list(idp = 0))
+  nn <- terra::interpolate(r, gs, debug.level=0)
+  return(as.vector(nn$var1.pred))
+}
 
 # ---------INTERPOLATE-----------------------------------
 # Interpolate climate data using the PACEA nearest neighbour interpolation function, point2rast
@@ -161,8 +251,8 @@ SSC_SST_resampled <-resample(SSC_SST_interpolation,  BCCM_SST_interpolation, met
 SSC_SSS_resampled <-resample(SSC_SSS_interpolation,  BCCM_SST_interpolation, method = "near")
 CI_resampled      <-resample(CI_interpolation,       BCCM_SST_interpolation, method="near")
 
-#--------CROP-----------
-#Crop out grid cells with polygon masks 
+#--------MASK-----------
+#Mask out grid cells with polygon masks 
 BCCM_SST_cropped <-BCCM_SST_interpolation %>%
   mask(BCCM_mask) %>% # if you end code here it is a spatraster
   stars::st_as_stars() %>%  
@@ -202,13 +292,7 @@ CI_cropped <- CI_resampled%>%
   mask(CI_mask) %>%
   stars::st_as_stars() %>%  
   sf::st_as_sf() 
-
-#------------ Remove zero value (land) From SSC -----
-# there are some cells with zeros in all temp and salinity columns in the SSC files . 
-# Mapping these showed these zero values fall on the land 
-# This was not found for the other models  
-SSC_SST_cropped<- filter(SSC_SST_cropped,SST_H_01 != 0 )
-SSC_SSS_cropped<- filter(SSC_SSS_cropped,SSS_H_01 != 0 )
+CI_cropped= subset(CI_cropped, select = -c(MAZ_Acrony))
 
 #------------- Join cropped files to MAZ---------
 # load and transform MAZ file 
@@ -225,24 +309,25 @@ NEP_SST_cropped <- st_join(NEP_SST_cropped, left = FALSE, MAZ["MAZ_Acrony"])
 NEP_SSPH_cropped <- st_join(NEP_SSPH_cropped, left = FALSE, MAZ["MAZ_Acrony"])
 SSC_SSS_cropped<- st_join(SSC_SSS_cropped, left = FALSE, MAZ["MAZ_Acrony"])
 SSC_SST_cropped <- st_join(SSC_SST_cropped, left = FALSE, MAZ["MAZ_Acrony"])
-CI_points_cropped <- st_join(CI_cropped, left = FALSE, MAZ["MAZ_Acrony"])
+CI_cropped <- st_join(CI_cropped, left = FALSE, MAZ["MAZ_Acrony"])
 
 rm(MAZ)
 #----------EXPORT as shp----------------
-#Export cropnped layers as vector grid files 
-sf::st_write(BCCM_SST_cropped, file.path(climate_dat, "Standardized_Marine_data/BCCM_SST_cropped.shp"),   driver = "ESRI Shapefile" )
-sf::st_write(BCCM_SSS_cropped, file.path(climate_dat, "Standardized_Marine_data/BCCM_SSS_cropped.shp"  ), driver = "ESRI Shapefile")
-sf::st_write(BCCM_SSPH_cropped,file.path(climate_dat, "Standardized_Marine_data/BCCM_SSPH_cropped.shp" ), driver = "ESRI Shapefile")
-sf::st_write(NEP_SST_cropped,  file.path(climate_dat, "Standardized_Marine_data/NEP_SST_cropped.shp"),    driver = "ESRI Shapefile")
-sf::st_write(NEP_SSS_cropped,  file.path(climate_dat, "Standardized_Marine_data/NEP_SSS_cropped.shp" ),   driver = "ESRI Shapefile")
-sf::st_write(NEP_SSPH_cropped, file.path(climate_dat, "Standardized_Marine_data/NEP_SSPH_cropped.shp"),   driver = "ESRI Shapefile")
-sf::st_write(SSC_SST_cropped,  file.path(climate_dat, "Standardized_Marine_data/SSC_SST_cropped.shp"),    driver = "ESRI Shapefile")
-sf::st_write(SSC_SSS_cropped,  file.path(climate_dat, "Standardized_Marine_data/SSC_SSS_cropped.shp"),    driver = "ESRI Shapefile")
-sf::st_write(CI_cropped,       file.path(climate_dat, "Standardized_Marine_data/CI_cropped.shp"),         driver = "ESRI Shapefile")
+#Export cropped layers as vector grid files 
+sf::st_write(BCCM_SST_cropped, file.path(climate_dat, "Standardized_Marine_data/BCCM_SST_cropped.shp" ), driver = "ESRI Shapefile", append=FALSE)
+sf::st_write(BCCM_SSS_cropped, file.path(climate_dat, "Standardized_Marine_data/BCCM_SSS_cropped.shp" ), driver = "ESRI Shapefile", append=FALSE)
+sf::st_write(BCCM_SSPH_cropped,file.path(climate_dat, "Standardized_Marine_data/BCCM_SSPH_cropped.shp"), driver = "ESRI Shapefile", append=FALSE)
+sf::st_write(NEP_SST_cropped,  file.path(climate_dat, "Standardized_Marine_data/NEP_SST_cropped.shp"  ), driver = "ESRI Shapefile", append=FALSE)
+sf::st_write(NEP_SSS_cropped,  file.path(climate_dat, "Standardized_Marine_data/NEP_SSS_cropped.shp"  ), driver = "ESRI Shapefile", append=FALSE)
+sf::st_write(NEP_SSPH_cropped, file.path(climate_dat, "Standardized_Marine_data/NEP_SSPH_cropped.shp" ), driver = "ESRI Shapefile", append=FALSE)
+sf::st_write(SSC_SST_cropped,  file.path(climate_dat, "Standardized_Marine_data/SSC_SST_cropped.shp"  ), driver = "ESRI Shapefile", append=FALSE)
+sf::st_write(SSC_SSS_cropped,  file.path(climate_dat, "Standardized_Marine_data/SSC_SSS_cropped.shp"  ), driver = "ESRI Shapefile", append=FALSE)
+sf::st_write(CI_cropped,       file.path(climate_dat, "Standardized_Marine_data/CI_cropped.shp"       ), driver = "ESRI Shapefile", append=FALSE)
 
 # ----------- Remove Extra objects------
 rm( BCCM_SST_interpolation, BCCM_SSS_interpolation, BCCM_SSPH_interpolation, NEP_SST_interpolation, 
     NEP_SSS_interpolation, NEP_SSS_interpolation, SSC_SST_interpolation, SSC_SSS_interpolation, 
+    CI_interpolation, CI_resampled, MAZ,
    EEZ, CI_mask, BCCM_SST_cropped, BCCM_SSS_cropped, BCCM_SSPH_cropped, NEP_SST_cropped, NEP_SSS_cropped, 
    NEP_SSPH_cropped, SSC_SSS_cropped, SSC_SST_cropped, NEP_mask, BCCM_mask, SSCbox, SSC_mask, 
    llnames, nmax, nnfit, point2rast)

@@ -16,9 +16,11 @@ library(here)
 library(tidyverse)
 library(stars)   #package for data cubes (multi-dimensional spatial arrays)
 library(sf)      #spatial features
+library(ggsci) #colour palettes
+library(ggthemes) 
 library(wesanderson); library(viridis)  #colour palettes
 `%notin%` <- Negate(`%in%`)
-library(gridExtra)  #for multi-panel ggplots
+library(patchwork)  #for multi-panel ggplots
 library(kableExtra)
 library(units)
 

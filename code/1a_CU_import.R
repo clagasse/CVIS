@@ -5,7 +5,7 @@
 
 #----------------- CU-SMU crosswalk-------------------------------------------
 
-cu_smu <- read.csv(file.path(salmon_dat, "CrossWalkData_2025-02-14.csv")) %>%
+cu_smu <- read.csv(file.path(paths$salmon, "CrossWalkData_2025-02-14.csv")) %>%
   filter(Conservation.Unit.Area == "FRASER INTERIOR",
          Conservation.Unit.Type == "Current",
          str_detect(Stock.Management.Unit.Name, "OKANAGAN", negate = TRUE)) %>%
@@ -16,6 +16,7 @@ cu_smu <- read.csv(file.path(salmon_dat, "CrossWalkData_2025-02-14.csv")) %>%
 spp_lookup <- tibble(
   spp_abr = c("ck", "cm", "co", "pk", "pk", "sk", "sk"),
   spp_abrC = c("CK", "CM", "CO", "PKE", "PKO", "SEL", "SER"),
+  spp_abr_bcfp = c("ch", "cm", "co", "pk", "pk", "sk", "sk"),
   Species = c("Chinook", "Chum", "Coho", "Pink-Even", "Pink-Odd", "Sockeye (Lake Type)", "Sockeye (River Type)"),
   Species_simple = c("Chinook", "Chum", "Coho", "Pink", "Pink", "Sockeye", "Sockeye"),
   PSF_species = c("Chinook", "Chum", "Coho", "Pink", "Pink", "Sockeye-Lake", "Sockeye-River"))
@@ -25,19 +26,20 @@ spp_lookup <- tibble(
 
 #--------------------- Up-to-date CU list--------------------------------------
 
-cu_list <- read.csv(file.path(salmon_dat, "CCVA_CU_List.csv"), skip = 1) %>%
+cu_list <- read.csv(file.path(paths$salmon,  "CCVA_CU_List.csv"), skip = 1) %>%
   mutate(cuid = as.integer(cuid)) %>%
   filter(CU_Type == "Current") %>%
   arrange(FULL_CU_IN)
 
 cu_Fr <- cu_list %>%
   filter(CU_Area == "FRASER INTERIOR",
-         str_detect(CU_NAME, "OKANAGAN", negate = TRUE))
+         str_detect(CU_NAME, "OKANAGAN", negate = TRUE),
+         str_detect(CU_NAME, "BOUNDARY BAY", negate = TRUE))
 
 
 #--------------------- CU Decoder ---------------------------------------------
 
-cu_decoder <- read.csv(file.path(salmon_dat, "all_regions_cu_du_smu_decoder.csv")) %>%
+cu_decoder <- read.csv(file.path(paths$salmon, "all_regions_cu_du_smu_decoder.csv")) %>%
   distinct(cuid, .keep_all = TRUE) %>%
   left_join(select(spp_lookup, spp_abrC, PSF_species), join_by(spp == PSF_species), multiple = "first") %>%
   relocate(spp_abrC)
@@ -45,12 +47,12 @@ cu_decoder <- read.csv(file.path(salmon_dat, "all_regions_cu_du_smu_decoder.csv"
 
 #====================Import timing data compiled by PSF========================
 
-cu_timing_old <- read.csv(file.path(salmon_dat, "Timing data", 
-                                "Life Cycle Timing by CU - CCVA old", "3Life_cycle_timing_by_CU_CL.csv")) %>%
-  filter(region == "fraser", !is.na(cuid)) %>%
-  left_join(select(cu_list, cuid, FULL_CU_IN), join_by(cuid))
+# cu_timing_old <- read.csv(file.path(salmon_dat, "Timing data", 
+#                                 "Life Cycle Timing by CU - CCVA old", "3Life_cycle_timing_by_CU_CL.csv")) %>%
+#   filter(region == "fraser", !is.na(cuid)) %>%
+#   left_join(select(cu_list, cuid, FULL_CU_IN), join_by(cuid))
 
-cu_timing <- read.csv(file.path(salmon_dat, "Timing data", 
+cu_timing <- read.csv(file.path(paths$salmon, "Timing data", 
                               "CU_timing_published_CL.csv")) %>%
   rename(sp_dat_qual = dat_qual)
 
@@ -91,6 +93,7 @@ CVIS_dem <- cu_Fr %>%
          DEM_nmat = if_else(DEM_nmat == "", NA, DEM_nmat),
          DEM_enhann = if_else(DEM_enhann == "", NA, DEM_enhann),
          DEM_enhobj = if_else(DEM_enhobj == "", NA, DEM_enhobj))
+
 
 
 

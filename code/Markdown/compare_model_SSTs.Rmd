@@ -1,0 +1,109 @@
+---
+title: "Comparison of Southern BC historic and projected SSTs"
+output: html_notebook
+---
+
+## Introduction
+The early marine period is a critical time for salmonids, and the temperature of the ocean during this period can have a large impact on growth and survival. This notebook compares the historic and projected SSTs in Southern BC for the months of April and July, the main period of ocean entry and residence for salmon in southern BC.  The comparisons focus on the Georgia Strait and West Vancouver Island marine adaptive zones (MAZs), as well as the area offshore from the continental shelf but within the Canadian EEZ.
+
+## Methods
+
+### Data Sources
+
+- **ERSST**: The NOAA Extended Reconstructed SST model were values were derived from values in the SST-competition productivity model provided by Hannah Hunter. The data is filtered to include only the stocks of interest (Georgia Strait and West Vancouver Island). The SST values are calculated within 400km of ocean entry points using the 2x2 degree resolution. [https://www.ncei.noaa.gov/products/extended-reconstructed-sst]
+- **OISST**: The OISST data is downloaded from the NOAA ERDDAP server using the `pacea` package. OISST data is available at a 1/4 x 1/4 degree resolution and incorporates observations from different platforms. [https://www.ncei.noaa.gov/products/optimum-interpolation-sst]
+- **HOTSSEA**: The HOTSSEA data is downloaded using the `pacea` package. The data is filtered to include only the months of April to July, which are the months of interest for salmonids.
+- **MAZ**: Marine Adaptive Zones were developed based on terrestrial MAZ delineations from Holtby and Ciruna (2007). MAZ boundaries in marine areas were modified in consideration of the continental shelf boundary and marine bioregions of the Pacific.
+- **Salish Sea Cast**: The SalishSeaCast regional oceanographic model outputs was provided by Amber Holdsworth, averaged over 20 year time intervals for 1986-2005 and 2046-2065. 
+- **BCCM**:  The BCCM model outputs were provided by Angelica Pena, averaged over 30 year time intervals for 1981-2010 and 2041-2070.
+
+All models were filtered to include only years after 1980. 
+
+The map below shows OISST points and Marine Adaptive Zone polygons that contain them. 
+
+```{r setup, message = FALSE, echo = FALSE}
+p1 <- ggplot() +
+  geom_sf(data = filter(oisst_month, year == c(2012)), aes(colour = MAZ_Acrony)) +
+  geom_sf(data = MAZ, aes(colour = MAZ_Acrony), alpha = 0.5) +
+  scale_fill_viridis_c() +
+  labs(color = "MAZ")
+
+p1
+
+
+```
+
+
+
+### SST Summaries
+
+Anuual SST values corresponding to marine entry times are calculated over the months of April to July, which were the times used by Connors et al. (2020) and Mueter et al (2002).  SST values are averaged for all spatial points within each marine adaptive zones for regional oceanographic model and OISST outputs.  For the ERRST values, the location of river entry was designated as the marine adaptive zone location, although SST values are based on data within a 400km radius of ocean entry points.
+
+For historical time series, we compare annual SST values as well as SST anomalies. SST anomalies are calculated as the difference between mean SST across the time series for that model and annual values. 
+
+
+```{r, message = FALSE, echo = FALSE}
+
+p2 <- ggplot(data = filter(combined_spring, MAZ_Acrony %in% 
+                             c("GStr_OISST", "GStr_HOTSSEA", "GStr_ERSST", "WVI_OISST", "WVI_ERSST", "Offshore_OISST"))) +
+  geom_line(aes(x = year, y = mean_sst, group = MAZ_Acrony, color = MAZ_Acrony)) +
+  geom_point(aes(x = year, y = mean_sst, color = MAZ_Acrony)) +
+  labs(title = "April-July mean annual SST",
+       x = "Year",
+       y = "Mean SST",
+       color = "MAZ_Model") 
+
+p4 <- ggplot(data = filter(spring_anoms, MAZ_Acrony %in% c("GStr_OISST", "GStr_HOTSSEA", "GStr_ERSST", "WVI_OISST", "WVI_ERSST", "Offshore_OISST"))) +
+  geom_line(aes(x = year, y = sst_anomaly, group = MAZ_Acrony, color = MAZ_Acrony)) +
+  geom_point(aes(x = year, y = sst_anomaly, color = MAZ_Acrony)) +
+  labs(title = "April-July annual SST anomaly",
+       x = "Year",
+       y = "SST anomaly",
+       color = "MAZ_Model") 
+
+p2
+p4
+
+
+
+```
+
+
+### Comparison with projected SSTs
+
+The projected SSTs from the BCCM and Salish Sea Cast models are compared to the historical annual SSTs across models between 1980 and 2010. Regional oceanographic models (ROMs) are averaged for decadal time spans, and therefore are represented as a single value. 
+
+The BCCM SST projections are averaged across 2041-2070, while the climatology is from 1981-2010.  THe SalishSeaCast projection is for 2046-2065, while the historical reference period from 1986-2005.  
+
+SalishSeaCast projections are represented as ROM_45 and ROM_85 for the Georgia Strait, representing RCP 4.5 and 8.6 scenarios.  BCCM projections are represented as ROM_45 and ROM_85 for all other marine adaptive zones. 
+
+
+```{r, message = FALSE, echo = FALSE}
+p3 <- ggplot(data = filter(combined_spring_ROMs, 
+                     MAZ_Acrony %in% c("GStr_OISST", "GStr_HOTSSEA", "GStr_ERSST", "GStr_ROM_H", "GStr_ROM_45", "GStr_ROM_85",
+                                       "WVI_ERSST", "WVI_OISST", "WVI_ROM_H", "WVI_ROM_45", "WVI_ROM_85", 
+                                       "Offshore_OISST", "Offshore_ROM_H", "Offshore_ROM_45"))) +
+  geom_boxplot(aes(x = Model, y = mean_sst, fill = Model)) +
+  labs(title = "April-July mean annual SST",
+       x = "Model/scenario by marine adaptive zone",
+       y = "Annual SST",
+       fill = "Model") +
+  facet_wrap(~Region, ncol = 1)
+
+p3
+
+
+summary_stats <- combined_spring_ROMs %>%
+  group_by(Region, Model) %>%
+  summarise(mean_SST = mean(mean_sst, na.rm = TRUE),
+            sd_SST = sd(mean_sst, na.rm = TRUE),
+            min_SST = min(mean_sst, na.rm = TRUE),
+            max_SST = max(mean_sst, na.rm = TRUE),
+            start_year = min(year),
+            end_year = max(year)) %>%
+  filter(Region %in% c("GStr", "WVI", "Offshore"))
+
+kable(summary_stats)
+
+```
+

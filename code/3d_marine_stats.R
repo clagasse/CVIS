@@ -1,32 +1,47 @@
 ##### Marine statistics and plots
 
+library(here)
+setwd(here())
+source(file.path(here(), "code", "0_setup.R"))
+
 library(ggdist)
 library(pacea)
 
-source(file.path(code_root, "3_marine_utils.R"))
 
+#load historical BCCM SSTs from Pacea
 BCCMpacea_SST <- bccm_surface_temperature()
 
-marine_files <- list.files(file.path(climate_dat, "Standardized_Marine_data"))
+#get hotssea SST
+hotssea_SST <- hotssea_surface_temperature_mean() %>%
+  pivot_longer(cols = c(`1980_1`:`2018_12`),
+               names_to = c("year", "month"),
+               names_sep = "_",
+               values_to = "sst")
+
+
+marine_files <- list.files(file.path(paths$climate, "Standardized_Marine_data"))
 
 ## read in processed shp files
 MAZ     <- st_read(file.path(spatial_dat, "MAZ", "MAZ_Final.shp"))
 #  note: _cropped are polygon grids,  _sub are points
-SSC_SSS <- st_read(file.path(climate_dat, "Standardized_Marine_data", "SSC_SSS_cropped.shp")) 
-SSC_SST <- st_read(file.path(climate_dat, "Standardized_Marine_data", "SSC_SST_cropped.shp"))
+SSC_SSS <- st_read(file.path(paths$climate, "Standardized_Marine_data", "SSC_SSS_cropped.shp")) 
+SSC_SST <- st_read(file.path(paths$climate, "Standardized_Marine_data", "SSC_SST_cropped.shp"))
 
-# BCCM_SSS <- st_read(file.path(climate_dat, "Standardized_Marine_data", "BCCM_SSS_cropped.shp"))
-# BCCM_SST <- st_read(file.path(climate_dat, "Standardized_Marine_data", "BCCM_SST_cropped.shp"))
+# BCCM_SSS <- st_read(file.path(paths$climate, "Standardized_Marine_data", "BCCM_SSS_cropped.shp"))
+# BCCM_SST <- st_read(file.path(paths$climate, "Standardized_Marine_data", "BCCM_SST_cropped.shp"))
 
-BCCM_SST_sub<-read_sf(file.path(climate_dat, "Standardized_Marine_data/BCCM_SST_sub.shp"))
-BCCM_SSS_sub<-read_sf(file.path(climate_dat, "Standardized_Marine_data/BCCM_SSS_sub.shp"))
-BCCM_SSPH_sub<-read_sf(file.path(climate_dat, "Standardized_Marine_data/BCCM_SSPH_sub.shp"))
-# NEP_SST_sub<- read_sf( file.path(climate_dat, "Standardized_Marine_data/NEP_SST_sub.shp"))
-# NEP_SSS_sub<- read_sf( file.path(climate_dat, "Standardized_Marine_data/NEP_SSS_sub.shp"))
-# NEP_SSPH_sub<- read_sf( file.path(climate_dat, "Standardized_Marine_data/NEP_SSPH_sub.shp"))
-SSC_SST_sub<- read_sf( file.path(climate_dat, "Standardized_Marine_data/SSC_SST_sub.shp"))
-SSC_SSS_sub<- read_sf( file.path(climate_dat, "Standardized_Marine_data/SSC_SSS_sub.shp"))
-CI_points_sub<-read_sf(file.path(climate_dat, "Standardized_Marine_data/CI_points_sub.shp"))
+BCCM_SST_sub<-read_sf(file.path(paths$climate, "Standardized_Marine_data/BCCM_SST_sub.shp"))
+BCCM_SSS_sub<-read_sf(file.path(paths$climate, "Standardized_Marine_data/BCCM_SSS_sub.shp"))
+BCCM_SSPH_sub<-read_sf(file.path(paths$climate, "Standardized_Marine_data/BCCM_SSPH_sub.shp"))
+# NEP_SST_sub<- read_sf( file.path(paths$climate, "Standardized_Marine_data/NEP_SST_sub.shp"))
+# NEP_SSS_sub<- read_sf( file.path(paths$climate, "Standardized_Marine_data/NEP_SSS_sub.shp"))
+# NEP_SSPH_sub<- read_sf( file.path(paths$climate, "Standardized_Marine_data/NEP_SSPH_sub.shp"))
+SSC_SST_sub<- read_sf( file.path(paths$climate, "Standardized_Marine_data/SSC_SST_sub.shp"))
+SSC_SSS_sub<- read_sf( file.path(paths$climate, "Standardized_Marine_data/SSC_SSS_sub.shp"))
+CI_points_sub<-read_sf(file.path(paths$climate, "Standardized_Marine_data/CI_points_sub.shp"))
+
+
+CMIP5_SST_sub<- read_sf( file.path(paths$climate, "Standardized_Marine_data/CMIP5_SST_sub.shp"))
 
 
 # assign MAZ to each row in model output
@@ -233,7 +248,7 @@ cu_marine <- cu_timing_Fr %>%
   mutate(MAZ = c("GStr"))
 
 
-ns_stats <- tibble(cu_marine$cuid) %>% #,select(as_tibble(fw_amod[1:n.CUs,]), Tw8_0_00_0, Tw8_9_45_3) %>%
+ns_stats <- tibble(select(cu_marine, cuid, culabel, species)) %>% #,select(as_tibble(fw_amod[1:n.CUs,]), Tw8_0_00_0, Tw8_9_45_3) %>%
   mutate(oe_start_m = NA,   #
          SST_H = NA,  
          SST_45 = NA,  
@@ -263,17 +278,17 @@ for(i in 1:nrow(cu_marine)) {
     filter(MAZ_Acrony == cu_marine[i, "MAZ"],
            month >= ns_stats$oe_start_m[i] & month < ns_stats$oe_start_m[i] + 4)
   
-  cu_SST <- ROM_SST %>%
-    filter(MAZ_Acrony == cu_marine[i, "MAZ"],
-           month >= ns_stats$oe_start_m[i] & month < ns_stats$oe_start_m[i] + 4) %>%
-    group_by(scenario, MAZ_Acrony, geometry) %>%
-    summarize(value = mean(value))
-  
-  cu_SSS <- ROM_SSS %>%
-    filter(MAZ_Acrony == cu_marine[i, "MAZ"],
-           month >= ns_stats$oe_start_m[i] & month < ns_stats$oe_start_m[i] + 4) %>%
-    group_by(scenario, MAZ_Acrony, geometry) %>%
-    summarize(value = mean(value))
+  # cu_SST <- ROM_SST %>%
+  #   filter(MAZ_Acrony == cu_marine[i, "MAZ"],
+  #          month >= ns_stats$oe_start_m[i] & month < ns_stats$oe_start_m[i] + 4) %>%
+  #   group_by(scenario, MAZ_Acrony, geometry) %>%
+  #   summarize(value = mean(value))
+  # 
+  # cu_SSS <- ROM_SSS %>%
+  #   filter(MAZ_Acrony == cu_marine[i, "MAZ"],
+  #          month >= ns_stats$oe_start_m[i] & month < ns_stats$oe_start_m[i] + 4) %>%
+  #   group_by(scenario, MAZ_Acrony, geometry) %>%
+  #   summarize(value = mean(value))
 
   
   ns_stats$SST_H[i] <- mean(cu_SST_summary$SST_mean[cu_SST_summary$scenario == "H"], na.rm = T)
@@ -283,12 +298,22 @@ for(i in 1:nrow(cu_marine)) {
   ns_stats$delta_SST_45[i] <- ns_stats$SST_45[i] - ns_stats$SST_H[i]
   ns_stats$delta_SST_85[i] <- ns_stats$SST_85[i] - ns_stats$SST_H[i]
   
+  ns_stats$z_SST_45[i] <- (mean(cu_SST$value[cu_SST$scenario == "45"], na.rm = T) - mean(cu_SST$value[cu_SST$scenario == "H"], na.rm = T)) /
+                             sd(cu_SST$value[cu_SST$scenario == "H"], na.rm = T)
+  ns_stats$z_SST_85[i] <- (mean(cu_SST$value[cu_SST$scenario == "85"], na.rm = T) - mean(cu_SST$value[cu_SST$scenario == "H"], na.rm = T)) /
+    sd(cu_SST$value[cu_SST$scenario == "H"], na.rm = T)
+  
   ns_stats$SSS_H[i] <- mean(cu_SSS_summary$SSS_mean[cu_SSS_summary$scenario == "H"], na.rm = T)
   ns_stats$SSS_45[i] <- mean(cu_SSS_summary$SSS_mean[cu_SSS_summary$scenario == "45"], na.rm = T)
   ns_stats$SSS_85[i] <- mean(cu_SSS_summary$SSS_mean[cu_SSS_summary$scenario == "85"], na.rm = T)
   
   ns_stats$delta_SSS_45[i] <- ns_stats$SSS_45[i] - ns_stats$SSS_H[i]
   ns_stats$delta_SSS_85[i] <- ns_stats$SSS_85[i] - ns_stats$SSS_H[i]
+  
+  ns_stats$z_SSS_45[i] <- (mean(cu_SSS$value[cu_SSS$scenario == "45"], na.rm = T) - mean(cu_SSS$value[cu_SSS$scenario == "H"], na.rm = T)) /
+    sd(cu_SSS$value[cu_SSS$scenario == "H"], na.rm = T)
+  ns_stats$z_SSS_85[i] <- (mean(cu_SSS$value[cu_SSS$scenario == "85"], na.rm = T) - mean(cu_SSS$value[cu_SSS$scenario == "H"], na.rm = T)) /
+    sd(cu_SSS$value[cu_SSS$scenario == "H"], na.rm = T)
   
 }
 

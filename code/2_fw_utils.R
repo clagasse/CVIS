@@ -21,6 +21,21 @@ greater_zero <- function(x) {
 
 
 
+#weighted mean
+wmean <- function(x, length_metre, na.rm = TRUE) {
+  sum(x * length_metre, na.rm = TRUE) / sum(length_metre, na.rm = TRUE)
+}
+#weighted standard deviation
+wsd <- function(x, length_metre, na.rm = TRUE) {
+  sqrt(Hmisc::wtd.var(x, weights = length_metre, na.rm = TRUE))
+}
+#weighted quantiles
+wqt <- function(x, length_metre, q, na.rm = TRUE) {
+  Hmisc::wtd.quantile(x, weights = length_metre, probs = q, na.rm = TRUE)
+}
+
+
+
 ###############################################################################
 # Function to load PCIC model output for given model and variable
 ###############################################################################

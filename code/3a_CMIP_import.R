@@ -7,6 +7,7 @@ source(here("code","0_setup.R"))
 #devtools::install_github("https://github.com/JGCRI/RCMIP5.git")
 library(RCMIP5)
 library(ncdf4)
+library(pacea)
 
 ## For CMIP6 files, try:
 #install.packages("RGtk2")
@@ -20,6 +21,10 @@ CMIP_H_SST<-nc_open(file.path(climate_dat, "Marine_CMIP5", "tos_Omon_CanESM2_his
 CMIP_45_SST<-nc_open(file.path(climate_dat, "Marine_CMIP5", "tos_Omon_CanESM2_rcp45_r1i1p1_200601-210012.nc"))
 CMIP_85_SST<-nc_open(file.path(climate_dat, "Marine_CMIP5", "tos_Omon_CanESM2_rcp85_r1i1p1_200601-210012.nc"))
 
+CMIP_H_SST<-nc_open(file.path(climate_dat, "Marine_CMIP5", "tos_Omon_ensemblemedian_hist_r1i1p1_190001-200512.nc"))
+CMIP_45_SST<-nc_open(file.path(climate_dat, "Marine_CMIP5", "tos_Omon_ensemblemedian_rcp45_r1i1p1_200601-210012.nc"))
+CMIP_85_SST<-nc_open(file.path(climate_dat, "Marine_CMIP5", "tos_Omon_ensemblemedian_rcp85_r1i1p1_200601-210012.nc"))
+
 
 CMIP_H_SST<-nc_open(file.path(climate_dat, "Marine_CMIP5", "tos_Omon_CanESM2_hist_r1i1p1_190001-200512.nc"))
 
@@ -29,13 +34,13 @@ SST_files <- filter(C5_files, variable == "tos")
 
 checkTimePeriod(SST_files)
 
-SST_CANESM_45 <- loadCMIP5("tos", "CanESM2", "rcp45", path=file.path(climate_dat, "Marine_CMIP5"), verbose=T, yearRange=c(2040, 2070))
-SST_CANESM_85 <- loadCMIP5("tos", "CanESM2", "rcp85", path=file.path(climate_dat, "Marine_CMIP5"), verbose=T, yearRange=c(2040, 2070))
-SST_CANESM_H <- loadCMIP5("tos", "CanESM2", "hist", path=file.path(climate_dat, "Marine_CMIP5"), verbose=T, yearRange=c(1980, 2010))
+SST_CANESM_45 <- loadCMIP5("tos", "ensemblemedian", "rcp45", path=file.path(climate_dat, "Marine_CMIP5"), verbose=T, yearRange=c(2040, 2070))
+SST_CANESM_85 <- loadCMIP5("tos", "ensemblemedian", "rcp85", path=file.path(climate_dat, "Marine_CMIP5"), verbose=T, yearRange=c(2040, 2070))
+SST_CANESM_H <- loadCMIP5("tos", "ensemblemedian", "hist", path=file.path(climate_dat, "Marine_CMIP5"), verbose=T, yearRange=c(1980, 2010))
 
-SST_N_H  <- filterDimensions(SST_CANESM_H, lonRange=c(180, 240), latRange=c(45, 60), verbose=T)
-SST_N_45 <- filterDimensions(SST_CANESM_45, lonRange=c(180, 240), latRange=c(45, 60), verbose=T)
-SST_N_85 <- filterDimensions(SST_CANESM_85, lonRange=c(180, 240), latRange=c(45, 60), verbose=T)
+SST_N_H  <- filterDimensions(SST_CANESM_H, lonRange=c(210, 245), latRange=c(45, 60), verbose=T)
+SST_N_45 <- filterDimensions(SST_CANESM_45, lonRange=c(210, 245), latRange=c(45, 60), verbose=T)
+SST_N_85 <- filterDimensions(SST_CANESM_85, lonRange=c(210, 245), latRange=c(45, 60), verbose=T)
 
 SST_df <- as.data.frame(SST_N_H) %>%
   mutate(year = floor(time),
@@ -103,28 +108,39 @@ SST_annual <- SST_avg %>%
 
 
 SST_sf <- SST_df %>%
-  st_as_sf(coords = c("lon", "lat"), crs = 4326) %>%
-  st_transform(crs = "EPSG:3005")
+  st_as_sf(coords = c("lon", "lat"), crs = 4326) #%>%
+  #st_transform(crs = "EPSG:3005") 
+  
 
-SST_sf_spr <- filter(SST_sf, month >= 4 & month <= 6) %>%
-  group_by(lon, lat) %>%
-  summarise(mean = mean(mean, na.rm = TRUE)) %>%
-  ungroup() 
+  coords[, "Y"] <- abs(coords[, "Y"])
+
+  coords <- st_coordinates(SST_sf)
+  
+st_coordinates(SST_sf)[,"X"] <- st_coordinates(SST_sf)[,"X"] - 360
+
+coords[,"X"] <- coords[,"X"] - 360
+
+new_geom <- st_sfc(lapply(1:nrow(coords), function(i) st_point(coords[i, ])), crs = st_crs(SST_sf))
+
+SST_sf <- st_set_geometry(SST_sf, new_geom)
+# SST_sf_spr <- filter(SST_sf, month >= 4 & month <= 6) %>%
+#   group_by(lon, lat) %>%
+#   summarise(mean = mean(mean, na.rm = TRUE)) %>%
+#   ungroup() 
 
 SST_raster <- st_rasterize(SST_mcm) #%>%
   st_set_dimensions(3, name = "month", values = month)
 
-SST_means_sf <- st_as_sf(SST_summary, coords = c("lon", "lat"), crs = 4326)
+#SST_means_sf <- st_as_sf(SST_annual, coords = c("lon", "lat"), crs = 4326)
 
-
+bc_coast_4326 <- st_transform(bc_coast, crs = "EPSG:4326")
+  
 ##----- Simple plots ----------------#
-ggplot(filter(SST_mcm_sf, month == 4)) +
-  geom_sf(aes(colour = mean), size = 4) +
+ggplot(filter(SST_sf, month == 4, year == 2050)) +
+  geom_sf(aes(colour = value), size = 4) +
   geom_sf(data = bc_coast, fill = NA, colour = "black") +
   scale_colour_viridis_c()
 
-ggplot(SST_spsum_sf) +
-  geom_sf(aes(fill = mean)) 
 
 ggplot(SST_avg_all, aes(x = month, y = average, ymin = q05, ymax = q95, colour = scenario)) +
   geom_line() +
@@ -138,6 +154,11 @@ ggplot(SST_avg_all, aes(x = month, y = average, ymin = q05, ymax = q95, colour =
 sf::st_write(CMIP_H_SST, file.path(climate_dat, "Standardized_Marine_data/CanESM2_H_SST.shp"),   driver = "ESRI Shapefile" )
 sf::st_write(CMIP_P_SST, file.path(climate_dat, "Standardized_Marine_data/CanESM2_P_SST.shp"),   driver = "ESRI Shapefile" )
 
+
+
+
+
+#---------------
 
 
 

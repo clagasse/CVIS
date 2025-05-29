@@ -153,17 +153,7 @@ for(i in 1:n.CUs) {
            "Cumulative threat score"       = CT_anad_mean
            )
   
-  
-  # ts_gcms <- amod_CU %>%
-  #   pivot_longer(cols = c(Tw8_9_45_3, Tw8_1_45_3, Tw8_2_45_3, Tw8_3_45_3, Tw8_4_45_3, Tw8_5_45_3, Tw8_6_45_3),
-  #                 names_to = "model",
-  #                 values_to = "value")
-  # 
-  # ts_models <- amod_CU %>%
-  #   pivot_longer(cols = c(Tw8_9_45_3, Tav_9_45_3, Risk20_mod_len),
-  #                 names_to = "model",
-  #                 values_to = "value")
-  
+
   
   #gt(cu_boundary_table) + ggtitle("CU Boundary Statistics")
   print(kable(cu_boundary_table))

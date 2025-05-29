@@ -14,7 +14,8 @@ library(sf)      #spatial feature
 library(stars)   #package for data cubes (multi-dimensional spatial arrays)
 
 library(rcartocolor) #mapping palettes
-library(wesanderson); library(viridis)  #colour palettes
+library(ggsci) #colour palettes
+#library(wesanderson); library(viridis)  #colour palettes
 library(patchwork) #for multi-panel plots
 library(units)   #for unit conversion
 
@@ -31,7 +32,9 @@ paths <- list(
     climate = file.path(here(".."), "0_data_climate"),
     spatial = file.path(here(".."), "0_data_spatial"),
     salmon  = file.path(here(".."), "0_data_salmon"),
-    fw      = here("processed_data", "freshwater")
+    fw      = here("processed_data", "freshwater"),
+    figures = here("output"),
+    reports = here("output", "reports")
   )
 
 
@@ -41,3 +44,14 @@ source(here("code", "3_marine_utils.R"))
 
 #load CU tables
 source(here("code", "1a_CU_import.R"))   #CU table
+
+
+# Select subset of CUs to run for analysis
+cu_run <- cu_Fr %>%
+  filter(spp %in% c("ck", "co", "cm", "sk"), 
+         FULL_CU_IN %notin% c("SER-02", "SER-03")) %>%
+  arrange(spp)    #remove widgeon (throws error)
+cuid    <- cu_run$cuid# Create vector of CUs to analyze, ordered CK, CM, CO, PKO, SEL, SER, SH
+cu_seq  <- cu_run$FULL_CU_IN # Create vector of CUs to analyze, ordered CK, CM, CO, PKO, SEL, SER, SH
+
+n.CUs   <- nrow(cu_run)

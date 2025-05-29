@@ -7,8 +7,9 @@
 rm(list=ls())
 
 library(here)
-setwd(here(".."))
+setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
+
 
 library(corrplot)  #correlation matrix plots
 library(pacea)  #bc_coast shapefile
@@ -25,12 +26,12 @@ library(ggdist)
 
 ######################## SETTINGS ######################################
 #choose time periods for analysis. each period covers a range of 20 years
-hist_ystart <- switch(2, 1981, 2001)  #historical range start year for FW model outputs
-proj_ystart <- switch(1, 2041, 2061, 2081)  #projection range start year for FW model outputs
+#hist_ystart <- switch(2, 1981, 2001)  #historical range start year for FW model outputs
+#proj_ystart <- switch(1, 2041, 2061, 2081)  #projection range start year for FW model outputs
 
-int_starts <- c(hist_ystart, proj_ystart)  #start years for historical and projection periods
+#int_starts <- c(hist_ystart, proj_ystart)  #start years for historical and projection periods
 
-tspan <- (proj_ystart - hist_ystart) / 10  #number of decades between time periods
+#tspan <- (proj_ystart - hist_ystart) / 10  #number of decades between time periods
 
 dplyr.summarise.inform <- FALSE  #remove messages when using summarise()
 
@@ -42,15 +43,7 @@ dplyr.summarise.inform <- FALSE  #remove messages when using summarise()
 
 # Loading data and scripts
 source(file.path(code_root, "1a_CU_import.R"))   #CU table
-# Select subset of CUs to run for analysis
-cu_run <- cu_Fr %>%
-  filter(spp %in% c("ck", "co", "cm", "sk"), 
-         FULL_CU_IN %notin% c("SER-02", "SER-03")) %>%
-  arrange(spp)    #remove widgeon (throws error)
-cuid    <- cu_run$cuid# Create vector of CUs to analyze, ordered CK, CM, CO, PKO, SEL, SER, SH
-cu_seq  <- cu_run$FULL_CU_IN # Create vector of CUs to analyze, ordered CK, CM, CO, PKO, SEL, SER, SH
 
-n.CUs   <- nrow(cu_run)
 
 
 ### Load freshwater spatial data
@@ -96,7 +89,7 @@ source(file.path(code_root, "4a_CU_scoring.R"))
 for(i in 1:n.CUs) {
 
 CU_IN_i <- cu_run$FULL_CU_IN[i]
-CU_IN_i <- "CK-12"
+CU_IN_i <- "CK-14"
   
 rmarkdown::render(
   file.path(here(),"code","0a_CU_profile.Rmd"),
@@ -113,11 +106,13 @@ rmarkdown::render(
   output_dir = here("output"),
   output_format = "html_document")
 
-# rmarkdown::render(
-#   file.path(here("code","0_CU_comparison_report.Rmd")),
-#   output_file = paste(today, "fw_comparison.html", sep = "_"),
-#   output_dir = here("output"),
-#   output_format = "html_document")
+
+rmarkdown::render(
+  file.path(here("code", "2c_FW_spawning_report.Rmd")),
+  output_file = paste(today, CU_IN_i,"fw_spawning.html", sep = "_"),
+  output_dir = here("output", "CU_profiles"),
+  output_format = "html_document",
+  params = list(FULL_CU_IN = CU_IN_i))
 
 # rmarkdown::render(
 #   file.path(here(),"code","0_CU_detail_report.Rmd"),

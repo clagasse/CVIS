@@ -42,7 +42,6 @@ theme_set(theme_cvis())
 ```{r subset CU}
 
 #params$FULL_CU_IN <- "CK-17"
-
 cu_run_i <- cu_run[cu_run$FULL_CU_IN == params$FULL_CU_IN,]
 
 cuid_i <- cu_run_i$cuid

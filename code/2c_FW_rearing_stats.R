@@ -1,445 +1,592 @@
-################################################################################
-##  2c_FW_rearing_stats.R
-# This code will create summary statistics of climate models and other models
-# within each CU boundary to represent changes to the freshwater environment
-# for the spawning, incubation, and rearing life stages of Pacific salmon
+#-------------------------- 1. Overview and setup ----------------------
+#
+# 2c_FW_rearing_stats.R
+#
+# This code reads in a number of spatial datasets related to salmon distribution
+# in the **Fraser region**.
+#
 
-do_FAZ <- F   #if TRUE, will use FAZ boundaries instead of CUs
-do_PCIC <- T  #calculate PCIC grid cell statistics?
+library(here)
+setwd(here())
+source(file.path(here(), "code", "0_setup.R"))
+
+library(ExPanDaR)  #for data exploration
+
+#--------- 2. load spatial objects ---------------------
+
+### BC FISH PASS stream accessibility and linear habitat model
+
+#there are two main stream network objects
+#bcfpc - fish accessibility and linear habitat model for all streams in the Fraser basin
+#bcfpa - same for only accessible modelled and observed streams in the Fraser basin
+
+# all streams in Fr basin
+#load(file.path(paths$spatial, "BCFishpass", "BCFP_combined_Fr.Rds"))
+# accessible streams only
+load(file.path(paths$fw, "BCFP_combined_accessible_Fr.Rds"))
+
+### Conservation Unit boundaries for Fraser CUs 
+
+cu_boundary <- st_read(file.path(paths$spatial, "CU_boundaries", "fraser_cus.shp")) %>%
+  st_make_valid() %>%
+  st_transform(crs = 3005)  %>%  #crs 3005 is NAD83/BC Albers
+  left_join(select(cu_Fr, cuid, FULL_CU_IN, spp), 
+            join_by(CUID == cuid)) %>%
+  filter(!is.na(FULL_CU_IN))
 
 
-#--------------------- CREATE DATAFRAMES FOR CU STATS---------------------------
+### Temperature, flow and cumulative threat models
 
-# stream level indicators within CU boundaries
-spn_stats <- tibble(cuid) %>% #,select(as_tibble(fw_amod[1:n.CUs,]), Tw8_0_00_0, Tw8_9_45_3) %>%
-  mutate(dur_spn = NA,   #duration of spawning and rearing period
-         length_sum = NA,  #length of stream reaches
-         avg_length = NA,  #average length of stream reaches
-         avg_order = NA,  #average stream order
-         n_streams = NA,   #number of stream reaches
-         cu_area = NA,     #area of CU boundary
-         Tw8_0_00_0 = NA,   #1981-2000 August T
-         Tw8_0_00_1 = NA,   #2001-2020 August T
-         sd_Tw8_0_00_1 = NA,#standard deviation historic Aug T
-         sd_Tw8_9_45_3 = NA,
-         # Tav_0_00_1 = NA,  #7DEC 2001-2020 ensemble mean T
-         # ThiPI_0_00_1 = NA, #7DEC 2001-2020 ensemble 85% quantile T
-         # Tav_9_45_3 = NA,  #7DEC 2041-2060 ensemble mean T
-         # ThiPI_9_45_3 = NA, #7DEC 2041-2060 ensemble 85% quantile T
-         # 
-         # Risk16_len = NA, #7DEC 2041-2060 ensemble mean risk of 16C
-         # Risk20_len = NA, #7DEC 2041-2060 ensemble mean risk of 18C
-         # Risk24_len = NA, #7DEC 2041-2060 ensemble mean risk of 20C
-         # Risk16_prop = NA,
-         # Risk20_prop = NA,
-         # Risk24_prop = NA,
-         
-         CT_anad_mean = NA, #cumulative stressor score, weighted by stream reach
-         CT_anad_025 = NA,
-         CT_anad_975 = NA,
-         
-         MAD_hist = NA,     #historic mean annual discharge
-         MAD_proj = NA,
-         meanQ_1_hist = NA, #mean monthly flow for each month
-         meanQ_2_hist = NA,
-         meanQ_3_hist = NA,
-         meanQ_4_hist = NA,
-         meanQ_5_hist = NA,
-         meanQ_6_hist = NA,
-         meanQ_7_hist = NA,
-         meanQ_8_hist = NA,
-         meanQ_9_hist = NA,
-         meanQ_10_hist = NA,
-         meanQ_11_hist = NA,
-         meanQ_12_hist = NA,
-         meanQ_win_hist = NA,
-         meanQ_1_proj = NA,
-         meanQ_2_proj = NA,
-         meanQ_3_proj = NA,
-         meanQ_4_proj = NA,
-         meanQ_5_proj = NA,
-         meanQ_6_proj = NA,
-         meanQ_7_proj = NA,
-         meanQ_8_proj = NA,
-         meanQ_9_proj = NA,
-         meanQ_10_proj = NA,
-         meanQ_11_proj = NA,
-         meanQ_12_proj = NA,
-         meanQ_win_proj = NA,
-         meanQ_8_diff = NA,
-         meanQ_win_diff = NA,
-         meanQ_8_pchange = NA,
-         meanQ_win_pchange = NA,
-         MADprop_8_hist = NA,
-         MADprop_win_hist = NA,
-         MADprop_8_proj = NA,
-         MADprop_win_proj = NA,
-         MADprop_8_diff = NA,
-         MADprop_win_diff = NA,
-         
-         SPN_ENM_fav_hist = NA,
-         SPN_ENM_fav_proj = NA,
-         SPN_ENM_fav_diff = NA
-         )  %>%
-  left_join(select(cu_list, cuid, CU_NAME, FULL_CU_IN, Species_simple), join_by(cuid)) %>%
-  relocate(CU_NAME:Species_simple)
+#load stream network model outputs
+# these are all on the same stream network as bcfpa - accessible bc fish pass stream segments
+load(file.path(paths$fw, "fw_models_T_Q_CT.Rds"))
+### Load ENM
+load(file.path(paths$fw, "ENM_all_sp.Rds"))
+# load statistical model projections of August flows for flow stations
+load(file.path(paths$fw,  "Statistical_flow_projections.Rds"))
 
-if(do_FAZ == TRUE) {
-  spn_stats <- spn_stats[1:n.FAZ,] %>%
-    select(-c(CU_NAME:Species_simple)) %>%
-    mutate( FAZ_Acrony = FAZ_Fr$FAZ_Acrony,
-           FAZ_Name = FAZ_Fr$FAZ_Name) %>%
-    relocate(FAZ_Acrony,FAZ_Name)
+#load flow stations spatial objects
+stations_stats <- read.csv(file.path(paths$climate, "Ruzzante_low_flows", "stations_performance.csv"))
+#watershed hydrologic regimes
+watershed_flow <- st_read(file.path(paths$climate, "Ruzzante_low_flows", "watersheds.gpkg")) %>%
+  left_join(select(stations_stats, ID, regime), by = c("ID" = "ID")) %>%
+  mutate(regime = as.factor(regime))
+
+stations_flow <- st_read(file.path(paths$climate, "Ruzzante_low_flows", "stations.gpkg"))
+
+
+### NUSEDS salmon spawner locations
+##version from FIA. Usage column added by Michael Arbeider
+nuseds_Fr <- read_csv(file.path(paths$salmon, "NuSEDS_CU_System_sites_202406.csv")) %>%
+  st_as_sf(coords = c("X_LONGT", "Y_LAT"), crs = 4269) %>%
+  filter(USAGE != "REMOVE")
+
+#  field descriptions
+# n = number of surveys that were not “UNKNOWN” or “NOT INSPECTED”, i.e. they were inspected but sometimes only PRESENSE was recorded and not an abundance.
+# last.year = last year when the system was surveyed
+# first.year = first year when the system was surveyed
+# max.count = the largest count of spawners in NuSEDs
+# ave.count = the mean of all non-NA counts in NuSEDs
+# min.count = the minimum
+
+#usage criteria for nuseds file
+# cu.sites <- cu.sites %>% 
+#   mutate(USAGE = case_when(
+#     n < 5 & last.year < 2010 ~ "REMOVE",
+#     n < 5 & last.year >= 2010 ~ "CAUTION",
+#     n >= 5 & last.year < 1999 & SPECIES_LOOKUP != "Pink" ~ "CAUTION",
+#     n >= 5 & max.count == 0 & last.year < 1999 & SPECIES_LOOKUP != "Pink" ~ "CAUTION",
+#     n >= 5 & max.count != 0 & last.year < 1999 & SPECIES_LOOKUP == "Pink" ~ "KEEP",
+#     n >= 5 & max.count == 0 & last.year >= 1999 ~ "CAUTION",
+#     n >= 5 & max.count != 0 & last.year >= 1999 ~ "KEEP"
+#   ))
+
+
+#load CU stream selections
+
+load(file.path(paths$fw, "2025-05-27_fw_streampicks.Rdata"))
+
+
+
+#--------------------- 4. Functions for indicators -----------------------------------
+
+
+#summary functions
+stream_stats <- function(bcfp_cu)  {
+  #calculate stream stats for spawning and rearing streams
+  stream_stats <- tibble(
+    total_length_acc = sum(bcfp_cu$length_metre, na.rm = T),
+    total_length_rs = sum(bcfp_cu$length_metre[bcfp_cu$model_rs == TRUE], na.rm = T),
+    total_length_rear = sum(bcfp_cu$length_metre[bcfp_cu$model_rearing == TRUE], na.rm = T),
+    total_length_spawn = sum(bcfp_cu$length_metre[bcfp_cu$model_spawning == TRUE], na.rm = T),
+    avg_order = mean(bcfp_cu$stream_order, na.rm = T),
+    avg_order_rear = mean(bcfp_cu$stream_order[bcfp_cu$model_rearing == TRUE], na.rm = T),
+    avg_order_spawn = mean(bcfp_cu$stream_order[bcfp_cu$model_spawning == TRUE], na.rm = T),
+    n_streams = length(unique(bcfp_cu$linear_feature_id)),
+    n_segments= length(unique(bcfp_cu$segmented_stream_id)),
+    cu_area = st_area(cu_boundary_i) / 1e6
+  )
+  
+  return(stream_stats)
 }
 
-# Grid cell level indicators from PCIC model within CU boundaries
-spn_PCIC_CU <- select(spn_stats, cuid, CU_NAME, FULL_CU_IN, Species_simple) %>%
-  mutate(augQ_hist_mean = NA,
-         augQ_hist_sd   = NA,
-         augQ_proj_mean = NA,
-         augQ_proj_sd   = NA,
-         augQ_diff      = NA,
-         augQ_z         = NA,
-         mayQ_hist_mean = NA,
-         mayQ_hist_sd   = NA,
-         mayQ_proj_mean = NA,
-         mayQ_proj_sd   = NA,
-         mayQ_diff      = NA,
-         mayQ_z         = NA,
-         augT_PCIC_hist_mean = NA,
-         augT_PCIC_hist_sd   = NA,
-         augT_PCIC_proj_mean = NA,
-         augT_PCIC_proj_sd   = NA,
-         augT_PCIC_diff      = NA,
-         augT_PCIC_rate      = NA,
-         augT_PCIC_z         = NA,
-         peakQday_hist      = NA,
-         peakQday_proj      = NA,
-         peakQday_diff      = NA,
-         peakT_hist         = NA,
-         peakT_proj         = NA,
-         dayQ05_proj_mean   = NA,
-         dayQ05_proj_sd     = NA,
-         dayMAD05_hist_mean = NA,
-         dayMAD05_proj_mean = NA
-  )
+#function to calculate cumulative threat statistics
+sct_stats <- function(fwct_cu, 
+                     cts = c("AIS", "AnadFrag", "FlowAlt", "HabDest",
+                                      "LatFrag", "ResFrag", "RipDist", "Nutrient",
+                                      "Pollution", "Sediment", "CT_anad"),
+                     rs = TRUE) {
+  
+  if(rs == TRUE) fwct_cu <- fwct_cu[fwct_cu$model_rs == TRUE,]
+  
+  #select ct columns
+  ct_grep <- paste(cts, collapse = "|")
+  ct_cols <- grep(ct_grep, names(fwct_cu), value = TRUE)
+
+  #calculate mean and other statistics from single column
+  ct_stats <- map_dfc(ct_cols, function(col) {
+    x <- fwct_cu[[col]]
+    w <- fwct_cu$length_metre
+    tibble(
+      !!paste0(col, "_mean") := wmean(x, w, na.rm = TRUE),
+      #!!paste0(col, "_q10") := wqt(x, w, 0.10, na.rm = TRUE),
+      #!!paste0(col, "_q90") := wqt(x, w, 0.90, na.rm = TRUE)
+    )
+  }) %>% bind_cols()
+  
+  return(ct_stats)
+}
 
 
+#temperature summary function
+sT_stats <- function(fwT_cu, 
+                     RCP = c("45", "85"), 
+                     period = c("0","3","4", "5"),
+                     historical = "00",
+                     GCMs = c(1:6),  #GCMs to include in summary
+                     model = "Tw8",  #thermalscapes August temp
+                     rs = TRUE
+                     ) {
+  
+  if(rs == TRUE) fwT_cu <- fwT_cu[fwT_cu$model_rs == TRUE,]
+  
+  #select temperature model columns for summaries
+  #temp_cols <- grep("^(Tw8_|Tav_)", names(fwT_cu), value = TRUE)
+  temp_cols <- grep(paste0("^(", model,")"), names(fwT_cu), value = TRUE)
+  RCP_picks <- c(historical, RCP)
+  temp_cols <- temp_cols[grepl(paste(RCP_picks, collapse = "|"), temp_cols)]
+  
+  #subset time periods
+  time_grep <- paste(paste0("_", period), collapse = "|")
+  temp_cols <- temp_cols[grepl(paste0("(", time_grep, ")$"), temp_cols)]  #ends with
+  
+  #names of projected columns
+  proj_cols  <- temp_cols[!grepl(paste0("_", historical, "_"), temp_cols)]
+  #names of historical baseline
+  hist_cols  <- temp_cols[grepl(paste0("_", historical, "_"), temp_cols)]
 
-#----------------------CALCULATE CU STATISTICS --------------------------------
+  #calculate mean and other statistics from single column
+  T_stats <- map_dfc(temp_cols, function(col) {
+    x <- fwT_cu[[col]]
+    w <- fwT_cu$length_metre
+    tibble(
+      !!paste0(col, "_mean") := wmean(x, w, na.rm = TRUE),
+      #!!paste0(col, "_sd") := wsd(x, w, na.rm = TRUE),
+      #!!paste0(col, "_q10") := wqt(x, w, 0.10, na.rm = TRUE),
+      #!!paste0(col, "_q90") := wqt(x, w, 0.90, na.rm = TRUE)
+    )
+  }) %>% bind_cols()
+  
+  
+  mean_cols <- grep(paste0(paste0(model, "_"), GCMs, collapse = "|"), names(T_stats), value = TRUE)
+  
+  rcp_cols <- grepl(RCP, mean_cols)
+  
+  #calculate difference between historical and projected mean Ts
+  delta_stats <- map2_dfc(proj_cols, hist_cols, function(proj, hist) {
+    x <- fwT_cu[[proj]]
+    h <- fwT_cu[[hist]]
+    w <- fwT_cu$length_metre
+    
+    tibble(
+      !!paste0(proj, "_delta") := wmean(x, w, na.rm = TRUE) - wmean(h, w, na.rm = TRUE)
+    )
+  }) %>% bind_cols()
+  
+  out <- bind_cols(T_stats, delta_stats)
+  return(out)
+}
+
+#flow statistics function
+
+sQ_stats <- function(fwQ_cu,
+                     RCP = c("00", "45", "85"), 
+                     period = c("40", "80"),
+                     historical = "1",
+                     rs = TRUE) {
+  
+  if(rs == TRUE) fwQ_cu <- fwQ_cu[fwQ_cu$model_rs == TRUE,]
+  
+  #columns with flow values
+  flow_cols <- grep("mean", names(fwQ_cu), value = TRUE)
+  
+  #subset time periods
+  time_picks <- c(period, historical)
+  time_grep <- paste(paste0("_", time_picks), collapse = "|")
+  flow_cols <- flow_cols[grepl(paste0("(", time_grep, ")$"), flow_cols)]
+  
+  #names of projected columns --  subset columns that end with 0
+  proj_grep <- paste(paste0(period, "$"), collapse = "|")
+  proj_cols  <- flow_cols[grepl(paste0("(", proj_grep, ")$"), flow_cols)]
+  MAD_proj_col <- grep("17", proj_cols, value = TRUE)
+  
+  #names of historical baseline -- subset columns that end with
+  hist_cols  <- flow_cols[grepl(paste0(historical, "$"), flow_cols)]
+  MAD_hist_col <- grep("17", hist_cols, value = TRUE)
+  
+  hist_recycled <- rep(hist_cols, each = length(proj_cols)/length(hist_cols))
+  
+  
+  #calculate mean and other statistics from single column
+  Q_stats <- map_dfc(flow_cols, function(col) {
+    x <- fwQ_cu[[col]]
+    w <- fwQ_cu$length_metre
+    tibble(
+      !!paste0("QF", col) := wmean(x, w, na.rm = TRUE),
+      #!!paste0(col, "_sd") := wsd(x, w, na.rm = TRUE),
+      #!!paste0(col, "_q10") := wqt(x, w, 0.10, na.rm = TRUE),
+      #!!paste0(col, "_q90") := wqt(x, w, 0.90, na.rm = TRUE)
+    )
+  }) %>% bind_cols()
+  
+  Qdelta_stats <- map2_dfc(proj_cols, hist_recycled, function(proj, hist) {
+    x <- fwQ_cu[[proj]]
+    h <- fwQ_cu[[hist]]
+    w <- fwQ_cu$length_metre
+    
+    tibble(
+      !!paste0("QF", proj, "_delta") := wmean(x, w, na.rm = TRUE) - wmean(h, w, na.rm = TRUE)
+    )
+  }) %>% bind_cols()
+  
+  #calculate changes in MAD
+  MAD_stats <- map2_dfc(flow_cols, MAD_hist_col, function(col, hist) {
+    x <- fwQ_cu[[col]]
+    h <- fwQ_cu[[hist]]
+    w <- fwQ_cu$length_metre
+    
+    tibble(
+      !!paste0("QF", col, "_propMAD") := wmean(x, w, na.rm = TRUE) / wmean(h, w, na.rm = TRUE)
+    )
+  }) %>% bind_cols()
+  
+  MAD_hist_cols <- grep("flow_m3s", names(MAD_stats), value = TRUE)
+  MAD_proj_cols <- grep(paste0(period, collapse = "|"), names(MAD_stats), value = TRUE)
+  
+  MAD_hist_recycled <- rep(MAD_hist_cols, 
+                           each = length(MAD_proj_cols)/length(MAD_hist_cols))
+  
+  
+  MADdelta_stats <- map2_dfc(MAD_proj_cols, MAD_hist_recycled, function(proj, hist) {
+    x <- MAD_stats[[proj]]
+    h <- MAD_stats[[hist]]
+    
+    tibble(
+      !!paste0(proj, "delta") := x - h
+    )
+  }) %>% bind_cols()
+  
+  #calculate difference between historical and projected prop MAD
+  #MAD_props <- 
+  
+  out <- bind_cols(Q_stats, Qdelta_stats, MAD_stats, MADdelta_stats)
+  return(out)
+}
 
 
-for(i in 1:2) {
+#ENM statistics function
 
+ENM_stats <- function(ENM_cu, 
+                      RCP = c("00", "45", "85"), 
+                      period = c("3", "5"),
+                      historical = "0",
+                      rs = TRUE) {
+  
+  #subset ENM cols based on ending with time period values
+  time_picks <- c(period, historical)
+  time_grep <- paste(paste0("_", time_picks), collapse = "|")
+  ENM_cols <- grep(paste0("(", time_grep, ")$"), names(ENM_cu), value = TRUE)  #ends with
+  
+  #calculate mean and other statistics from single column
+  ENM_stats <- map_dfc(ENM_cols, function(col) {
+    x <- ENM_cu[[col]]
+    w <- ENM_cu$Length_km
+    tibble(
+      !!paste0(substring(col, 4), "_mean") := wmean(x, w, na.rm = TRUE),
+    )
+  }) %>% bind_cols()
+  
+  ENM_cu_rs <- ENM_cu[ENM_cu$model_rs == TRUE,]
+  
+  ENM_stats_rs <- map_dfc(ENM_cols, function(col) {
+    x <- ENM_cu_rs[[col]]
+    w <- ENM_cu_rs$Length_km
+    tibble(
+      !!paste0(substring(col,4), "_mean_rs") := wmean(x, w, na.rm = TRUE)
+    )
+  }) %>% bind_cols()
+  
+  out <- bind_cols(ENM_stats, ENM_stats_rs)
+  
+  return(out)
+}
+  
+  
+# ----------------------- 5. Calculate stream network CU indicators-------------------
+
+for(i in 1:n.CUs) {
+  
   cu_i <- cu_run$FULL_CU_IN[i]
   sp_pick <- cu_run$spp[cu_run$FULL_CU_IN == cu_i] #species abbr
   sp_pick_bcfp <- spp_lookup$spp_abr_bcfp[spp_lookup$spp_abr == sp_pick]  #BCFP species abbr (different for Chinook)
   # Subset CU boundary
   cu_boundary_i <- cu_boundary[cu_boundary$FULL_CU_IN == cu_i,]
-  #subset CU migration path
-  #path_CU <- flatten(path_list[names(path_list) == cuid_i])
   
+  #pick column of stream indices to subset for CU
+  stream_cu_sub <- stream_cu_picks[,colnames(stream_cu_picks) == cu_i]
+  reaches_ENM_sub <- reaches_ENM_all[,colnames(ENM_cu_picks) == cu_i]
   
-  bcfp_cu <- bcfpa[stream_cu_picks[,i],] %>%
+  #subset nuseds observations
+  nuseds_cu <- nuseds_Fr[nuseds_Fr$FULL_CU_IN == cu_i,]
+
+  bcfpa_cu <- bcfpa[stream_cu_sub,] %>%
     select(segmented_stream_id:mad_m3s, 
            contains(sp_pick_bcfp)) %>%  #subset model for CU species
     rename(model_spawning = starts_with("model_spawning"),
            model_rearing  = starts_with("model_rearing")) %>%
     mutate(model_rs = if_any(starts_with("model"), ~ . == TRUE))  #get boolean for model spawning and rearing
   
-  bcfp_cu_rs <- filter(bcfp_cu, model_rs == TRUE)
+  #bcfpa_cu_rs <- filter(bcfpa_cu, model_rs == TRUE)
   
-  fwT_cu <- fwT[stream_cu_picks[,i],] %>%
-    filter(bcfp_cu$model_rs == TRUE)
-  fwQ_cu <- fwQ[stream_cu_picks[,i],] %>%
-    filter(bcfp_cu$model_rs == TRUE)
-  fwct_cu<- fwct[stream_cu_picks[,i],] %>%
-    filter(bcfp_cu$model_rs == TRUE)
+  fwT_cu <- fwT[stream_cu_sub,] %>% 
+    left_join(select(bcfpa_cu, segmented_stream_id, model_rs), 
+              by = "segmented_stream_id") 
   
-  ENM_cu <- reaches_ENM_all[ENM_cu_picks[,i],]
+  fwT_cu_long <- fwT_cu %>%
+    pivot_longer(cols = matches("^(Tw8|Tav|TlowPI|ThiPI)_"),, 
+                 names_to = c(".value", "GCM", "RCP", "period"),
+                 names_pattern = "^(Tw8|Tav|TlowPI|ThiPI)_(\\d)_(\\d{2})_(\\d)$")
+  
+  Ts_stats <- fwT_cu_long %>%
+    group_by(GCM, RCP, period) %>%
+    summarize(
+      across(
+        c(Tw8, Tav, TlowPI, ThiPI),
+        list(mean = ~wmean(.x, length_metre, na.rm = TRUE),
+             sd = ~wsd(.x, length_metre, na.rm = TRUE),
+             min = ~min(.x, na.rm = TRUE),
+             max = ~max(.x, na.rm = TRUE),
+             range = ~max(.x, na.rm = TRUE) - min(.x, na.rm = TRUE)),
+        .names = "{.col}_{.fn}"
+      ),
+      .groups = "drop"
+    )
+  
+  Ts_proj_summary <- Ts_stats %>%
+    filter(GCM %in% c(1:6)) %>%
+    group_by(RCP, period) %>%
+    summarize(
+      across(contains("mean"), list( sd = ~sd(.x, na.rm = TRUE),
+                                      min = ~min(.x, na.rm = TRUE),
+                                      max = ~max(.x, na.rm = TRUE),
+                                      range = ~max(.x, na.rm = TRUE) - min(.x, na.rm = TRUE),
+                                      CV = ~sd(.x, na.rm = TRUE) / mean(.x, na.rm = TRUE)),
+             .names = "{.col}_GCM{.fn}"),
+      .groups = "drop"
+    )
+  
+  Ts_stats <- filter(Ts_stats, GCM %in% c(0,9)) %>%
+    left_join(Ts_proj_summary, 
+              by = c("RCP", "period"))
+
+  # Flow statistics
+  fwQ_cu <- fwQ[stream_cu_sub,] %>%
+    left_join(select(bcfpa_cu, segmented_stream_id, model_rs), 
+              by = "segmented_stream_id")
+  
+  fwQ_cu_long <- fwQ_cu %>%
+    rename_with(~ sub("_flow_m3s", "", .x), starts_with("mean_flow_m3s_")) %>%
+    pivot_longer(cols = matches("mean"),
+                 names_to = c(".value", "month","period"),
+                 names_pattern = "^(mean)_(\\d+)_(\\d+)$") %>%
+    mutate(month = as.integer(month))
 
   
-  ggplot() +
-    geom_sf(data = cu_boundary_i, alpha = 0.5) +
-    geom_sf(data = bcfp_cu, aes(colour = model_rs))
-
+  fwQ8_cu_long <- fwQ_cu_long %>%
+    filter(month %in% c(8,17)) %>%
+    pivot_wider(
+      names_from = month,
+      values_from = mean,
+      names_prefix = "month_") %>%
+    arrange(segmented_stream_id, period) %>%
+    mutate(
+      MAD_hist = if_else(period == "1", month_17, NA_real_),
+      Q8_hist  = if_else(period == "1", month_8, NA_real_)) %>%
+    fill(MAD_hist, Q8_hist, .direction = "down") %>%
+    mutate(prop8 = month_8 / MAD_hist)
+  
+  fwQ8_cu_stats <- fwQ8_cu_long %>%
+    group_by(period) %>%
+    summarize(
+      Q8_mean       = wmean(month_8, length_metre, na.rm = TRUE),
+      Q8_sd         = wsd(month_8, length_metre, na.rm = TRUE),
+      Q8_delta      = wmean(month_8 - Q8_hist, length_metre, na.rm = TRUE),
+      Q8_deltaprop  = wmean((month_8 - Q8_hist) / Q8_hist, length_metre, na.rm = T),
+      QMADhist_mean = wmean(MAD_hist,length_metre, na.rm = TRUE),
+      QMADhist_sd   = wsd(MAD_hist, length_metre, na.rm = TRUE),
+      propMAD8_mean    = wmean(prop8, length_metre, na.rm = TRUE),
+      propMAD8_sd      = wsd(prop8, length_metre, na.rm = TRUE),
+      propMAD8_CV      = propMAD8_sd / propMAD8_mean,
+      propMAD8_min     = min(prop8, na.rm = TRUE),
+      propMAD8_max     = max(prop8, na.rm = TRUE),
+      propMAD8_range   = max(prop8, na.rm = TRUE) - min(prop8, na.rm = TRUE)) %>%
+    ungroup()
+  
+  fwQ_stats <- fwQ_cu_long %>%
+    group_by(month, period) %>%
+    summarize(
+      across(
+        c(mean),
+        list(mean = ~mean(.x, na.rm = TRUE),
+             sd = ~sd(.x, na.rm = TRUE),
+             min = ~min(.x, na.rm = TRUE),
+             max = ~max(.x, na.rm = TRUE),
+             range = ~max(.x, na.rm = TRUE) - min(.x, na.rm = TRUE),
+             CV = ~sd(.x, na.rm = TRUE) / mean(.x, na.rm = TRUE)),
+        .names = "{.col}_{.fn}"
+      ),
+      .groups = "drop"
+    ) %>%
+    arrange(period)
+  
+  fwct_cu<- fwct[stream_cu_sub,] %>%
+    left_join(select(bcfpa_cu, segmented_stream_id, model_rs), 
+              by = "segmented_stream_id")
+  
+  ENM_cu <- data.table(reaches_ENM_all[reaches_ENM_sub,]) %>%
+    select(linear_feature_id, segmented_stream_id, Shape_Length, Length_km, 
+           contains(sp_pick)) %>%
+    left_join(select(bcfpa_cu, segmented_stream_id, model_rs),
+              by = "segmented_stream_id")
   
   
-  spn_stats$dur_spn[i] = cu_run$Peak_Spawn_To_Ocean_Entry_Days[cu_run$cuid == cuid_i]
+  # run summary statistics functions
   
-  spn_stats$total_length[i]    <- sum(bcfp_cu$length_metre, na.rm = T)
-  spn_stats$total_length_acc[i]   <- sum(bcfp_cu$length_metre, na.rm=T)
-  spn_stats$total_length_rear[i]  <- sum(bcfp_cu$length_metre[bcfp_cu$model_rearing == TRUE])
-  spn_stats$total_length_spawn[i] <- sum(bcfp_cu$length_metre[bcfp_cu$model_spawning == TRUE])
+  #stream network summary
+  ss_i <- stream_stats(bcfpa_cu)
   
-  spn_stats$avg_order[i]     <- mean(bcfp_cu$stream_order, na.rm = T)
-  spn_stats$n_streams[i]     <- length(unique(bcfp_cu$linear_feature_id))
-  spn_stats$cu_area[i]       <- st_area(cu_boundary_i) / 1e6
+  #nuseds summary
+  nu_i <- data.table(nuseds_cu) %>%
+    summarise(
+      nuseds_sites = n(),
+      nuseds_indicator = sum(IS_INDICATOR == "Y"),
+      nuseds_obs = sum(n, na.rm = TRUE))
   
-  # Temperautre statistics
-  spn_stats$Tw8_0_00_0[i]  <- Hmisc::wtd.mean(fwT_cu$Tw8_0_00_0, fwT_cu$Shape_Length)
-  spn_stats$Tw8_0_00_1[i]  <- Hmisc::wtd.mean(fwT_cu$Tw8_0_00_1, fwT_cu$Shape_Length)
-  spn_stats$sd_Tw8_0_00_1[i] <- sqrt(Hmisc::wtd.var(fwT_cu$Tw8_0_00_1, fwT_cu$Shape_Length))
-  spn_stats$sd_Tw8_9_45_3[i] <- sqrt(Hmisc::wtd.var(fwT_cu$Tw8_9_45_3, fwT_cu$Shape_Length))
-  #spn_stats$Tw_z_score[i]    <- (spn_stats$Tw8_9_45_3[i] -  spn_stats$Tw8_0_00_1[i]) / spn_stats$sd_Tw8_0_00_1[i]
+  #cumulative threat stats
+  ct_i <- sct_stats(fwct_cu, rs = TRUE)
   
-  spn_stats$Tw8_9_45_3[i]  <- Hmisc::wtd.mean(fwT_cu$Tw8_9_45_3, fwT_cu$length_metre)
-  
-  
-  spn_stats$SPN_EXP_rateT_9[i] <- Hmisc::wtd.mean(fwT_cu$SPN_EXP_rateT_9, fwT_cu$Shape_Length)
-  spn_stats$SPN_EXP_rateT_1[i] <- Hmisc::wtd.mean(fwT_cu$SPN_EXP_rateT_1, fwT_cu$Shape_Length)
-  spn_stats$SPN_EXP_rateT_2[i] <- Hmisc::wtd.mean(fwT_cu$SPN_EXP_rateT_2, fwT_cu$Shape_Length)
-  spn_stats$SPN_EXP_rateT_3[i] <- Hmisc::wtd.mean(fwT_cu$SPN_EXP_rateT_3, fwT_cu$Shape_Length)
-  spn_stats$SPN_EXP_rateT_4[i] <- Hmisc::wtd.mean(fwT_cu$SPN_EXP_rateT_4, fwT_cu$Shape_Length)
-  spn_stats$SPN_EXP_rateT_5[i] <- Hmisc::wtd.mean(fwT_cu$SPN_EXP_rateT_5, fwT_cu$Shape_Length)
-  spn_stats$SPN_EXP_rateT_6[i] <- Hmisc::wtd.mean(fwT_cu$SPN_EXP_rateT_6, fwT_cu$Shape_Length)
-  
-  spn_stats$SPN_EXP_projT_9[i] <- Hmisc::wtd.mean(fwT_cu$SPN_EXP_projT_9, fwT_cu$Shape_Length)
-  spn_stats$SPN_EXP_projT_1[i] <- Hmisc::wtd.mean(fwT_cu$SPN_EXP_projT_1, fwT_cu$Shape_Length)
-  spn_stats$SPN_EXP_projT_2[i] <- Hmisc::wtd.mean(fwT_cu$SPN_EXP_projT_2, fwT_cu$Shape_Length)
-  spn_stats$SPN_EXP_projT_3[i] <- Hmisc::wtd.mean(fwT_cu$SPN_EXP_projT_3, fwT_cu$Shape_Length)
-  spn_stats$SPN_EXP_projT_4[i] <- Hmisc::wtd.mean(fwT_cu$SPN_EXP_projT_4, fwT_cu$Shape_Length)
-  spn_stats$SPN_EXP_projT_5[i] <- Hmisc::wtd.mean(fwT_cu$SPN_EXP_projT_5, fwT_cu$Shape_Length)
-  spn_stats$SPN_EXP_projT_6[i] <- Hmisc::wtd.mean(fwT_cu$SPN_EXP_projT_6, fwT_cu$Shape_Length)
-  
-  spn_stats$SPN_EXP_projTp05_9[i] <- Hmisc::wtd.quantile(fwT_cu$SPN_EXP_projT_9, fwT_cu$Shape_Length, 0.05)
-  spn_stats$SPN_EXP_projTp05_1[i] <- Hmisc::wtd.quantile(fwT_cu$SPN_EXP_projT_1, fwT_cu$Shape_Length, 0.05)
-  spn_stats$SPN_EXP_projTp05_2[i] <- Hmisc::wtd.quantile(fwT_cu$SPN_EXP_projT_2, fwT_cu$Shape_Length, 0.05)
-  spn_stats$SPN_EXP_projTp05_3[i] <- Hmisc::wtd.quantile(fwT_cu$SPN_EXP_projT_3, fwT_cu$Shape_Length, 0.05)
-  spn_stats$SPN_EXP_projTp05_4[i] <- Hmisc::wtd.quantile(fwT_cu$SPN_EXP_projT_4, fwT_cu$Shape_Length, 0.05)
-  spn_stats$SPN_EXP_projTp05_5[i] <- Hmisc::wtd.quantile(fwT_cu$SPN_EXP_projT_5, fwT_cu$Shape_Length, 0.05)
-  spn_stats$SPN_EXP_projTp05_6[i] <- Hmisc::wtd.quantile(fwT_cu$SPN_EXP_projT_6, fwT_cu$Shape_Length, 0.05)
-  
-  spn_stats$SPN_EXP_projTp95_9[i] <- Hmisc::wtd.quantile(fwT_cu$SPN_EXP_projT_9, fwT_cu$Shape_Length, 0.95)
-  spn_stats$SPN_EXP_projTp95_1[i] <- Hmisc::wtd.quantile(fwT_cu$SPN_EXP_projT_1, fwT_cu$Shape_Length, 0.95)
-  spn_stats$SPN_EXP_projTp95_2[i] <- Hmisc::wtd.quantile(fwT_cu$SPN_EXP_projT_2, fwT_cu$Shape_Length, 0.95)
-  spn_stats$SPN_EXP_projTp95_3[i] <- Hmisc::wtd.quantile(fwT_cu$SPN_EXP_projT_3, fwT_cu$Shape_Length, 0.95)
-  spn_stats$SPN_EXP_projTp95_4[i] <- Hmisc::wtd.quantile(fwT_cu$SPN_EXP_projT_4, fwT_cu$Shape_Length, 0.95)
-  spn_stats$SPN_EXP_projTp95_5[i] <- Hmisc::wtd.quantile(fwT_cu$SPN_EXP_projT_5, fwT_cu$Shape_Length, 0.95)
-  spn_stats$SPN_EXP_projTp95_6[i] <- Hmisc::wtd.quantile(fwT_cu$SPN_EXP_projT_6, fwT_cu$Shape_Length, 0.95)
-  
-  # spn_stats$Tav_0_00_1[i]    <- Hmisc::wtd.mean(amod_CU$Tav_0_00_1, amod_CU$Shape_Length)
-  # spn_stats$ThiPI_0_00_1[i]  <- Hmisc::wtd.mean(amod_CU$ThiPI_0_00_1, amod_CU$Shape_Length)
-  # spn_stats$Tav_9_45_3[i]    <- Hmisc::wtd.mean(amod_CU$Tav_9_45_3, amod_CU$Shape_Length)
-  # spn_stats$ThiPI_9_45_3[i]  <- Hmisc::wtd.mean(amod_CU$ThiPI_9_45_3, amod_CU$Shape_Length)
-  # 
-  # spn_stats$Risk16_len[i]    <- sum(amod_CU$Risk16_mod_len, na.rm = T) #7DEC 2041-2060 ensemble mean risk of 16C
-  # spn_stats$Risk20_len[i]    <- sum(amod_CU$Risk20_mod_len, na.rm = T)
-  # spn_stats$Risk24_len[i]    <- sum(amod_CU$Risk24_mod_len, na.rm = T)
-  # 
-  # spn_stats$Risk16_prop[i]    <- spn_stats$Risk16_len[i] / spn_stats$length_sum[i]
-  # spn_stats$Risk20_prop[i]    <- spn_stats$Risk20_len[i] / spn_stats$length_sum[i]
-  # spn_stats$Risk24_prop[i]    <- spn_stats$Risk24_len[i] / spn_stats$length_sum[i]
-  
-  #cumulative threat score
-  spn_stats$CT_anad_mean[i]     <- Hmisc::wtd.mean(amod_CU$CT_anad, amod_CU$Shape_Length, na.rm = T)
-  spn_stats$CT_anad_05[i]       <- Hmisc::wtd.quantile(amod_CU$CT_anad, amod_CU$Shape_Length, probs = 0.05)
-  spn_stats$CT_anad_95[i]       <- Hmisc::wtd.quantile(amod_CU$CT_anad, amod_CU$Shape_Length, probs = 0.95)
+  #temperature statistics
+  Ts_i <- sT_stats(fwT_cu, 
+                    RCP = c("00", "45" ), 
+                    period = c("0", "1", "3", "5"),
+                    model = "Tw8",  #or Tav
+                    GCMs = c(1:6),
+                    rs = TRUE
+                    )
   
   #flow statistics
-  # spn_stats$MAD_proj[i]       <- Hmisc::wtd.mean(amod_CU$mean_flow_m3s_17_1, amod_CU$Shape_Length, na.rm = T)
-  # spn_stats$MAD_hist[i]       <- Hmisc::wtd.mean(amod_CU$mean_17_40, amod_CU$Shape_Length, na.rm = T)
-  # spn_stats$meanQ_1_hist[i]   <- Hmisc::wtd.mean(amod_CU$mean_flow_m3s_1_1, amod_CU$Shape_Length, na.rm = T)
-  # spn_stats$meanQ_2_hist[i]   <- Hmisc::wtd.mean(amod_CU$mean_flow_m3s_2_1, amod_CU$Shape_Length, na.rm = T)
-  # spn_stats$meanQ_3_hist[i]   <- Hmisc::wtd.mean(amod_CU$mean_flow_m3s_3_1, amod_CU$Shape_Length, na.rm = T)
-  # spn_stats$meanQ_4_hist[i]   <- Hmisc::wtd.mean(amod_CU$mean_flow_m3s_4_1, amod_CU$Shape_Length, na.rm = T)
-  # spn_stats$meanQ_5_hist[i]   <- Hmisc::wtd.mean(amod_CU$mean_flow_m3s_5_1, amod_CU$Shape_Length, na.rm = T)
-  # spn_stats$meanQ_6_hist[i]   <- Hmisc::wtd.mean(amod_CU$mean_flow_m3s_6_1, amod_CU$Shape_Length, na.rm = T)
-  # spn_stats$meanQ_7_hist[i]   <- Hmisc::wtd.mean(amod_CU$mean_flow_m3s_7_1, amod_CU$Shape_Length, na.rm = T)
-  # spn_stats$meanQ_8_hist[i]   <- Hmisc::wtd.mean(amod_CU$mean_flow_m3s_8_1, amod_CU$Shape_Length, na.rm = T)
-  # spn_stats$meanQ_9_hist[i]   <- Hmisc::wtd.mean(amod_CU$mean_flow_m3s_9_1, amod_CU$Shape_Length, na.rm = T)
-  # spn_stats$meanQ_10_hist[i]  <- Hmisc::wtd.mean(amod_CU$mean_flow_m3s_10_1, amod_CU$Shape_Length, na.rm = T)
-  # spn_stats$meanQ_11_hist[i]  <- Hmisc::wtd.mean(amod_CU$mean_flow_m3s_11_1, amod_CU$Shape_Length, na.rm = T)
-  # spn_stats$meanQ_12_hist[i]  <- Hmisc::wtd.mean(amod_CU$mean_flow_m3s_12_1, amod_CU$Shape_Length, na.rm = T)
-  # spn_stats$meanQ_win_hist[i] <- Hmisc::wtd.mean(amod_CU$mean_flow_m3s_win_1, amod_CU$Shape_Length, na.rm = T)
-  # spn_stats$meanQ_1_proj[i]   <- Hmisc::wtd.mean(amod_CU$mean_1_40, amod_CU$Shape_Length, na.rm = T)
-  # spn_stats$meanQ_2_proj[i]   <- Hmisc::wtd.mean(amod_CU$mean_2_40, amod_CU$Shape_Length, na.rm = T)
-  # spn_stats$meanQ_3_proj[i]   <- Hmisc::wtd.mean(amod_CU$mean_3_40, amod_CU$Shape_Length, na.rm = T)
-  # spn_stats$meanQ_4_proj[i]   <- Hmisc::wtd.mean(amod_CU$mean_4_40, amod_CU$Shape_Length, na.rm = T)
-  # spn_stats$meanQ_5_proj[i]   <- Hmisc::wtd.mean(amod_CU$mean_5_40, amod_CU$Shape_Length, na.rm = T)
-  # spn_stats$meanQ_6_proj[i]   <- Hmisc::wtd.mean(amod_CU$mean_6_40, amod_CU$Shape_Length, na.rm = T)
-  # spn_stats$meanQ_7_proj[i]   <- Hmisc::wtd.mean(amod_CU$mean_7_40, amod_CU$Shape_Length, na.rm = T)
-  # spn_stats$meanQ_8_proj[i]   <- Hmisc::wtd.mean(amod_CU$mean_8_40, amod_CU$Shape_Length, na.rm = T)
-  # spn_stats$meanQ_9_proj[i]   <- Hmisc::wtd.mean(amod_CU$mean_9_40, amod_CU$Shape_Length, na.rm = T)
-  # spn_stats$meanQ_10_proj[i]  <- Hmisc::wtd.mean(amod_CU$mean_10_40, amod_CU$Shape_Length, na.rm = T)
-  # spn_stats$meanQ_11_proj[i]  <- Hmisc::wtd.mean(amod_CU$mean_11_40, amod_CU$Shape_Length, na.rm = T)
-  # spn_stats$meanQ_12_proj[i]  <- Hmisc::wtd.mean(amod_CU$mean_12_40, amod_CU$Shape_Length, na.rm = T)
-  # spn_stats$meanQ_win_proj[i] <- Hmisc::wtd.mean(amod_CU$mean_win_40, amod_CU$Shape_Length, na.rm = T)
-  # 
-  # spn_stats$meanQ_8_diff[i]     <- spn_stats$meanQ_8_proj[i] - spn_stats$meanQ_8_hist[i]
-  # spn_stats$meanQ_win_diff[i]   <- spn_stats$meanQ_win_proj[i] - spn_stats$meanQ_win_hist[i]
-  # spn_stats$meanQ_8_pchange[i]  <- spn_stats$meanQ_8_diff[i] / spn_stats$meanQ_8_hist[i]
-  # spn_stats$meanQ_win_pchange[i]<- spn_stats$meanQ_win_diff[i] / spn_stats$meanQ_win_hist[i]
-  # 
-  # spn_stats$MADprop_8_hist[i]   <- Hmisc::wtd.quantile(amod_CU$MADprop_8_hist, amod_CU$Shape_Length, probs = 0.5)
-  # spn_stats$MADprop_win_hist[i] <- Hmisc::wtd.quantile(amod_CU$MADprop_win_hist, amod_CU$Shape_Length, probs = 0.5)
-  # spn_stats$MADprop_8_proj[i]   <- Hmisc::wtd.quantile(amod_CU$MADprop_8_proj, amod_CU$Shape_Length, probs = 0.5)
-  # spn_stats$MADprop_win_proj[i] <- Hmisc::wtd.quantile(amod_CU$MADprop_win_proj, amod_CU$Shape_Length, probs = 0.5)
+  Qs_i <- sQ_stats(fwQ_cu, 
+                    RCP = c("00", "45" ), 
+                    period = c("40", "80"),
+                    rs = TRUE
+  )
   
-  spn_stats$SPN_EXP_winQ[i] <- Hmisc::wtd.mean(amod_CU$SPN_EXP_winQ, amod_CU$Shape_Length, na.rm = T)
-  spn_stats$SPN_EXP_augQ[i] <- Hmisc::wtd.mean(amod_CU$SPN_EXP_augQ, amod_CU$Shape_Length, na.rm = T)
+  #ENM stats
+  ENM_i <- ENM_stats(ENM_cu, 
+                    RCP = c("00", "45" ), 
+                    period = c("3", "5"),
+                    historical = "0"
+  )
   
-  #ENM model statistics
-  spn_stats$SPN_ENM_fav_hist[i]     <- Hmisc::wtd.mean(reaches_ENM_cu$Fav_f.0_00_1, na.rm = T)
-  spn_stats$SPN_ENM_fav_proj[i]     <- Hmisc::wtd.mean(reaches_ENM_cu$Fav_f.9_45_3, na.rm = T)
-  spn_stats$SPN_ENM_fav_proj_5[i]     <- Hmisc::wtd.mean(reaches_ENM_cu$Fav_f.9_45_5, na.rm = T)
-  spn_stats$SPN_ENM_fav_diff[i]     <- spn_stats$SPN_ENM_fav_proj[i] - spn_stats$SPN_ENM_fav_hist[i]
-  spn_stats$SPN_ENM_fav_diff_5[i]     <- spn_stats$SPN_ENM_fav_proj_5[i] - spn_stats$SPN_ENM_fav_hist[i]
+
+  #combine all into one table
+  all_i <- bind_cols(FULL_CU_IN = cu_i,
+                        ss_i, 
+                        nu_i,
+                        ENM_i,
+                        ct_i,
+                        Ts_i, 
+                        Qs_i,
+                         .name_repair = "unique") 
   
-  #----------------------PCIC monthly stats ------------------------------------
-  
-  if(do_PCIC == T) {
-    #mask cells that overlap with accessible streams within CU spawning boundary
-    PCIC_Aug_CU_hist <- PCIC_month[amod_CU] %>%   #change to CU_boundary_i for all grid cells
-      filter(month(time) == 8, year(time) == hist_ystart) 
-    PCIC_Aug_CU_proj <- PCIC_month[amod_CU] %>%
-      filter(month(time) == 8, year(time) == proj_ystart) 
+  if(i == 1) {
+    fwR_all <- all_i
+    ss_all <- ss_i
+    nu_all <- nu_i
+    ct_all <- ct_i
+    Ts_all <- Ts_i
+    Qs_all <- Qs_i
+    ENM_all <- ENM_i
+      } else {
+    fwR_all <- bind_rows(fwR_all, all_i)
+    ss_all <- bind_rows(ss_all, ss_i)
+    nu_all <- bind_rows(nu_all, nu_i)
+    ct_all <- bind_rows(ct_all, ct_i)
+    Ts_all <- bind_rows(Ts_all, Ts_i)
+    Qs_all <- bind_rows(Qs_all, Qs_i)
+    ENM_all <- bind_rows(ENM_all, ENM_i)
+  }
+  if(i == n.CUs) {
+    print(paste(i, "CU fwR stats done"))
+    rm(all_i)
     
-    PCIC_May_CU_hist <- PCIC_month[amod_CU] %>%
-      filter(month(time) == 5, year(time) == hist_ystart)
-    PCIC_May_CU_proj <- PCIC_month[amod_CU] %>%
-      filter(month(time) == 5, year(time) == proj_ystart)
-    
-    spn_PCIC_CU$augQ_hist_mean[i] <- mean(PCIC_Aug_CU_hist$discharge, na.rm =T)
-    spn_PCIC_CU$augQ_hist_sd[i]   <- sd(PCIC_Aug_CU_hist$discharge, na.rm =T)
-    spn_PCIC_CU$augQ_proj_mean[i] <- mean(PCIC_Aug_CU_proj$discharge, na.rm =T)
-    spn_PCIC_CU$augQ_proj_sd[i]   <- sd(PCIC_Aug_CU_proj$discharge, na.rm =T)
-    spn_PCIC_CU$augQ_diff[i]      <- spn_PCIC_CU$augQ_proj_mean[i] - spn_PCIC_CU$augQ_hist_mean[i]
-    spn_PCIC_CU$augQ_z[i]         <- spn_PCIC_CU$augQ_diff[i] / spn_PCIC_CU$augQ_hist_sd[i]  
-    
-    spn_PCIC_CU$mayQ_hist_mean[i] <- mean(PCIC_May_CU_hist$discharge, na.rm =T)
-    spn_PCIC_CU$mayQ_hist_sd[i]   <- sd(PCIC_May_CU_hist$discharge, na.rm =T)
-    spn_PCIC_CU$mayQ_proj_mean[i] <- mean(PCIC_May_CU_proj$discharge, na.rm =T)
-    spn_PCIC_CU$mayQ_proj_sd[i]   <- sd(PCIC_May_CU_proj$discharge, na.rm =T)
-    spn_PCIC_CU$mayQ_diff[i]      <- spn_PCIC_CU$mayQ_proj_mean[i] - spn_PCIC_CU$mayQ_hist_mean[i]
-    spn_PCIC_CU$mayQ_z[i]         <- spn_PCIC_CU$mayQ_diff[i] / spn_PCIC_CU$mayQ_hist_sd[i]  
-    
-    spn_PCIC_CU$augT_PCIC_hist_mean[i] <- mean(PCIC_Aug_CU_hist$waterTemperature, na.rm =T)
-    spn_PCIC_CU$augT_PCIC_hist_sd[i]   <- sd(PCIC_Aug_CU_hist$waterTemperature, na.rm =T)
-    spn_PCIC_CU$augT_PCIC_proj_mean[i] <- mean(PCIC_Aug_CU_proj$waterTemperature, na.rm =T)
-    spn_PCIC_CU$augT_PCIC_proj_sd[i]   <- sd(PCIC_Aug_CU_proj$waterTemperature, na.rm =T)
-    spn_PCIC_CU$augT_PCIC_diff[i]      <- spn_PCIC_CU$augT_PCIC_proj_mean[i] - spn_PCIC_CU$augT_PCIC_hist_mean[i]
-    spn_PCIC_CU$augT_PCIC_rate[i]      <- spn_PCIC_CU$augT_PCIC_diff[i] / tspan
-    spn_PCIC_CU$augT_PCIC_z[i]         <- spn_PCIC_CU$augT_PCIC_diff[i] / spn_PCIC_CU$augT_PCIC_hist_sd[i]  
-    
-    
-    #### PCIC daily CU stats for CU boundary
-    PCIC_day_CU <-  st_crop(PCIC_day, amod_CU) %>% 
-      as_tibble()
-    #get daily mean flow and temperature for all cells within CU in each time period
-    PCIC_day_summary <- PCIC_day_CU %>%
-      group_by(time) %>%
-      dplyr::summarize(waterTemperature = mean(waterTemperature, na.rm=T),
-                       discharge = mean(discharge, na.rm = T),
-                       Q05    = quantile(discharge, probs = 0.05, na.rm = T)) %>%
-      mutate(year = year(time), 
-             month = month(time),
-             day = yday(time))
-    
-    #get 5th percentile flow for historic period
-    PCIC_Q05_hist_CU <- PCIC_day_CU %>%
-      filter(year(time) == hist_ystart) %>%
-      group_by(lon, lat) %>%
-      dplyr::summarize(Q05_hist = quantile(discharge, probs = 0.05, na.rm = T),
-                       MAD_hist = mean(discharge, na.rm = T),
-                       MAD05_hist = 0.05 * MAD_hist,
-                       day_Q05_hist = sum(discharge < Q05_hist),
-                       day_MAD05_hist = sum(discharge < MAD05_hist))
-    #apply("time", quantile, probs = 0.05, na.rm = T) 
-    
-    PCIC_Q05_proj_CU <- PCIC_day_CU %>%
-      filter(year(time) == proj_ystart) %>%
-      left_join(PCIC_Q05_hist_CU, by = c("lon", "lat")) %>%
-      group_by(lon, lat) %>%
-      dplyr::summarize(day_Q05 = sum(discharge < Q05_hist),
-                       day_Q05_hist = first(day_Q05_hist),
-                       day_MAD05 = sum(discharge < MAD05_hist),
-                       MAD_hist = first(MAD_hist),
-                       day_MAD05_hist = first(day_MAD05_hist))
-    
-    #st_apply(c("time"), quantile, probs = 0.05, na.rm = T)
-    
-    spn_PCIC_CU$peakQday_hist[i] <- which.max(filter(PCIC_day_summary, year == hist_ystart)$discharge)
-    spn_PCIC_CU$peakQday_proj[i] <- which.max(filter(PCIC_day_summary, year == proj_ystart)$discharge)
-    spn_PCIC_CU$peakQday_diff[i] <- spn_PCIC_CU$peakQday_proj[i] - spn_PCIC_CU$peakQday_hist[i]
-    spn_PCIC_CU$peakT_hist[i]    <- max((filter(PCIC_day_summary, year == hist_ystart)$waterTemperature))
-    spn_PCIC_CU$peakT_proj[i]    <- max((filter(PCIC_day_summary, year == proj_ystart)$waterTemperature))
-    spn_PCIC_CU$dayQ05_proj_mean[i]   <- mean(PCIC_Q05_proj_CU$day_Q05, na.rm = T)
-    spn_PCIC_CU$dayQ05_proj_sd[i]     <- sd(PCIC_Q05_proj_CU$day_Q05, na.rm = T)
-    spn_PCIC_CU$dayMAD05_hist_mean[i]   <- mean(PCIC_Q05_proj_CU$day_MAD05, na.rm = T)
-    spn_PCIC_CU$dayMAD05_proj_mean[i]   <- mean(PCIC_Q05_proj_CU$day_MAD05_hist, na.rm = T)
-    
+    fwR_all <- fwR_all %>%
+      left_join(select(cu_run, FULL_CU_IN, CU_NAME, CU_Species), 
+                by = "FULL_CU_IN") %>%
+      relocate(CU_NAME, CU_Species, .after = FULL_CU_IN)
   }
   
-  print(paste("CU", cuid_i, "stats done"))
-}
-
-#---------------------------------CREATE AND SAVE OUTPUTS ---------------------
-
-if(do_FAZ == FALSE) {
-
-all_spn_stats <- spn_stats %>%
-  left_join(select(spn_PCIC_CU, -c(CU_NAME,FULL_CU_IN,Species_simple)), by = "cuid")
-
-CVIS_spn <- all_spn_stats %>%
-  select(cuid, CU_NAME, FULL_CU_IN, Species_simple,
-         SPN_EXP_projT_9, SPN_EXP_rateT_9, SPN_EXP_augQ, SPN_EXP_winQ, 
-         peakQday_diff, CT_anad_mean, dur_spn, SPN_ENM_fav_diff) %>%
-  rename(SPN_EXP_peakQday = peakQday_diff, SPN_SEN_CT_anad = CT_anad_mean,
-         SPN_SEN_dur = dur_spn)
-
-# test correlation
-cor_stats <- cor(CVIS_spn %>% select(-c(cuid, CU_NAME, FULL_CU_IN, Species_simple)), use = "pairwise.complete.obs")
-
-## save output
-save(spn_stats, spn_PCIC_CU, all_spn_stats, CVIS_spn, cor_stats,
-     file = here("processed_data", "freshwater", "R_data", paste0(today, "_SPN_stats.Rdata")))
-
-#write_csv(all_spn_stats, here("processed_data", "freshwater", paste0(today, "_fw_all_spnstats.csv")))
-#write_csv(as_tibble(cor_stats), here("processed_data", "freshwater", paste0(today, "_fw_cor_stats.csv")))
-#write_csv(CVIS_spn, here("processed_data", "freshwater", paste0(today, "_fw_CVIS_spn.csv")))
-
-} else if(do_FAZ == TRUE) {
-  spn_PCIC_FAZ <- spn_PCIC_CU %>%
-    mutate(across(where(is.numeric), round, 2))
-  
-  spn_FAZ <- spn_stats %>%
-    mutate(across(where(is.numeric), round, 2))
-  
-  all_spn_FAZ <- spn_FAZ %>%
-    left_join(select(PCIC_FAZ_stats, -c(CU_NAME,FULL_CU_IN,Species_simple)), by = "cuid")
-  
-  CVIS_spn_FAZ <- all_FAZ_stats %>%
-    select(FAZ_Acrony, FAZ_Name, 
-           #Tw8_0_00_0,
-            Tw8_9_45_3, Tw_rate, augT_PCIC_hist_mean, augT_PCIC_proj_mean, augT_PCIC_rate,
-           meanQ_8_diff, meanQ_win_diff, meanQ_8_pchange, meanQ_win_pchange,   #absolute differences in flow
-           MADprop_8_diff, MADprop_win_diff,  #differences in flow relative to MAD
-           peakQday_diff, CT_anad_mean)  %>%
-    rename(projT_spn = Tw8_9_45_3, rateT_spn = Tw_rate, augQ_spn = MADprop_8_diff,
-           winQ_spn = MADprop_win_diff, peakQday_spn = peakQday_diff,
-           CT_anad_spn = CT_anad_mean)
-
-  # test correlation
-  cor_FAZstats <- cor(CVIS_FAZ %>% select(-c(FAZ_Acrony, FAZ_Name)))
-  
-  ## save output
-  save(spn_FAZ, spn_PCIC_FAZ, all_spn_FAZ, CVIS_spn_FAZ, cor_FAZstats,
-       file = here("processed_data", "freshwater", "R_data", paste0(today, "_fw_FAZstats_output.Rdata")))
-  
-  write_csv(all_spn_FAZ, here("output", paste0(today, "_fw_all_FAZstats.csv")))
-  write_csv(as_tibble(cor_stats), here("output", paste0(today, "_fw_cor_FAZstats.csv")))
-  write_csv(CVIS_spn_FAZ, here("output", paste0(today, "_fw_CVIS_FAZstats.csv")))
-  
-  
 }
 
 
-#write_csv(PCIC_ts_compare, here("output", paste0(today, "_fw_all_stats.csv")))
+# ------------------6. Low flow statistical model at stations --------
 
-# TS_7DECM_stats <- all_spn_stats %>%
-#   select(cuid, CU_NAME, starts_with("Risk"), starts_with("Tw"), starts_with("Thi"), starts_with("Tav"))
-# 
-# write.csv(TS_7DECM_stats, here("output", paste0(today, "_fw_TS_7DECM_stats.csv")))
+# calculate average flows for periods
+wp_pmean <- wp_mean %>%
+  filter(!is.na(period)) %>%
+  group_by(ID, experiment_id, period) %>%
+  summarise(mean = mean(mean)) %>%
+  ungroup() %>%
+  mutate(period = as.factor(period)) %>%
+  pivot_wider(names_from = c(experiment_id, period), values_from = mean) %>%
+  mutate(Qdelta_370_3 = ssp370_3 - historical_0,
+         Qdelta_370_5 = ssp370_5 - historical_0,
+         Qdelta_585_3 = ssp585_3 - historical_0,
+         Qdelta_585_5 = ssp585_5 - historical_0,
+         Qprop_370_3 = (Qdelta_370_3 / historical_0),
+         Qprop_370_5 = (Qdelta_370_5 / historical_0),
+         Qprop_585_3 = (Qdelta_585_3 / historical_0),
+         Qprop_585_5 = (Qdelta_585_5 / historical_0))
 
-          
+## join projections back to flow stations sf and CU boundaries
+stations_flow <- stations_flow %>%
+  left_join(wp_pmean, by = c("ID" = "ID")) %>%
+  st_transform(3005)
+
+watershed_flow <- watershed_flow %>%
+  left_join(wp_pmean, by = c("ID" = "ID")) %>%
+  st_transform(3005)
+
+### Ruzzante model of low flows in August 
+
+cu_cont <- st_contains(cu_boundary, stations_flow)
+#take average of stations in each CU boundary
+cu_wp_pmean <- calculate_subset_means_all(wp_pmean, cu_cont) %>%
+  mutate(n_stations = unlist(lapply(cu_cont, FUN=length)),
+         CU_ID = cu_boundary$FULL_CU_IN) %>%
+  relocate(CU_ID, n_stations) 
+
+
+
+#--------------------- 7. Subset statistics ----------------------
+
+fwR_CVIS <- fwR_all %>%
+  select(FULL_CU_IN:nuseds_obs, c(CT_anad_mean, 
+                                  Fav_f.9_45_3_mean, Fav_change_9_45_5_mean, Fav_change_9_45_5_mean_rs,
+                                  Tw8_0_00_0_mean, Tw8_9_45_3_mean, Tw8_9_45_3_delta,
+                                  QFmean_flow_m3s_8_1, QFmean_8_40_delta, QFmean_8_40_propMADdelta))
+
+
+#ExPanD(fwR_CVIS)
+
+  
