@@ -45,10 +45,13 @@ dplyr.summarise.inform <- FALSE  #remove messages when using summarise()
 source(file.path(code_root, "1a_CU_import.R"))   #CU table
 
 
+source(file.path("code", "2c_FW_rearing_stats.R"))   #rearing stats script
+
+
+
 
 ### Load freshwater spatial data
 load(here("processed_data", "freshwater", "R_data", "2025-04-04_fw_spatial_inputs.Rdata"))
-
 load(here("processed_data", "freshwater", "R_data",  "2025-04-22_fw_cu_streams.Rdata"))
 load(here("processed_data", "freshwater", "R_data",  "2025-04-22_fw_upstream_paths.Rdata"))
 
@@ -89,10 +92,10 @@ source(file.path(code_root, "4a_CU_scoring.R"))
 for(i in 1:n.CUs) {
 
 CU_IN_i <- cu_run$FULL_CU_IN[i]
-CU_IN_i <- "CK-14"
+CU_IN_i <- "CK-17"
   
 rmarkdown::render(
-  file.path(here(),"code","0a_CU_profile.Rmd"),
+  file.path(here(),"code", "markdown", "0a_CU_profile.Rmd"),
   output_file = paste(today, CU_IN_i, "_profile.html", sep = "_"),
   output_dir = here("output", "CU_profiles"),
   output_format = "html_document", 
@@ -101,14 +104,14 @@ rmarkdown::render(
 }
 
 rmarkdown::render(
-  file.path(here("code","0b_CVIS_overview.Rmd")),
+  file.path(here("code", "markdown", "0b_CVIS_overview.Rmd")),
   output_file = paste(today, "CVIS_overview.html", sep = "_"),
   output_dir = here("output"),
   output_format = "html_document")
 
 
 rmarkdown::render(
-  file.path(here("code", "2c_FW_spawning_report.Rmd")),
+  file.path(here("code", "markdown", "2_FW_spawning_report.Rmd")),
   output_file = paste(today, CU_IN_i,"fw_spawning.html", sep = "_"),
   output_dir = here("output", "CU_profiles"),
   output_format = "html_document",

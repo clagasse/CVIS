@@ -12,6 +12,7 @@ params:
 ```{r custom theme, echo = FALSE, message = F, warning = F}
 
 library(viridis)
+library(gt)
 
 knitr::opts_chunk$set(message = F, echo = F, warning = F)
 
@@ -54,10 +55,10 @@ sp_pick_bcfp <- spp_lookup$spp_abr_bcfp[spp_lookup$spp_abr == sp_pick]
 
 
 
-```{r}
+```{r spatial subset}
 
-stream_cu_sub <- stream_cu_picks[,colnames(stream_cu_picks) == cu_i]
-reaches_ENM_sub <- reaches_ENM_all[,colnames(ENM_cu_picks) == cu_i]
+  stream_cu_sub <- stream_cu_picks[,colnames(stream_cu_picks) == cu_i]
+  reaches_ENM_sub <- ENM_cu_picks[,colnames(ENM_cu_picks) == cu_i]
 
 cu_boundary_i <- cu_boundary[cu_boundary$FULL_CU_IN == cu_i,]
 
@@ -88,12 +89,12 @@ fwct_cu<- fwct[stream_cu_sub,] %>%
             by = "segmented_stream_id") %>%
   st_as_sf()
 
-ENM_cu <- data.table(reaches_ENM_all[reaches_ENM_sub,]) %>%
-  select(linear_feature_id, segmented_stream_id, Shape_Length, Length_km, 
-         contains(sp_pick)) %>%
-  left_join(select(bcfpa_cu, segmented_stream_id, model_rs),
-            by = "segmented_stream_id") %>%
-  st_as_sf()
+ENM_cu <- reaches_ENM_all[reaches_ENM_sub,]
+  # select(linear_feature_id, segmented_stream_id, Shape_Length, Length_km, 
+  #        contains(sp_pick)) %>%
+  # left_join(select(bcfpa_cu, segmented_stream_id, model_rs),
+  #           by = "segmented_stream_id") %>%
+
 
 #read Temperature gauge locations
 
@@ -102,9 +103,44 @@ Tw_stations <- st_read(file.path(paths$climate, "Tw_stations.gdb"))
 ```
 
 
+### CU Data Summaries
+
+```{r data tables}
+
+fwR_cu <- fwR_all[[cu_i]] 
+
+#make summary of stream statistics
+
+fwR_cu$streams %>%
+  gt() %>%
+  tab_header(title = "CU Boundary Stream Statistics") %>%
+  gt_split(col_slice_at = c("total_length_spawn", "cu_area"))
+
+fwR_cu$CT %>%
+  gt() %>%
+  tab_header(title = "Cumulative Threats")
+
+fwR_cu$fwT %>%
+  gt() %>%
+  tab_header(title = "Stream Temp") 
+
+fwR_cu$fwQlow %>%
+  gt() %>%
+  tab_header(title = "August flows - PCIC stream model") 
+
+fwR_cu$ENM %>%
+  gt() %>%
+  tab_header(title = "ENM favourability")
+
+fwR_cu$wpQlow %>%
+  gt() %>%
+  tab_header(title = "August flows - statistical gauge model")
+
+```
 
 
-```{r}
+
+```{r make maps}
 
 cu_acc_p <- ggplot() +
     geom_sf(data = st_zm(bcfpa_cu), aes(color = model_rs)) + 

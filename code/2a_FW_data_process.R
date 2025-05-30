@@ -258,10 +258,12 @@ stations_stats <- read_csv(file.path(paths$climate, "Ruzzante_low_flows", "stati
 
 #watershed hydrologic regimes
 watershed_flow <- st_read(file.path(paths$climate, "Ruzzante_low_flows", "watersheds.gpkg")) %>%
+  st_transform(crs = 3005) %>%
   left_join(select(stations_stats, ID, regime), by = c("ID" = "ID")) %>%
   mutate(regime = as.factor(regime))
 
-stations_flow <- st_read(file.path(paths$climate, "Ruzzante_low_flows", "stations.gpkg"))
+stations_flow <- st_read(file.path(paths$climate, "Ruzzante_low_flows", "stations.gpkg")) %>%
+  st_transform(crs = 3005)
 
 flow_in_cu <- lengths(st_contains(cu_boundary, stations_flow)) > 0 
 cu_boundary$has_flow <- flow_in_cu
@@ -269,40 +271,48 @@ cu_boundary$has_flow <- flow_in_cu
 #list of stations/watersheds with projections
 projections_list <- list.files(file.path(paths$climate, "Ruzzante_low_flows", "regressionProjections"), pattern = ".csv")
 
+#import csv for each water station
+#assign into 20 year periods and nest by period
 for(i in 1:length(projections_list)) {
   projections_csv <- read_csv(file.path(paths$climate, "Ruzzante_low_flows", "regressionProjections", projections_list[i])) %>%
-    mutate(ID = str_sub(projections_list[i],1,-5))%>%
-    nest(.by = c("ID", "source_id",  "experiment_id", "Year")) #%>%
+    mutate(ID = str_sub(projections_list[i],1,-5),
+           period = if_else(Year >= 1981 & Year <= 2000, 0,
+                                   if_else(Year >= 2001 & Year <= 2020, 1,
+                                           if_else(Year >= 2021 & Year <= 2040, 2,
+                                                   if_else(Year >= 2041 & Year <= 2060, 3,
+                                                           if_else(Year >= 2061 & Year <= 2080, 4,
+                                                                   if_else(Year >= 2081 & Year <= 2100, 5, NA))))))) %>%
+    nest(.by = c("ID", "source_id",  "experiment_id", "variant_label", "period")) %>%
+    filter((period < 2 & experiment_id == "historical") | 
+             (period >= 2 & experiment_id != "historical"))
   
   if(i == 1) watershed_proj <- projections_csv
   else if(i > 1) watershed_proj <- bind_rows(watershed_proj, projections_csv)
 }
 
-wp_test <- as.data.table(watershed_proj)
-
-#wp_sub <- filter(watershed_proj, experiment_id %in% c("historical", "ssp370"))
-
-#get average across model variants for each year and scenario
+#get average across model variants for each period and scenario
 wp_vm <- watershed_proj %>% 
   mutate(mean = map_dbl(data, ~mean(.x$predMean.m3s_8))) %>%
-  nest(.by = c("ID", "experiment_id", "Year"))
+  nest(.by = c("ID", "experiment_id", "source_id", "period"))
 
 #get average across all GCMs for each year
-wp_mean <- wp_vm %>%
-  mutate(mean = map_dbl(data, ~mean(.x$mean))) %>%
-  #select(-data) %>%
-  mutate(period = if_else(Year >= 1981 & Year <= 2000, 0,
-                          if_else(Year >= 2001 & Year <= 2020, 1,
-                                  if_else(Year >= 2021 & Year <= 2040, 2,
-                                          if_else(Year >= 2041 & Year <= 2060, 3,
-                                                  if_else(Year >= 2061 & Year <= 2080, 4,
-                                                          if_else(Year >= 2081 & Year <= 2100, 5, NA)))))))
+wp_stats <- wp_vm %>%
+  mutate(mean = map_dbl(data, ~mean(.x$mean)),
+         sd   = map_dbl(data, ~sd(.x$mean)),
+         q025 = map_dbl(data, ~quantile(.x$mean, probs = 0.025)),
+         q975 = map_dbl(data, ~quantile(.x$mean, probs = 0.975))) 
 
-
+wp_stats_ens <- wp_stats %>%
+  nest(.by = c("ID", "experiment_id", "period")) %>%
+  mutate(mean = map_dbl(data, ~mean(.x$mean)),
+         sd   = map_dbl(data, ~sd(.x$mean)),
+         q025 = map_dbl(data, ~quantile(.x$mean, probs = 0.025)),
+         q975 = map_dbl(data, ~quantile(.x$mean, probs = 0.975))) %>%
+  mutate(source_id = "ensemble", .after = experiment_id)
 
 
 #save averaged flow projections 
-save(wp_mean, file = file.path("processed_data", "freshwater", "Statistical_flow_projections.Rds"))
+save(wp_stats, wp_stats_ens, file = file.path(paths$fw, "Statistical_flow_projections.Rds"))
 
 
 

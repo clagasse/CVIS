@@ -30,8 +30,9 @@ wsd <- function(x, length_metre, na.rm = TRUE) {
   sqrt(Hmisc::wtd.var(x, weights = length_metre, na.rm = TRUE))
 }
 #weighted quantiles
-wqt <- function(x, length_metre, q, na.rm = TRUE) {
-  Hmisc::wtd.quantile(x, weights = length_metre, probs = q, na.rm = TRUE)
+wqt <- function(x, length_metre, prob = 0.025, na.rm = TRUE) {
+  y <- Hmisc::wtd.quantile(x, weights = length_metre, probs = prob, na.rm = TRUE)
+  unname(y)
 }
 
 
