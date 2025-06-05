@@ -260,9 +260,9 @@ rm(lat, lon, fillvalue,  PHH, PH45, NEPlat, NEPlon,
    SSPH_45_07,SSPH_45_08,SSPH_45_09,SSPH_45_10,SSPH_45_11,SSPH_45_12)
 
 #Export NEP points as shp file if needed
-sf::st_write(NEP_SSS, file.path(paths$climate, "NEP36_MonthlyData", "NEPmonthly_SSS.shp"), append = FALSE)
-sf::st_write(NEP_SST, file.path(paths$climate, "NEP36_MonthlyData","NEPmonthly_SST.shp"), append = FALSE)
-sf::st_write(NEP_SSPH, file.path(paths$climate, "NEP36_MonthlyData","NEPmonthly_SSPH.shp"), append = FALSE)
+sf::st_write(NEP_SSS, file.path(paths$climate, "NEP36_MonthlyData", "NEPmonthly_SSS.gdb"), driver = "OpenFileGDB", append = FALSE)
+sf::st_write(NEP_SST, file.path(paths$climate, "NEP36_MonthlyData","NEPmonthly_SST.gdb"), driver = "OpenFileGDB", append = FALSE)
+sf::st_write(NEP_SSPH, file.path(paths$climate, "NEP36_MonthlyData","NEPmonthly_SSPH.gdb"), driver = "OpenFileGDB",  append = FALSE)
 
 #------------ LOAD SSC temperature and salinity data -------- 
 #list variables
@@ -281,7 +281,6 @@ vodf <- tribble(
   "vosaline", "SSS", "Salinity", "PSU"
 ) 
 
-
 for(v in 1:nrow(vodf)) {
   
   #Read in the temperature and salinity variable for each scenario
@@ -294,7 +293,7 @@ for(v in 1:nrow(vodf)) {
   
   ##figure out what value is used to define no data. This is the same value for salinity and temperature 
   fillvalue <- ncatt_get(SSC_H, vodf$var[v], "_FillValue")
-  print(fillvalue$value)
+  #print(fillvalue$value)
   
   #replace fill values with standard NA value
   TH[TH == fillvalue$value] <- NA
@@ -337,14 +336,40 @@ for(v in 1:nrow(vodf)) {
     st_transform(crs = "EPSG:3005")
   
   #Export points as shp file
-  sf::st_write(VO_pts, file.path(paths$climate, "SalishSeaCast_MonthlyData", paste0("SSCmonthly_", vodf$abbr[v], ".shp")), append = FALSE)
+  sf::st_write(VO_pts, file.path(paths$climate, "SalishSeaCast_MonthlyData", paste0("SSCmonthly_", vodf$abbr[v], ".gdb")), driver = "OpenFileGDB", append = FALSE)
   #sf::st_write(SSC_SST, file.path(paths$climate, "SalishSeaCast_MonthlyData","SSCmonthly_SST.shp"))
   
 }
 ## Remove extra objects 
-rm(fillvalue, lat, lon, SSC_45, SSC_85, SSC_H, VO_45, VO_85, VO_H, VO_pts, vodf, hist_ystart,
-   i, int_starts, proj_ystart, SSClat, SSClon, T45, T85, TH, tspan, v, VO_45_temp,
-   VO_85_temp, VO_H_temp, vo_pick)
+rm(fillvalue, lat, lon, SSC_45, SSC_85, SSC_H, VO_45, VO_85, VO_H, VO_pts, vodf, 
+   i, SSClat, SSClon, T45, T85, TH,  v, VO_45_temp, VO_85_temp, VO_H_temp, vo_pick)
+
+# ----------- Format SSC data ---------------
+SSC_SST<- read_sf( file.path(paths$climate, "SalishSeaCast_MonthlyData","SSCmonthly_SST.gdb"))
+SSC_SSS<- read_sf( file.path(paths$climate, "SalishSeaCast_MonthlyData","SSCmonthly_SSS.gdb"))
+
+# rename columns so they work with subsequent scripts
+colnames(SSC_SST)<-c("SST_H_01","SST_H_02","SST_H_03","SST_H_04","SST_H_05","SST_H_06",
+                     "SST_H_07","SST_H_08","SST_H_09","SST_H_10","SST_H_11","SST_H_12",
+                     "SST_45_01","SST_45_02","SST_45_03","SST_45_04","SST_45_05","SST_45_06",
+                     "SST_45_07","SST_45_08","SST_45_09","SST_45_10","SST_45_11","SST_45_12",
+                     "SST_85_01","SST_85_02","SST_85_03","SST_85_04","SST_85_05","SST_85_06",
+                     "SST_85_07","SST_85_08","SST_85_09","SST_85_10","SST_85_11","SST_85_12", "geometry") 
+st_geometry(SSC_SST) <- "geometry"  # Format the geometry column
+
+colnames(SSC_SSS)<-c("SSS_H_01","SSS_H_02","SSS_H_03","SSS_H_04","SSS_H_05","SSS_H_06",
+                     "SSS_H_07","SSS_H_08","SSS_H_09","SSS_H_10","SSS_H_11","SSS_H_12",
+                     "SSS_45_01","SSS_45_02","SSS_45_03","SSS_45_04","SSS_45_05","SSS_45_06",
+                     "SSS_45_07","SSS_45_08","SSS_45_09","SSS_45_10","SSS_45_11","SSS_45_12",
+                     "SSS_85_01","SSS_85_02","SSS_85_03","SSS_85_04","SSS_85_05","SSS_85_06",
+                     "SSS_85_07","SSS_85_08","SSS_85_09","SSS_85_10","SSS_85_11","SSS_85_12","geometry")
+st_geometry(SSC_SSS) <- "geometry"
+
+# Replace 0s with Nulls in SSC data (all 0s fall on land) And resave
+SSC_SST<- SSC_SST %>% mutate_if(is.numeric, ~na_if(., 0)) %>%
+  sf::st_write(file.path(paths$climate, "SalishSeaCast_MonthlyData", "SSCmonthly_SST.gdb"), driver="OpenFileGDB",  append=FALSE)
+SSC_SSS<- SSC_SSS %>% mutate_if(is.numeric, ~na_if(., 0)) %>%
+  sf::st_write( file.path(paths$climate,"SalishSeaCast_MonthlyData",  "SSCmonthly_SSS.gdb"), driver="OpenFileGDB", append=FALSE)
 
 #------------ LOAD BCCM surface data ---------
 BCCM_85_SST<- read_ncdf(file.path(paths$climate, "BCCM", "bcc42_bioNew_can85_2046to2065_monSST.nc"), proxy = FALSE, var = c("lat_rho","lon_rho", "temp", "months"), make_time = TRUE)
@@ -481,7 +506,7 @@ SSPH_H_10    <- as.vector(BCCM_Hist_SSPH$pH[,,10])
 SSPH_H_11    <- as.vector(BCCM_Hist_SSPH$pH[,,11])
 SSPH_H_12    <- as.vector(BCCM_Hist_SSPH$pH[,,12])
 
-# Recombine variables into a data frame and reproject into 3005 (BC albers)
+# Recombine variables into a data frame, reproject into 3005 (BC albers), and save as file GDB
 BCCM_SSS<- data.frame(x = BCCM_lon,y = BCCM_lat,
                       SSS_H_01,SSS_H_02,SSS_H_03,SSS_H_04,SSS_H_05,SSS_H_06,
                       SSS_H_07,SSS_H_08,SSS_H_09,SSS_H_10,SSS_H_11,SSS_H_12,
@@ -491,8 +516,8 @@ BCCM_SSS<- data.frame(x = BCCM_lon,y = BCCM_lat,
                       SSS_85_07,SSS_85_08,SSS_85_09,SSS_85_10,SSS_85_11,SSS_85_12) %>%
   st_as_sf(coords = c("x", "y"),
            crs = "EPSG:4326") %>%
-  st_transform(crs = "EPSG:3005")
-#plot(BCCM)
+  st_transform(crs = "EPSG:3005") %>%
+  sf::st_write( file.path(paths$climate,"BCCM", "BCCMmonthly_SSS.gdb"), driver = "OpenFileGDB", append=FALSE)
 
 BCCM_SST<- data.frame(x = BCCM_lon,y = BCCM_lat,
                       SST_H_01,SST_H_02,SST_H_03,SST_H_04,SST_H_05,SST_H_06,
@@ -503,7 +528,8 @@ BCCM_SST<- data.frame(x = BCCM_lon,y = BCCM_lat,
                       SST_85_07,SST_85_08,SST_85_09,SST_85_10,SST_85_11,SST_85_12) %>%
   st_as_sf(coords = c("x", "y"),
            crs = "EPSG:4326") %>%
-  st_transform(crs = "EPSG:3005")
+  st_transform(crs = "EPSG:3005") %>%
+  sf::st_write(file.path(paths$climate, "BCCM", "BCCMmonthly_SST.gdb"), driver = "OpenFileGDB", append=FALSE)
 
 BCCM_SSPH<- data.frame(x = BCCM_lon,y = BCCM_lat,
                       SSPH_H_01,SSPH_H_02,SSPH_H_03,SSPH_H_04,SSPH_H_05,SSPH_H_06,
@@ -514,7 +540,8 @@ BCCM_SSPH<- data.frame(x = BCCM_lon,y = BCCM_lat,
                       SSPH_85_07,SSPH_85_08,SSPH_85_09,SSPH_85_10,SSPH_85_11,SSPH_85_12) %>%
   st_as_sf(coords = c("x", "y"),
            crs = "EPSG:4326") %>%
-  st_transform(crs = "EPSG:3005")
+  st_transform(crs = "EPSG:3005") %>%
+  sf::st_write(file.path(paths$climate,"BCCM", "BCCMmonthly_SSPH.gdb"), driver = "OpenFileGDB", append=FALSE)
 
 # remove the extra vectors 
 rm(BCCM_45_SSS, BCCM_45_SST, BCCM_45_SSPH, BCCM_85_SSS, BCCM_85_SST,BCCM_85_SSPH,BCCM_Hist_SSS, BCCM_Hist_SST,BCCM_Hist_SSPH,
@@ -538,114 +565,60 @@ rm(BCCM_45_SSS, BCCM_45_SST, BCCM_45_SSPH, BCCM_85_SSS, BCCM_85_SST,BCCM_85_SSPH
       SSPH_85_01,SSPH_85_02,SSPH_85_03,SSPH_85_04,SSPH_85_05,SSPH_85_06,
       SSPH_85_07,SSPH_85_08,SSPH_85_09,SSPH_85_10,SSPH_85_11,SSPH_85_12)
 
-# Export at shapefile 
-sf::st_write(BCCM_SST, file.path(paths$climate, "BCCM", "BCCMmonthly_SST.shp"), append=FALSE)
-sf::st_write(BCCM_SSS, file.path(paths$climate,"BCCM", "BCCMmonthly_SSS.shp"), append=FALSE)
-sf::st_write(BCCM_SSPH, file.path(paths$climate,"BCCM", "BCCMmonthly_SSPH.shp"), append=FALSE)
-
 #------------ Load Cumulative Impacts Data ---------
-
-CI<-read_sf(file.path(spatial_dat, "CumulativeImpacts_shp", "CI.shp"))
+CI<-read_sf(file.path(paths$spatial, "Cumulative_Impacts_Pacfic_Canada.gdb"))
 CI<-st_transform(CI,crs = "EPSG:3005" )
 # calculate centroids of CI polygon grid
 CI_points<- st_centroid(CI)
 rm(CI)
-sf::st_write(CI_points, file.path(spatial_dat,"CumulativeImpacts_shp", "CI_points.shp"), append = FALSE)
+sf::st_write(CI_points, file.path(paths$spatial,"CumulativeImpacts", "CI_points.gdb"), driver="OpenFileGDB", append = FALSE)
 
-# ----------- Mask points and join to MAZ ---------
-# Load data if not already present
-#BCCM_SST<-read_sf( file.path(paths$climate, "BCCM", "BCCMmonthly_SST.shp"))
-#BCCM_SSS<-read_sf( file.path(paths$climate, "BCCM", "BCCMmonthly_SSS.shp"))
-#BCCM_SSPH<-read_sf( file.path(paths$climate, "BCCM", "BCCMmonthly_SSPH.shp"))
-#NEP_SST<- read_sf( file.path(paths$climate, "NEP36_MonthlyData","NEPmonthly_SST.shp"))
-#NEP_SSS<- read_sf( file.path(paths$climate, "NEP36_MonthlyData","NEPmonthly_SSS.shp"))
-#NEP_SSPH<- read_sf( file.path(paths$climate, "NEP36_MonthlyData","NEPmonthly_SSPH.shp"))
-SSC_SST<- read_sf( file.path(paths$climate, "SalishSeaCast_MonthlyData","SSCmonthly_SST.shp"))
-SSC_SSS<- read_sf( file.path(paths$climate, "SalishSeaCast_MonthlyData","SSCmonthly_SSS.shp"))
-#CI_points<-read_sf(file.path(spatial_dat, "CumulativeImpacts_shp", "CI_points.shp"))%>%
-subset(select = -c( MAZ_Acrony)) 
-
-# ----------- Format SSC data ---------------
-# rename columns so they work with subsequent scripts
-colnames(SSC_SST)<-c("SST_H_01","SST_H_02","SST_H_03","SST_H_04","SST_H_05","SST_H_06",
-                     "SST_H_07","SST_H_08","SST_H_09","SST_H_10","SST_H_11","SST_H_12",
-                     "SST_45_01","SST_45_02","SST_45_03","SST_45_04","SST_45_05","SST_45_06",
-                     "SST_45_07","SST_45_08","SST_45_09","SST_45_10","SST_45_11","SST_45_12",
-                     "SST_85_01","SST_85_02","SST_85_03","SST_85_04","SST_85_05","SST_85_06",
-                     "SST_85_07","SST_85_08","SST_85_09","SST_85_10","SST_85_11","SST_85_12", "geometry") 
-st_geometry(SSC_SST) <- "geometry"  # Format the geometry column
-
-colnames(SSC_SSS)<-c("SSS_H_01","SSS_H_02","SSS_H_03","SSS_H_04","SSS_H_05","SSS_H_06",
-                     "SSS_H_07","SSS_H_08","SSS_H_09","SSS_H_10","SSS_H_11","SSS_H_12",
-                     "SSS_45_01","SSS_45_02","SSS_45_03","SSS_45_04","SSS_45_05","SSS_45_06",
-                     "SSS_45_07","SSS_45_08","SSS_45_09","SSS_45_10","SSS_45_11","SSS_45_12",
-                     "SSS_85_01","SSS_85_02","SSS_85_03","SSS_85_04","SSS_85_05","SSS_85_06",
-                     "SSS_85_07","SSS_85_08","SSS_85_09","SSS_85_10","SSS_85_11","SSS_85_12","geometry")
-st_geometry(SSC_SSS) <- "geometry"
-
-
-# Replace 0s with Nulls in SSC data (all 0s fall on land)
-SSC_SST<- SSC_SST %>% mutate_if(is.numeric, ~na_if(., 0)) 
-SSC_SSS<- SSC_SSS %>% mutate_if(is.numeric, ~na_if(., 0)) 
-
-sf::st_write(SSC_SST, file.path(paths$climate, "SalishSeaCast_MonthlyData", "SSCmonthly_SST.shp"), append=FALSE)
-sf::st_write(SSC_SSS, file.path(paths$climate,"SalishSeaCast_MonthlyData",  "SSCmonthly_SSS.shp"), append=FALSE)
-
-#------------ Mask out model points with low confidence ----------
+#------------ Mask model points and Join to MAZ ----------
 # Load and transform masking polygons and MAZ polygons
 BCCM_mask<-read_sf(file.path(paths$climate, "BCCM", "BCCM_mask2.shp")) %>% st_transform(crs = "EPSG:3005" )                       
-SSC_mask<-read_sf(file.path(paths$climate, "SalishSeaCast_MonthlyData", "SSC_mask2.shp")) %>% st_transform(crs = "EPSG:3005" )
+SSC_mask<-read_sf(file.path(paths$climate, "SalishSeaCast_MonthlyData", "SSC_mask.shp")) %>% st_transform(crs = "EPSG:3005" )
 NEP_mask<-read_sf(file.path(paths$climate, "NEP36_MonthlyData", "NEP_mask.shp"))%>% st_transform(crs = "EPSG:3005" )        
-MAZ<-read_sf(file.path(spatial_dat, "MAZ", "MAZ_Final.shp")) %>% st_transform(,crs = "EPSG:3005" )
+MAZ<-read_sf(file.path(paths$spatial, "MAZ", "MAZ_Final.shp")) %>% st_transform(,crs = "EPSG:3005" )
 
 #Change MAZ acronym variable to a factor variable
 MAZ$MAZ_Acrony<- as.factor(MAZ$MAZ_Acrony)
 
-#remove extra variables from masks
-BCCM_mask= subset(BCCM_mask, select = -c(id, area, perimeter))    # This is a polygon outlining the points included by Angelicas Mask inside the EEZ 
-SSC_mask= subset(SSC_mask, select = -c(NAME_E, MAZ_Acrony, CI_AvgScor, Long_name))
-NEP_mask= subset(NEP_mask, select = -c(FID, disolve))
+# Crop model points to mask polygons and Join to MAZ polygons and save as a file GDB
+BCCM_SST_sub<-st_intersection(BCCM_SST, BCCM_mask) %>%
+  st_join(left = FALSE, MAZ["MAZ_Acrony"]) %>%
+  sf::st_write(file.path(paths$climate, "Standardized_Marine_data/BCCM_SST_sub.gdb"),  driver = "OpenFileGDB",  append = FALSE )
 
-#filter BCCM with the mask from Angelica
-#BCCM_SST_masked<-BCCM_SST_masked %>% filter(BCCM_mask == 1, na.rm=TRUE)   # This removes uncertain results from whole model
-#BCCM_SSS_masked<-BCCM_SSS %>% filter(BCCM_mask == 1, na.rm=TRUE)
-#BCCM_SSPH_masked<-BCCM_SSPH %>% filter(BCCM_mask == 1, na.rm=TRUE)
+BCCM_SSS_sub<-st_intersection(BCCM_SSS, BCCM_mask)%>%
+  st_join(left = FALSE, MAZ["MAZ_Acrony"])%>%
+  sf::st_write(file.path(paths$climate, "Standardized_Marine_data/BCCM_SSS_sub.gdb"),   driver = "OpenFileGDB", append = FALSE )
 
-BCCM_SST_masked<-st_intersection(BCCM_SST, BCCM_mask)    # this crops results to EEZ and the removes uncertain results 
-BCCM_SSS_masked<-st_intersection(BCCM_SSS, BCCM_mask) 
-BCCM_SSPH_masked<-st_intersection(BCCM_SSPH, BCCM_mask) 
+BCCM_SSPH_sub<-st_intersection(BCCM_SSPH, BCCM_mask) %>%
+  st_join(left = FALSE, MAZ["MAZ_Acrony"])%>%
+  sf::st_write(file.path(paths$climate, "Standardized_Marine_data/BCCM_SSPH_sub.gdb"),   driver = "OpenFileGDB", append = FALSE  )
 
-NEP_SST_masked<-st_intersection(NEP_SST, NEP_mask) 
-NEP_SSS_masked<-st_intersection(NEP_SSS, NEP_mask) 
-NEP_SSPH_masked<-st_intersection(NEP_SSPH, NEP_mask) 
+NEP_SST_sub<-st_intersection(NEP_SST, NEP_mask)%>%
+  st_join(left = FALSE, MAZ["MAZ_Acrony"]) %>%
+  sf::st_write(file.path(paths$climate, "Standardized_Marine_data/NEP_SST_sub.gdb"),   driver = "OpenFileGDB" , append = FALSE )
+  
+NEP_SSS_sub<-st_intersection(NEP_SSS, NEP_mask) %>%
+  st_join(left = FALSE, MAZ["MAZ_Acrony"])%>%
+  sf::st_write(file.path(paths$climate, "Standardized_Marine_data/NEP_SSS_sub.gdb"),   driver = "OpenFileGDB" , append = FALSE )
 
-SSC_SST_masked<-st_intersection(SSC_SST, SSC_mask) 
-SSC_SSS_masked<-st_intersection(SSC_SSS, SSC_mask) 
+NEP_SSPH_sub<-st_intersection(NEP_SSPH, NEP_mask) %>%
+  st_join(left = FALSE, MAZ["MAZ_Acrony"])%>%
+  sf::st_write(file.path(paths$climate, "Standardized_Marine_data/NEP_SSPH_sub.gdb"),   driver = "OpenFileGDB" , append = FALSE )
 
-#remove extra objects
-rm(SSC_mask, BCCM_mask, NEP_mask)
+SSC_SST_sub<-st_intersection(SSC_SST, SSC_mask) %>%
+  st_join(left = FALSE, MAZ["MAZ_Acrony"])%>%
+  sf::st_write(file.path(paths$climate, "Standardized_Marine_data/SSC_SST_sub.gdb"),   driver = "OpenFileGDB", append = FALSE  )
 
-#------------ Join MAZ Acronymn to model points -------
-BCCM_SSS_sub <- st_join(BCCM_SSS_masked, left = FALSE, MAZ["MAZ_Acrony"]) # left= true means that points outside of MAZ polygons will be preserved 
-BCCM_SST_sub<- st_join(BCCM_SST_masked, left = FALSE, MAZ["MAZ_Acrony"])
-BCCM_SSPH_sub<- st_join(BCCM_SSPH_masked, left = FALSE, MAZ["MAZ_Acrony"])
-NEP_SSS_sub<- st_join(NEP_SSS_masked, left = FALSE, MAZ["MAZ_Acrony"])
-NEP_SST_sub <- st_join(NEP_SST_masked, left = FALSE, MAZ["MAZ_Acrony"])
-NEP_SSPH_sub <- st_join(NEP_SSPH_masked, left = FALSE, MAZ["MAZ_Acrony"])
-SSC_SSS_sub<- st_join(SSC_SSS_masked, left = FALSE, MAZ["MAZ_Acrony"])
-SSC_SST_sub <- st_join(SSC_SST_masked, left = FALSE, MAZ["MAZ_Acrony"])
-CI_points_sub <- st_join(CI_points, left = FALSE, MAZ["MAZ_Acrony"]) 
+SSC_SSS_sub<-st_intersection(SSC_SSS, SSC_mask)%>%
+  st_join(left = FALSE, MAZ["MAZ_Acrony"]) %>%
+  sf::st_write(file.path(paths$climate, "Standardized_Marine_data/SSC_SSS_sub.gdb"),   driver = "OpenFileGDB" , append = FALSE )
+
+CI_points_sub <- st_join(CI_points, left = FALSE, MAZ["MAZ_Acrony"]) %>%
+  sf::st_write(file.path(paths$climate, "Standardized_Marine_data/CI_points_sub.gdb"),   driver = "OpenFileGDB", append = FALSE  )
 
 # ----------- Remove extra objects -------
-rm(BCCM_SST_masked, BCCM_SSS_masked, BCCM_SSPH_masked,
-NEP_SST_masked, NEP_SSS_masked,NEP_SSPH_masked, SSC_SSS_masked, SSC_SST_masked)
-# ----------- Save masked points with MAZ as shp file -------
-sf::st_write(BCCM_SST_sub,  file.path(paths$climate, "Standardized_Marine_data/BCCM_SST_sub.shp"),    append = FALSE )
-sf::st_write(BCCM_SSS_sub,  file.path(paths$climate, "Standardized_Marine_data/BCCM_SSS_sub.shp"),    append = FALSE )
-sf::st_write(BCCM_SSPH_sub, file.path(paths$climate, "Standardized_Marine_data/BCCM_SSPH_sub.shp"),   driver = "ESRI Shapefile", append = FALSE  )
-sf::st_write(NEP_SST_sub,   file.path(paths$climate, "Standardized_Marine_data/NEP_SST_sub.shp"),   driver = "ESRI Shapefile" , append = FALSE )
-sf::st_write(NEP_SSS_sub,   file.path(paths$climate, "Standardized_Marine_data/NEP_SSS_sub.shp"),   driver = "ESRI Shapefile" , append = FALSE )
-sf::st_write(NEP_SSPH_sub,  file.path(paths$climate, "Standardized_Marine_data/NEP_SSPH_sub.shp"),   driver = "ESRI Shapefile" , append = FALSE )
-sf::st_write(SSC_SST_sub,   file.path(paths$climate, "Standardized_Marine_data/SSC_SST_sub.shp"),   driver = "ESRI Shapefile", append = FALSE  )
-sf::st_write(SSC_SSS_sub,   file.path(paths$climate, "Standardized_Marine_data/SSC_SSS_sub.shp"),   driver = "ESRI Shapefile" , append = FALSE )
-sf::st_write(CI_points_sub, file.path(paths$climate, "Standardized_Marine_data/CI_points_sub.shp"),   driver = "ESRI Shapefile", append = FALSE  )
+rm(SSC_mask, BCCM_mask, NEP_mask)
+

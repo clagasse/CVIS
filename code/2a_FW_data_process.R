@@ -139,6 +139,15 @@ save(bcfpa, file = file.path(paths$fw, "BCFP_combined_accessible_Fr.Rds"))
 save(bcfpl, file = file.path(paths$spatial, "BCFishpass", "BCFP_combined_order2_Fr.Rds"))
 
 
+#create stream network data table
+bcfpmod <- as.data.table(bcfpa) %>%
+  select(segmented_stream_id, linear_feature_id, FWA_WATERSHED_CODE, channel_width, length_metre,
+         mad_m3s, upstream_area_ha, gradient, gnis_name, model_access_salmon, 
+         model_habitat_salmon)
+
+#get index of linear_feature_ids that are accessible
+lf_id_access <- bcfpa$linear_feature_id[!is.na(bcfpa$linear_feature_id)]
+
 ### this code will query from the FWA database using an API, but is limited to 10,000 records
 # library(fwapgr)  #package for accessing BC FWA
 # collection_id <- "whse_basemapping.fwa_stream_networks_sp"
@@ -180,22 +189,178 @@ T7DEC <- read_csv(file.path(paths$climate, "7DEC", "ThreshRisk_7DEC_Fraser.csv")
          #Risk24_mod_len = Risk24_9_45_3 %in% c("Moderate", "High", "Very High") * Shape_Length)
 
 
-# Foundry Spatial flow model derived from PCIC grid model
-hflow <- st_read(file.path(paths$climate, "Fraserflow", "Historic_Flow_Data.gdb")) %>%
-  as.data.table()
-pflow <- st_read(file.path(paths$climate, "Fraserflow", "fraser_ensemble_means_rcp45_2020_2100.gdb")) %>%
-  as.data.table()
+#----------------- Stream level flow data -----------------------------------
+
+# pflow <- st_read(file.path(paths$climate, "Fraserflow", "fraser_ensemble_means_rcp45_2020_2100.gdb")) %>%
+#   as.data.table()
 
 #individual model projections for historical flow
-target_file <- "data/fwa_rollup_access1_rcp45_r1i1p1_adj_m3s.csv"
-access45 <- unzip(file.path(paths$climate, "Fraserflow", "modelled_flow.zip"), files = target_file)
+# these are very large files and need to be unzipped first
 
-access85 <- read_csv(file.path(paths$climate, "Fraserflow", "modelled_flow", "fwa_rollup_access_rcp85_r1i1p1_adj_m3s.csv")) %>%
-  as.data.table()
+pflow_names <- list.files(file.path(paths$climate, "Fraserflow", "modelled_flow.zip", "data")) 
+
+pflow_GCMs <- list()  #initialize list to hold GCM data
+
+for(i in 1:length(pflow_names)) {
+  #read in each GCM file
+  pflow_GCMs[[i]] <- fread(file.path(paths$climate, "Fraserflow", "modelled_flow", "data", pflow_names[i]), 
+                           select = c("linear_feature_id", "time_id", "description_id", "mean_runoff_m3s")) 
+}
+
+names(pflow_GCMs) <- pflow_names
+
+save(pflow_GCMs, file = file.path(paths$fw, "stream_flow_GCMs_Fr.Rds"))
 
 
-pflow <- st_layers(file.path(paths$climate, "Fraserflow", "modelled_flow_rcp45.gdb")) %>%
-  as.data.table()
+#----- process flow data to accessible streams only
+
+load(file.path(paths$fw, "stream_flow_GCMs_Fr.Rds")) #load GCM flow data
+
+pflow_names <- names(pflow_GCMs)
+
+#code key for time period
+flow_desc_id <- read_csv(file.path(paths$climate, "Fraserflow", "description_id.csv")) 
+
+desc_id_lookup <- tribble(
+  ~description_id, ~period,
+  grep("2020", flow_desc_id$description), "2",
+  grep("2040", flow_desc_id$description), "3",
+  grep("2060", flow_desc_id$description), "4",
+  grep("2080", flow_desc_id$description), "5",
+  grep("1981", flow_desc_id$description), "0",
+)
+
+#subset accessible streams only using Linear Feature IDs
+# Apply setindex and filter each data.table
+pflow_GCMs <- lapply(pflow_GCMs, function(dt) {
+  #setindex(dt, linear_feature_id) # Create index (does not sort)
+  dt[linear_feature_id %in% lf_id_access]
+})
+
+gc()
+
+pflow_GCMs <- lapply(pflow_GCMs, function(dt) {
+  dt[order(linear_feature_id, description_id, time_id)]  # Sort by linear_feature_id and time_id
+})
+
+
+#get mean, min, and max for each scenario and combine into data.table
+for(i in 1:2) {
+  
+  if(i == 1) rcp_pick <- "rcp45"
+  if(i == 2) rcp_pick <- "rcp85"
+  
+  rcp_names <- grep(rcp_pick, pflow_names, value = TRUE)
+  
+  # Extract the value from each table
+  flow_values <- lapply(pflow_GCMs[rcp_names], function(dt) dt[["mean_runoff_m3s"]])
+  
+  # Combine into a matrix: each column is from one table, rows align
+  flow_matrix <- as.data.table(flow_values)
+  
+  # Compute row-wise stats using vectorized functions
+  flow_table <- flow_matrix[, .(
+    linear_feature_id = pflow_GCMs[[1]]$linear_feature_id,  # Assuming all have the same linear_feature_id
+    time_id = pflow_GCMs[[1]]$time_id,  # Assuming all have the same time_id
+    description_id = pflow_GCMs[[1]]$description_id,
+    scenario = rcp_pick,
+    min = do.call(pmin, .SD),
+    mean = rowMeans(.SD, na.rm = TRUE),
+    max = do.call(pmax, .SD)
+  )]
+  
+  if(i == 1) {
+    flow_summary <- flow_table
+  } else {
+    flow_summary <- rbind(flow_summary, flow_table)
+  }
+  
+}
+
+rm(flow_table, flow_matrix, flow_values)
+
+#get period using description id
+flow_summary <- flow_summary %>%
+  mutate(period = case_when(description_id %in% unlist(desc_id_lookup[[1]][1]) ~ unlist(desc_id_lookup[[2]][1]),
+                            description_id %in% unlist(desc_id_lookup[[1]][2]) ~ unlist(desc_id_lookup[[2]][2]),
+                            description_id %in% unlist(desc_id_lookup[[1]][3]) ~ unlist(desc_id_lookup[[2]][3]),
+                            description_id %in% unlist(desc_id_lookup[[1]][4]) ~ unlist(desc_id_lookup[[2]][4]),
+                            description_id %in% unlist(desc_id_lookup[[1]][5]) ~ unlist(desc_id_lookup[[2]][5]))) %>%
+  select(-description_id)
+
+# pflow_combined <- NULL
+# 
+# # Loop through the list and bind incrementally
+# for (i in seq_along(pflow_GCMs)) {
+#   pflow_GCMs[[1]][, source_id := pflow_names[i]] # Add identifier column
+#   if (is.null(pflow_combined)) {
+#     pflow_combined <- pflow_GCMs[[1]]
+#   } else {
+#     pflow_combined <- rbindlist(list(pflow_combined, pflow_GCMs[[1]]), use.names = TRUE, fill = TRUE)
+#   }
+#   pflow_GCMs[[1]] <- NULL # Free memory
+#   gc() # Trigger garbage collection
+# }
+
+
+
+#put all GCMs into single data.table with RCP, period, and model identifier
+# for(i in 1:length(pflow_GCMs)) {
+#   temp_GCMs <- pflow_GCMs[[i]] %>%
+#     mutate(period = case_when(description_id %in% unlist(desc_id_lookup[[1]][1]) ~ unlist(desc_id_lookup[[2]][1]),
+#                        description_id %in% unlist(desc_id_lookup[[1]][2]) ~ unlist(desc_id_lookup[[2]][2]),
+#                        description_id %in% unlist(desc_id_lookup[[1]][3]) ~ unlist(desc_id_lookup[[2]][3]),
+#                        description_id %in% unlist(desc_id_lookup[[1]][4]) ~ unlist(desc_id_lookup[[2]][4]),
+#                        description_id %in% unlist(desc_id_lookup[[1]][5]) ~ unlist(desc_id_lookup[[2]][5]))) %>%
+#     select(-description_id) %>%
+#     pivot_wider(
+#       names_from = c(period, time_id),
+#       values_from = mean_runoff_m3s,
+#       names_prefix = "mean_runoff_m3s_"
+#     )
+#     left_join(select(bcfpmod, linear_feature_id, segmented_stream_id),
+#               join_by(linear_feature_id == linear_feature_id),
+#               multiple = "first") %>%
+#     mutate(scenario = if_else(!is.na(description_id), str_extract(pflow_names[i], "rcp[0-9]+"), NA),
+#            model = if_else(!is.na(description_id), str_sub(pflow_names[i], 12, 17), NA)) %>%
+#     filter(!is.na(segmented_stream_id)) #remove any rows without a segmented stream id
+#            
+#   if(i == 1) {
+#     pflow_acc_GCMs <- temp_GCMs
+#   } else if(i > 1) {
+#     pflow_acc_GCMs <- bind_rows(pflow_acc_GCMs, temp_GCMs)
+#   }
+# }
+
+#pflow_acc_GCMs <- select(pflow_acc_GCMs, -description_id)
+
+
+# import historical flow data object
+hflow <- st_read(file.path(paths$climate, "Fraserflow", "Historic_Flow_Data.gdb")) %>%
+  as.data.table() %>%
+  select(-contains("min_flow"), - contains("max_flow"))# %>%#remove min and max year values from periods
+
+hflow_wide <- hflow %>%
+  mutate(scenario = "historical",
+         period = "0") %>%
+  filter(LINEAR_FEATURE_ID %in% lf_id_access) %>%
+  rename_with(~ str_sub(.x, end = -3), starts_with("mean_flow")) %>% #remove _1 from col names
+  pivot_longer(
+    cols = starts_with("mean_flow_m3s_"),
+    names_to = c("time_id"),
+    names_prefix = "mean_flow_m3s_",
+    values_to = "mean"
+  ) %>%
+  mutate(time_id = as.integer(time_id)) %>%
+  select(LINEAR_FEATURE_ID, time_id, scenario, period, mean) %>%
+  rename(linear_feature_id = LINEAR_FEATURE_ID) %>%
+  mutate(min = NA, 
+         max = NA)
+  
+all_flow <- bind_rows(flow_summary, hflow_wide)
+
+
+save(all_flow, file = file.path(paths$fw, "stream_flow_minmaxGCMs_Fr_accessible.Rds"))
 
 
 
@@ -208,12 +373,7 @@ fwct <- st_read(file.path(paths$spatial, "CumulativeThreatScore", "CumulativeThr
 
 #load(file.path(paths$fw, "BCFP_combined_Fr.Rds")) #load bcfp stream network
 
-#create stream network data table
-bcfpmod <- as.data.table(bcfpa) %>%
-  select(segmented_stream_id, linear_feature_id, FWA_WATERSHED_CODE, channel_width, length_metre,
-         mad_m3s, upstream_area_ha, gradient, gnis_name, model_access_salmon, 
-         model_habitat_salmon)
-
+load(file.path(paths$fw, "stream_flow_minmaxGCMs_Fr_accessible.Rds"))
 
 # bcfpcmod <- as.data.table(bcfpc) %>%
 #   select(segmented_stream_id, linear_feature_id, FWA_WATERSHED_CODE, channel_width, length_metre,
@@ -229,19 +389,27 @@ fwT <- bcfpmod %>%
             join_by(linear_feature_id == LINEAR_FEATURE_ID), 
             multiple = "first") 
   
-tscapes_bcfp <- tscapes %>%
-  left_join(bcfpcmod, 
-            join_by(LINEAR_FEATURE_ID == linear_feature_id)) %>%
-  
+# tscapes_bcfp <- tscapes %>%
+#   left_join(bcfpcmod, 
+#             join_by(LINEAR_FEATURE_ID == linear_feature_id))
+#   
   
 #join flow models to bcfp
+
+all_flow_wide_rcp45 <- all_flow %>%
+  filter(scenario == "rcp45") %>%
+  pivot_wider(id_cols = c(linear_feature_id), 
+              names_from = c(scenario, period, time_id),
+              values_from = c(mean))
+
 fwQ <- bcfpmod %>%
   left_join(select(hflow, LINEAR_FEATURE_ID, Shape_Length, contains("mean")),
-            join_by(linear_feature_id == LINEAR_FEATURE_ID),
+            join_by(linear_feature_id),
             multiple = "first") %>%
   left_join(select(pflow, LINEAR_FEATURE_ID, Shape_Length, contains("mean")),
             join_by(linear_feature_id == LINEAR_FEATURE_ID),
             multiple = "first")
+
 
 #join cumulative threats model to bcfp
 fwct <- bcfpmod %>%

@@ -34,43 +34,75 @@ library(pacea)
 
 source(file.path(code_root, "3_marine_utils.R"))
 
-sf_use_s2(FALSE)  # remove spherical geometry (s2) for sf operations
+# This code takes the spatial data frames with all model points created in the 
+# first part of code (e.g. BCCM_SST), interpolates the points to a standard grid, 
+# crop the grids to the extent of the model using masks, and join the resulting 
+# grids to MAZ polygons. 
+# The 3b code follows these steps: 
+# 1) Load the surface data (3a1), CI points(3a2), and masks/extent polygons   
+# 2) Load an interpolation fuction ("point2rast") and associated function ("nnfit") from PACEA
+# 3) Interpolate the surface data using the nearest neighbour interpolation "point2rast" function. 
+#    Specify parameters so that a maximum of 4 neighbours are considered, cell size is equal 
+#    to that of the original netCDF file, and the extent is similar to that of the original NetCDF points.  
+# 4) Resample the interpolated surfaces to a standarized grid based on the BCCM model.The BCCM model 
+#    was used as the standard as it has the broadest resolution (3km). The nearest neighbour method 
+#    was used in the resample function because we wanted local values to have the greatest influence. 
+# 5) The resampled surface data are masked with model-specific masks and converted into a spatial feature object. These objects are named with and ending of "_cropped" (e.g. "NEP_SST_cropped"). 
+# 6) The "_cropped" spatial feature objects are joined to MAZ polygons so they gain a new column called "MAZ_Acrony" containing the MAZ acronmym that each grid cell overlaps. 
+# 7) Save the "_cropped" data to "\OneDrive - DFO-MPO\0_data_climate\Standardized_Marine_data" (e.g. "NEP_SST_cropped.gdb")
+
+# remove spherical geometry (s2) for sf operations
+sf_use_s2(FALSE)  
 
 # Load climate data that was the result of 3a marine data import data 
-BCCM_SST<-read_sf( file.path(climate_dat, "BCCM", "BCCMmonthly_SST.shp"))
-BCCM_SSS<-read_sf( file.path(climate_dat, "BCCM", "BCCMmonthly_SSS.shp"))
-BCCM_SSPH<-read_sf( file.path(climate_dat, "BCCM", "BCCMmonthly_SSPH.shp"))
-NEP_SST<- read_sf( file.path(climate_dat, "NEP36_MonthlyData","NEPmonthly_SST.shp"))
-NEP_SSS<- read_sf( file.path(climate_dat, "NEP36_MonthlyData","NEPmonthly_SSS.shp"))
-NEP_SSPH<- read_sf( file.path(climate_dat, "NEP36_MonthlyData","NEPmonthly_SSPH.shp"))
-SSC_SST<- read_sf( file.path(climate_dat, "SalishSeaCast_MonthlyData","SSCmonthly_SST.shp"))
-SSC_SSS<- read_sf( file.path(climate_dat, "SalishSeaCast_MonthlyData","SSCmonthly_SSS.shp"))
-CI_points<-read_sf(file.path(spatial_dat, "CumulativeImpacts_shp", "CI_points.shp"))
+BCCM_SST<-read_sf( file.path(paths$climate, "BCCM", "BCCMmonthly_SST.gdb"))  %>% 
+  rename(geometry = SHAPE) 
+  st_geometry(BCCM_SST) <- "geometry"   # format spatial data column so it works with sequential functions
+
+BCCM_SSS<-read_sf( file.path(paths$climate, "BCCM", "BCCMmonthly_SSS.gdb"))%>% 
+  rename(geometry = SHAPE) 
+st_geometry(BCCM_SSS) <- "geometry"
+
+BCCM_SSPH<-read_sf( file.path(paths$climate, "BCCM", "BCCMmonthly_SSPH.gdb"))%>% 
+  rename(geometry = SHAPE) 
+st_geometry(BCCM_SSPH) <- "geometry"
+
+NEP_SST<- read_sf( file.path(paths$climate, "NEP36_MonthlyData","NEPmonthly_SST.gdb"))%>% 
+  rename(geometry = SHAPE) 
+st_geometry(NEP_SST) <- "geometry"
+
+NEP_SSS<- read_sf( file.path(paths$climate, "NEP36_MonthlyData","NEPmonthly_SSS.gdb"))%>% 
+  rename(geometry = SHAPE) 
+st_geometry(NEP_SSS) <- "geometry"
+
+NEP_SSPH<- read_sf( file.path(paths$climate, "NEP36_MonthlyData","NEPmonthly_SSPH.gdb"))%>% 
+  rename(geometry = SHAPE) 
+st_geometry(NEP_SSPH) <- "geometry"
+
+SSC_SST<- read_sf( file.path(paths$climate, "SalishSeaCast_MonthlyData","SSCmonthly_SST.gdb"))%>% 
+  rename(geometry = SHAPE) 
+st_geometry(SSC_SST) <- "geometry"
+
+SSC_SSS<- read_sf( file.path(paths$climate, "SalishSeaCast_MonthlyData","SSCmonthly_SSS.gdb"))%>% 
+  rename(geometry = SHAPE) 
+st_geometry(SSC_SSS) <- "geometry"
+
+CI_points<-read_sf(file.path(paths$spatial, "CumulativeImpacts", "CI_points.gdb"))%>% 
+  rename(geometry = SHAPE) 
+st_geometry(CI_points) <- "geometry"
 
 #------Import bounding and masking/clipping polygons ----------
 # Load polygons shp files that will be used to set the extent of the interpolation or clip the final vector grid. 
-EEZ<-read_sf(file.path(  spatial_dat, "BC_EEZ", "BC_EEZ.shp"))                              # Full BC EEZ 
-SSCbox<-read_sf(file.path(climate_dat, "SalishSeaCast_MonthlyData", "SSC_boundingbox.shp")) # Box of full SSC extent
-BCCM_mask<-read_sf(file.path(climate_dat, "BCCM", "BCCM_mask2.shp"))                         # EEZ excluding north west corner 
-SSC_mask<-read_sf(file.path(climate_dat, "SalishSeaCast_MonthlyData", "SSC_mask2.shp"))      # surrounds the SSC data with values but excludes inlets and USA, and NA values 
-NEP_mask<-read_sf(file.path(climate_dat, "NEP36_MonthlyData", "NEP_mask.shp"))              # Clips out uncertain results including those on East coast of Haida Gwaii
-CI_mask<-read_sf(file.path(  spatial_dat, "CumulativeImpacts_shp", "CI_mask.shp"))         # EEZ polygon made from extent of original CI layer
+EEZ<-read_sf(file.path(paths$spatial, "BC_EEZ", "BC_EEZ.shp"))%>%st_transform(,crs = "EPSG:3005" )                              # Full BC EEZ 
+SSCbox<-read_sf(file.path(paths$climate, "SalishSeaCast_MonthlyData", "SSC_boundingbox.shp"))%>%st_transform(,crs = "EPSG:3005" ) # Box of full SSC extent
+BCCM_mask<-read_sf(file.path(paths$climate, "BCCM", "BCCM_mask2.shp"))  %>%st_transform(,crs = "EPSG:3005" )                       # EEZ excluding north west corner 
+SSC_mask<-read_sf(file.path(paths$climate, "SalishSeaCast_MonthlyData", "SSC_mask2.shp"))%>%st_transform(,crs = "EPSG:3005" )      # surrounds the SSC data with values but excludes inlets and USA, and NA values 
+NEP_mask<-read_sf(file.path(paths$climate, "NEP36_MonthlyData", "NEP_mask.shp"))     %>%st_transform(,crs = "EPSG:3005" )         # Clips out uncertain results including those on East coast of Haida Gwaii
+CI_mask<-read_sf(file.path(  paths$spatial, "CumulativeImpacts", "CI_mask.shp"))  %>%st_transform(,crs = "EPSG:3005" )       # EEZ polygon made from extent of original CI layer
+MAZ<-read_sf(file.path(paths$spatial, "MAZ", "MAZ_Final.shp")) %>% st_transform(,crs = "EPSG:3005" )     # MAZ polygons to join to completed grid
+  MAZ$MAZ_Acrony<- as.factor(MAZ$MAZ_Acrony)#Change MAZ acronym variable to a factor variable
 
-#Transform polygon sf objects to 3005 to match climate data 
-EEZ<-st_transform(EEZ,crs = "EPSG:3005" )
-SSCbox<-st_transform(SSCbox,crs = "EPSG:3005" )
-NEP_mask<-st_transform(NEP_mask,crs = "EPSG:3005" ) 
-SSC_mask<-st_transform(SSC_mask,crs = "EPSG:3005" )
-BCCM_mask<-st_transform(BCCM_mask,crs = "EPSG:3005" )
-CI_mask<-st_transform(CI_mask,crs = "EPSG:3005" )
-
-#remove remnant attributes from masks 
-#BCCM_mask= subset(BCCM_mask, select = -c(NAME_E, MAZ_Acrony, CI_AvgScor, Long_name))
-BCCM_mask= subset(BCCM_mask, select = -c(id, area, perimeter))
-SSC_mask= subset(SSC_mask, select = -c(NAME_E, MAZ_Acrony, CI_AvgScor, Long_name))
-NEP_mask= subset(NEP_mask, select = -c(FID, disolve))
-
-########## Interpolation Function from PACEA ######
+#----------Interpolation Function ---------
 point2rast <- function(data, spatobj, loc = c("x", "y"), cellsize, nnmax = 4, 
                        as = c("SpatRast","SpatVect")) {
   
@@ -163,7 +195,6 @@ nnfit <- function(x, r, loc, coords, nnmax) {
 
 # ---------INTERPOLATE-----------------------------------
 # Interpolate climate data using the PACEA nearest neighbour interpolation function, point2rast
-
 # Establish parameters of point2rast function
 llnames <- c("x", "y")
 nmax <- 4 #I think this is how many points the nearest neighbour function considers, 4 is small, meaning its a local interpolation 
@@ -175,159 +206,146 @@ BCCM_SST_interpolation <- point2rast(data = BCCM_SST,
                                  cellsize = 3000,
                                  nnmax = nmax,
                                  as = "SpatRast")
-#plot(BCCM__SST_interpolation)   
+ 
 BCCM_SSS_interpolation <- point2rast(data = BCCM_SSS,
                                      spatobj = EEZ,
                                      loc = llnames,
                                      cellsize = 3000,
                                      nnmax = nmax,
                                      as = "SpatRast")
-#plot(BCCM__SSS_interpolation)   
+  
 BCCM_SSPH_interpolation <- point2rast(data = BCCM_SSPH,
                                      spatobj = EEZ,
                                      loc = llnames,
                                      cellsize = 3000,
                                      nnmax = nmax,
                                      as = "SpatRast")
-#plot(BCCM__SSPH_interpolation)   
 
-#Interpolate SSC
-SSC_SST_interpolation <- point2rast(data = SSC_SST,
-                                spatobj = SSCbox,
-                                loc = llnames,
-                                cellsize = 500,
-                                nnmax = nmax,
-                                as = "SpatRast")
-#plot(SSC__SST_interpolation) 
-SSC_SSS_interpolation <- point2rast(data = SSC_SSS,
-                                spatobj = SSCbox,
-                                loc = llnames,
-                                cellsize = 500,
-                                nnmax = nmax,
-                                as = "SpatRast")
-#plot(SSC_interpolation) 
-
-#Interpolate NEP 36
-NEP_SSS_interpolation <- point2rast(data = NEP_SSS,
-                                   spatobj = EEZ,
-                                   loc = llnames,
-                                   cellsize = 3000,
-                                   nnmax = nmax,
-                                   as = "SpatRast")
-#plot(NEP_SSS_interpolation)
 NEP_SST_interpolation <- point2rast(data = NEP_SST,
                                     spatobj = EEZ,
                                     loc = llnames,
                                     cellsize = 3000,
                                     nnmax = nmax,
                                     as = "SpatRast")
-#plot(NEP_SST_interpolation)
-NEP_SSPH_interpolation <- point2rast(data = NEP_SSPH,
+
+NEP_SSS_interpolation <- point2rast(data = NEP_SSS,
                                     spatobj = EEZ,
                                     loc = llnames,
                                     cellsize = 3000,
                                     nnmax = nmax,
                                     as = "SpatRast")
-#plot(NEP_SSPH_interpolation)
 
-#Cumulative impacts 
+NEP_SSPH_interpolation <- point2rast(data = NEP_SSPH,
+                                     spatobj = EEZ,
+                                     loc = llnames,
+                                     cellsize = 3000,
+                                     nnmax = nmax,
+                                     as = "SpatRast")
+
+SSC_SSS_interpolation <- point2rast(data = SSC_SSS,
+                                spatobj = SSCbox,
+                                loc = llnames,
+                                cellsize = 500,
+                                nnmax = nmax,
+                                as = "SpatRast")
+
+SSC_SST_interpolation <- point2rast(data = SSC_SST,
+                                spatobj = SSCbox,
+                                loc = llnames,
+                                cellsize = 500,
+                                nnmax = nmax,
+                                as = "SpatRast")
+ 
 CI_interpolation<- point2rast(data = CI_points,
                               spatobj = CI_mask,
                               loc = llnames,
                               cellsize = 1000,
                               nnmax = nmax,
                               as = "SpatRast")
-#plot(CI_interpolation)
 
-#---------RESAMPLE-----------------
-# Resample interpolated rasters to the same grid. Using BCCM as base as it has the largest resolution
-# Use nearest neighbor function because we want the local values to have the largest impact 
-# BCCM doesn't need to be resampled as we are converting the other grids to its resolution
-# if you get an "Error: external pointer is not valid" try clearing the environment and rerun the code starting at the marine import script
-NEP_SST_resampled <-resample(NEP_SST_interpolation,  BCCM_SST_interpolation, method = "near")
-NEP_SSS_resampled <-resample(NEP_SSS_interpolation,  BCCM_SST_interpolation, method = "near")
-NEP_SSPH_resampled<-resample(NEP_SSPH_interpolation, BCCM_SST_interpolation, method = "near")
-SSC_SST_resampled <-resample(SSC_SST_interpolation,  BCCM_SST_interpolation, method = "near")
-SSC_SSS_resampled <-resample(SSC_SSS_interpolation,  BCCM_SST_interpolation, method = "near")
-CI_resampled      <-resample(CI_interpolation,       BCCM_SST_interpolation, method="near")
+#---------- Resample, Mask, Join, and Save --------------
+BCCM_SST_cropped <-BCCM_SST_interpolation %>%      # BCCM doesn't need to be resampled as we are converting the other grids to its resolution
+  mask(BCCM_mask) %>%                              # Mask the raster. if you end code here it is a spatraster
+  stars::st_as_stars() %>%                         # These two lines turn it into raster into a vector grid 
+  sf::st_as_sf()  %>%
+  st_join(left = FALSE, MAZ["MAZ_Acrony"]) %>%     # Join vector grid to MAZ polygons, adding the column "MAZ_Acrony"
+  sf::st_write( file.path(paths$climate,           # Save as GDB
+    "Standardized_Marine_data/BCCM_SST_cropped.gdb" ), driver = "OpenFileGDB", append=FALSE)
 
-#--------MASK-----------
-#Mask out grid cells with polygon masks 
-BCCM_SST_cropped <-BCCM_SST_interpolation %>%
-  mask(BCCM_mask) %>% # if you end code here it is a spatraster
-  stars::st_as_stars() %>%  
-  sf::st_as_sf() 
 BCCM_SSS_cropped <-BCCM_SSS_interpolation %>%
-  mask(BCCM_mask) %>% # if you end code here it is a spatraster
+  mask(BCCM_mask) %>% 
   stars::st_as_stars() %>%  
-  sf::st_as_sf() 
-BCCM_SSPH_cropped <-BCCM_SSPH_interpolation %>%
-  mask(BCCM_mask) %>% # if you end code here it is a spatraster
-  stars::st_as_stars() %>%  
-  sf::st_as_sf() 
+  sf::st_as_sf()  %>%
+  st_join(left = FALSE, MAZ["MAZ_Acrony"])%>%
+  sf::st_write( file.path(paths$climate,           
+     "Standardized_Marine_data/BCCM_SSS_cropped.gdb" ), driver = "OpenFileGDB", append=FALSE)
 
-NEP_SST_cropped <- NEP_SST_resampled %>%
+BCCM_SSPH_cropped <-BCCM_SSPH_interpolation %>%
+  mask(BCCM_mask) %>% 
+  stars::st_as_stars() %>%  
+  sf::st_as_sf()  %>%
+  st_join(left = FALSE, MAZ["MAZ_Acrony"])%>%
+  sf::st_write( file.path(paths$climate,           
+     "Standardized_Marine_data/BCCM_SSPH_cropped.gdb" ), driver = "OpenFileGDB", append=FALSE)
+
+NEP_SST_cropped <- NEP_SST_interpolation %>%
+  resample(BCCM_SST_interpolation,    # Resample interpolated raster to BCCM Grid standard as it has the largest resolution
+           method = "near") %>%       # Use nearest neighbor method because we want the local values to have the largest impact 
   mask(NEP_mask) %>%  
   stars::st_as_stars() %>%  
-  sf::st_as_sf() 
-NEP_SSS_cropped <- NEP_SSS_resampled %>%
+  sf::st_as_sf()  %>%
+  st_join(left = FALSE, MAZ["MAZ_Acrony"])%>%
+  sf::st_write( file.path(paths$climate,           
+     "Standardized_Marine_data/NEP_SST_cropped.gdb" ), driver = "OpenFileGDB", append=FALSE)
+
+NEP_SSS_cropped <- NEP_SSS_interpolation %>%
+  resample(BCCM_SST_interpolation, method = "near") %>% 
   mask(NEP_mask) %>%
   stars::st_as_stars() %>%  
-  sf::st_as_sf()
-NEP_SSPH_cropped <- NEP_SSPH_resampled %>%
+  sf::st_as_sf() %>%
+  st_join(left = FALSE, MAZ["MAZ_Acrony"])%>%
+  sf::st_write( file.path(paths$climate,           
+     "Standardized_Marine_data/NEP_SSS_cropped.gdb" ), driver = "OpenFileGDB", append=FALSE)
+
+NEP_SSPH_cropped <- NEP_SSPH_interpolation %>%
+  resample(BCCM_SST_interpolation, method = "near") %>% 
   mask(NEP_mask) %>%  
   stars::st_as_stars() %>%  
-  sf::st_as_sf() 
+  sf::st_as_sf()  %>%
+  st_join(left = FALSE, MAZ["MAZ_Acrony"]) %>%
+  sf::st_write( file.path(paths$climate,           
+     "Standardized_Marine_data/NEP_SSPH_cropped.gdb" ), driver = "OpenFileGDB", append=FALSE)
 
-SSC_SST_cropped <- SSC_SST_resampled %>%
+SSC_SST_cropped <- SSC_SST_interpolation %>%
+  resample(BCCM_SST_interpolation, method = "near") %>% 
   mask(SSC_mask) %>%
   stars::st_as_stars() %>%  
-  sf::st_as_sf() 
-SSC_SSS_cropped <- SSC_SSS_resampled %>%
+  sf::st_as_sf()  %>%
+  st_join(left = FALSE, MAZ["MAZ_Acrony"])%>%
+  sf::st_write( file.path(paths$climate,           
+     "Standardized_Marine_data/SSC_SST_cropped.gdb" ), driver = "OpenFileGDB", append=FALSE)
+
+SSC_SSS_cropped <- SSC_SSS_interpolation %>%
+  resample(BCCM_SST_interpolation, method = "near") %>% 
   mask(SSC_mask) %>%
   stars::st_as_stars() %>%  
-  sf::st_as_sf()
+  sf::st_as_sf() %>%
+  st_join(left = FALSE, MAZ["MAZ_Acrony"])%>%
+  sf::st_write( file.path(paths$climate,           
+     "Standardized_Marine_data/SSC_SSS_cropped.gdb" ), driver = "OpenFileGDB", append=FALSE)
 
-CI_cropped <- CI_resampled%>%
+CI_cropped <- CI_interpolation %>%
+  resample(BCCM_SST_interpolation, method = "near") %>% 
   mask(CI_mask) %>%
   stars::st_as_stars() %>%  
-  sf::st_as_sf() 
-CI_cropped= subset(CI_cropped, select = -c(MAZ_Acrony))
-
-#------------- Join cropped files to MAZ---------
-# load and transform MAZ file 
-MAZ<-read_sf(file.path(spatial_dat, "MAZ", "MAZ_Final.shp")) %>% st_transform(,crs = "EPSG:3005" )
-#Change MAZ acronym variable to a factor variable
-MAZ$MAZ_Acrony<- as.factor(MAZ$MAZ_Acrony)
-
-#join cropped files to MAZ
-BCCM_SSS_cropped <- st_join(BCCM_SSS_cropped, left = FALSE, MAZ["MAZ_Acrony"]) # left= true means that points outside of MAZ polygons will be preserved 
-BCCM_SST_cropped<- st_join(BCCM_SST_cropped, left = FALSE, MAZ["MAZ_Acrony"])
-BCCM_SSPH_cropped<- st_join(BCCM_SSPH_cropped, left = FALSE, MAZ["MAZ_Acrony"])
-NEP_SSS_cropped<- st_join(NEP_SSS_cropped, left = FALSE, MAZ["MAZ_Acrony"])
-NEP_SST_cropped <- st_join(NEP_SST_cropped, left = FALSE, MAZ["MAZ_Acrony"])
-NEP_SSPH_cropped <- st_join(NEP_SSPH_cropped, left = FALSE, MAZ["MAZ_Acrony"])
-SSC_SSS_cropped<- st_join(SSC_SSS_cropped, left = FALSE, MAZ["MAZ_Acrony"])
-SSC_SST_cropped <- st_join(SSC_SST_cropped, left = FALSE, MAZ["MAZ_Acrony"])
-CI_cropped <- st_join(CI_cropped, left = FALSE, MAZ["MAZ_Acrony"])
-
-rm(MAZ)
-#----------EXPORT as shp----------------
-#Export cropped layers as vector grid files 
-sf::st_write(BCCM_SST_cropped, file.path(climate_dat, "Standardized_Marine_data/BCCM_SST_cropped.shp" ), driver = "ESRI Shapefile", append=FALSE)
-sf::st_write(BCCM_SSS_cropped, file.path(climate_dat, "Standardized_Marine_data/BCCM_SSS_cropped.shp" ), driver = "ESRI Shapefile", append=FALSE)
-sf::st_write(BCCM_SSPH_cropped,file.path(climate_dat, "Standardized_Marine_data/BCCM_SSPH_cropped.shp"), driver = "ESRI Shapefile", append=FALSE)
-sf::st_write(NEP_SST_cropped,  file.path(climate_dat, "Standardized_Marine_data/NEP_SST_cropped.shp"  ), driver = "ESRI Shapefile", append=FALSE)
-sf::st_write(NEP_SSS_cropped,  file.path(climate_dat, "Standardized_Marine_data/NEP_SSS_cropped.shp"  ), driver = "ESRI Shapefile", append=FALSE)
-sf::st_write(NEP_SSPH_cropped, file.path(climate_dat, "Standardized_Marine_data/NEP_SSPH_cropped.shp" ), driver = "ESRI Shapefile", append=FALSE)
-sf::st_write(SSC_SST_cropped,  file.path(climate_dat, "Standardized_Marine_data/SSC_SST_cropped.shp"  ), driver = "ESRI Shapefile", append=FALSE)
-sf::st_write(SSC_SSS_cropped,  file.path(climate_dat, "Standardized_Marine_data/SSC_SSS_cropped.shp"  ), driver = "ESRI Shapefile", append=FALSE)
-sf::st_write(CI_cropped,       file.path(climate_dat, "Standardized_Marine_data/CI_cropped.shp"       ), driver = "ESRI Shapefile", append=FALSE)
+  sf::st_as_sf()  %>%
+  st_join(left = FALSE, MAZ["MAZ_Acrony"])%>%
+  sf::st_write( file.path(paths$climate,           
+     "Standardized_Marine_data/CI_cropped.gdb" ), driver = "OpenFileGDB", append=FALSE)
 
 # ----------- Remove Extra objects------
 rm( BCCM_SST_interpolation, BCCM_SSS_interpolation, BCCM_SSPH_interpolation, NEP_SST_interpolation, 
-    NEP_SSS_interpolation, NEP_SSS_interpolation, SSC_SST_interpolation, SSC_SSS_interpolation, 
-    CI_interpolation, CI_resampled, MAZ,
-   EEZ, CI_mask, BCCM_SST_cropped, BCCM_SSS_cropped, BCCM_SSPH_cropped, NEP_SST_cropped, NEP_SSS_cropped, 
+    NEP_SSS_interpolation, NEP_SSS_interpolation, SSC_SST_interpolation, SSC_SSS_interpolation, CI_interpolation,  
+    MAZ, EEZ, CI_mask, BCCM_SST_cropped, BCCM_SSS_cropped, BCCM_SSPH_cropped, NEP_SST_cropped, NEP_SSS_cropped, 
    NEP_SSPH_cropped, SSC_SSS_cropped, SSC_SST_cropped, NEP_mask, BCCM_mask, SSCbox, SSC_mask, 
    llnames, nmax, nnfit, point2rast)

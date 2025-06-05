@@ -50,9 +50,11 @@ stations_stats <- read.csv(file.path(paths$climate, "Ruzzante_low_flows", "stati
 #watershed hydrologic regimes
 watershed_flow <- st_read(file.path(paths$climate, "Ruzzante_low_flows", "watersheds.gpkg")) %>%
   left_join(select(stations_stats, ID, regime), by = c("ID" = "ID")) %>%
-  mutate(regime = as.factor(regime))
+  mutate(regime = as.factor(regime)) %>%
+  st_transform(3005)
 
-stations_flow <- st_read(file.path(paths$climate, "Ruzzante_low_flows", "stations.gpkg"))
+stations_flow <- st_read(file.path(paths$climate, "Ruzzante_low_flows", "stations.gpkg")) %>%
+  st_transform(3005)
 
 
 ### NUSEDS salmon spawner locations
@@ -549,29 +551,10 @@ CVIS_fw_pull <- function(data,
   
 }
 
-test <- CVIS_fw_pull(fwR_all[[1]], 
-                     RCP_pick = "45", 
-                     period_pick = "3",
-                     period_pick_flow = "40")  #test function
-
-# Apply the function across the list and bind results into one tibble
-fwR_45_3 <-   imap_dfr(fwR_all, ~ {
-  tryCatch({
-    CVIS_fw_pull(.x, 
-                 RCP_pick = "45", 
-                 period_pick = "3", 
-                 ct_pick = "CT_anad",
-                 SSP_pick = "ssp370") %>%
-      mutate(FULL_CU_IN = .y, .before = 1)
-  }, error = function(e) {
-    message("Skipping population: ", .y, " due to error: ", e$message)
-    NULL
-  })
-}) %>%
-  left_join(select(cu_run, FULL_CU_IN, CU_NAME, CU_Species), 
-            by = "FULL_CU_IN") %>%
-  relocate(CU_NAME, CU_Species, .after = FULL_CU_IN)
-
+# test <- CVIS_fw_pull(fwR_all[[1]], 
+#                      RCP_pick = "45", 
+#                      period_pick = "3",
+#                      period_pick_flow = "40")  #test function
 
 
 periods <- c("3", "4", "5")  #periods to loop through
@@ -588,9 +571,6 @@ for(i in 1:length(periods)) {
                    ct_pick = "CT_anad",
                    SSP_pick = "ssp370") %>%
         mutate(FULL_CU_IN = .y, .before = 1)
-    }, error = function(e) {
-      message("Skipping population: ", .y, " due to error: ", e$message)
-      NULL
     })
   }) %>%
     left_join(select(cu_run, FULL_CU_IN, CU_NAME, CU_Species, FAZ), 
