@@ -17,32 +17,35 @@ library(pacea)
 
 ############# LOAD CMIP 5 Data ###########
 #CMIP_H_SST<- read_ncdf(file.path(climate_dat, "Marine_CMIP5", "tos_Omon_ensemblemedian_hist_r1i1p1_190001-200512.nc"), proxy = FALSE, var = c("lat","lon","tos"), make_time = TRUE)
-CMIP_H_SST<-nc_open(file.path(climate_dat, "Marine_CMIP5", "tos_Omon_CanESM2_hist_r1i1p1_190001-200512.nc"))
-CMIP_45_SST<-nc_open(file.path(climate_dat, "Marine_CMIP5", "tos_Omon_CanESM2_rcp45_r1i1p1_200601-210012.nc"))
-CMIP_85_SST<-nc_open(file.path(climate_dat, "Marine_CMIP5", "tos_Omon_CanESM2_rcp85_r1i1p1_200601-210012.nc"))
+CMIP_H_SST<-nc_open(file.path(paths$climate, "Marine_CMIP5", "tos_Omon_CanESM2_hist_r1i1p1_190001-200512.nc"))
+CMIP_45_SST<-nc_open(file.path(paths$climate, "Marine_CMIP5", "tos_Omon_CanESM2_rcp45_r1i1p1_200601-210012.nc"))
+CMIP_85_SST<-nc_open(file.path(paths$climate, "Marine_CMIP5", "tos_Omon_CanESM2_rcp85_r1i1p1_200601-210012.nc"))
 
-CMIP_H_SST<-nc_open(file.path(climate_dat, "Marine_CMIP5", "tos_Omon_ensemblemedian_hist_r1i1p1_190001-200512.nc"))
-CMIP_45_SST<-nc_open(file.path(climate_dat, "Marine_CMIP5", "tos_Omon_ensemblemedian_rcp45_r1i1p1_200601-210012.nc"))
-CMIP_85_SST<-nc_open(file.path(climate_dat, "Marine_CMIP5", "tos_Omon_ensemblemedian_rcp85_r1i1p1_200601-210012.nc"))
+CMIP_H_SST<-nc_open(file.path(paths$climate, "Marine_CMIP5", "tos_Omon_ensemblemedian_hist_r1i1p1_190001-200512.nc"))
+CMIP_45_SST<-nc_open(file.path(paths$climate, "Marine_CMIP5", "tos_Omon_ensemblemedian_rcp45_r1i1p1_200601-210012.nc"))
+CMIP_85_SST<-nc_open(file.path(paths$climate, "Marine_CMIP5", "tos_Omon_ensemblemedian_rcp85_r1i1p1_200601-210012.nc"))
 
+# See the information assocated with the CMIP data 
+C5_files <- getFileInfo(file.path(paths$climate, "Marine_CMIP5"))
 
-CMIP_H_SST<-nc_open(file.path(climate_dat, "Marine_CMIP5", "tos_Omon_CanESM2_hist_r1i1p1_190001-200512.nc"))
-
-C5_files <- getFileInfo(file.path(climate_dat, "Marine_CMIP5"))
-
+# group the CMIP 5 SST variables  
 SST_files <- filter(C5_files, variable == "tos")
 
-checkTimePeriod(SST_files)
+# Check the time frames of the data 
+checkTimePeriod(SST_files)  
 
-SST_CANESM_45 <- loadCMIP5("tos", "ensemblemedian", "rcp45", path=file.path(climate_dat, "Marine_CMIP5"), verbose=T, yearRange=c(2040, 2070))
-SST_CANESM_85 <- loadCMIP5("tos", "ensemblemedian", "rcp85", path=file.path(climate_dat, "Marine_CMIP5"), verbose=T, yearRange=c(2040, 2070))
-SST_CANESM_H <- loadCMIP5("tos", "ensemblemedian", "hist", path=file.path(climate_dat, "Marine_CMIP5"), verbose=T, yearRange=c(1980, 2010))
+# Select model, variable, and time frame
+SST_CANESM_45 <- loadCMIP5("tos", "ensemblemedian", "rcp45", path=file.path(paths$climate, "Marine_CMIP5"), verbose=T, yearRange=c(2040, 2070))
+SST_CANESM_85 <- loadCMIP5("tos", "ensemblemedian", "rcp85", path=file.path(paths$climate, "Marine_CMIP5"), verbose=T, yearRange=c(2040, 2070))
+SST_CANESM_H <- loadCMIP5("tos", "ensemblemedian", "hist", path=file.path(paths$climate, "Marine_CMIP5"), verbose=T, yearRange=c(1980, 2010))
 
+# Select spatial extent with coordinate ranges 
 SST_N_H  <- filterDimensions(SST_CANESM_H, lonRange=c(210, 245), latRange=c(45, 60), verbose=T)
 SST_N_45 <- filterDimensions(SST_CANESM_45, lonRange=c(210, 245), latRange=c(45, 60), verbose=T)
 SST_N_85 <- filterDimensions(SST_CANESM_85, lonRange=c(210, 245), latRange=c(45, 60), verbose=T)
 
-SST_df <- as.data.frame(SST_N_H) %>%
+# Put data into scenario specific data frames, adding columns for the year, month, and scenario
+SST_df_H <- as.data.frame(SST_N_H) %>%
   mutate(year = floor(time),
          month = floor((time - floor(time)) * 12 + 1),
          season = case_when(
@@ -78,13 +81,16 @@ SST_df_85 <- as.data.frame(SST_N_85) %>%
          value = value - 273.15,
          scenario = "rcp85")
 
-SST_df <- bind_rows(SST_df, SST_df_45, SST_df_85)
+# Join the scenario specific data frames together 
+SST_df <- bind_rows(SST_df_H, SST_df_45, SST_df_85)
 
+# Calculate the SST monthly average for each location and each scenario 
 SST_avg <- SST_df %>%
   group_by(lon, lat, scenario, season, month) %>%
   summarise(mean = mean(value, na.rm = TRUE)) %>%
   ungroup()
 
+# calculate the monthly average for each scenario (n= 36)
 SST_month <- SST_avg %>%
   group_by(scenario, season, month) %>%
   summarise(average = mean(mean, na.rm = TRUE),
@@ -92,6 +98,7 @@ SST_month <- SST_avg %>%
             q95 = quantile(mean, probs = 0.95, na.rm = TRUE)) %>%
   ungroup()
 
+# Calculate the seasonal average for each scenario (n=12)
 SST_seasons <- SST_avg %>%
   group_by(scenario, season) %>%
   summarise(average = mean(mean, na.rm = TRUE),
@@ -99,6 +106,7 @@ SST_seasons <- SST_avg %>%
             q95 = quantile(mean, probs = 0.95, na.rm = TRUE)) %>%
   ungroup()
 
+# Calcualte the average for each scenario (n=3)
 SST_annual <- SST_avg %>%
   group_by(scenario) %>%
   summarise(average = mean(mean, na.rm = TRUE),
@@ -106,7 +114,7 @@ SST_annual <- SST_avg %>%
             q95 = quantile(mean, probs = 0.95, na.rm = TRUE)) %>%
   ungroup()
 
-
+# Turn the data frame into a spatial feature by establishing the coordinate data 
 SST_sf <- SST_df %>%
   st_as_sf(coords = c("lon", "lat"), crs = 4326) #%>%
   #st_transform(crs = "EPSG:3005") 

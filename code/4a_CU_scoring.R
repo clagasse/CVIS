@@ -9,9 +9,12 @@
 # 5 - estimate vulnerability indices in different categories
 #
 ###############################################################################
+library(here)
+setwd(here())
+source(file.path(here(), "code", "0_setup.R"))
 
 #scoring standardization functions
-source(file.path(code_root, "4_scoring_utils.R"))
+source(file.path(here(), "code", "4_scoring_utils.R"))
 
 projT_min = 14
 

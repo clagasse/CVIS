@@ -92,7 +92,7 @@ source(file.path(code_root, "4a_CU_scoring.R"))
 for(i in 1:n.CUs) {
 
 CU_IN_i <- cu_run$FULL_CU_IN[i]
-CU_IN_i <- "CK-17"
+CU_IN_i <- "CK-13"
   
 rmarkdown::render(
   file.path(here(),"code", "markdown", "0a_CU_profile.Rmd"),
@@ -116,6 +116,14 @@ rmarkdown::render(
   output_dir = here("output", "CU_profiles"),
   output_format = "html_document",
   params = list(FULL_CU_IN = CU_IN_i))
+
+
+## Shiny app
+
+source(file.path(here(), "code", "shiny", "FW_spawning_app.R"))
+
+shinyApp(ui, server)
+
 
 # rmarkdown::render(
 #   file.path(here(),"code","0_CU_detail_report.Rmd"),
