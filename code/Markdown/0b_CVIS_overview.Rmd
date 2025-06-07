@@ -46,9 +46,10 @@ The following is a preliminary list of indicators and their abbreviation code. N
 ```{r}
 indicator_list <- read_csv(here("processed_data", "CVIS_list.csv"))
 
-kbl(indicator_list) %>%
-  kable_styling("striped", full_width = F) %>%
-  column_spec(1, bold = T)
+indicator_list %>%
+  gt() %>%
+  tab_header("Vulnerability Indicators")
+
 ```
 
 

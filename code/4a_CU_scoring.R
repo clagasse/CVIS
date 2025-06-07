@@ -16,10 +16,139 @@ source(file.path(here(), "code", "0_setup.R"))
 #scoring standardization functions
 source(file.path(here(), "code", "4_scoring_utils.R"))
 
-library(ggtext)  # plot text colors
-
-
 projT_min = 14
+
+#table of indicator abbreviations and full names
+indicators <- tribble(
+  ~abbrev, ~name,
+  "ENM_Fav_change", "ENM Change in Favourability",
+  "ct", "Cumulative threats",
+  "Tw8rate", "Rate of change in August Temperature",
+  "Tw8proj", "Projected August Temperature",
+  "Q8pdelta", "Proportional change in August flow (stream model)",
+  "QmonthH", "Historic month of maximum flow",
+  "st8pdelta",  "Proportional change in August flow (station model)")
+
+
+standardize_spawning <- function(data, 
+                                 indicator_pick,
+                                 period_pick = "3",
+                                 RCPs = c("45", "85"),
+                                 gcm_range_suffix = c("q025_gcm", "min_gcm", "q975_gcm", "max_gcm")) 
+{
+  stat_suffix <- "wmean"
+  id_col <- "FULL_CU_IN"
+  
+  data <- filter(data, period == period_pick)
+  
+  #take column names that contain prefix with model type
+  cols_sub <- names(data)[str_detect(names(data), indicator_pick$abbrev)]
+  
+  #take names with prefix that also contain stat suffix
+  stat_col <- cols_sub[str_detect(cols_sub, paste0(stat_suffix, "$"))]  #must end with wmean
+  min_gcmcol <- cols_sub[str_detect(cols_sub, paste0(gcm_range_suffix[1:2], collapse = "|"))]
+  max_gcmcol <- cols_sub[str_detect(cols_sub, paste0(gcm_range_suffix[3:4], collapse = "|"))]
+  
+  if (length(min_gcmcol) == 1 && length(max_gcmcol) == 1) {
+    #select indicator columns and give one column each indicator
+    wide_data <- pivot_wider(select(data, c(FULL_CU_IN, stat_col, min_gcmcol, max_gcmcol, RCP)),
+                             names_from = RCP,
+                             values_from = all_of(c(stat_col, min_gcmcol, max_gcmcol)))
+  } else {
+    wide_data <- pivot_wider(select(data, c(FULL_CU_IN, stat_col, RCP)),
+                             names_from = RCP,
+                             names_prefix = paste0(indicator_pick$abbrev, "_", stat_suffix, "_"),
+                             values_from = all_of(c(stat_col)))
+  }
+    
+  
+  #pivot into a single row for calculating standardized values
+  long_data <- pivot_longer(wide_data,
+                            cols = starts_with(indicator_pick$abbrev),
+                            names_prefix = paste0(indicator_pick$abbrev, "_"))
+  
+  
+  #calculate indicator using function
+  long_data$std <- linear_std(long_data$value)
+  
+  #put back into wide data frame to join original
+  wide_std <- pivot_wider(select(long_data, -value),
+                          id_cols = c(FULL_CU_IN),
+                          names_from = name,
+                          values_from = std)
+  
+  RCPs_grep <- paste(RCPs, collapse = "|")
+  
+  #pivot across RCP to match original data structure
+  data_std <- pivot_longer(wide_std,
+                           cols = -FULL_CU_IN,
+                           names_to = "name",
+                           values_to = "value"
+  ) %>%
+    mutate(
+      RCP = as.numeric(str_extract(name, RCPs_grep)),
+      period = as.numeric(period_pick),
+      variable = str_remove(name, paste0("_(", RCPs_grep, ")$"))
+    ) %>%
+    select(-name) %>%
+    pivot_wider(
+      names_from = variable,
+      values_from = value,
+      names_prefix = paste0("std", "_" , indicator_pick$abbrev, "_")
+    )
+  
+  return(data_std)
+  
+}
+
+periods <- c("3","4","5")
+
+fwR_all_std <- fwR_all_flat
+
+for(i in 1:nrow(indicators)) {
+  
+  for(f in 1:length(periods)) {
+    
+    temp  <- standardize_spawning(fwR_all_flat, 
+                                  indicator_pick = indicators[i,],
+                                  period_pick = periods[f])
+    
+    if(f == 1) {
+      std_periods <- temp
+    } else {
+      std_periods <- bind_rows(std_periods, temp)
+    }
+    
+  }
+  fwR_all_std <- fwR_all_std %>%
+    left_join(std_periods, join_by("FULL_CU_IN", "RCP", "period"))
+  
+}
+
+# Check if mean and ID columns exist
+if (!all(c(id_col, stat_col) %in% names(data))) {
+  stop("One or more required columns are missing in the data.")
+}
+
+
+if (length(min_col) == 1 && length(max_col) == 1) {
+  plot_data <- plot_data %>%
+    mutate(
+      min = data[[min_col]],
+      max = data[[max_col]]
+    )
+  has_range <- TRUE
+} else {
+  has_range <- FALSE
+}
+
+
+
+
+
+
+
+
 
 
 

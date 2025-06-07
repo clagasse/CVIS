@@ -98,22 +98,27 @@ nuseds_Fr <- read_csv(file.path(paths$salmon, "NuSEDS_CU_System_sites_202406.csv
 #--------------------- 4. Functions for indicators -----------------------------------
 
 #summary functions
-stream_BCFP_stats <- function(bcfp_cu)  {
+stream_BCFP_stats <- function(bcfpa_cu)  {
   
-  #coordinates
-  coords <- st_coordinates(bcfp_cu)
+  #get coordinates and transform to lat/long
+  coords <- bcfpa_cu %>%
+    st_transform(4269) %>%
+    st_coordinates()
 
   #calculate stream stats for spawning and rearing streams
   stream_stats <- tibble(
-    total_length_acc = sum(bcfp_cu$length_metre, na.rm = T),
-    total_length_rs = sum(bcfp_cu$length_metre[bcfp_cu$model_rs == TRUE], na.rm = T),
-    total_length_rear = sum(bcfp_cu$length_metre[bcfp_cu$model_rearing == TRUE], na.rm = T),
-    total_length_spawn = sum(bcfp_cu$length_metre[bcfp_cu$model_spawning == TRUE], na.rm = T),
-    avg_order = mean(bcfp_cu$stream_order, na.rm = T),
-    avg_order_rear = mean(bcfp_cu$stream_order[bcfp_cu$model_rearing == TRUE], na.rm = T),
-    avg_order_spawn = mean(bcfp_cu$stream_order[bcfp_cu$model_spawning == TRUE], na.rm = T),
-    n_streams = length(unique(bcfp_cu$linear_feature_id)),
-    n_segments= length(unique(bcfp_cu$segmented_stream_id)),
+    total_length_acc = sum(bcfpa_cu$length_metre, na.rm = T),
+    total_length_rs = sum(bcfpa_cu$length_metre[bcfpa_cu$model_rs == TRUE], na.rm = T),
+    total_length_rear = sum(bcfpa_cu$length_metre[bcfpa_cu$model_rearing == TRUE], na.rm = T),
+    total_length_spawn = sum(bcfpa_cu$length_metre[bcfpa_cu$model_spawning == TRUE], na.rm = T),
+    proportion_rear  = total_length_rear / total_length_acc,
+    proportion_spawn = total_length_spawn/ total_length_acc,
+    proportion_rs    = total_length_rs   / total_length_acc,
+    avg_order = mean(bcfpa_cu$stream_order, na.rm = T),
+    avg_order_rear = mean(bcfpa_cu$stream_order[bcfpa_cu$model_rearing == TRUE], na.rm = T),
+    avg_order_spawn = mean(bcfpa_cu$stream_order[bcfpa_cu$model_spawning == TRUE], na.rm = T),
+    n_streams = length(unique(bcfpa_cu$linear_feature_id)),
+    n_segments= length(unique(bcfpa_cu$segmented_stream_id)),
     cu_area = st_area(cu_boundary_i) / 1e6,
     avg_elevation = mean(coords[,"Z"]),
     avg_lat    = mean(coords[,"Y"]),
@@ -258,8 +263,8 @@ stream_lowflow_stats <- function(fwQ_cu,
     summarize(
       n_streams = n(),
       total_length = sum(length_metre, na.rm = TRUE),
-      Q8_wmean       = wmean(month_8, length_metre, na.rm = TRUE),
-      Q8_wsd_sp         = wsd(month_8, length_metre, na.rm = TRUE),
+      Q8proj_wmean       = wmean(month_8, length_metre, na.rm = TRUE),
+      Q8proj_wsd_sp         = wsd(month_8, length_metre, na.rm = TRUE),
       QMADhist_wmean     = wmean(MAD_hist,length_metre, na.rm = TRUE),
       QMADhist_wsd_sp    = wsd(MAD_hist, length_metre, na.rm = TRUE),
       Q8pdelta_wmean     = wmean(Q8pdelta, length_metre, na.rm = T),
@@ -430,20 +435,23 @@ station_lowflow_stats <- function(wp_cu,
   wp_i <- wp_cu %>%
     group_by(experiment_id, period) %>%
     summarise(n_stations = n(),
-              st8_wmean = mean(mean),
-              st8_wsd_sp   = sd(mean),
-              st8_wsd_gcm    = mean(sd),
-              st8_wq025_gcm = mean(q025),
-              st8_wq975_gcm = mean(q975),
+              st8proj_wmean = mean(mean),
+              st8proj_wsd_sp   = sd(mean),
+              st8proj_wsd_gcm    = mean(sd),
+              st8proj_q025_gcm = mean(q025),
+              st8proj_q975_gcm = mean(q975),
               st8pdelta_wmean     = mean((mean - mean_hist) / mean_hist),
-              st8pdelta_wsd_gcm   = mean((sd - mean_hist) / mean_hist),
-              st8pdelta_wq025_gcm = mean((q025 - mean_hist) / mean_hist),
-              st8pdelta_wq975_gcm = mean((q975 - mean_hist) / mean_hist),
+              st8pdelta_wq025_sp   = unname(quantile((mean - mean_hist) / mean_hist, probs = 0.025)),
+              st8pdelta_wq975_sp   = unname(quantile((mean - mean_hist) / mean_hist, probs = 0.975)),
+              st8pdelta_sd_gcm   = mean((sd - mean_hist) / mean_hist),
+              st8pdelta_q025_gcm = mean((q025 - mean_hist) / mean_hist),
+              st8pdelta_q975_gcm = mean((q975 - mean_hist) / mean_hist),
               .groups = "drop") 
   
 }
 
-
+quantile(x <- rnorm(1001))
+quantile(x,  probs = c(0.1))
 #get proportion of hydrologic regime type for watersheds within the CU boundary
 regime_stats <- function(watershed_flow, cu_boundary_i) 
 {

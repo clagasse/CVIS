@@ -89,8 +89,11 @@ source(file.path(code_root, "4a_CU_scoring.R"))
 ######################## MARKDOWN REPORTS #####################
 
 #load FW rearing indicators
-fwR_all_flat <- read_csv(file.path(paths$fw, "2025-06-05_fw_rearing_stats.csv"))
+fwR_all_flat <- read_csv(file.path(paths$fw, "2025-06-06_fw_rearing_stats.csv"))
 
+fwR_one <- filter(fwR_all_flat, period == "3", RCP == "45")
+ggplot() +
+  geom_point(data = fwR_one, aes(x = avg_lon, y= prop_snow)) 
 
 for(i in 1:n.CUs) {
 

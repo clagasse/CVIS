@@ -1,18 +1,20 @@
 ---
 title: "CU Boundary Stream Rearing/Spawning Indicators"
-output: html_document
-date: "2025-06-06"
+output:
+  html_document:
+    df_print: paged
+    number-sections: true
+    toc_float: true
+    toc_depth: 3
+date: today
 ---
-
-
-
-
 
 ```{r custom theme, echo = FALSE, message = F, warning = F}
 
 library(viridis)
 library(gt)        # nice tables
 library(patchwork) # plot layouts
+library(ggtext)  # plot text colors
 
 knitr::opts_chunk$set(message = F, echo = F, warning = F)
 
@@ -44,11 +46,13 @@ theme_set(theme_cvis())
 
 
 The following plots show the mean and range of values for environmental change indicators within CU boundaries.
-For each CU and indicator, the plots show the ensemble mean value for all **accessible** streams. 
+For each CU and indicator, the plots show the ensemble mean value for all accessible streams that are modelled as potential spawning or rearing habitat. 
+
+Stream accessibility is based upon the [BC Fishpass accessibility model] (https://smnorris.github.io/bcfishpass/02_model_access.html) that evaluates the existence of downstream barriers.  Stream habitat suitability  is based on the [BC Fishpass linear spawning/rearing habitat model] (https://smnorris.github.io/bcfishpass/03_model_habitat_linear.html) that considers species specific criteria for gradient, channel width or discharge, and network connectivity.   
 
 Two types of variation in environmental change are plotted where available:  
 **Climate model variation** (thin red bars) - estimated using the minimum and maximum of global climate model means for streams within the CU boundary.
-**Spatial variation** (thick grey bars) -estimated using the 95% interval of ensemble means for stream segments within the CU boundary. 
+**Spatial variation** (thick grey bars) -estimated using the 95% range of ensemble means for stream segments within the CU boundary. 
 
 The indicators currently plotted are:
 
@@ -74,17 +78,6 @@ indicators %>%
 
 
 ```{r plot function}
-
-
-indicators <- tribble(
-  ~abbrev, ~name,
-  "ENM_Fav_change", "ENM Change in Favourability",
-                      "ct", "Cumulative threats",
-                      "Tw8rate", "Rate of change in August Temperature",
-                      "Tw8proj", "Projected August Temperature",
-                      "Q8pdelta", "Proportional change in August flow (stream model)",
-                      "QmonthH", "Historic month of maximum flow",
-                      "st8pdelta",  "Proportional change in August flow (station model)")
 
 
 # Function to create a lollipop chart
