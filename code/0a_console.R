@@ -88,11 +88,14 @@ source(file.path(code_root, "4a_CU_scoring.R"))
 
 ######################## MARKDOWN REPORTS #####################
 
+#load FW rearing indicators
+fwR_all_flat <- read_csv(file.path(paths$fw, "2025-06-05_fw_rearing_stats.csv"))
+
 
 for(i in 1:n.CUs) {
 
 CU_IN_i <- cu_run$FULL_CU_IN[i]
-CU_IN_i <- "CK-13"
+CU_IN_i <- "CK-17"
   
 rmarkdown::render(
   file.path(here(),"code", "markdown", "0a_CU_profile.Rmd"),
@@ -116,6 +119,12 @@ rmarkdown::render(
   output_dir = here("output", "CU_profiles"),
   output_format = "html_document",
   params = list(FULL_CU_IN = CU_IN_i))
+
+rmarkdown::render(
+  file.path(here("code", "markdown", "2_FW_spawning_compare.Rmd")),
+  output_file = paste(today, "fw_spawning_compare.html", sep = "_"),
+  output_dir = here("output"),
+  output_format = "html_document")
 
 
 ## Shiny app

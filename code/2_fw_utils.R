@@ -31,7 +31,7 @@ wsd <- function(x, length_metre, na.rm = TRUE) {
 }
 #weighted quantiles
 wqt <- function(x, length_metre, prob = 0.025, na.rm = TRUE) {
-  if(!sum(is.na(x)) == 0) return(NA)
+  if(sum(!is.na(x)) == 0) return(NA)
   y <- Hmisc::wtd.quantile(x, weights = length_metre, probs = prob, na.rm = TRUE)
   unname(y)
 }

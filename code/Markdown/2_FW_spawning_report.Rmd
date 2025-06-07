@@ -144,7 +144,6 @@ fwR_cu$streams %>%
   tab_header(title = "Hydrologic Regime")
 
 fwR_cu$CT %>% 
-  select(-c(n, total_length)) %>%
   gt() %>%
   tab_header(title = "Cumulative Threats")
 

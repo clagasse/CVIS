@@ -40,15 +40,18 @@ cu_boundary <- st_read(file.path(paths$spatial, "CU_boundaries", "fraser_cus.shp
   filter(!is.na(FULL_CU_IN))
 
 
-### Temperature, flow and cumulative threat models
+### Temperature, flow, ENM, and cumulative threat models
 
 #load stream network model outputs
 # these are all on the same stream network as bcfpa - accessible bc fish pass stream segments
 load(file.path(paths$fw, "fw_models_T_Q_CT.Rds"))
-### Load ENM
+### Load ENM - these are lower resolution stream segments than bcfpa
 load(file.path(paths$fw, "ENM_all_sp.Rds"))
 # load statistical model projections of August flows for flow stations
 load(file.path(paths$fw,  "Statistical_flow_projections.Rds"))
+
+#load CU stream selections
+load(file.path(paths$fw, "2025-05-27_fw_streampicks.Rdata"))
 
 #load flow stations spatial objects
 stations_stats <- read.csv(file.path(paths$climate, "Ruzzante_low_flows", "stations_performance.csv"))
@@ -89,9 +92,6 @@ nuseds_Fr <- read_csv(file.path(paths$salmon, "NuSEDS_CU_System_sites_202406.csv
 #   ))
 
 
-#load CU stream selections
-
-load(file.path(paths$fw, "2025-05-27_fw_streampicks.Rdata"))
 
 
 
@@ -126,6 +126,7 @@ stream_BCFP_stats <- function(bcfp_cu)  {
 
 #------------------------ 4.1 stream temp stats function----
 
+# calculate number of decades from historical to projection period. used for calculating rates of T change
 decade_calc <- function(historical_pick = "0", period_pick = "3") {
   
   year_hist <- case_when(historical_pick == "0" ~ 1990,
@@ -182,16 +183,16 @@ stream_temp_stats <- function(fwT_cu,
       across(
         .cols = c(all_of(models)),
         .fns = list(
-            wmean_ens = ~wmean(.x, length_metre, na.rm = TRUE),
-            wsd_ens = ~wsd(.x, length_metre, na.rm = TRUE),
-            wq025_ens = ~wqt(.x, length_metre, prob = 0.025, na.rm = TRUE),
-            wq975_ens = ~wqt(.x, length_metre, prob = 0.975, na.rm = TRUE),
-            rate_wmean_ens = ~wmean((.x - histT)/decade_interval, length_metre, na.rm = TRUE),
-            rate_wsd_ens   = ~wsd((.x - histT)/decade_interval, length_metre, na.rm = TRUE),
-            rate_wq025_ens = ~wqt((.x - histT)/decade_interval, length_metre, prob = 0.025, na.rm = TRUE),
-            rate_wq975_ense = ~wqt((.x - histT)/decade_interval, length_metre, prob = 0.975, na.rm = TRUE)
+            proj_wmean = ~wmean(.x, length_metre, na.rm = TRUE),
+            proj_wsd_sp = ~wsd(.x, length_metre, na.rm = TRUE),
+            proj_wq025_sp = ~wqt(.x, length_metre, prob = 0.025, na.rm = TRUE),
+            proj_wq975_sp = ~wqt(.x, length_metre, prob = 0.975, na.rm = TRUE),
+            rate_wmean = ~wmean((.x - histT)/decade_interval, length_metre, na.rm = TRUE),
+            rate_wsd_sp   = ~wsd((.x - histT)/decade_interval, length_metre, na.rm = TRUE),
+            rate_wq025_sp = ~wqt((.x - histT)/decade_interval, length_metre, prob = 0.025, na.rm = TRUE),
+            rate_wq975_sp = ~wqt((.x - histT)/decade_interval, length_metre, prob = 0.975, na.rm = TRUE)
             ),
-        .names = "{.col}_{.fn}"
+        .names = "{.col}{.fn}"
       ),
       .groups = "drop"
     )
@@ -201,10 +202,12 @@ stream_temp_stats <- function(fwT_cu,
     filter(GCM %in% GCMs) %>%
     group_by(RCP, period) %>%
     summarize(
-      across(contains("mean"), list( sd_gcm = ~sd(.x, na.rm = TRUE),
-                                     min_gcm = ~min(.x, na.rm = TRUE),
-                                     max_gcm = ~max(.x, na.rm = TRUE),
-                                     CV_gcm = ~sd(.x, na.rm = TRUE) / mean(.x, na.rm = TRUE))),
+      across(
+        contains("mean"), 
+        list( sd_gcm = ~sd(.x, na.rm = TRUE),
+              min_gcm = ~min(.x, na.rm = TRUE),
+              max_gcm = ~max(.x, na.rm = TRUE),
+              CV_gcm = ~sd(.x, na.rm = TRUE) / mean(.x, na.rm = TRUE))),
       .groups = "drop"
     )
   
@@ -215,8 +218,7 @@ stream_temp_stats <- function(fwT_cu,
   return(Ts_stats)
 }
 
-#----------------4.2  Flow statistics function--------
-
+#----------------4.2 Stream flow statistics function--------
 
 
 stream_lowflow_stats <- function(fwQ_cu, 
@@ -256,12 +258,14 @@ stream_lowflow_stats <- function(fwQ_cu,
     summarize(
       n_streams = n(),
       total_length = sum(length_metre, na.rm = TRUE),
-      Q8_wmean_ens       = wmean(month_8, length_metre, na.rm = TRUE),
-      Q8_wsd_ens         = wsd(month_8, length_metre, na.rm = TRUE),
+      Q8_wmean       = wmean(month_8, length_metre, na.rm = TRUE),
+      Q8_wsd_sp         = wsd(month_8, length_metre, na.rm = TRUE),
       QMADhist_wmean     = wmean(MAD_hist,length_metre, na.rm = TRUE),
-      QMADhist_wsd       = wsd(MAD_hist, length_metre, na.rm = TRUE),
+      QMADhist_wsd_sp    = wsd(MAD_hist, length_metre, na.rm = TRUE),
       Q8pdelta_wmean     = wmean(Q8pdelta, length_metre, na.rm = T),
-      Q8pdelta_wsd       = wsd(Q8pdelta, length_metre, na.rm = TRUE),
+      Q8pdelta_wsd_sp    = wsd(Q8pdelta, length_metre, na.rm = TRUE),
+      Q8pdelta_wq025_sp    = wqt(Q8pdelta, length_metre, prob = 0.025, na.rm = TRUE),
+      Q8pdelta_wq975_sp    = wqt(Q8pdelta, length_metre, prob = 0.975, na.rm = TRUE),
       # propMAD8_mean     = wmean(PMAD8, length_metre, na.rm = TRUE),
       # propMAD8_sd      = wsd(PMAD8, length_metre, na.rm = TRUE),
       # propMAD8_CV      = propMAD8_sd / propMAD8_mean,
@@ -270,6 +274,64 @@ stream_lowflow_stats <- function(fwQ_cu,
       # propMAD8_range   = max(PMAD8, na.rm = TRUE) - min(PMAD8, na.rm = TRUE),
       .groups = "drop")
   
+}
+
+
+
+cu_highflow_month <- function(fwQ_cu, 
+                            model_rs = TRUE) {
+  
+  if(model_rs == TRUE) {
+    fwQ_cu <- fwQ_cu[fwQ_cu$model_rs == TRUE,]
+  }
+  
+  
+  # Step 1: Identify relevant columns - months 1 to 12 of historic flow
+  hflow_cols <- names(fwQ_cu) %>%
+    str_subset("mean_flow_m3s_") %>%
+    keep(~ as.numeric(str_extract(., "(?<=mean_flow_m3s_)\\d+")) <= 12)
+  
+  pflow_cols <- names(fwQ_cu) %>%
+    str_subset("_40") %>%
+    keep(~ as.numeric(str_extract(., "(?<=mean_)\\d+")) <= 12)
+  
+  # Step 2: Add column with name of max value
+  fwQ_cu <- fwQ_cu %>%
+    mutate(
+      max_hflow_col = hflow_cols[
+        max.col(select(., all_of(hflow_cols)), ties.method = "first")
+      ],
+      max_pflow_col = pflow_cols[
+        max.col(select(., all_of(pflow_cols)), ties.method = "first")
+      ],
+      max_hflow = do.call(pmax, c(select(., all_of(hflow_cols)), na.rm = TRUE)),
+      max_pflow = do.call(pmax, c(select(., all_of(pflow_cols)), na.rm = TRUE))
+    ) %>%
+    mutate(max_hflow_month = as.numeric(str_extract(max_hflow_col, "(?<=mean_flow_m3s_)\\d+")),
+           max_pflow_month = as.numeric(str_extract(max_pflow_col, "(?<=mean_)\\d+"))) %>%
+    select(-c(max_hflow_col, max_pflow_col))
+  
+  fwQhigh_cu_stats <- fwQ_cu %>%
+    summarize(
+      n_streams = n(),
+      QmonthH_wmean    = wmean(max_hflow_month, length_metre, na.rm = TRUE),
+      QmonthH_wsd_sp      = wsd(max_hflow_month, length_metre, na.rm = TRUE),
+      QmonthH_wq025_sp    = wqt(max_hflow_month, length_metre, prob = 0.025, na.rm = TRUE),
+      QmonthH_wq975_sp      = wqt(max_hflow_month, length_metre, prob = 0.975, na.rm = TRUE),
+      QmonthP_wmean    = wmean(max_pflow_month, length_metre, na.rm = TRUE),
+      QmonthP_wsd_sp      = wsd(max_pflow_month, length_metre, na.rm = TRUE),
+      QmonthP_wq025_sp    = wqt(max_pflow_month, length_metre, prob = 0.025, na.rm = TRUE),
+      QmonthP_wq975_sp      = wqt(max_pflow_month, length_metre, prob = 0.975, na.rm = TRUE),
+      QhighH_wmean    = wmean(max_hflow, length_metre, na.rm = TRUE),
+      QhighH_wsd_sp      = wsd(max_hflow, length_metre, na.rm = TRUE),
+      QhighH_wq025_sp    = wqt(max_hflow, length_metre, prob = 0.025, na.rm = TRUE),
+      QhighH_wq975_sp      = wqt(max_hflow, length_metre, prob = 0.975, na.rm = TRUE),
+      QhighP_wmean    = wmean(max_pflow, length_metre, na.rm = TRUE),
+      QhighP_wsd_sp      = wsd(max_pflow, length_metre, na.rm = TRUE),
+      QhighP_wq025_sp    = wqt(max_pflow, length_metre, prob = 0.025, na.rm = TRUE),
+      QhighP_wq975_sp      = wqt(max_pflow, length_metre, prob = 0.975, na.rm = TRUE))
+  
+
 }
 
 
@@ -298,9 +360,9 @@ stream_ct_stats <- function(fwct_cu,
       ct_n = n(),
       ct_total_length = sum(length_metre, na.rm = TRUE),
       ct_wmean = wmean(value, length_metre, na.rm = TRUE),
-      ct_wsd = wsd(value, length_metre, na.rm = TRUE),
-      ct_wq025 = wqt(value, length_metre, prob = 0.025, na.rm = TRUE),
-      ct_wq975 = wqt(value, length_metre, prob = 0.975, na.rm = TRUE),
+      ct_wsd_sp = wsd(value, length_metre, na.rm = TRUE),
+      ct_wq025_sp = wqt(value, length_metre, prob = 0.025, na.rm = TRUE),
+      ct_wq975_sp = wqt(value, length_metre, prob = 0.975, na.rm = TRUE),
       .groups = "drop"
     ) 
   
@@ -344,9 +406,9 @@ ENM_stats <- function(ENM_cu,
       across(starts_with("Fav"), 
              list(
                   wmean = ~wmean(.x, Length_km, na.rm = TRUE),
-                  wsd = ~wsd(.x, Length_km, na.rm = TRUE),
-                  wq025 = ~wqt(.x, Length_km, prob = 0.025, na.rm = TRUE),
-                  wq975 = ~wqt(.x, Length_km, prob = 0.975, na.rm = TRUE)),
+                  wsd_sp = ~wsd(.x, Length_km, na.rm = TRUE),
+                  wq025_sp = ~wqt(.x, Length_km, prob = 0.025, na.rm = TRUE),
+                  wq975_sp = ~wqt(.x, Length_km, prob = 0.975, na.rm = TRUE)),
              .names = "{.col}_{.fn}"),
 
       .groups = "drop"
@@ -362,22 +424,21 @@ station_lowflow_stats <- function(wp_cu,
   
   wp_cu <- wp_cu %>%
     mutate(mean_hist = ifelse(period == historical, mean, NA)) %>%
-    fill(mean_hist, .direction = "down")
+    fill(mean_hist, .direction = "down") %>%
+    mutate(period = as.character(period))
   
   wp_i <- wp_cu %>%
     group_by(experiment_id, period) %>%
     summarise(n_stations = n(),
-              mean_st = mean(mean),
-              sd_stations   = sd(mean),
-              sd_GCM    = mean(sd),
-              q025_GCM = mean(q025),
-              q975_GCM = mean(q975),
-              deltamean   = mean(mean - mean_hist, na.rm = TRUE),
-              deltaq025   = mean(q025 - mean_hist, na.rm = TRUE),
-              deltaq975   = mean(q975 - mean_hist, na.rm = TRUE),
-              dpropmean = deltamean / mean_hist,
-              dpropq025 = deltaq025 / mean_hist,
-              dpropq975 = deltaq975 / mean_hist,
+              st8_wmean = mean(mean),
+              st8_wsd_sp   = sd(mean),
+              st8_wsd_gcm    = mean(sd),
+              st8_wq025_gcm = mean(q025),
+              st8_wq975_gcm = mean(q975),
+              st8pdelta_wmean     = mean((mean - mean_hist) / mean_hist),
+              st8pdelta_wsd_gcm   = mean((sd - mean_hist) / mean_hist),
+              st8pdelta_wq025_gcm = mean((q025 - mean_hist) / mean_hist),
+              st8pdelta_wq975_gcm = mean((q975 - mean_hist) / mean_hist),
               .groups = "drop") 
   
 }
@@ -406,7 +467,7 @@ regime_stats <- function(watershed_flow, cu_boundary_i)
   regime <- tribble(
     ~prop_snow, ~prop_rain, ~prop_hybrid, ~prop_glacial, ~prop_coverage,
     area_snow, area_rain, area_hybr, area_glac, area_covr)
-  
+
 }
 
 # ----------------------- 5. Calculate stream network CU indicators-------------------
@@ -493,6 +554,9 @@ for(i in 1:n.CUs) {
                           model_rs = TRUE, 
                           periods = c("1", "40", "60", "80"))
   
+  fwQhigh_i <- cu_highflow_month(fwQ_cu, 
+                                 model_rs = TRUE)
+  
   ct_i <- stream_ct_stats(fwct_cu, 
                           model_rs = TRUE)
   
@@ -512,7 +576,8 @@ for(i in 1:n.CUs) {
                  CT     =  ct_i,
                  fwT    =  fwT_i, 
                  fwQlow =  fwQlow_i,
-                 wpQlow =  wp_i) 
+                 wpQlow =  wp_i,
+                 fwQhigh = fwQhigh_i) 
   
   fwR_all[[i]] <- all_i
   
@@ -606,7 +671,7 @@ CVIS_fw_pull <- function(data,
   
   ct_pull <- safe_process(data$CT, 
                           glue::glue('CT == "{ct_pick}"'), 
-                          prefix = "ct_")
+                          prefix = "")
   
   fwT <- safe_process(data$fwT, 
                       glue::glue('RCP == "{RCP_pick}" & period == "{period_pick}"'), 
@@ -621,9 +686,11 @@ CVIS_fw_pull <- function(data,
   wpQlow <- safe_process(data$wpQlow, 
                          glue::glue('experiment_id == "{SSP_pick}" & period == "{period_pick}"'),
                          drop_cols = "period", 
-                         prefix = "wpQ_")
+                         prefix = "")
   
-  bind_cols(ss, ct_pull, ENM_pull, fwT, fwQlow, wpQlow)
+  fwQhigh <- select(data$fwQhigh, -c(n_streams))
+  
+  bind_cols(ss, ct_pull, ENM_pull, fwT, fwQlow, wpQlow, fwQhigh)
   
 }
 

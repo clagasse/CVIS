@@ -15,37 +15,223 @@ library(pacea)
 #options(guiToolkit "RGtk2")
 #install.packages("gWidgetsRGtk2", dep=TRUE)
 
-############# LOAD CMIP 5 Data ###########
-#CMIP_H_SST<- read_ncdf(file.path(climate_dat, "Marine_CMIP5", "tos_Omon_ensemblemedian_hist_r1i1p1_190001-200512.nc"), proxy = FALSE, var = c("lat","lon","tos"), make_time = TRUE)
-CMIP_H_SST<-nc_open(file.path(paths$climate, "Marine_CMIP5", "tos_Omon_CanESM2_hist_r1i1p1_190001-200512.nc"))
-CMIP_45_SST<-nc_open(file.path(paths$climate, "Marine_CMIP5", "tos_Omon_CanESM2_rcp45_r1i1p1_200601-210012.nc"))
-CMIP_85_SST<-nc_open(file.path(paths$climate, "Marine_CMIP5", "tos_Omon_CanESM2_rcp85_r1i1p1_200601-210012.nc"))
-
-CMIP_H_SST<-nc_open(file.path(paths$climate, "Marine_CMIP5", "tos_Omon_ensemblemedian_hist_r1i1p1_190001-200512.nc"))
-CMIP_45_SST<-nc_open(file.path(paths$climate, "Marine_CMIP5", "tos_Omon_ensemblemedian_rcp45_r1i1p1_200601-210012.nc"))
-CMIP_85_SST<-nc_open(file.path(paths$climate, "Marine_CMIP5", "tos_Omon_ensemblemedian_rcp85_r1i1p1_200601-210012.nc"))
-
-# See the information assocated with the CMIP data 
+############# LOAD CMIP 5 SST Data ###########
+# See the information associated with the CMIP 5 models 
 C5_files <- getFileInfo(file.path(paths$climate, "Marine_CMIP5"))
 
-# group the CMIP 5 SST variables  
+# group the CMIP 5 SST models  
 SST_files <- filter(C5_files, variable == "tos")
 
 # Check the time frames of the data 
 checkTimePeriod(SST_files)  
 
-# Select model, variable, and time frame
-SST_CANESM_45 <- loadCMIP5("tos", "ensemblemedian", "rcp45", path=file.path(paths$climate, "Marine_CMIP5"), verbose=T, yearRange=c(2040, 2070))
-SST_CANESM_85 <- loadCMIP5("tos", "ensemblemedian", "rcp85", path=file.path(paths$climate, "Marine_CMIP5"), verbose=T, yearRange=c(2040, 2070))
-SST_CANESM_H <- loadCMIP5("tos", "ensemblemedian", "hist", path=file.path(paths$climate, "Marine_CMIP5"), verbose=T, yearRange=c(1980, 2010))
+# Load models and convert to data frames
+ENSMED_45_SST <- loadCMIP5("tos", "ensemblemedian", "rcp45",                # Selects variable, model, and scenario
+                           path=file.path(paths$climate, "Marine_CMIP5"),   # points to file location 
+                           verbose=T, yearRange=c(2040, 2070))%>%           # Selects time range
+  filterDimensions(lonRange=c(210,245),latRange=c(45,60),verbose=T) %>%     # Selects the spatial area based on lat and long ranges
+  as.data.frame() %>%     # Creating a data frame
+  mutate(year = floor(time),                             # creating a year column 
+         month = floor((time - floor(time)) * 12 + 1),   #Creating a month column
+         season = case_when(                             # Creating a season column based on the month column
+           month %in% c(1, 2, 3) ~ "Winter",
+           month %in% c(4, 5, 6) ~ "Spring",
+           month %in% c(7, 8, 9) ~ "Summer",
+           month %in% c(10, 11, 12) ~ "Fall"),
+         value = value - 273.15,              # Converting Kelvin to Celcius 
+         scenario = "rcp45",                  # Creating a column filled with rcp45 as this is the scenario selected in the first line 
+         model="ensemblemedian")              # Creating a column to specify the model                 
 
-# Select spatial extent with coordinate ranges 
-SST_N_H  <- filterDimensions(SST_CANESM_H, lonRange=c(210, 245), latRange=c(45, 60), verbose=T)
-SST_N_45 <- filterDimensions(SST_CANESM_45, lonRange=c(210, 245), latRange=c(45, 60), verbose=T)
-SST_N_85 <- filterDimensions(SST_CANESM_85, lonRange=c(210, 245), latRange=c(45, 60), verbose=T)
+ENSMED_85_SST <- loadCMIP5("tos", "ensemblemedian", "rcp85", path=file.path(paths$climate, "Marine_CMIP5"), verbose=T, yearRange=c(2040, 2070))%>%
+  filterDimensions( lonRange=c(210, 245), latRange=c(45, 60), verbose=T) %>%
+  as.data.frame() %>% 
+  mutate(year = floor(time),
+         month = floor((time - floor(time)) * 12 + 1),
+         season = case_when(
+           month %in% c(1, 2, 3) ~ "Winter",
+           month %in% c(4, 5, 6) ~ "Spring",
+           month %in% c(7, 8, 9) ~ "Summer",
+           month %in% c(10, 11, 12) ~ "Fall"),
+         value = value - 273.15,
+         scenario = "rcp85",                 
+         model="ensemblemedian")
 
-# Put data into scenario specific data frames, adding columns for the year, month, and scenario
-SST_df_H <- as.data.frame(SST_N_H) %>%
+ENSMED_H_SST <- loadCMIP5("tos", "ensemblemedian", "hist", path=file.path(paths$climate, "Marine_CMIP5"), verbose=T, yearRange=c(1980, 2010))%>%
+  filterDimensions( lonRange=c(210, 245), latRange=c(45, 60), verbose=T) %>%
+  as.data.frame() %>% 
+  mutate(year = floor(time),
+         month = floor((time - floor(time)) * 12 + 1),
+         season = case_when(
+           month %in% c(1, 2, 3) ~ "Winter",
+           month %in% c(4, 5, 6) ~ "Spring",
+           month %in% c(7, 8, 9) ~ "Summer",
+           month %in% c(10, 11, 12) ~ "Fall"),
+         value = value - 273.15,
+         scenario = "historical",                 
+         model="ensemblemedian")
+ENSMIN_45_SST <- loadCMIP5("tos", "ensemblemin", "rcp45", path=file.path(paths$climate, "Marine_CMIP5"), verbose=T, yearRange=c(2040, 2070))%>%
+  filterDimensions( lonRange=c(210, 245), latRange=c(45, 60), verbose=T) %>%
+  as.data.frame() %>% 
+  mutate(year = floor(time),
+         month = floor((time - floor(time)) * 12 + 1),
+         season = case_when(
+           month %in% c(1, 2, 3) ~ "Winter",
+           month %in% c(4, 5, 6) ~ "Spring",
+           month %in% c(7, 8, 9) ~ "Summer",
+           month %in% c(10, 11, 12) ~ "Fall"),
+         value = value - 273.15,
+         scenario = "rcp45",                 
+         model="ensemblemin")
+ENSMIN_85_SST <- loadCMIP5("tos", "ensemblemin", "rcp85", path=file.path(paths$climate, "Marine_CMIP5"), verbose=T, yearRange=c(2040, 2070))%>%
+  filterDimensions( lonRange=c(210, 245), latRange=c(45, 60), verbose=T) %>%
+  as.data.frame() %>% 
+  mutate(year = floor(time),
+         month = floor((time - floor(time)) * 12 + 1),
+         season = case_when(
+           month %in% c(1, 2, 3) ~ "Winter",
+           month %in% c(4, 5, 6) ~ "Spring",
+           month %in% c(7, 8, 9) ~ "Summer",
+           month %in% c(10, 11, 12) ~ "Fall"),
+         value = value - 273.15,
+         scenario = "rcp85",                 
+         model="ensemblemin")
+ENSMIN_H_SST <- loadCMIP5("tos", "ensemblemin", "hist", path=file.path(paths$climate, "Marine_CMIP5"), verbose=T, yearRange=c(1980, 2010))%>%
+  filterDimensions( lonRange=c(210, 245), latRange=c(45, 60), verbose=T) %>%
+  as.data.frame() %>% 
+  mutate(year = floor(time),
+         month = floor((time - floor(time)) * 12 + 1),
+         season = case_when(
+           month %in% c(1, 2, 3) ~ "Winter",
+           month %in% c(4, 5, 6) ~ "Spring",
+           month %in% c(7, 8, 9) ~ "Summer",
+           month %in% c(10, 11, 12) ~ "Fall"),
+         value = value - 273.15,
+         scenario = "historical",                 
+         model="ensemblemin")
+
+ENSMAX_45_SST <- loadCMIP5("tos", "ensemblemax", "rcp45", path=file.path(paths$climate, "Marine_CMIP5"), verbose=T, yearRange=c(2040, 2070))%>%
+  filterDimensions( lonRange=c(210, 245), latRange=c(45, 60), verbose=T) %>%
+  as.data.frame() %>% 
+  mutate(year = floor(time),
+         month = floor((time - floor(time)) * 12 + 1),
+         season = case_when(
+           month %in% c(1, 2, 3) ~ "Winter",
+           month %in% c(4, 5, 6) ~ "Spring",
+           month %in% c(7, 8, 9) ~ "Summer",
+           month %in% c(10, 11, 12) ~ "Fall"),
+         value = value - 273.15,
+         scenario = "rcp45",                 
+         model="ensemblemax")
+ENSMAX_85_SST <- loadCMIP5("tos", "ensemblemax", "rcp85", path=file.path(paths$climate, "Marine_CMIP5"), verbose=T, yearRange=c(2040, 2070))%>%
+  filterDimensions( lonRange=c(210, 245), latRange=c(45, 60), verbose=T) %>%
+  as.data.frame() %>% 
+  mutate(year = floor(time),
+         month = floor((time - floor(time)) * 12 + 1),
+         season = case_when(
+           month %in% c(1, 2, 3) ~ "Winter",
+           month %in% c(4, 5, 6) ~ "Spring",
+           month %in% c(7, 8, 9) ~ "Summer",
+           month %in% c(10, 11, 12) ~ "Fall"),
+         value = value - 273.15,
+         scenario = "rcp85",                 
+         model="ensemblemax")
+ENSMAX_H_SST <- loadCMIP5("tos", "ensemblemax", "hist", path=file.path(paths$climate, "Marine_CMIP5"), verbose=T, yearRange=c(1980, 2010))%>%
+  filterDimensions( lonRange=c(210, 245), latRange=c(45, 60), verbose=T) %>%
+  as.data.frame() %>% 
+  mutate(year = floor(time),
+         month = floor((time - floor(time)) * 12 + 1),
+         season = case_when(
+           month %in% c(1, 2, 3) ~ "Winter",
+           month %in% c(4, 5, 6) ~ "Spring",
+           month %in% c(7, 8, 9) ~ "Summer",
+           month %in% c(10, 11, 12) ~ "Fall"),
+         value = value - 273.15,
+         scenario = "historical",                 
+         model="ensemblemax")
+
+CANESM_45_SST <- loadCMIP5("tos", "CanESM2", "rcp45", path=file.path(paths$climate, "Marine_CMIP5"), verbose=T, yearRange=c(2040, 2070))%>%
+  filterDimensions( lonRange=c(210, 245), latRange=c(45, 60), verbose=T) %>%
+  as.data.frame() %>% 
+  mutate(year = floor(time),
+         month = floor((time - floor(time)) * 12 + 1),
+         season = case_when(
+           month %in% c(1, 2, 3) ~ "Winter",
+           month %in% c(4, 5, 6) ~ "Spring",
+           month %in% c(7, 8, 9) ~ "Summer",
+           month %in% c(10, 11, 12) ~ "Fall"),
+         value = value - 273.15,
+         scenario = "rcp45",                 
+         model="CanESM2")
+CANESM_85_SST <- loadCMIP5("tos", "CanESM2", "rcp85", path=file.path(paths$climate, "Marine_CMIP5"), verbose=T, yearRange=c(2040, 2070))%>%
+  filterDimensions( lonRange=c(210, 245), latRange=c(45, 60), verbose=T) %>%
+  as.data.frame() %>% 
+  mutate(year = floor(time),
+         month = floor((time - floor(time)) * 12 + 1),
+         season = case_when(
+           month %in% c(1, 2, 3) ~ "Winter",
+           month %in% c(4, 5, 6) ~ "Spring",
+           month %in% c(7, 8, 9) ~ "Summer",
+           month %in% c(10, 11, 12) ~ "Fall"),
+         value = value - 273.15,
+         scenario = "rcp85",                 
+         model="CanESM2")
+CANESM_H_SST <- loadCMIP5("tos", "CanESM2", "hist", path=file.path(paths$climate, "Marine_CMIP5"), verbose=T, yearRange=c(1980, 2010))%>%
+  filterDimensions( lonRange=c(210, 245), latRange=c(45, 60), verbose=T) %>%
+  as.data.frame() %>% 
+  mutate(year = floor(time),
+         month = floor((time - floor(time)) * 12 + 1),
+         season = case_when(
+           month %in% c(1, 2, 3) ~ "Winter",
+           month %in% c(4, 5, 6) ~ "Spring",
+           month %in% c(7, 8, 9) ~ "Summer",
+           month %in% c(10, 11, 12) ~ "Fall" ),
+         value = value - 273.15,
+         scenario = "historical",                 
+         model="CanESM2")
+
+MPIESM_45_SST <- loadCMIP5("tos", "MPI-ESM-LR", "rcp45", path=file.path(paths$climate, "Marine_CMIP5"), verbose=T, yearRange=c(2040, 2070))%>%
+  filterDimensions( lonRange=c(210, 245), latRange=c(45, 60), verbose=T) %>%
+  as.data.frame() %>% 
+  mutate(year = floor(time),
+         month = floor((time - floor(time)) * 12 + 1),
+         season = case_when(
+           month %in% c(1, 2, 3) ~ "Winter",
+           month %in% c(4, 5, 6) ~ "Spring",
+           month %in% c(7, 8, 9) ~ "Summer",
+           month %in% c(10, 11, 12) ~ "Fall"),
+         value = value - 273.15,
+         scenario = "rcp45",                 
+         model="MPI-ESM-LR")
+MPIESM_85_SST <- loadCMIP5("tos", "MPI-ESM-LR", "rcp85", path=file.path(paths$climate, "Marine_CMIP5"), verbose=T, yearRange=c(2040, 2070))%>%
+  filterDimensions( lonRange=c(210, 245), latRange=c(45, 60), verbose=T) %>%
+  as.data.frame() %>% 
+  mutate(year = floor(time),
+         month = floor((time - floor(time)) * 12 + 1),
+         season = case_when(
+           month %in% c(1, 2, 3) ~ "Winter",
+           month %in% c(4, 5, 6) ~ "Spring",
+           month %in% c(7, 8, 9) ~ "Summer",
+           month %in% c(10, 11, 12) ~ "Fall"),
+         value = value - 273.15,
+         scenario = "rcp85",                 
+         model="MPI-ESM-LR")
+MPIESM_H_SST <- loadCMIP5("tos", "MPI-ESM-LR", "historical", path=file.path(paths$climate, "Marine_CMIP5"), verbose=T, yearRange=c(1980, 2005))%>%
+  filterDimensions( lonRange=c(210, 245), latRange=c(45, 60), verbose=T)%>%
+  as.data.frame() %>% 
+  mutate(year = floor(time),
+         month = floor((time - floor(time)) * 12 + 1),
+         season = case_when(
+           month %in% c(1, 2, 3) ~ "Winter",
+           month %in% c(4, 5, 6) ~ "Spring",
+           month %in% c(7, 8, 9) ~ "Summer",
+           month %in% c(10, 11, 12) ~ "Fall"),
+         value = value - 273.15,
+         scenario = "historical",                 
+         model="MPI-ESM-LR")
+
+IPSLCM_45_SST <- loadCMIP5("tos", "IPSL-CM5A-LR", "rcp45", path=file.path(paths$climate, "Marine_CMIP5"), verbose=T, yearRange=c(2040, 2070))%>%
+  filterDimensions( lonRange=c(210, 245), latRange=c(45, 60), verbose=T) %>%
+  as.data.frame() %>% 
   mutate(year = floor(time),
          month = floor((time - floor(time)) * 12 + 1),
          season = case_when(
@@ -55,9 +241,11 @@ SST_df_H <- as.data.frame(SST_N_H) %>%
            month %in% c(10, 11, 12) ~ "Fall"
          ),
          value = value - 273.15,
-         scenario = "historical")
-
-SST_df_45 <- as.data.frame(SST_N_45) %>%
+         scenario = "rcp45",                 
+         model="IPSL-CM5A-LR")
+IPSLCM_85_SST <- loadCMIP5("tos", "IPSL-CM5A-LR", "rcp85", path=file.path(paths$climate, "Marine_CMIP5"), verbose=T, yearRange=c(2040, 2070))%>%
+  filterDimensions( lonRange=c(210, 245), latRange=c(45, 60), verbose=T) %>%
+  as.data.frame() %>% 
   mutate(year = floor(time),
          month = floor((time - floor(time)) * 12 + 1),
          season = case_when(
@@ -67,28 +255,56 @@ SST_df_45 <- as.data.frame(SST_N_45) %>%
            month %in% c(10, 11, 12) ~ "Fall"
          ),
          value = value - 273.15,
-         scenario = "rcp45")
-
-SST_df_85 <- as.data.frame(SST_N_85) %>%
+         scenario = "rcp85",                 
+         model="IPSL-CM5A-LR")
+IPSLCM_H_SST <- loadCMIP5("tos", "IPSL-CM5A-LR", "historical", path=file.path(paths$climate, "Marine_CMIP5"), verbose=T, yearRange=c(1980, 2010))%>%
+  filterDimensions( lonRange=c(210, 245), latRange=c(45, 60), verbose=T) %>%
+  as.data.frame() %>% 
   mutate(year = floor(time),
          month = floor((time - floor(time)) * 12 + 1),
          season = case_when(
            month %in% c(1, 2, 3) ~ "Winter",
            month %in% c(4, 5, 6) ~ "Spring",
            month %in% c(7, 8, 9) ~ "Summer",
-           month %in% c(10, 11, 12) ~ "Fall"
-         ),
+           month %in% c(10, 11, 12) ~ "Fall"),
          value = value - 273.15,
-         scenario = "rcp85")
+         scenario = "historical",                 
+         model="IPSL-CM5A-LR")
 
-# Join the scenario specific data frames together 
-SST_df <- bind_rows(SST_df_H, SST_df_45, SST_df_85)
+
+# Join the climate model scenario data together 
+ENSMED_SST <- bind_rows(ENSMED_H_SST, ENSMED_45_SST, ENSMED_85_SST)
+ENSMAX_SST <- bind_rows(ENSMAX_H_SST, ENSMAX_45_SST, ENSMAX_85_SST)
+ENSMIN_SST <- bind_rows(ENSMIN_H_SST, ENSMIN_45_SST, ENSMIN_85_SST)
+CANESM_SST <- bind_rows(CANESM_H_SST, CANESM_45_SST, CANESM_85_SST)
+MPIESM_SST <- bind_rows(MPIESM_H_SST, MPIESM_45_SST, MPIESM_85_SST)
+IPSLCM_SST <- bind_rows(IPSLCM_H_SST, IPSLCM_45_SST, IPSLCM_85_SST)
+
+CMIP5_SST<- bind_rows(ENSMED_SST, ENSMAX_SST,ENSMIN_SST,CANESM_SST,MPIESM_SST, IPSLCM_SST)
+
+# This is how I can get it to work
+# Turn the data frame into a spatial feature by establishing the coordinate data 
+CMIP5_SST<- CMIP5_SST %>%
+  st_as_sf(coords = c("lon", "lat"), crs = 4326) #%>%
+#st_transform(crs = "EPSG:3005") 
+coords <- st_coordinates(CMIP5_SST) #  Ran this first Take the coordinates from SF and put it in coords object 
+coords[, "Y"] <- abs(coords[, "Y"]) 
+coords[,"X"] <- coords[,"X"] - 360
+new_geom <- st_sfc(lapply(1:nrow(coords), function(i) st_point(coords[i, ])), crs = st_crs(CMIP5_SST))
+CMIP5_SST<- st_set_geometry(CMIP5_SST, new_geom)
+sf::st_write(CMIP5_SST, file.path(paths$climate, "Standardized_Marine_data/CMIP5_SST.gdb"),   driver = "OpenFileGDB", append = FALSE )
+
+#remove extra variables
+rm(ENSMED_H_SST, ENSMED_45_SST, ENSMED_85_SST, ENSMAX_H_SST, ENSMAX_45_SST, ENSMAX_85_SST,
+ENSMIN_H_SST, ENSMIN_45_SST, ENSMIN_85_SST, CANESM_H_SST, CANESM_45_SST, CANESM_85_SST,
+MPIESM_H_SST, MPIESM_45_SST, MPIESM_85_SST, IPSLCM_H_SST, IPSLCM_45_SST, IPSLCM_85_SST)
 
 # Calculate the SST monthly average for each location and each scenario 
-SST_avg <- SST_df %>%
-  group_by(lon, lat, scenario, season, month) %>%
+SST_avg <- SST %>%
+  group_by(lon, lat, model, scenario, season, month) %>%
   summarise(mean = mean(value, na.rm = TRUE)) %>%
   ungroup()
+
 
 # calculate the monthly average for each scenario (n= 36)
 SST_month <- SST_avg %>%
@@ -118,24 +334,27 @@ SST_annual <- SST_avg %>%
 SST_sf <- SST_df %>%
   st_as_sf(coords = c("lon", "lat"), crs = 4326) #%>%
   #st_transform(crs = "EPSG:3005") 
-  
 
-  coords[, "Y"] <- abs(coords[, "Y"])
-
-  coords <- st_coordinates(SST_sf)
-  
-st_coordinates(SST_sf)[,"X"] <- st_coordinates(SST_sf)[,"X"] - 360
-
+# Not sure what this is doing, not working for me
+coords[, "Y"] <- abs(coords[, "Y"]) # Ran this second should take the absolute values of Y 
+  coords <- st_coordinates(SST_sf) #  Ran this first Take the coordinates from SF and put it in coords object 
+st_coordinates(SST_sf)[,"X"] <- st_coordinates(SST_sf)[,"X"] - 360 # Not working for me but 
 coords[,"X"] <- coords[,"X"] - 360
-
 new_geom <- st_sfc(lapply(1:nrow(coords), function(i) st_point(coords[i, ])), crs = st_crs(SST_sf))
-
 SST_sf <- st_set_geometry(SST_sf, new_geom)
 # SST_sf_spr <- filter(SST_sf, month >= 4 & month <= 6) %>%
 #   group_by(lon, lat) %>%
 #   summarise(mean = mean(mean, na.rm = TRUE)) %>%
 #   ungroup() 
 
+# This is how I can get it to work
+coords <- st_coordinates(SST_sf) #  Ran this first Take the coordinates from SF and put it in coords object 
+coords[, "Y"] <- abs(coords[, "Y"]) 
+coords[,"X"] <- coords[,"X"] - 360
+new_geom <- st_sfc(lapply(1:nrow(coords), function(i) st_point(coords[i, ])), crs = st_crs(SST_sf))
+SST_sf <- st_set_geometry(SST_sf, new_geom)
+
+# this isnt working for me because SST_mcm does not exist earlier in the script 
 SST_raster <- st_rasterize(SST_mcm) #%>%
   st_set_dimensions(3, name = "month", values = month)
 
@@ -144,11 +363,11 @@ SST_raster <- st_rasterize(SST_mcm) #%>%
 bc_coast_4326 <- st_transform(bc_coast, crs = "EPSG:4326")
   
 ##----- Simple plots ----------------#
+# this one is working. April values for year 2050
 ggplot(filter(SST_sf, month == 4, year == 2050)) +
   geom_sf(aes(colour = value), size = 4) +
   geom_sf(data = bc_coast, fill = NA, colour = "black") +
   scale_colour_viridis_c()
-
 
 ggplot(SST_avg_all, aes(x = month, y = average, ymin = q05, ymax = q95, colour = scenario)) +
   geom_line() +
@@ -157,16 +376,28 @@ ggplot(SST_avg_all, aes(x = month, y = average, ymin = q05, ymax = q95, colour =
   labs(title = "CMIP5 SST Lat 45-60, Lon 180-240", x = "Month", y = "Mean Temperature (C)", colour = "Scenario") +
   theme(legend.position = "bottom")
 
+SST_avg <- SST_avg %>%
+  st_as_sf(coords = c("lon", "lat"), crs = 4326)
+coords <- st_coordinates(SST_avg) 
+coords[, "Y"] <- abs(coords[, "Y"]) 
+coords[,"X"] <- coords[,"X"] - 360
+new_geom <- st_sfc(lapply(1:nrow(coords), function(i) st_point(coords[i, ])), crs = st_crs(SST_avg))
+SST_avg <- st_set_geometry(SST_avg, new_geom)
+
+ggplot(filter(SST_avg, month == 4)) +
+  geom_sf(aes(colour = mean), size = 4) +
+  geom_sf(data = bc_coast, fill = NA, colour = "black") +
+  scale_colour_viridis_c()
 
 #------------ Save CMIP5 data as shp file -------
-sf::st_write(CMIP_H_SST, file.path(climate_dat, "Standardized_Marine_data/CanESM2_H_SST.shp"),   driver = "ESRI Shapefile" )
-sf::st_write(CMIP_P_SST, file.path(climate_dat, "Standardized_Marine_data/CanESM2_P_SST.shp"),   driver = "ESRI Shapefile" )
+#sf::st_write(CMIP_H_SST, file.path(paths$climate, "Standardized_Marine_data/CanESM2_H_SST.gdb"),   driver = "OpenFileGDB" )
+#sf::st_write(CMIP_45_SST, file.path(paths$climate, "Standardized_Marine_data/CanESM2_P_SST.gdb"),   driver = "OpenFileGDB" )
+#sf::st_write(CMIP_85_SST, file.path(paths$climate, "Standardized_Marine_data/CanESM2_P_SST.gdb"),   driver = "OpenFileGDB" )
+
+sf::st_write(CMIP5_SST, file.path(paths$climate, "Standardized_Marine_data/CMIP5_SST.gdb"),   driver = "OpenFileGDB", append = FALSE )
 
 
-
-
-
-#---------------
+#---------------#---------------FALSE
 
 
 

@@ -16,10 +16,21 @@ source(file.path(here(), "code", "0_setup.R"))
 #scoring standardization functions
 source(file.path(here(), "code", "4_scoring_utils.R"))
 
+library(ggtext)  # plot text colors
+
+
 projT_min = 14
 
-species_choose <- c("Chinook")
-CU_exclude <- c("CK-7")
+
+
+
+
+
+
+
+
+#species_choose <- c("Chinook")
+#CU_exclude <- c("CK-7")
 
 CVIS_spn <- CVIS_spn %>%
   filter(Species_simple %in% species_choose) %>%
@@ -34,6 +45,7 @@ CVIS_migr <- CVIS_migr %>%
   filter(!FULL_CU_IN %in% CU_exclude)
 
 #--------------------- Summarize raw indicator values-------------------------
+
 
 CVIS_all <- CVIS_spn %>%
   filter(Species_simple %in% species_choose) %>%

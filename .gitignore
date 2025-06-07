@@ -17,8 +17,10 @@
 *.knit.md
 
 # Output figures and data files
-output/*.pdf
-output/*.Rdata
+output
+
+#archived code
+code/archive
 
 # Shiny token, see https://shiny.rstudio.com/articles/shinyapps.html
 docs
