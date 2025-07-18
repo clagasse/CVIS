@@ -6,19 +6,16 @@
   # SSC and NEP36 historic 1986-2005, future 2046-2065
   # BCCM historic 1981-2010, future 2041-2070
 
-#climate_dat <- file.path("C:/Users/houtmann/OneDrive - DFO-MPO/0_data_climate")
-#spatial_dat <- file.path("C:/Users/houtmann/OneDrive - DFO-MPO/0_data_spatial")
-
 # Load masked climate data points that was a result of 3a marine data import data 
-BCCM_SST_sub<-read_sf(file.path(climate_dat, "Standardized_Marine_data/BCCM_SST_sub.shp"))
-BCCM_SSS_sub<-read_sf(file.path(climate_dat, "Standardized_Marine_data/BCCM_SSS_sub.shp"))
-BCCM_SSPH_sub<-read_sf(file.path(climate_dat, "Standardized_Marine_data/BCCM_SSPH_sub.shp"))
-NEP_SST_sub<- read_sf( file.path(climate_dat, "Standardized_Marine_data/NEP_SST_sub.shp"))
-NEP_SSS_sub<- read_sf( file.path(climate_dat, "Standardized_Marine_data/NEP_SSS_sub.shp"))
-NEP_SSPH_sub<- read_sf( file.path(climate_dat, "Standardized_Marine_data/NEP_SSPH_sub.shp"))
-SSC_SST_sub<- read_sf( file.path(climate_dat, "Standardized_Marine_data/SSC_SST_sub.shp"))
-SSC_SSS_sub<- read_sf( file.path(climate_dat, "Standardized_Marine_data/SSC_SSS_sub.shp"))
-CI_points_sub<-read_sf(file.path(climate_dat, "Standardized_Marine_data/CI_points_sub.shp"))
+BCCM_SST_sub<-read_sf(file.path(paths$climate, "Standardized_Marine_data/BCCM_SST_sub.gdb"))
+BCCM_SSS_sub<-read_sf(file.path(paths$climate, "Standardized_Marine_data/BCCM_SSS_sub.gdb"))
+BCCM_SSPH_sub<-read_sf(file.path(paths$climate, "Standardized_Marine_data/BCCM_SSPH_sub.gdb"))
+NEP_SST_sub<- read_sf( file.path(paths$climate, "Standardized_Marine_data/NEP_SST_sub.gdb"))
+NEP_SSS_sub<- read_sf( file.path(paths$climate, "Standardized_Marine_data/NEP_SSS_sub.gdb"))
+NEP_SSPH_sub<- read_sf( file.path(paths$climate, "Standardized_Marine_data/NEP_SSPH_sub.gdb"))
+SSC_SST_sub<- read_sf( file.path(paths$climate, "Standardized_Marine_data/SSC_SST_sub.gdb"))
+SSC_SSS_sub<- read_sf( file.path(paths$climate, "Standardized_Marine_data/SSC_SSS_sub.gdb"))
+CI_points_sub<-read_sf(file.path(paths$climate, "Standardized_Marine_data/CI_points_sub.gdb"))
 
 ######### Spring difference ###############
 #1) Calculate difference between the historic and future spring values in new column 
@@ -80,23 +77,16 @@ SSPH_SpringDiff= subset(SSPH_SpringDiff, select = -c(geometry.x, geometry.y)) %>
 
 SpringDiff1<- merge(SST_SpringDiff, SSS_SpringDiff, by="MAZ_Acrony", all=TRUE)
 SpringDiff<- merge(SpringDiff1, SSPH_SpringDiff, by="MAZ_Acrony", all=TRUE)
+
 ### Put data in tables
 #rename columns for tables
 colAll<-c('MAZ', 'BCCM','NEP',  'SSC','BCCM','NEP', 'SSC','BCCM','NEP' )
 colNEPBCCM<- c('MAZ','BCCM','NEP')
 colnames(SpringDiff)<- colAll
-#colnames(SST_SpringDiff)<- colAll
-#colnames(SSS_SpringDiff)<- colAll
-#colnames(SSPH_SpringDiff)<- colNEPBCCM
 
-# Create table ## Not sure why there are a bunch of extra columns 
+# Create table 
 grid.newpage()
 grid.table(SpringDiff)
-#grid.table(SST_SpringDiff)
-#grid.newpage()
-#grid.table(SSS_SpringDiff)
-#grid.newpage()
-#grid.table(SSPH_SpringDiff)
 
 #remove variable no longer needed 
 rm(SST_SpringDiff1, SSS_SpringDiff1,SpringDiff1, SSS_SpringDiff, SST_SpringDiff, SSPH_SpringDiff,
@@ -166,18 +156,10 @@ SpringAvg<- merge(SpringAvg1, SSPH_SpringAvg, by="MAZ_Acrony", all=TRUE)
 colAll<-c('MAZ', 'BCCM','NEP',  'SSC','BCCM','NEP', 'SSC','BCCM','NEP' )
 colNEPBCCM<- c('MAZ','BCCM','NEP')
 colnames(SpringAvg)<- colAll
-#colnames(SST_SpringDiff)<- colAll
-#colnames(SSS_SpringDiff)<- colAll
-#colnames(SSPH_SpringDiff)<- colNEPBCCM
 
-# Create table ## Not sure why there are a bunch of extra columns 
+# Create table 
 grid.newpage()
 grid.table(SpringAvg)
-#grid.table(SST_SpringDiff)
-#grid.newpage()
-#grid.table(SSS_SpringDiff)
-#grid.newpage()
-#grid.table(SSPH_SpringDiff)
 
 #remove variable no longer needed 
 rm(SST_SpringAvg1, SSS_SpringAvg1,SpringAvg1, SSS_SpringAvg, SST_SpringAvg, SSPH_SpringAvg,

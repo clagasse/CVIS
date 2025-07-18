@@ -95,7 +95,7 @@ st_geometry(CI_points) <- "geometry"
 # Load polygons shp files that will be used to set the extent of the interpolation or clip the final vector grid. 
 EEZ<-read_sf(file.path(paths$spatial, "BC_EEZ", "BC_EEZ.shp"))%>%st_transform(,crs = "EPSG:3005" )                              # Full BC EEZ 
 SSCbox<-read_sf(file.path(paths$climate, "SalishSeaCast_MonthlyData", "SSC_boundingbox.shp"))%>%st_transform(,crs = "EPSG:3005" ) # Box of full SSC extent
-BCCM_mask<-read_sf(file.path(paths$climate, "BCCM", "BCCM_mask2.shp"))  %>%st_transform(,crs = "EPSG:3005" )                       # EEZ excluding north west corner 
+BCCM_mask2<-read_sf(file.path(paths$climate, "BCCM", "BCCM_mask2.shp"))  %>%st_transform(,crs = "EPSG:3005" )                       # EEZ excluding north west corner 
 SSC_mask<-read_sf(file.path(paths$climate, "SalishSeaCast_MonthlyData", "SSC_mask2.shp"))%>%st_transform(,crs = "EPSG:3005" )      # surrounds the SSC data with values but excludes inlets and USA, and NA values 
 NEP_mask<-read_sf(file.path(paths$climate, "NEP36_MonthlyData", "NEP_mask.shp"))     %>%st_transform(,crs = "EPSG:3005" )         # Clips out uncertain results including those on East coast of Haida Gwaii
 CI_mask<-read_sf(file.path(  paths$spatial, "CumulativeImpacts", "CI_mask.shp"))  %>%st_transform(,crs = "EPSG:3005" )       # EEZ polygon made from extent of original CI layer
@@ -265,7 +265,7 @@ CI_interpolation<- point2rast(data = CI_points,
 
 #---------- Resample, Mask, Join, and Save --------------
 BCCM_SST_cropped <-BCCM_SST_interpolation %>%      # BCCM doesn't need to be resampled as we are converting the other grids to its resolution
-  mask(BCCM_mask) %>%                              # Mask the raster. if you end code here it is a spatraster
+  mask(BCCM_mask2) %>%                              # Mask the raster. if you end code here it is a spatraster
   stars::st_as_stars() %>%                         # These two lines turn it into raster into a vector grid 
   sf::st_as_sf()  %>%
   st_join(left = FALSE, MAZ["MAZ_Acrony"]) %>%     # Join vector grid to MAZ polygons, adding the column "MAZ_Acrony"
@@ -273,7 +273,7 @@ BCCM_SST_cropped <-BCCM_SST_interpolation %>%      # BCCM doesn't need to be res
     "Standardized_Marine_data/BCCM_SST_cropped.gdb" ), driver = "OpenFileGDB", append=FALSE)
 
 BCCM_SSS_cropped <-BCCM_SSS_interpolation %>%
-  mask(BCCM_mask) %>% 
+  mask(BCCM_mask2) %>% 
   stars::st_as_stars() %>%  
   sf::st_as_sf()  %>%
   st_join(left = FALSE, MAZ["MAZ_Acrony"])%>%
@@ -281,7 +281,7 @@ BCCM_SSS_cropped <-BCCM_SSS_interpolation %>%
      "Standardized_Marine_data/BCCM_SSS_cropped.gdb" ), driver = "OpenFileGDB", append=FALSE)
 
 BCCM_SSPH_cropped <-BCCM_SSPH_interpolation %>%
-  mask(BCCM_mask) %>% 
+  mask(BCCM_mask2) %>% 
   stars::st_as_stars() %>%  
   sf::st_as_sf()  %>%
   st_join(left = FALSE, MAZ["MAZ_Acrony"])%>%

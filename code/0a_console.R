@@ -95,10 +95,12 @@ fwR_one <- filter(fwR_all_flat, period == "3", RCP == "45")
 ggplot() +
   geom_point(data = fwR_one, aes(x = avg_lon, y= prop_snow)) 
 
+
+
 for(i in 1:n.CUs) {
 
 CU_IN_i <- cu_run$FULL_CU_IN[i]
-CU_IN_i <- "CK-17"
+CU_IN_i <- "CO-5"
   
 rmarkdown::render(
   file.path(here(),"code", "markdown", "0a_CU_profile.Rmd"),
@@ -107,15 +109,7 @@ rmarkdown::render(
   output_format = "html_document", 
   params = list(FULL_CU_IN = CU_IN_i))
 
-}
-
-rmarkdown::render(
-  file.path(here("code", "markdown", "0b_CVIS_overview.Rmd")),
-  output_file = paste(today, "CVIS_overview.html", sep = "_"),
-  output_dir = here("output"),
-  output_format = "html_document")
-
-
+## overview of freshwater spawning indicators
 rmarkdown::render(
   file.path(here("code", "markdown", "2_FW_spawning_report.Rmd")),
   output_file = paste(today, CU_IN_i,"fw_spawning.html", sep = "_"),
@@ -123,11 +117,23 @@ rmarkdown::render(
   output_format = "html_document",
   params = list(FULL_CU_IN = CU_IN_i))
 
+
+}
+
+## comparison of freshwater spawning indicators across CUs
 rmarkdown::render(
   file.path(here("code", "markdown", "2_FW_spawning_compare.Rmd")),
   output_file = paste(today, "fw_spawning_compare.html", sep = "_"),
   output_dir = here("output"),
   output_format = "html_document")
+
+## comparison of all indicators across CUs
+rmarkdown::render(
+  file.path(here("code", "markdown", "0b_CVIS_overview.Rmd")),
+  output_file = paste(today, "CVIS_overview.html", sep = "_"),
+  output_dir = here("output"),
+  output_format = "html_document")
+
 
 
 ## Shiny app

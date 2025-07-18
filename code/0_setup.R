@@ -41,9 +41,11 @@ paths <- list(
 #load utility functions
 source(here("code", "2_fw_utils.R"))
 source(here("code", "3_marine_utils.R"))
+source(here("code", "4_scoring_utils.R"))
 
 #load CU tables
 source(here("code", "1a_CU_import.R"))   #CU table
+
 
 
 # Select subset of CUs to run for analysis
@@ -51,7 +53,10 @@ cu_run <- cu_Fr %>%
   filter(spp %in% c("ck", "co", "cm", "sk"), 
          FULL_CU_IN %notin% c("SER-02", "SER-03")) %>%
   arrange(spp)    #remove widgeon (throws error)
+
 cuid    <- cu_run$cuid# Create vector of CUs to analyze, ordered CK, CM, CO, PKO, SEL, SER, SH
 cu_seq  <- cu_run$FULL_CU_IN # Create vector of CUs to analyze, ordered CK, CM, CO, PKO, SEL, SER, SH
 
 n.CUs   <- nrow(cu_run)
+
+

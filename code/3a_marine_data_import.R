@@ -575,7 +575,7 @@ sf::st_write(CI_points, file.path(paths$spatial,"CumulativeImpacts", "CI_points.
 
 #------------ Mask model points and Join to MAZ ----------
 # Load and transform masking polygons and MAZ polygons
-BCCM_mask<-read_sf(file.path(paths$climate, "BCCM", "BCCM_mask2.shp")) %>% st_transform(crs = "EPSG:3005" )                       
+BCCM_mask<-read_sf(file.path(paths$climate, "BCCM", "BCCM_mask.shp")) %>% st_transform(crs = "EPSG:3005" )                       
 SSC_mask<-read_sf(file.path(paths$climate, "SalishSeaCast_MonthlyData", "SSC_mask.shp")) %>% st_transform(crs = "EPSG:3005" )
 NEP_mask<-read_sf(file.path(paths$climate, "NEP36_MonthlyData", "NEP_mask.shp"))%>% st_transform(crs = "EPSG:3005" )        
 MAZ<-read_sf(file.path(paths$spatial, "MAZ", "MAZ_Final.shp")) %>% st_transform(,crs = "EPSG:3005" )
@@ -585,11 +585,15 @@ MAZ$MAZ_Acrony<- as.factor(MAZ$MAZ_Acrony)
 
 # Crop model points to mask polygons and Join to MAZ polygons and save as a file GDB
 BCCM_SST_sub<-st_intersection(BCCM_SST, BCCM_mask) %>%
-  st_join(left = FALSE, MAZ["MAZ_Acrony"]) %>%
-  sf::st_write(file.path(paths$climate, "Standardized_Marine_data/BCCM_SST_sub.gdb"),  driver = "OpenFileGDB",  append = FALSE )
+  st_join( left = FALSE, MAZ["MAZ_Acrony"]) 
+BCCM_SST_sub$MAZ_Acrony<-BCCM_SST_sub$MAZ_Acrony.y
+BCCM_SST_sub<- subset(BCCM_SST_sub, select=-c(NAME_E, MAZ_Acrony.x,MAZ_Acrony.y, CI_AvgScor, Long_name)) %>%
+  sf::st_write( file.path(paths$climate, "Standardized_Marine_data/BCCM_SST_sub.gdb"),  driver = "OpenFileGDB",  append = FALSE )
 
 BCCM_SSS_sub<-st_intersection(BCCM_SSS, BCCM_mask)%>%
-  st_join(left = FALSE, MAZ["MAZ_Acrony"])%>%
+  st_join(left = FALSE, MAZ["MAZ_Acrony"])
+BCCM_SSS_sub$MAZ_Acrony<-BCCM_SSS_sub$MAZ_Acrony.y
+BCCM_SSS_sub<- subset(BCCM_SSS_sub, select=-c(NAME_E, MAZ_Acrony.x,MAZ_Acrony.y, CI_AvgScor, Long_name)) %>%
   sf::st_write(file.path(paths$climate, "Standardized_Marine_data/BCCM_SSS_sub.gdb"),   driver = "OpenFileGDB", append = FALSE )
 
 BCCM_SSPH_sub<-st_intersection(BCCM_SSPH, BCCM_mask) %>%
@@ -619,6 +623,14 @@ SSC_SSS_sub<-st_intersection(SSC_SSS, SSC_mask)%>%
 CI_points_sub <- st_join(CI_points, left = FALSE, MAZ["MAZ_Acrony"]) %>%
   sf::st_write(file.path(paths$climate, "Standardized_Marine_data/CI_points_sub.gdb"),   driver = "OpenFileGDB", append = FALSE  )
 
+# ---------- MAP data ---------
+bc_coast_3005 <- st_transform(bc_coast, crs = "EPSG:3005")
+ggplot(filter(CMIP5_SST, month == 4, year == 2050)) +
+  geom_sf(aes(colour = value), size = 4) +
+  geom_sf(data = bc_coast, fill = NA, colour = "black") +
+  
+
 # ----------- Remove extra objects -------
 rm(SSC_mask, BCCM_mask, NEP_mask)
+
 

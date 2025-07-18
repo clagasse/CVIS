@@ -4,9 +4,18 @@
 
 
 # raw standardization function between 0 and 1 using min and max values
-linear_std <- function(x, xmin = NA, xmax = NA) {
-  if(is.na(xmax)) xmax <- max(x, na.rm = T)
-  if(is.na(xmin)) xmin <- min(x, na.rm = T)
+# if xmin or xmax are set, a manual min and max range are used for standardizing between 0 and 1
+# if use_95 = TRUE, the min and max are set based on 95% quantile ranges to exclude outliers
+linear_std <- function(x, xmin = NA, xmax = NA, use_95 = TRUE) {
+  if(is.na(xmax)) {
+    xmax <- max(x, na.rm = T)
+    if(use_95 == TRUE) xmax <- unlist(quantile(x, na.rm = T, probs = 0.975))
+  }
+  if(is.na(xmin)) {
+    xmin <- min(x, na.rm = T)
+    if(use_95 == TRUE) xmin <- unlist(quantile(x, na.rm = T, probs = 0.025))
+  }
+  
   y <- rep(NA, length(x))
   
   for(i in 1:length(x)) {
@@ -20,9 +29,15 @@ linear_std <- function(x, xmin = NA, xmax = NA) {
 }
 
 #inverse raw standardization function with 1 corresponding to lowest value
-invlinear_std <- function(x, xmin = NA, xmax = NA) {
-  if(is.na(xmax)) xmax <- max(x, na.rm = T)
-  if(is.na(xmin)) xmin <- min(x, na.rm = T)
+invlinear_std <- function(x, xmin = NA, xmax = NA, use_95 = TRUE) {
+  if(is.na(xmax)) {
+    xmax <- max(x, na.rm = T)
+    if(use_95 == TRUE) xmax <- unlist(quantile(x, na.rm = T, probs = 0.975))
+  }
+  if(is.na(xmin)) {
+    xmin <- min(x, na.rm = T)
+    if(use_95 == TRUE) xmin <- unlist(quantile(x, na.rm = T, probs = 0.025))
+  }
   
   y <- rep(NA, length(x))
   
@@ -51,10 +66,16 @@ logarithmic_std <- function(x, lambda = 0.6, xmin = NA, xmax = NA) {
 }
 
 #exponential increase function where higher values = greater risk
-exponential_std <- function(x, lambda = 1, xmin = NA, xmax = NA) {
+exponential_std <- function(x, lambda = 1, xmin = NA, xmax = NA, use_95 = TRUE) {
 
-  if(is.na(xmax)) xmax <- max(x, na.rm = T)
-  if(is.na(xmin)) xmin <- min(x, na.rm = T)
+  if(is.na(xmax)) {
+    xmax <- max(x, na.rm = T)
+    if(use_95 == TRUE) xmax <- unlist(quantile(x, na.rm = T, probs = 0.975))
+  }
+  if(is.na(xmin)) {
+    xmin <- min(x, na.rm = T)
+    if(use_95 == TRUE) xmin <- unlist(quantile(x, na.rm = T, probs = 0.025))
+  }
   
   y <- rep(NA, length(x))
   for(i in 1:length(x)) {
@@ -136,6 +157,9 @@ simulate_range <- function(x, n = 100) {
   return(y)
   
 }
+
+
+#sim_std <- simulate_range(seq(-0.5,0.1, by = 0.01))
 
 
 

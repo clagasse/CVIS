@@ -22,42 +22,39 @@ hotssea_SST <- hotssea_surface_temperature_mean() %>%
 marine_files <- list.files(file.path(paths$climate, "Standardized_Marine_data"))
 
 ## read in processed shp files
-MAZ     <- st_read(file.path(spatial_dat, "MAZ", "MAZ_Final.shp"))
+MAZ     <- st_read(file.path(paths$spatial, "MAZ", "MAZ_Final.shp"))
 #  note: _cropped are polygon grids,  _sub are points
-SSC_SSS <- st_read(file.path(paths$climate, "Standardized_Marine_data", "SSC_SSS_cropped.shp")) 
-SSC_SST <- st_read(file.path(paths$climate, "Standardized_Marine_data", "SSC_SST_cropped.shp"))
+SSC_SSS <- st_read(file.path(paths$climate, "Standardized_Marine_data", "SSC_SSS_sub.gdb")) 
+SSC_SST <- st_read(file.path(paths$climate, "Standardized_Marine_data", "SSC_SST_sub.gdb"))
 
-# BCCM_SSS <- st_read(file.path(paths$climate, "Standardized_Marine_data", "BCCM_SSS_cropped.shp"))
-# BCCM_SST <- st_read(file.path(paths$climate, "Standardized_Marine_data", "BCCM_SST_cropped.shp"))
+# BCCM_SSS <- st_read(file.path(paths$climate, "Standardized_Marine_data", "BCCM_SSS_cropped.gdb"))
+# BCCM_SST <- st_read(file.path(paths$climate, "Standardized_Marine_data", "BCCM_SST_cropped.gdb"))
 
-BCCM_SST_sub<-read_sf(file.path(paths$climate, "Standardized_Marine_data/BCCM_SST_sub.shp"))
-BCCM_SSS_sub<-read_sf(file.path(paths$climate, "Standardized_Marine_data/BCCM_SSS_sub.shp"))
-BCCM_SSPH_sub<-read_sf(file.path(paths$climate, "Standardized_Marine_data/BCCM_SSPH_sub.shp"))
-# NEP_SST_sub<- read_sf( file.path(paths$climate, "Standardized_Marine_data/NEP_SST_sub.shp"))
-# NEP_SSS_sub<- read_sf( file.path(paths$climate, "Standardized_Marine_data/NEP_SSS_sub.shp"))
-# NEP_SSPH_sub<- read_sf( file.path(paths$climate, "Standardized_Marine_data/NEP_SSPH_sub.shp"))
-SSC_SST_sub<- read_sf( file.path(paths$climate, "Standardized_Marine_data/SSC_SST_sub.shp"))
-SSC_SSS_sub<- read_sf( file.path(paths$climate, "Standardized_Marine_data/SSC_SSS_sub.shp"))
-CI_points_sub<-read_sf(file.path(paths$climate, "Standardized_Marine_data/CI_points_sub.shp"))
+BCCM_SST_sub<-read_sf(file.path(paths$climate, "Standardized_Marine_data/BCCM_SST_sub.gdb"))
+BCCM_SSS_sub<-read_sf(file.path(paths$climate, "Standardized_Marine_data/BCCM_SSS_sub.gdb"))
+BCCM_SSPH_sub<-read_sf(file.path(paths$climate, "Standardized_Marine_data/BCCM_SSPH_sub.gdb"))
+# NEP_SST_sub<- read_sf( file.path(paths$climate, "Standardized_Marine_data/NEP_SST_sub.gdb"))
+# NEP_SSS_sub<- read_sf( file.path(paths$climate, "Standardized_Marine_data/NEP_SSS_sub.gdb"))
+# NEP_SSPH_sub<- read_sf( file.path(paths$climate, "Standardized_Marine_data/NEP_SSPH_sub.gdb"))
+SSC_SST_sub<- read_sf( file.path(paths$climate, "Standardized_Marine_data/SSC_SST_sub.gdb"))
+SSC_SSS_sub<- read_sf( file.path(paths$climate, "Standardized_Marine_data/SSC_SSS_sub.gdb"))
+CI_points_sub<-read_sf(file.path(paths$climate, "Standardized_Marine_data/CI_points_sub.gdb"))
 
-
-CMIP5_SST_sub<- read_sf( file.path(paths$climate, "Standardized_Marine_data/CMIP5_SST_sub.shp"))
-
-
+CMIP5_SST<- read_sf( file.path(paths$climate, "Standardized_Marine_data/CMIP5_ENS_SST.gdb"))
+CMIP5_SSS<- read_sf( file.path(paths$climate, "Standardized_Marine_data/CMIP5_ENS_SSS.gdb"))
+CMIP5_SSPH<- read_sf( file.path(paths$climate, "Standardized_Marine_data/CMIP5_ENS_SSPH.gdb"))
 # assign MAZ to each row in model output
 # BCCM_SST_MAZ <- assign_points(BCCM_SST_sub, MAZ, var = "MAZ_Acrony")
 # SSC_SST_MAZ <- assign_points(SSC_SST_sub, MAZ)
-
 # BCCM_SSS_MAZ <- assign_points(BCCM_SSS_sub, MAZ)
 # SSC_SSS_MAZ <- assign_points(SSC_SSS_sub, MAZ)
-# 
 # BCCM_SSPH_MAZ <- assign_points(BCCM_SSPH_sub, MAZ)
 
-BCCMpacea_SST <- assign_points(BCCMpacea_SST, MAZ, var = "MAZ_Acrony")
+BCCMpacea_SST <- st_join(BCCMpacea_SST, left = FALSE, MAZ["MAZ_Acrony"])
 
 BCCM_SST_long <- BCCM_SST_sub %>%
   pivot_longer(
-    cols = c(contains("H"), contains("45"),contains("85")),
+    cols = -c("SHAPE", "MAZ_Acrony"),
     names_to = c("scenario", "month"),
     names_pattern = 'SST_([A-Za-z0-9]+)_([0-9]+)',
     values_to = "value"
@@ -65,10 +62,10 @@ BCCM_SST_long <- BCCM_SST_sub %>%
   mutate(model = "BCCM",
          month = as.numeric(month))
 
-BCCMpacea_SST_long <- BCCMpacea_SST_MAZ %>%
+BCCMpacea_SST_long <- BCCMpacea_SST %>%
   pivot_longer(
     cols = -c("geometry", "MAZ_Acrony"),
-    names_to = c("year","month"),
+    names_to = c("scenario","month"),
     names_pattern = '([A-Za-z0-9]+)_([0-9]+)',
     values_to = "value"
   ) %>%
@@ -77,7 +74,7 @@ BCCMpacea_SST_long <- BCCMpacea_SST_MAZ %>%
 
 SSC_SST_long <- SSC_SST_sub %>%
   pivot_longer(
-    cols = c(contains("H"), contains("45"),contains("85")),
+    cols = -c("SHAPE", "MAZ_Acrony"),
     names_to = c("scenario", "month"),
     names_pattern = 'SST_([A-Za-z0-9]+)_([0-9]+)',
     values_to = "value"
@@ -87,7 +84,7 @@ SSC_SST_long <- SSC_SST_sub %>%
 
 BCCM_SSS_long <- BCCM_SSS_sub %>%
   pivot_longer(
-    cols = c(contains("H"), contains("45"),contains("85")),
+    cols = -c("SHAPE", "MAZ_Acrony"),
     names_to = c("scenario", "month"),
     names_pattern = 'SSS_([A-Za-z0-9]+)_([0-9]+)',
     values_to = "value"
@@ -97,7 +94,7 @@ BCCM_SSS_long <- BCCM_SSS_sub %>%
 
 SSC_SSS_long <- SSC_SSS_sub %>%
   pivot_longer(
-    cols = c(contains("H"), contains("45"),contains("85")),
+    cols = -c("SHAPE", "MAZ_Acrony"),
     names_to = c("scenario", "month"),
     names_pattern = 'SSS_([A-Za-z0-9]+)_([0-9]+)',
     values_to = "value"
@@ -107,7 +104,7 @@ SSC_SSS_long <- SSC_SSS_sub %>%
 
 BCCM_SSPH_long <- BCCM_SSPH_sub %>%
   pivot_longer(
-    cols = c(contains("H"), contains("45"),contains("85")),
+    cols = -c("SHAPE", "MAZ_Acrony"),
     names_to = c("scenario", "month"),
     names_pattern = 'SSPH_([A-Za-z0-9]+)_([0-9]+)',
     values_to = "value"
@@ -179,8 +176,6 @@ kable(CI_summary, format = "html", digits = 2) %>%
   save_kable(file = "CI_summary.html")
 
 ##### PLOTS
-
-
 ggplot(ROM_SST_summary, aes(x=month, y = SST_mean, ymin = SST_05, ymax = SST_95,
                              group = scenario, color = scenario)) +
   geom_vline(xintercept = 4, linetype = "dashed") +

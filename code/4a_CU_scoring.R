@@ -13,28 +13,27 @@ library(here)
 setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
 
-#scoring standardization functions
-source(file.path(here(), "code", "4_scoring_utils.R"))
+#load FW rearing indicators
+fwR_all_flat <- read_csv(file.path(paths$fw, "2025-06-12_fw_rearing_stats.csv"))
 
-projT_min = 14
 
 #table of indicator abbreviations and full names
 indicators <- tribble(
-  ~abbrev, ~name,
-  "ENM_Fav_change", "ENM Change in Favourability",
-  "ct", "Cumulative threats",
-  "Tw8rate", "Rate of change in August Temperature",
-  "Tw8proj", "Projected August Temperature",
-  "Q8pdelta", "Proportional change in August flow (stream model)",
-  "QmonthH", "Historic month of maximum flow",
-  "st8pdelta",  "Proportional change in August flow (station model)")
-
+  ~abbrev, ~std_fun, ~name,
+  #"Fav_change", "invlinear_std", "ENM Change in Favourability",
+  "ct",              "linear_std",     "Cumulative threats",
+  "Tw8rate",          "linear_std",  "Rate of change in August Temperature",
+  "Tw8proj",    "exponential_std", "Projected August Temperature",
+  "highQpdelta",    "linear_std", "Proportional change in August flow (stream model)",
+  "lowQpdelta",     "invlinear_std", "Proportional change in Nov-Jan flow (stream model)",
+  "st8pdelta",   "invlinear_std", "Proportional change in August flow (station model)")
 
 standardize_spawning <- function(data, 
                                  indicator_pick,
                                  period_pick = "3",
                                  RCPs = c("45", "85"),
-                                 gcm_range_suffix = c("q025_gcm", "min_gcm", "q975_gcm", "max_gcm")) 
+                                 gcm_range_suffix = c("qlow_gcm", "qhigh_gcm"),
+                                 use_gcm_range = TRUE) 
 {
   stat_suffix <- "wmean"
   id_col <- "FULL_CU_IN"
@@ -46,10 +45,10 @@ standardize_spawning <- function(data,
   
   #take names with prefix that also contain stat suffix
   stat_col <- cols_sub[str_detect(cols_sub, paste0(stat_suffix, "$"))]  #must end with wmean
-  min_gcmcol <- cols_sub[str_detect(cols_sub, paste0(gcm_range_suffix[1:2], collapse = "|"))]
-  max_gcmcol <- cols_sub[str_detect(cols_sub, paste0(gcm_range_suffix[3:4], collapse = "|"))]
+  min_gcmcol <- cols_sub[str_detect(cols_sub, paste0(gcm_range_suffix[1], collapse = "|"))]
+  max_gcmcol <- cols_sub[str_detect(cols_sub, paste0(gcm_range_suffix[2], collapse = "|"))]
   
-  if (length(min_gcmcol) == 1 && length(max_gcmcol) == 1) {
+  if (length(min_gcmcol) == 1 && length(max_gcmcol) == 1 && use_gcm_range == TRUE) {
     #select indicator columns and give one column each indicator
     wide_data <- pivot_wider(select(data, c(FULL_CU_IN, stat_col, min_gcmcol, max_gcmcol, RCP)),
                              names_from = RCP,
@@ -68,8 +67,8 @@ standardize_spawning <- function(data,
                             names_prefix = paste0(indicator_pick$abbrev, "_"))
   
   
-  #calculate indicator using function
-  long_data$std <- linear_std(long_data$value)
+  #calculate indicator using function.  choose function using name of std_fun
+  long_data$std <- get(indicator_pick$std_fun)(long_data$value)
   
   #put back into wide data frame to join original
   wide_std <- pivot_wider(select(long_data, -value),
@@ -103,7 +102,9 @@ standardize_spawning <- function(data,
 
 periods <- c("3","4","5")
 
-fwR_all_std <- fwR_all_flat
+fwR_all_std <- fwR_all_flat %>%
+  mutate(RCP = as.character(RCP),
+         period = as.character(period))
 
 for(i in 1:nrow(indicators)) {
   
@@ -111,7 +112,10 @@ for(i in 1:nrow(indicators)) {
     
     temp  <- standardize_spawning(fwR_all_flat, 
                                   indicator_pick = indicators[i,],
-                                  period_pick = periods[f])
+                                  period_pick = periods[f],
+                                  use_gcm_range = T) %>%
+      mutate(RCP = as.character(RCP),
+             period = as.character(period))
     
     if(f == 1) {
       std_periods <- temp
@@ -125,28 +129,14 @@ for(i in 1:nrow(indicators)) {
   
 }
 
-# Check if mean and ID columns exist
-if (!all(c(id_col, stat_col) %in% names(data))) {
-  stop("One or more required columns are missing in the data.")
-}
+## calculate an average standardized vulnerability score across indicators
+fwR_all_std <- fwR_all_std %>%
+  mutate(std_avg_wmean = rowMeans(across(starts_with("std") & ends_with("wmean")), na.rm =T),
+         std_avg_wmean_qlow_gcm = rowMeans(across(starts_with("std") & ends_with("min_gcm")), na.rm =T),
+         std_avg_wmean_qhigh_gcm = rowMeans(across(starts_with("std") & ends_with("max_gcm")), na.rm =T))
 
 
-if (length(min_col) == 1 && length(max_col) == 1) {
-  plot_data <- plot_data %>%
-    mutate(
-      min = data[[min_col]],
-      max = data[[max_col]]
-    )
-  has_range <- TRUE
-} else {
-  has_range <- FALSE
-}
-
-
-
-
-
-
+write.csv(fwR_all_std, file = file.path(paths$fw, paste0(today, "_fw_rearing_standardized.csv")), row.names = FALSE)
 
 
 
@@ -315,36 +305,36 @@ STD_dem_long <- pivot_longer(STD_dem, cols = c(DEM_stat, DEM_nmat),
              names_to = "indicator", values_to = "value")
 
 
-# summary of values for a single indicator
-ggplot(STD_spn) +
-  geom_segment( aes(x=CU_NAME, xend=CU_NAME, y=0, yend=SPN_EXP_rateT_9), color="grey") +
-  geom_point( aes(x=CU_NAME, y=SPN_EXP_rateT_9), size=3, color="#69b3a2" ) +
-  coord_flip()+
-  theme(
-    legend.position = "none",
-    panel.border = element_blank(),
-    panel.spacing = unit(0.1, "lines"),
-    strip.text.x = element_text(size = 8)
-  ) +
-  xlab("") +
-  ylab("Rate of T increase") 
-
-
-
-ggplot(CVIS_STD_all) +
-  geom_point(aes(x=SPN_EXP_rateT_9, y=STD_SPN_EXP_rateT_9), colour = "blue") +
-  geom_line(data = SIM_STD_all, aes(x=SPN_EXP_rateT_9, y=STD_SPN_EXP_rateT_9), linetype = 2) +
-  ylim(0,1) +
-  labs(x = "Rate of T increase (deg C per decade)", y = "Standardized rate of T increase") 
-
-ggplot(CVIS_STD_all) +
-  geom_point(aes(x=SPN_EXP_augQ, y=STD_SPN_EXP_augQ), colour = "blue") +
-  geom_line(data = SIM_STD_all, aes(x=SPN_EXP_augQ, y=STD_SPN_EXP_augQ), linetype = 2) +
-  ylim(0,1) +
-  labs(x = "Change in summer flow", y = "Standardized") 
-
-ggplot(CVIS_STD_all) +
-  geom_point(aes(x=SPN_SEN_CT_anad, y=STD_SPN_SEN_CT_anad), colour = "blue") +
-  geom_line(data = SIM_STD_all, aes(x=SPN_SEN_CT_anad, y=STD_SPN_SEN_CT_anad), linetype = 2) +
-  ylim(0,1) +
-  labs(x = "Cumulative threat score", y = "Standardized") 
+# # summary of values for a single indicator
+# ggplot(STD_spn) +
+#   geom_segment( aes(x=CU_NAME, xend=CU_NAME, y=0, yend=SPN_EXP_rateT_9), color="grey") +
+#   geom_point( aes(x=CU_NAME, y=SPN_EXP_rateT_9), size=3, color="#69b3a2" ) +
+#   coord_flip()+
+#   theme(
+#     legend.position = "none",
+#     panel.border = element_blank(),
+#     panel.spacing = unit(0.1, "lines"),
+#     strip.text.x = element_text(size = 8)
+#   ) +
+#   xlab("") +
+#   ylab("Rate of T increase") 
+# 
+# 
+# 
+# ggplot(CVIS_STD_all) +
+#   geom_point(aes(x=SPN_EXP_rateT_9, y=STD_SPN_EXP_rateT_9), colour = "blue") +
+#   geom_line(data = SIM_STD_all, aes(x=SPN_EXP_rateT_9, y=STD_SPN_EXP_rateT_9), linetype = 2) +
+#   ylim(0,1) +
+#   labs(x = "Rate of T increase (deg C per decade)", y = "Standardized rate of T increase") 
+# 
+# ggplot(CVIS_STD_all) +
+#   geom_point(aes(x=SPN_EXP_augQ, y=STD_SPN_EXP_augQ), colour = "blue") +
+#   geom_line(data = SIM_STD_all, aes(x=SPN_EXP_augQ, y=STD_SPN_EXP_augQ), linetype = 2) +
+#   ylim(0,1) +
+#   labs(x = "Change in summer flow", y = "Standardized") 
+# 
+# ggplot(CVIS_STD_all) +
+#   geom_point(aes(x=SPN_SEN_CT_anad, y=STD_SPN_SEN_CT_anad), colour = "blue") +
+#   geom_line(data = SIM_STD_all, aes(x=SPN_SEN_CT_anad, y=STD_SPN_SEN_CT_anad), linetype = 2) +
+#   ylim(0,1) +
+#   labs(x = "Cumulative threat score", y = "Standardized") 
