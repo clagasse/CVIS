@@ -2,42 +2,77 @@
 #
 # 2d_FW_upstream_paths.R
 #
-#  Stream network analysis of upstream migration routes to CU spawning sites
+#  Get spatial objects of upstream paths from ocean entry to NUSEDS spawning sites for each CU
 #
 #  For each CU:
-#    1) subset stream network of downstream path to ocean
-#    2) summarize route by distance and elevation gain
-#    3) select PCIC grid cells overlapping with path
-#    4) select appropriate dates from PCIC model outputs based on upstream timing
-#    5) summarize PCIC temperature and flow during upstream timing
+#    1) select streams closest to NUSEDS sites
+#    2) subset stream network of downstream path to ocean from each site
+#    3) determine proportion of NUSEDS sites travelling long each path
+#    4) calculate downstream distance for each stream segment
+#    5) Save a list of spatial objects of upstream paths for each CU as path_list
 #
+#  This script uses functions from the 2_fw_utils.R file
 #
-###############################################################################
-
 ###############################################################################
 ## Path analysis - upstream migration route
 
+library(here)
+setwd(here())
+source(file.path(here(), "code", "0_setup.R"))
+
+#load(file.path(paths$fw, "2025-04-22_fw_upstream_paths.Rdata"))
+
 #subset stream network for more manageable size for analysis
-FWA_Fr_ord5 <- filter(FWA_Fr_high, STREAM_ORD > 4)
+#FWA_Fr_ord5 <- filter(FWA_Fr_high, STREAM_ORD > 4)
+
+# load accessible streams from BC FishPass and subset to higher stream order
+load(file.path(paths$fw, "BCFP_combined_accessible_Fr.Rds"))
+
+bcfph <- bcfpa %>%
+  filter(stream_order > 4) %>%
+  st_zm() %>%
+  mutate(downstream_distance = NA) %>%
+  select(segmented_stream_id:mad_m3s, model_access_salmon)
+  
+load(file.path(paths$fw, "2025-07-22_fw_bcfp_downstreamdist.Rdata"))
+
+### NUSEDS salmon spawner locations
+##version from FIA. Usage column added by Michael Arbeider
+nuseds_Fr <- read_csv(file.path(paths$salmon, "NuSEDS_CU_System_sites_202406.csv")) %>%
+  st_as_sf(coords = c("X_LONGT", "Y_LAT"), crs = 4269) %>%
+  st_transform(3005) %>%
+  filter(USAGE != "REMOVE")
+
+
+#--------------------- Downstream distance for stream network -------------------
+
+# get downstream distance for each stream using function from 2_fw_utils
+# this takes a very long time to process but only needs to be done once
+# for(i in 1:nrow(bcfph)) {
+#   bcfph$downstream_distance[i] <- measure_downstream(bcfph[i,], bcfph)
+#   if(bcfph$downstream_distance[i] < 0) bcfph$downstream_distance[i] <- 0
+# }
+
+#save(bcfph, file = file.path(paths$fw, paste0(today, "_fw_bcfp_downstreamdist.Rdata")))
 
 for(i in 1:n.CUs) {
-  nuseds_CU <- filter(nuseds_Fr, FULL_CU_IN == cu_run$FULL_CU_IN[i])
+  nuseds_cu <- filter(nuseds_Fr, FULL_CU_IN == cu_run$FULL_CU_IN[i])
   
-  if(nrow(nuseds_CU) == 0) {
-    path_CU <- NA
-    if(i >1) path_list <- c(path_list, list(path_CU))
+  if(nrow(nuseds_cu) == 0) {
+    migr_cu <- NA
+    if(i >1) migr_list <- c(migr_list, list(migr_cu))
     next
   }
   
   #method 1 - nearest feature
-  nearest_lines <- st_nearest_feature(nuseds_CU, FWA_Fr_ord5)
-  stream_candidates <- FWA_Fr_ord5[nearest_lines,]
+  nearest_lines <- st_nearest_feature(nuseds_cu, bcfph)
+  stream_candidates <- bcfph[nearest_lines,]
   
   #method 2 - FWA code
-  #stream_candidates_2 <- filter(FWA_Fr_ord5, FWA_WATERS %in% nuseds_CU$FWA_WATERSHED_CDE)
+  #stream_candidates_2 <- filter(FWA_Fr_ord5, FWA_WATERS %in% nuseds_cu$FWA_WATERSHED_CDE)
   
   #method 3 -intersection
-  # stream_int <- st_intersects(FWA_cu, nuseds_CU, sparse = FALSE)
+  # stream_int <- st_intersects(FWA_cu, nuseds_cu, sparse = FALSE)
   # stream_candidates <- FWA_Fr_high[which(apply(stream_int, 1, sum) > 0),]
 
   #method 4 - CU boundary centroid
@@ -48,54 +83,43 @@ for(i in 1:n.CUs) {
     stream_pick <- stream_candidates[j,]
 
     #get downstream path from candidate point or stream
-    path_temp <- downstream_path(FWA_Fr_ord5, stream_pick, code_type = "FWA")
+    migr_temp <- downstream_path(stream_pick, bcfph, code_type = "FWA")
     
     #if path is empty, try next candidate
-    if(nrow(path_temp) == 0) next
-    
-    dd <- measure_downstream(path_temp)
-    
-    path_temp <- path_temp %>%
-      mutate(downstream_distance = dd)
+    if(nrow(migr_temp) == 0) next
     
     if(j == 1) {
-      path_CU <- path_temp
+      migr_cu <- migr_temp
     }
     if(j > 1) {
-    path_CU <- bind_rows(path_CU, path_temp)
+    migr_cu <- bind_rows(migr_cu, migr_temp)
     }  #%>%
       #distinct()
   }
 
-  dupes <- as_tibble(path_CU) %>%
-    group_by(LINEAR_FEA) %>% 
+  dupes <- as_tibble(migr_cu) %>%
+    group_by(segmented_stream_id) %>% 
     summarize(num_paths = n(),
-              prop_paths = num_paths / nrow(nuseds_CU))
+              prop_paths = num_paths / nrow(nuseds_cu))
 
-  path_CU <- distinct(path_CU) %>%
-    left_join(dupes, by = "LINEAR_FEA", multiple = "first") 
+  migr_cu <- distinct(migr_cu) %>%
+    left_join(dupes, by = "segmented_stream_id", multiple = "first") 
   
-  path_CU <- path_CU %>%
-    mutate(downstream_distance = measure_downstream(path_CU))
+  # migr_cu$downstream_distance <- apply(migr_cu, 1, function(row) {
+  #   measure_downstream(row, migr_cu)
+  #})
   
-  # ggplot() +
-  #   geom_sf(data = cu_boundary_pick, color = "black", alpha = 0.1) +
-  #   geom_sf(data = st_zm(path_CU), color = "blue", alpha = 0.6) +
-  #   geom_sf(data = nuseds_CU, color = "red", alpha = 0.5)
-
-  if(i == 1) path_list <- list(path_CU)
-  if(i >1) path_list <- c(path_list, list(path_CU))
+  if(i == 1) migr_list <- list(migr_cu)
+  if(i >1) migr_list <- c(migr_list, list(migr_cu))
   
   print(paste("CU", cuid[i], "migration path done"))
 
 }
 
-names(path_list) <- cu_seq
+names(migr_list) <- cu_seq[1:2]
 
-save(path_list,
-     file = here("processed_data", "freshwater", "R_data", paste0(today, "_fw_upstream_paths.Rdata")))
-
-
+save(migr_list,
+     file = file.path(paths$fw, paste0(today, "_fw_upstream_paths.Rdata")))
 
 
 

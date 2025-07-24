@@ -1,8 +1,10 @@
-## 2x_FW_PCIC_period_average.R
+## 2y_FW_PCIC_model_average.R
 # script to import the period averages from 2x_FW_PCIC_period_average.R
-# and do further processing to calculate an ensemble average
+# and do further processing to calculate an average for each Earth System Model (across model realizations)
+# then combine into a single array for each RCP
+#  also create an ensemble average
 
-# outputs are saved into the PCIC_processed folder for further analysis
+# outputs are saved into the PCIC_averaged folder for importing in other scripts
 #####################################################################
 
 library(here)
@@ -11,9 +13,111 @@ source(file.path(here(), "code", "0_setup.R"))
 
 PCIC_file_loc <- file.path(paths$climate, "PCIC_processed")
 
-# get the processed PC
-PCIC_files <- list.files(PCIC_file_loc)
+#output for averages for each ESM
+out_file_loc <- file.path(paths$climate, "PCIC_averaged")
 
-#list of files for rcp45 and rcp85
-PCIC_files_rcp45 <- PCIC_files[grep("rcp45", PCIC_files)]
-PCIC_files_rcp85 <- PCIC_files[grep("rcp85", PCIC_files)]
+combined_out_file_loc <- file.path(out_file_loc, "combined")
+
+PCIC_ESMs <- c("MPI-ESM-LR", 
+               "ACCESS1-0",
+               "CanESM2", 
+               "CCSM4", 
+               "HadGEM2-ES",
+               "CNRM-CM5")
+
+PCIC_RCP <- c("rcp45", 
+              "rcp85")
+
+time_levels <- c("daily",
+                 "monthly")
+
+#time ranges used for taking averages
+time_periods <- tribble(
+  ~start, ~end, ~abbrev,
+  1981, 2010, 0,
+  #2011, 2020, 1,
+  2021, 2040, 2,
+  2041, 2060, 3,
+  2061, 2080, 4,
+  2081, 2099, 5
+)
+
+# get the processed PC
+PCIC_files <- list.files(file.path(PCIC_file_loc))
+
+for(i in 1:length(PCIC_RCP)) {
+  
+  RCP_file_pick <- grep( PCIC_RCP[i], PCIC_files, value = T)
+  
+  for(j in 1:length(PCIC_ESMs)) {
+    ESM_file_pick <- grep( PCIC_ESMs[j], RCP_file_pick, value = T)
+    
+    for(k in 1:length(time_levels)) {
+      
+      time_file_pick <- grep(time_levels[k], ESM_file_pick, value = T)
+      
+      PCIC_sub <- lapply(file.path(PCIC_file_loc, time_file_pick), read_stars)
+      # Combine all stars objects along a new dimension
+      PCIC_combined <- do.call(c, c(PCIC_sub, along = "run"))
+      
+      PCIC_averaged <- st_apply(PCIC_combined, MARGIN = setdiff(names(dim(PCIC_combined)), "run"), mean, na.rm = TRUE)
+      
+      out_name <- paste(time_levels[k], PCIC_RCP[i], PCIC_ESMs[j], sep = "_")
+      
+      print(paste0("Writing output: ", out_name))
+      
+      write_mdim(PCIC_averaged, file.path(out_file_loc, paste0(out_name, ".nc")))
+      
+    }
+    
+  }
+  
+}
+
+
+combine_stars <- function(file_loc, file_names, dim_name = "run") {
+  stars_list <- lapply(file.path(file_loc, file_names), read_mdim)
+  # Combine all stars objects along a new dimension
+  stars_combined <- do.call(c, c(stars_list, along = dim_name))
+  
+}
+
+#compile all model averages into one stars object
+averaged_files <- list.files(out_file_loc)
+
+daily_files <- grep("daily", averaged_files, value = T)
+monthly_files <- grep("monthly", averaged_files, value = T)
+
+daily_rcp45_files <- grep("rcp45", daily_files, value = T)
+daily_rcp85_files <- grep("rcp85", daily_files, value = T)
+monthly_rcp45_files <- grep("rcp45", monthly_files, value = T)
+monthly_rcp85_files <- grep("rcp85", monthly_files, value = T)
+
+
+PCIC_daily_45 <- combine_stars(file_loc = out_file_loc, 
+                               file_names = daily_rcp45_files, 
+                               dim_name = "model")
+  
+PCIC_daily_85 <- combine_stars(file_loc = out_file_loc, 
+                               file_names = daily_rcp85_files, 
+                               dim_name = "model")
+
+#add dimension values
+PCIC_daily_45 <- st_set_dimensions(PCIC_daily_45, "model", values = gsub("daily_rcp45_", "",daily_rcp45_files))
+PCIC_daily_45 <- st_set_dimensions(PCIC_daily_45, "period", values = paste0(time_periods$start, "-", time_periods$end))
+
+PCIC_daily_85 <- st_set_dimensions(PCIC_daily_85, "model", values = gsub("daily_rcp85_", "",daily_rcp85_files))
+PCIC_daily_85 <- st_set_dimensions(PCIC_daily_85, "period", values = paste0(time_periods$start, "-", time_periods$end))
+
+#write to combined sub-folder
+write_mdim(PCIC_daily_45, file.path(combined_out_file_loc, "daily_rcp45.nc"))
+write_mdim(PCIC_daily_85, file.path(combined_out_file_loc, "daily_rcp85.nc"))
+
+#Get an ensemble model average from the average of each model
+PCIC_daily_ens_45 <- st_apply(PCIC_daily_45, MARGIN = setdiff(names(dim(PCIC_daily_45)), "model"), mean, na.rm = TRUE)
+write_mdim(PCIC_daily_ens_45, file.path(combined_out_file_loc, "daily_rcp45_ensemble.nc"))
+
+PCIC_daily_ens_85 <- st_apply(PCIC_daily_85, MARGIN = setdiff(names(dim(PCIC_daily_85)), "model"), mean, na.rm = TRUE)
+write_mdim(PCIC_daily_ens_85, file.path(combined_out_file_loc, "daily_rcp85_ensemble.nc"))
+
+

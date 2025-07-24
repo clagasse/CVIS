@@ -15,11 +15,13 @@ y_dim_max <- 128 #number of y grid cells
 
 #time ranges used for taking averages
 time_periods <- tribble(
-  ~start, ~end,
-  1981, 2010,
-  2041, 2060,
-  2061, 2080,
-  2081, 2099
+  ~start, ~end, ~abbrev,
+  1981, 2010, 0,
+  2011, 2020, 1,
+  2021, 2040, 2,
+  2041, 2060, 3,
+  2061, 2080, 4,
+  2081, 2099, 5
 )
 
 #function for aggregating by month of year - see https://github.com/r-spatial/stars/issues/134
@@ -31,13 +33,6 @@ by_day <- function(x) {
 }
 
 PCIC_files <- list.files(PCIC_file_loc)
-
-PCIC_ESMs <- c("MPI-ESM-LR", 
-                 "ACCESS1-0",
-                 "CanESM2", 
-                 "CCSM4", 
-                 "HadGEM2-ES",
-                 "CNRM-CM5")
 
 #get unique model run names, trimming discharge and waterTemp from start of file name
 PCIC_models <- PCIC_files[grepl("discharge_", PCIC_files)] 
@@ -52,7 +47,7 @@ PCIC_file_models <- lapply(PCIC_models, function(m) {
 
 #length(PCIC_file_models)
 #iterate over each group of model runs, creating output combining discharge and waterTemp
-for(i in 1:1) {
+for(i in 1:length(PCIC_file_models)) {
   
   models_pick <- PCIC_file_models[[i]]
   
@@ -64,87 +59,141 @@ for(i in 1:1) {
     file_pick <- models_pick[j]
     
     #subset and summarize monthly and daily values over each time period
-    for(f in 1:nrow(time_periods)) {
+    s_date <- date("1981-01-01") - date("1945-01-01") + 1
+    #int_date <- date(paste0(time_periods$end[f],"-12-30")) - date(paste0(time_periods$start[f],"-01-01"))
+    e_date <- date("2099-12-31") - date("1981-01-01")
+    
+    PCIC <- read_ncdf(file.path(PCIC_file_loc, file_pick),
+                      ncsub = cbind(start = c(1, 1, s_date), count = c(x_dim_max, y_dim_max, e_date)), proxy = FALSE)
+    st_crs(PCIC) <- 4269
+    #if(attributes(PCIC)$names %in% "waterTemperature") PCIC$waterTemperature <- set_units(PCIC$waterTemperature, "Celsius")
+    
+    time_vals <- as.Date(st_get_dimension_values(PCIC, "time"))
+    
+    # Define time periods
+    periods <- cut(
+      time_vals,
+      breaks = as.Date(c(paste0(time_periods$start, "-01-01"), "2099-12-31"))-1,
+      #c("1980-12-31", "2010-12-31", "2040-12-31", "2060-12-31", "2080-12-31", "2099-12-31")),
+      labels = paste0(time_periods$start, "-", time_periods$end),
+      right = TRUE
+    )
+    
+    time_info <- data.frame(
+      time = time_vals,
+      period = periods,
+      month = month(time_vals),
+      day_of_year = yday(time_vals)
+    )
+    
+    # Compute daily averages by period
+    daily_avg_by_period <- lapply(levels(periods), function(p) {
+      # Get time indices for this period
+      times_in_period <- time_info %>% filter(period == p)
       
-      s_date <- date(paste0(time_periods$start[f],"-01-01")) - date("1945-01-01") + 1
-      int_date <- date(paste0(time_periods$end[f],"-12-30")) - date(paste0(time_periods$start[f],"-01-01"))
-
-      PCIC <- read_ncdf(file.path(PCIC_file_loc, file_pick),
-                        ncsub = cbind(start = c(1, 1, s_date), count = c(x_dim_max, y_dim_max, int_date)), proxy = FALSE)
-      st_crs(PCIC) <- 4269
-      if(attributes(PCIC)$names %in% "waterTemperature") PCIC$waterTemperature <- set_units(PCIC$waterTemperature, "Celsius")
+      # Subset stars object
+      stars_sub <- PCIC[,,,which(time_vals %in% times_in_period$time), drop = FALSE]
       
-      ## calculate average monthly Q/T across time period
-      tm <- PCIC %>%
-        aggregate(by = by_month, FUN = mean, na.rm =T) %>%
-        st_set_dimensions(which = "geometry", names ="time")
-      
-      mdate <- as.Date(paste0(time_periods$start[f], "-", st_get_dimension_values(tm, "time"), "-15"), format = "%Y-%m-%d")
-      
-      tm <- tm %>% 
-        st_set_dimensions(which = "time", values = mdate) %>%
-        aperm(c(2, 3, 1)) #reorder dimensions
-      
-      ## calculate average daily Q/T across time period
-      td <- PCIC %>%   
+      stars_sub <- stars_sub %>%
         aggregate(by = by_day, FUN = mean, na.rm =T) %>%
         st_set_dimensions(which = "geometry", names ="time") %>%
-        filter(time != "02-29") #remove leap days
-      
-      ddate <- as.Date(paste0(time_periods$start[f], "-", st_get_dimension_values(td, "time")), format = "%Y-%m-%d")
-      
-      td <- td %>%
-        st_set_dimensions(which = "time", values = ddate) %>%
+        filter(time != "02-29") %>%  
         aperm(c(2, 3, 1))
       
-      time_d <- st_get_dimension_values(td, "time")
+    })
+
+    PCIC_day_j <- do.call(c, c(daily_avg_by_period, along = "period"))
+    PCIC_day_j<- st_set_dimensions(PCIC_day_j, "period", values = levels(periods))
+    
+    monthly_avg_by_period <- lapply(levels(periods), function(p) {
+      times_in_period <- time_info %>% filter(period == p)
       
-      #combine monthly and daily averaged values across all time periods
-      if(f ==1) {
-        PCIC_m <- tm
-        PCIC_d <- td
-        day_time <- time_d
-      } 
-      if(f > 1) {
-        PCIC_m <- c(PCIC_m, tm, along = 3)
-        PCIC_d   <- c(PCIC_d, td, along = 3)
-        day_time <- c(day_time, time_d)
-      }
+      stars_sub <- PCIC[,,,which(time_vals %in% times_in_period$time), drop = FALSE]
       
-      gc()
-      
-    }
+      stars_sub <- stars_sub %>%
+        aggregate(by = by_month, FUN = mean, na.rm =T) %>%
+        st_set_dimensions(which = "geometry", names ="time") %>%
+        aperm(c(2, 3, 1))
+    })
+
+    PCIC_month_j <- do.call(c, c(monthly_avg_by_period, along = "period"))
+    PCIC_month_j<- st_set_dimensions(PCIC_month_j, "period", values = levels(periods))
+    
+    
+    # ## calculate average monthly Q/T across time period
+    # tm <- PCIC %>%
+    #   aggregate(by = by_month, FUN = mean, na.rm =T) %>%
+    #   st_set_dimensions(which = "geometry", names ="time")
+    # 
+    # mdate <- as.Date(paste0(time_periods$start[f], "-", st_get_dimension_values(tm, "time"), "-15"), format = "%Y-%m-%d")
+    # 
+    # tm <- tm %>% 
+    #   st_set_dimensions(which = "time", values = mdate) %>%
+    #   aperm(c(2, 3, 1)) #reorder dimensions
+    # 
+    # ## calculate average daily Q/T across time period
+    # td <- PCIC %>%   
+    #   aggregate(by = by_day, FUN = mean, na.rm =T) %>%
+    #   st_set_dimensions(which = "geometry", names ="time") %>%
+    #   filter(time != "02-29") #remove leap days
+    # 
+    # ddate <- as.Date(paste0(time_periods$start[f], "-", st_get_dimension_values(td, "time")), format = "%Y-%m-%d")
+    # 
+    # td <- td %>%
+    #   st_set_dimensions(which = "time", values = ddate) %>%
+    #   aperm(c(2, 3, 1))
+    # 
+    # time_d <- st_get_dimension_values(td, "time")
+    
+    # 
+    # #combine monthly and daily averaged values across all time periods
+    # if(f ==1) {
+    #   PCIC_m <- tm
+    #   PCIC_d <- td
+    #   day_time <- time_d
+    # } 
+    # if(f > 1) {
+    #   PCIC_m <- c(PCIC_m, tm, along = 3)
+    #   PCIC_d   <- c(PCIC_d, td, along = 3)
+    #   day_time <- c(day_time, time_d)
+    # }
+    # 
+    # }
+    
+    
     
     #combine discharge and waterTemp variables into a single stars object
     if(j == 1) {
-      PCIC_month <- PCIC_m
-      PCIC_day <- PCIC_d
-      
-      PCIC_day_Q <- PCIC_d
+      PCIC_month <- PCIC_month_j
+      PCIC_day <- PCIC_day_j
     } 
     if(j > 1) {
-      PCIC_month <- c(PCIC_month, PCIC_m)
-      PCIC_day <- c(PCIC_day, PCIC_d)
-      
-      PCIC_day_T <- PCIC_d
+      PCIC_month <- c(PCIC_month, PCIC_month_j)
+      PCIC_day <- c(PCIC_day, PCIC_day_j)
     }
+    
+    gc()
   }
- 
+  
   #write averaged monthly and daily outputs for each model run to a file
   m_out <- paste0("monthly_", output_name)
   d_out <- paste0("daily_", output_name)
   
+  d_out <- "test.nc"
+  
   print(paste0("Writing output to ", m_out))
   write_mdim(PCIC_month, file.path(paths$climate, "PCIC_processed", m_out))
   write_mdim(PCIC_day, file.path(paths$climate, "PCIC_processed", d_out))
-  
+
 }
 
 #rm(PCIC, PCIC_m, PCIC_d)
 
-temp_d <- read_mdim(file.path(paths$climate, "PCIC_processed", "daily_ACCESS1-0_rcp45_r1i1p1_19450101-20991231_fraser.nc"))
-temp_m <- read_mdim(file.path(paths$climate, "PCIC_processed", "monthly_ACCESS1-0_rcp45_r1i1p1_19450101-20991231_fraser.nc"))
+# temp_d <- read_mdim(file.path(paths$climate, "PCIC_processed", "daily_ACCESS1-0_rcp45_r1i1p1_19450101-20991231_fraser.nc"))
+# temp_m <- read_mdim(file.path(paths$climate, "PCIC_processed", "monthly_ACCESS1-0_rcp45_r1i1p1_19450101-20991231_fraser.nc"))
+# 
+# time_d <- st_get_dimension_values(temp_d, "time")
+# time_m <- st_get_dimension_values(temp_m, "time")
 
 
-time_d <- st_get_dimension_values(temp_d, "time")
-time_m <- st_get_dimension_values(temp_m, "time")
+

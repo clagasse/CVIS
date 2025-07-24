@@ -94,6 +94,7 @@ stations_flow <- st_read(file.path(paths$climate, "Ruzzante_low_flows", "station
 ##version from FIA. Usage column added by Michael Arbeider
 nuseds_Fr <- read_csv(file.path(paths$salmon, "NuSEDS_CU_System_sites_202406.csv")) %>%
   st_as_sf(coords = c("X_LONGT", "Y_LAT"), crs = 4269) %>%
+  st_transform(3005) %>%
   filter(USAGE != "REMOVE")
 
 #  field descriptions
@@ -154,7 +155,7 @@ stream_BCFP_stats <- function(bcfpa_cu)  {
 }
 
 
-#------------------------ 4.1 stream temp stats function----
+#------------------------ 3.1 stream temp stats function----
 
 # calculate number of decades from historical to projection period. used for calculating rates of T change
 decade_calc <- function(historical_pick = "0", period_pick = "3") {
@@ -248,7 +249,7 @@ stream_temp_stats <- function(fwT_cu,
   return(Ts_stats)
 }
 
-#----------------4.2 Stream flow statistics function--------
+#----------------3.2 Stream flow statistics function--------
 
 
 stream_flow_stats <- function(fwQ_cu, 
@@ -392,7 +393,7 @@ cu_highflow_month <- function(fwQ_cu,
 }
 
 
-#----------------------4.3 Cumulative threat stats function -------------
+#----------------------3.3 Cumulative threat stats function -------------
 stream_ct_stats <- function(fwct_cu, 
                       cts = c("AIS", "AnadFrag", "FlowAlt", "HabDest",
                               "LatFrag", "ResFrag", "RipDist", "Nutrient",
@@ -474,7 +475,7 @@ ENM_stats <- function(ENM_cu,
   return(ENM_stats)
 }
 
-#---------------- 4.5 station low flow stats function -----
+#---------------- 3.5 station low flow stats function -----
 
 station_lowflow_stats <- function(wp_cu,
                                   historical = 0) {
@@ -529,7 +530,7 @@ regime_stats <- function(watershed_flow, cu_boundary_i)
 
 }
 
-# ----------------------- 5. Calculate stream network CU indicators-------------------
+# ----------------------- 4. Calculate stream network CU indicators-------------------
 
 fwR_all <- list()  #initialize list for storing all results
 
@@ -777,7 +778,7 @@ for(i in 1:length(periods)) {
 }
 
 
-#--------------- 7. Create spatial summary object -----------------------------
+#--------------- 5. Create spatial summary object -----------------------------
 
 ### Low flow stats
 ## same process as CU stats
@@ -857,7 +858,7 @@ fwModels <- bcfpa %>%
   left_join(fwQNDJ_wide,
             join_by(segmented_stream_id))
 
-#----------------- 8. Write files---------
+#----------------- 6. Write files---------
 
 save(fwModels, fwR_all, fwR_all_flat, file = file.path(paths$fw, paste0(today, "_fw_rearing_models_indicators.Rdata")))
 
