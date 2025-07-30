@@ -37,8 +37,8 @@ historical <- "0"   #historical climatology period for temperature models
 
 qlow_gcm <- 0.1    #lower quantile for statistics on GCM variation
 qhigh_gcm <- 0.9   #upper quantile for statistics
-qlow_sp  <- 0.1    #lower quantile for temporal variation within migration window
-qhigh_sp <- 0.9    # upper quantile for temporal variation
+qlow_day  <- 0.1    #lower quantile for temporal variation within migration window
+qhigh_day <- 0.9    # upper quantile for temporal variation
 
 T_thr <- 19   #temperature threshold for spatial extent indicator
 
@@ -52,13 +52,19 @@ PCIC_file_loc <- file.path(paths$climate, "PCIC_averaged", "combined")
 
 #read PCIC outputs, with dimensions for each model, time period, and day of year
 PCIC_daily <- read_mdim(file.path(PCIC_file_loc, "daily_rcp45.nc"))
-#PCIC_daily_85 <- read_mdim(file.path(PCIC_file_loc, "daily_rcp85.nc"))
+PCIC_daily_85 <- read_mdim(file.path(PCIC_file_loc, "daily_rcp85.nc"))
+
+#combine with RCP scenario as a new dimension
+PCIC_daily <- c(PCIC_daily, PCIC_daily_85, along = "rcp")
+PCIC_daily <- st_set_dimensions(PCIC_daily, "rcp", values = c("rcp45", "rcp85"))
+
+rm(PCIC_daily_85)
 
 #convert Temperature from Kelvin to Celsius
 PCIC_daily <- mutate(PCIC_daily, waterTemperature = waterTemperature - 273.15)
 
 #get base PCIC grid - smaller object quicker for operations
-PCIC_base <- PCIC_daily[,,,1,1,1]
+PCIC_base <- PCIC_daily[,,,1,1,1,1]
 
 periods    <- st_get_dimension_values(PCIC_daily, "period")
 gcm_models <- st_get_dimension_values(PCIC_daily, "model")
@@ -66,9 +72,111 @@ gcm_models <- st_get_dimension_values(PCIC_daily, "model")
 #--------------------- 2. Functions for indicators -----------------------------------
 
 
+
+#function to produce summary statistics across rcps, gcms, periods, and days of year for a stars attribute
+summarize_attribute <- function(data,
+                                attr_name = "discharge",
+                                type = "mean",  #mean or sum
+                                qlow_sp = qlow_day,   #lower and upper quantiles to extract
+                                qhigh_sp = qhigh_day,
+                                qlow = qlow_gcm,
+                                qhigh = qhigh_gcm) {
+  
+  ## a. SPATIAL DIMENSION -----
+  # Get array with average over x and y — keeping period, day of year, and model
+  if(type == "mean") {
+    spatial_avg <- st_apply(
+      data[attr_name],  # variable to calc
+      MARGIN = c("time", "period", "model", "rcp"),  # dimensions to keep
+      FUN = mean, na.rm = T 
+    )[[1]]
+  }
+  
+  if(type == "sum") { 
+    spatial_avg <- st_apply(
+      data[attr_name],  # variable to calc
+      MARGIN = c("time", "period", "model", "rcp"),  # dimensions to keep
+      FUN = sum, na.rm = T 
+    )[[1]]
+  }
+  
+  dimnames(spatial_avg) <- list(st_get_dimension_values(data, "time"),
+                                  st_get_dimension_values(data, "period"),
+                                  st_get_dimension_values(data, "model"),
+                                st_get_dimension_values(data, "rcp"))
+  
+  ## b. GCM dimension ------
+  ## Get average and quantiles for each day across GCM outputs and attributes
+  doy_avg <- apply(spatial_avg,
+                            MARGIN = c(1,2,4), #dimensions to keep
+                            FUN = mean, 
+                            na.rm = T)
+  
+  doy_qlow <- apply(spatial_avg,
+                    MARGIN = c(1,2,4), 
+                    FUN = quantile, 
+                    probs = qlow_sp,
+                    na.rm = T)
+  
+  doy_qhigh <- apply(spatial_avg,
+                    MARGIN = c(1,2,4), 
+                    FUN = quantile, 
+                    probs = qhigh_sp,
+                    na.rm = T)
+  
+  doy_stats_45 <- list(doy_avg[rcp = "rcp45"], doy_qlow[rcp = "rcp45"], doy_qhigh[rcp = "rcp45"]) 
+  doy_stats_85 <- list(doy_avg[rcp = "rcp85"], doy_qlow[rcp = "rcp85"], doy_qhigh[rcp = "rcp85"])
+  names(doy_stats_45) <- c("mean", qlow_day, qhigh_day)
+  names(doy_stats_85) <- c("mean", qlow_day, qhigh_day)
+  
+  ## c. TIME DIMENSION ------
+  ## Aggregate over time - get average and quantiles across days within migration window
+  
+  #get average across days of year for time periods, models, and rcps
+  gcm_doy_avg <- apply(spatial_avg,
+                   MARGIN = c(2,3,4),
+                   FUN = mean, 
+                   na.rm = T)
+  #split across rcps
+  gcm_doy_avg45 <- gcm_doy_avg[rcp = "rcp45"]
+  gcm_doy_avg85 <- gcm_doy_avg[rcp = "rcp85"]
+  
+  #get average across gcm models
+  gcm_stats_45 <- tibble(period = st_get_dimension_values(data, "period"),
+                           mean = NA, 
+                           q10= NA, 
+                           q90= NA,
+                           min= NA,
+                           max = NA)
+
+  gcm_stats_85 <- gcm_stats_45
+  
+  #take average, qlow and qhigh across gcms for each time period and rcp
+  gcm_stats_45$mean <- apply(gcm_doy_avg_45, 1, mean)
+  gcm_stats_45$q10  <- apply(gcm_doy_avg_45, 1, quantile, probs = qlow)
+  gcm_stats_45$q90  <- apply(gcm_doy_avg_45, 1, quantile, probs = qhigh)
+  gcm_stats_45$min  <- apply(gcm_doy_avg_45, 1, min)
+  gcm_stats_45$max  <- apply(gcm_doy_avg_45, 1, max)
+  
+  gcm_stats_85$mean <- apply(gcm_doy_avg_85, 1, mean)
+  gcm_stats_85$q10  <- apply(gcm_doy_avg_85, 1, quantile, probs = qlow)
+  gcm_stats_85$q90  <- apply(gcm_doy_avg_85, 1, quantile, probs = qhigh)
+  gcm_stats_85$min  <- apply(gcm_doy_avg_85, 1, min)
+  gcm_stats_85$max  <- apply(gcm_doy_avg_85, 1, max)
+  
+  #return results as a list
+  output <- list(doy_45 = doy_stats_45, 
+                 doy_85 = doy_stats_85, 
+                 gcm_45 = gcm_stats_45, 
+                 gcm_85 = gcm_stats_85)
+
+  return(output)
+  
+}
+
 migr_all <- list()  #list to store results
 
-for(i in 1:n.CUs) {
+for(i in 1:2) {
   cu_i <- cu_run$FULL_CU_IN[i]
   migr_cu <- migr_list[[cu_i]] %>%
     st_transform(4269)
@@ -92,11 +200,9 @@ for(i in 1:n.CUs) {
   
   if(sum(!is.na(migr_cu)) == 0 |   #skip if path is empty
      is.na(cu_timing_i$migr_s) | is.na(cu_timing_i$migr_e))  {#skip if timing info missing
-  
-      migr_all[[i]] <- NA
-      next
-  
-     }
+    migr_all[[i]] <- NA
+    next
+  }
   
   PCIC_cu <- PCIC_daily  #stars object to be subsetted later
   
@@ -144,19 +250,20 @@ for(i in 1:n.CUs) {
     #get T/F index for each PCIC grid cell each day
     PCIC_ind[,day] <- seq(1, dim(PCIC_base)[["x"]] * dim(PCIC_base)[["y"]]) %in% int_day
     
+    ## Remainder of this for loop is for implementing prop_path weighting, not currently working
     #get average prop_path for each grid cell
-    prop_avg <- prop_day %>%
-      group_by(grid_id) %>%
-      summarize(prop_avg = mean(prop_path, na.rm = T)) %>%
-      ungroup()
-    
-    #create a vector corresponding to total number of grid cells, 
-    # fill it with prop_path value using index of intersecting cells
-    vec <- rep(NA, dim(PCIC_base)[["x"]] * dim(PCIC_base)[["y"]])
-    vec[prop_avg[[1]]] <- prop_avg[[2]]
-    
-    #get prop_paths value for each PCIC grid cell each day
-    PCIC_pp[,day] <- vec
+    # prop_avg <- prop_day %>%
+    #   group_by(grid_id) %>%
+    #   summarize(prop_avg = mean(prop_path, na.rm = T)) %>%
+    #   ungroup()
+    # 
+    # #create a vector corresponding to total number of grid cells, 
+    # # fill it with prop_path value using index of intersecting cells
+    # vec <- rep(NA, dim(PCIC_base)[["x"]] * dim(PCIC_base)[["y"]])
+    # vec[prop_avg[[1]]] <- prop_avg[[2]]
+    # 
+    # #get prop_paths value for each PCIC grid cell each day
+    # PCIC_pp[,day] <- vec
   }
   
   daily_cells <- apply(PCIC_ind, 2, sum, na.rm = T)  #vector of number of grid cells included each day
@@ -169,7 +276,12 @@ for(i in 1:n.CUs) {
   PCIC_cu$win_T <- PCIC_cu$waterTemperature 
   PCIC_cu$win_T[!PCIC_cu$migration_window] <- NA
   
-  PCIC_cu$win_Tthr <- PCIC_cu$win_T > 19
+  PCIC_cu$win_Q <- PCIC_cu$discharge 
+  PCIC_cu$win_Q[!PCIC_cu$migration_window] <- NA
+  
+  ## Logical for whether cell temperature is above threshold on each day
+  PCIC_cu$win_Tthr_19 <- PCIC_cu$win_T > 19
+  PCIC_cu$win_Tthr_21 <- PCIC_cu$win_T > 21
   
   ### NOT WORKING - prop_path weighting 
   # weight the grid cells based on the proportion of NUSEDS spawning sites the stream segments leads to
@@ -208,81 +320,115 @@ for(i in 1:n.CUs) {
   
   ### AGGREGATE OVER DIMENSIONS to get summary statistics------
   
-  ## a. SPATIAL DIMENSION -----
-  # Get average over x and y — keeping period, day of year, and model
-  PCIC_avg_sp <- st_apply(
-    PCIC_cu[c("win_T")],  # variable to calc
-    MARGIN = c("time", "period", "model"),  # dimensions to keep
-    FUN = mean, na.rm = T 
-  )
-
-  ## b. GCM dimension ------
-  ## Get average and qlow and qhigh for each day across GCM outputs
+  migrT_stats <- summarize_attribute(PCIC_cu, 
+                                     attr_name = "win_T",
+                                     type = "mean")
   
-  PCIC_avg_daily <- st_apply(
-    PCIC_avg_sp, 
-    MARGIN = c("time", "period"),  
-    FUN = mean, na.rm = TRUE
-    )[[1]]   #retrieve as a matrix
-  colnames(PCIC_avg_daily) <- periods
-  rownames(PCIC_avg_daily) <- st_get_dimension_values(PCIC_cu, "time")
-  
-  PCIC_qlow_daily <- st_apply(
-    PCIC_avg_sp, 
-    MARGIN = c("time", "period"),  
-    FUN = quantile,
-    probs = c(qlow_gcm),
-    na.rm = TRUE
-  )[[1]]   #retrieve as a matrix
-  colnames(PCIC_qlow_daily) <- periods
-  rownames(PCIC_qlow_daily) <- st_get_dimension_values(PCIC_cu, "time")
-  
-  PCIC_qhigh_daily <- st_apply(
-    PCIC_avg_sp, 
-    MARGIN = c("time", "period"),  
-    FUN = quantile,
-    probs = c(qhigh_gcm),
-    na.rm = TRUE
-  )[[1]]   #retrieve as a matrix
-  colnames(PCIC_qhigh_daily) <- periods
-  rownames(PCIC_qhigh_daily) <- st_get_dimension_values(PCIC_cu, "time")
-  
-  PCIC_T_daily <- list(PCIC_avg_daily, PCIC_qlow_daily, PCIC_qhigh_daily) 
-  names(PCIC_T_daily) <- c("mean", "qlow", "qhigh")
-  
-  
-  ## c. TIME DIMENSION ------
-  ## Aggregate over time - get average and quantiles across days within migration window
-
-  #get average over time dimension across time periods and models
-  PCIC_avg_gcm <- st_apply(
-    PCIC_avg_sp, 
-    MARGIN = c("model", "period"), # dimensions to keep
-    FUN = mean, 
-    na.rm = T)[[1]]
-  colnames(PCIC_avg_gcm) <- periods
-  rownames(PCIC_avg_gcm) <- gcm_models
-  
-  PCIC_gcm_stats <- tibble(period = periods, 
-                           mean = NA, 
-                           q10= NA, 
-                           q90= NA,
-                           min= NA,
-                           max = NA)
-  #take average, qlow and qhigh across gcms for each time period
-  PCIC_gcm_stats$mean <- apply(PCIC_avg_gcm, 2, mean)
-  PCIC_gcm_stats$q10 <- apply(PCIC_avg_gcm, 2, quantile, probs = qlow_gcm)
-  PCIC_gcm_stats$q90 <- apply(PCIC_avg_gcm, 2, quantile, probs = qhigh_gcm)
-  PCIC_gcm_stats$min <- apply(PCIC_avg_gcm, 2, min)
-  PCIC_gcm_stats$max <- apply(PCIC_avg_gcm, 2, max)
-  
-  
-  migr_stats_i <- list(gcm_T = PCIC_gcm_stats,
-                       daily_T = PCIC_T_daily)
-  
-  migr_all[[i]] <- migr_stats_i
+  migr_all[[i]] <- migrT_stats
   
   print(paste("Migration stats complete for:", cu_i))
+  
+  
+  # 
+  # ## a. SPATIAL DIMENSION -----
+  # # Get average over x and y — keeping period, day of year, and model
+  # PCIC_avg_sp_T <- st_apply(
+  #   PCIC_cu[c("win_T")],  # variable to calc
+  #   MARGIN = c("time", "period", "model"),  # dimensions to keep
+  #   FUN = mean, na.rm = T 
+  # )[[1]]
+  # dimnames(PCIC_avg_sp_T) <- list(st_get_dimension_values(PCIC_cu, "time"),
+  #                                 st_get_dimension_values(PCIC_cu, "period"),
+  #                                 st_get_dimension_values(PCIC_cu, "model"))
+  # 
+  # PCIC_avg_sp_Q <- st_apply(
+  #   PCIC_cu[c("win_Q")],  # variable to calc
+  #   MARGIN = c("time", "period", "model"),  # dimensions to keep
+  #   FUN = mean, na.rm = T 
+  # )[[1]]
+  # dimnames(PCIC_avg_sp_Q) <- list(st_get_dimension_values(PCIC_cu, "time"),
+  #                                 st_get_dimension_values(PCIC_cu, "period"),
+  #                                 st_get_dimension_values(PCIC_cu, "model"))
+  # 
+  # #sum of grid cells above threshold
+  # PCIC_avg_sp_Tthr_19 <- st_apply(
+  #   PCIC_cu[c("win_Tthr_19")],  # variable to calc
+  #   MARGIN = c("time", "period", "model"),  # dimensions to keep
+  #   FUN = sum, na.rm = T 
+  # )[[1]]
+  # dimnames(PCIC_avg_sp_Tthr_19) <- list(st_get_dimension_values(PCIC_cu, "time"),
+  #                                 st_get_dimension_values(PCIC_cu, "period"),
+  #                                 st_get_dimension_values(PCIC_cu, "model"))
+  # 
+  # #sum of grid cells above threshold
+  # PCIC_avg_sp_Tthr_21 <- st_apply(
+  #   PCIC_cu[c("win_Tthr_21")],  # variable to calc
+  #   MARGIN = c("time", "period", "model"),  # dimensions to keep
+  #   FUN = sum, na.rm = T 
+  # )[[1]]
+  # dimnames(PCIC_avg_sp_Tthr_21) <- list(st_get_dimension_values(PCIC_cu, "time"),
+  #                                 st_get_dimension_values(PCIC_cu, "period"),
+  #                                 st_get_dimension_values(PCIC_cu, "model"))
+  # 
+  # ## b. GCM dimension ------
+  # ## Get average and qlow and qhigh for each day across GCM outputs and attributes
+  # 
+  # PCIC_avg_daily_T <- apply(PCIC_avg_sp_T,
+  #                           MARGIN = c(1,2), 
+  #                           FUN = mean, 
+  #                           na.rm = T
+  # )
+  # 
+  # PCIC_qlow_daily_T <- apply(PCIC_avg_sp_T,
+  #                          MARGIN = c(1,2), 
+  #                          FUN = quantile,
+  #                          probs = qlow_gcm,
+  #                          na.rm = T
+  # )
+  # 
+  # PCIC_qhigh_daily <- st_apply(
+  #   PCIC_avg_sp, 
+  #   MARGIN = c("time", "period"),  
+  #   FUN = quantile,
+  #   probs = c(qhigh_gcm),
+  #   na.rm = TRUE
+  # )[[1]]   #retrieve as a matrix
+  # colnames(PCIC_qhigh_daily) <- periods
+  # rownames(PCIC_qhigh_daily) <- st_get_dimension_values(PCIC_cu, "time")
+  # 
+  # PCIC_T_daily <- list(PCIC_avg_daily, PCIC_qlow_daily, PCIC_qhigh_daily) 
+  # names(PCIC_T_daily) <- c("mean", "qlow", "qhigh")
+  # 
+  # 
+  # ## c. TIME DIMENSION ------
+  # ## Aggregate over time - get average and quantiles across days within migration window
+  # 
+  # #get average over time dimension across time periods and models
+  # PCIC_avg_gcm <- st_apply(
+  #   PCIC_avg_sp, 
+  #   MARGIN = c("model", "period"), # dimensions to keep
+  #   FUN = mean, 
+  #   na.rm = T)[[1]]
+  # colnames(PCIC_avg_gcm) <- periods
+  # rownames(PCIC_avg_gcm) <- gcm_models
+  # 
+  # PCIC_gcm_stats <- tibble(period = periods, 
+  #                          mean = NA, 
+  #                          q10= NA, 
+  #                          q90= NA,
+  #                          min= NA,
+  #                          max = NA)
+  # #take average, qlow and qhigh across gcms for each time period
+  # PCIC_gcm_stats$mean <- apply(PCIC_avg_gcm, 2, mean)
+  # PCIC_gcm_stats$q10 <- apply(PCIC_avg_gcm, 2, quantile, probs = qlow_gcm)
+  # PCIC_gcm_stats$q90 <- apply(PCIC_avg_gcm, 2, quantile, probs = qhigh_gcm)
+  # PCIC_gcm_stats$min <- apply(PCIC_avg_gcm, 2, min)
+  # PCIC_gcm_stats$max <- apply(PCIC_avg_gcm, 2, max)
+  # 
+  # 
+  # migr_stats_i <- list(gcm_T = PCIC_gcm_stats,
+  #                      daily_T = PCIC_T_daily)
+  # 
 
 }
 
@@ -290,7 +436,7 @@ names(migr_all) <- cu_run$FULL_CU_IN
 
 
 save(migr_all,
-     file = here("processed_data", "freshwater", "R_data", paste0(today, "_migr_stats.Rdata")))
+     file = file.path(paths$fw, paste0(today, "_migr_stats.Rdata")))
 
 
 
