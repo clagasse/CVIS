@@ -37,6 +37,17 @@ wqt <- function(x, length_metre, prob = 0.025, na.rm = TRUE) {
 }
 
 
+###############################################################################
+# Spatial analysis utility functions
+###############################################################################
+
+# for two spatial objects, subset the data in sp_x that intersects with sp_y
+subset_intersections <- function(sp_x, sp_y) {
+  intersect <- st_intersects(sp_x, sp_y, sparse = FALSE)
+  sp_x_sub <- sp_x[apply(intersect, 1, sum) > 0,]
+  return(sp_x_sub)
+}
+
 
 ###############################################################################
 # Function to load PCIC model output for given model and variable

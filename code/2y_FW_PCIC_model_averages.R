@@ -1,12 +1,13 @@
 ## 2y_FW_PCIC_model_average.R
 # script to import the period averages from 2x_FW_PCIC_period_average.R
-# and do further processing to calculate an average for each Earth System Model (across model realizations)
+# and do further processing to calculate an average for each Earth System Model across model realizations
 # then combine into a single array for each RCP
 #  also create an ensemble average
 
 # outputs are saved into the PCIC_averaged folder for importing in other scripts
 #####################################################################
 
+### a. data import and setup -------------
 library(here)
 setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
@@ -45,6 +46,8 @@ time_periods <- tribble(
 # get the processed PC
 PCIC_files <- list.files(file.path(PCIC_file_loc))
 
+### b. import each ESM realization and get an average----------
+
 for(i in 1:length(PCIC_RCP)) {
   
   RCP_file_pick <- grep( PCIC_RCP[i], PCIC_files, value = T)
@@ -74,7 +77,7 @@ for(i in 1:length(PCIC_RCP)) {
   
 }
 
-
+### c. combine ESMs into a single stars object for each RCP -----------
 combine_stars <- function(file_loc, file_names, dim_name = "run") {
   stars_list <- lapply(file.path(file_loc, file_names), read_mdim)
   # Combine all stars objects along a new dimension

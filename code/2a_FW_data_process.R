@@ -157,12 +157,6 @@ bcfpmod <- as.data.table(bcfpa) %>%
 #get index of linear_feature_ids that are accessible
 lf_id_access <- bcfpa$linear_feature_id[!is.na(bcfpa$linear_feature_id)]
 
-### this code will query from the FWA database using an API, but is limited to 10,000 records
-# library(fwapgr)  #package for accessing BC FWA
-# collection_id <- "whse_basemapping.fwa_stream_networks_sp"
-# filter_watersheds <- setNames(as.list(FR_codes), rep("watershed_group_code", length(FR_codes)))
-# 
-# FWA_query <- fwa_query_collection(collection_id, filter = filter_watersheds)
 
 
 #-------------------- Load climate model outputs--------------------------------
@@ -231,7 +225,7 @@ names(pflow_GCMs) <- pflow_names
 save(pflow_GCMs, file = file.path(paths$fw, "stream_flow_GCMs_Fr.Rds"))
 
 
-#-----   Extract August flow projections and merge with historic values
+#-----   Extract August or Nov-Jan flow projections and merge with historic values
 
 # import historical flow data object
 hflow <- st_read(file.path(paths$climate, "Fraserflow", "Historic_Flow_Data.gdb")) %>%
@@ -341,8 +335,6 @@ flow_summary_long <- flow_summary %>%
                names_to = "model",
                values_to = "value")
         
-
-
 hflow_long <- hflow %>%
   mutate(scenario = "historical",
          period = "0") %>%

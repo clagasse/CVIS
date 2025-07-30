@@ -119,49 +119,6 @@ for(i in 1:length(PCIC_file_models)) {
     PCIC_month_j <- do.call(c, c(monthly_avg_by_period, along = "period"))
     PCIC_month_j<- st_set_dimensions(PCIC_month_j, "period", values = levels(periods))
     
-    
-    # ## calculate average monthly Q/T across time period
-    # tm <- PCIC %>%
-    #   aggregate(by = by_month, FUN = mean, na.rm =T) %>%
-    #   st_set_dimensions(which = "geometry", names ="time")
-    # 
-    # mdate <- as.Date(paste0(time_periods$start[f], "-", st_get_dimension_values(tm, "time"), "-15"), format = "%Y-%m-%d")
-    # 
-    # tm <- tm %>% 
-    #   st_set_dimensions(which = "time", values = mdate) %>%
-    #   aperm(c(2, 3, 1)) #reorder dimensions
-    # 
-    # ## calculate average daily Q/T across time period
-    # td <- PCIC %>%   
-    #   aggregate(by = by_day, FUN = mean, na.rm =T) %>%
-    #   st_set_dimensions(which = "geometry", names ="time") %>%
-    #   filter(time != "02-29") #remove leap days
-    # 
-    # ddate <- as.Date(paste0(time_periods$start[f], "-", st_get_dimension_values(td, "time")), format = "%Y-%m-%d")
-    # 
-    # td <- td %>%
-    #   st_set_dimensions(which = "time", values = ddate) %>%
-    #   aperm(c(2, 3, 1))
-    # 
-    # time_d <- st_get_dimension_values(td, "time")
-    
-    # 
-    # #combine monthly and daily averaged values across all time periods
-    # if(f ==1) {
-    #   PCIC_m <- tm
-    #   PCIC_d <- td
-    #   day_time <- time_d
-    # } 
-    # if(f > 1) {
-    #   PCIC_m <- c(PCIC_m, tm, along = 3)
-    #   PCIC_d   <- c(PCIC_d, td, along = 3)
-    #   day_time <- c(day_time, time_d)
-    # }
-    # 
-    # }
-    
-    
-    
     #combine discharge and waterTemp variables into a single stars object
     if(j == 1) {
       PCIC_month <- PCIC_month_j

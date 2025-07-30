@@ -26,13 +26,13 @@ source(file.path(here(), "code", "0_setup.R"))
 #FWA_Fr_ord5 <- filter(FWA_Fr_high, STREAM_ORD > 4)
 
 # load accessible streams from BC FishPass and subset to higher stream order
-load(file.path(paths$fw, "BCFP_combined_accessible_Fr.Rds"))
+#load(file.path(paths$fw, "BCFP_combined_accessible_Fr.Rds"))
 
-bcfph <- bcfpa %>%
-  filter(stream_order > 4) %>%
-  st_zm() %>%
-  mutate(downstream_distance = NA) %>%
-  select(segmented_stream_id:mad_m3s, model_access_salmon)
+# bcfph <- bcfpa %>%
+#   filter(stream_order > 4) %>%
+#   st_zm() %>%
+#   mutate(downstream_distance = NA) %>%
+#   select(segmented_stream_id:mad_m3s, model_access_salmon)
   
 load(file.path(paths$fw, "2025-07-22_fw_bcfp_downstreamdist.Rdata"))
 
@@ -66,7 +66,7 @@ for(i in 1:n.CUs) {
   
   #method 1 - nearest feature
   nearest_lines <- st_nearest_feature(nuseds_cu, bcfph)
-  stream_candidates <- bcfph[nearest_lines,]
+  stream_candidates <- bcfph[nearest_lines,]  #get one stream candidate for each nuseds site
   
   #method 2 - FWA code
   #stream_candidates_2 <- filter(FWA_Fr_ord5, FWA_WATERS %in% nuseds_cu$FWA_WATERSHED_CDE)
@@ -92,15 +92,15 @@ for(i in 1:n.CUs) {
       migr_cu <- migr_temp
     }
     if(j > 1) {
-    migr_cu <- bind_rows(migr_cu, migr_temp)
+    migr_cu <- bind_rows(migr_cu, migr_temp)  #end up with a spatial data frame with a full downstream path for each nuseds site
     }  #%>%
       #distinct()
   }
 
   dupes <- as_tibble(migr_cu) %>%
     group_by(segmented_stream_id) %>% 
-    summarize(num_paths = n(),
-              prop_paths = num_paths / nrow(nuseds_cu))
+    summarize(num_paths = n()) %>%
+    mutate(prop_paths = num_paths / max(num_paths)) #nrow(stream_candidates))
 
   migr_cu <- distinct(migr_cu) %>%
     left_join(dupes, by = "segmented_stream_id", multiple = "first") 
@@ -116,7 +116,7 @@ for(i in 1:n.CUs) {
 
 }
 
-names(migr_list) <- cu_seq[1:2]
+names(migr_list) <- cu_seq
 
 save(migr_list,
      file = file.path(paths$fw, paste0(today, "_fw_upstream_paths.Rdata")))
