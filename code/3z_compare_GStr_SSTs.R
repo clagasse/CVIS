@@ -113,11 +113,13 @@ combined_spring <-  rbind(oisst_spring_dt, hotssea_SST_spring_dt, model_SSTs_sum
 ###----- ROM historical summaries and projections
 
 #Salish Sea Cast
-SSC_SST_sub<- read_sf( file.path(paths$climate, "Standardized_Marine_data/SSC_SST_sub.shp"))
+SSC_SST_sub<- read_sf( file.path(paths$climate, "Standardized_Marine_data/SSC_SST_sub.gdb"))
 #BCCM 
-BCCM_SST_sub<-read_sf(file.path(paths$climate, "Standardized_Marine_data/BCCM_SST_sub.shp"))
+BCCM_SST_sub<-read_sf(file.path(paths$climate, "Standardized_Marine_data/BCCM_SST_sub.gdb"))
 
 SSC_SST_long <- SSC_SST_sub %>%
+  as_tibble() %>%
+  select(-"SHAPE") %>%
   pivot_longer(
     cols = c(contains("H"), contains("45"),contains("85")),
     names_to = c("scenario", "month"),
@@ -128,6 +130,8 @@ SSC_SST_long <- SSC_SST_sub %>%
          month = as.numeric(month))
 
 BCCM_SST_long <- BCCM_SST_sub %>%
+  as_tibble() %>%
+  select(-"SHAPE") %>%
   pivot_longer(
     cols = c(contains("H"), contains("45"),contains("85")),
     names_to = c("scenario", "month"),
@@ -142,7 +146,6 @@ ROM_SST <- bind_rows(BCCM_SST_long, SSC_SST_long) %>%
 
 ROM_SST_spring_summary <- data.table(ROM_SST) %>%
   filter(month %in% months_choose) %>%
-  select(-c(geometry, BCCM_mask)) %>%
   group_by(scenario, MAZ_Acrony) %>%
   summarize(mean_sst = mean(value, na.rm = T),
             SST_05 = quantile(value, 0.05, na.rm = T),
@@ -170,18 +173,27 @@ combined_spring_ROMs <- bind_rows(combined_spring, ROM_SST_compare) %>%
 
 spring_means <- combined_spring %>%
   group_by(MAZ_Acrony) %>%
-  summarize(avg_sst = mean(mean_sst, na.rm = TRUE)) 
+  summarize(climatology_sst = mean(mean_sst, na.rm = TRUE)) 
 
 spring_anoms <- combined_spring %>% 
   left_join(spring_means, by = "MAZ_Acrony") %>%
-  mutate(sst_anomaly = mean_sst - avg_sst)
+  mutate(sst_anomaly = mean_sst - climatology_sst)
+
+spring_means_ROMs <- combined_spring_ROMs %>%
+  filter(Model %in% c("ROM_H")) %>%
+  group_by(Region) %>%
+  summarize(climatology_sst = mean(mean_sst, na.rm = TRUE)) 
+
+combined_spring_anoms <- combined_spring_ROMs %>% 
+  left_join(spring_means_ROMs, by = "Region") %>%
+  mutate(sst_anomaly = mean_sst - climatology_sst)
 
 
 
 #----------------- Make report------------------------
 
 rmarkdown::render(
-  file.path(here("reports","compare_model_SSTs.Rmd")),
+  file.path(paths$code, "markdown", "compare_model_SSTs.Rmd"),
   output_file = paste(today, "SST_comparisons.html", sep = "_"),
   output_dir = here("output"),
   output_format = "html_document")
@@ -211,6 +223,16 @@ p2 <- ggplot(data = filter(combined_spring, MAZ_Acrony %in%
        x = "Year",
        y = "Mean SST",
        color = "MAZ_Model") 
+
+
+ggplot(data = filter(combined_spring_anoms, 
+                     Model != "ERSST",
+                     Region == "GStr")) +
+  geom_boxplot(aes(x = Model, y = sst_anomaly, fill = Model)) +
+  labs(title = "April-July SST anomaly",
+       x = "Model/scenario by marine adaptive zone",
+       y = "SST anomaly",
+       fill = "Model")
 
 p3 <- ggplot(data = filter(combined_spring_ROMs, 
                      MAZ_Acrony %in% c("GStr_OISST", "GStr_HOTSSEA", "GStr_ERSST", "GStr_ROM_H", "GStr_ROM_45", "GStr_ROM_85",

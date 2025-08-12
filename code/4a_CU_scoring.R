@@ -9,25 +9,81 @@
 # 5 - estimate vulnerability indices in different categories
 #
 ###############################################################################
+#----------------1. Setup and import----------------
 library(here)
 setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
 
-#load FW rearing indicators
-fwR_all_flat <- read_csv(file.path(paths$fw, "2025-06-12_fw_rearing_stats.csv"))
-
 
 #table of indicator abbreviations and full names
-indicators <- tribble(
-  ~abbrev, ~std_fun, ~name,
-  #"Fav_change", "invlinear_std", "ENM Change in Favourability",
-  "ct",              "linear_std",     "Cumulative threats",
-  "Tw8rate",          "linear_std",  "Rate of change in August Temperature",
-  "Tw8proj",    "exponential_std", "Projected August Temperature",
-  "highQpdelta",    "linear_std", "Proportional change in August flow (stream model)",
-  "lowQpdelta",     "invlinear_std", "Proportional change in Nov-Jan flow (stream model)",
-  "st8pdelta",   "invlinear_std", "Proportional change in August flow (station model)")
+tbl_indicators <- tribble(
+  ~abbrev, ~type, ~std_fun, ~name,
+  "Fav_change", "fwR",  "invlinear_std", "ENM Change in Favourability",
+  "ct",         "fwR",     "linear_std",     "Cumulative threats",
+  "Tw8rate",   "fwR",       "linear_std",  "Rate of change in August Temperature",
+  "Tw8proj",   "fwR", "exponential_std", "Projected August Temperature",
+  "highQpdelta", "fwR",   "linear_std", "Proportional change in August flow (stream model)",
+  "lowQpdelta",  "fwR",   "invlinear_std", "Proportional change in Nov-Jan flow (stream model)",
+  "st8pdelta",  "fwR", "invlinear_std", "Proportional change in August flow (station model)",
+  "fw_res",     "fwR",   "step_std",   "Freshwater residency time",
+  "migrT",      "migr",    "linear_std",     "Projected temperature during upstream migration",
+  "migrQ",      "migr",      "linear_std",    "Projected discharge during upstream migration",
+  "migrTthr19",  "migr",    "exponential_std", "Average proportion of path above 19 degrees during upstream migration",
+  "migr_len",    "migr",     "linear_std",     "Length of upstream migration",
+  
+  "stat",      "dem", "cat_std", "WSP status",
+  "nmat",      "dem", "decay_std", "Number of mature individuals",
+  "enh_rat",   "dem", "enh_std", "Ratio of releases to recent generational abundance of spawners")
 
+
+
+#load FW rearing indicators
+fwR_all_flat <- read_csv(file.path(paths$fw, "2025-06-12_fw_rearing_stats.csv")) %>%
+  rename(period_code = period) %>%
+  mutate(RCP = as.character(RCP))
+
+#load FW migration indicators
+load(file.path(paths$fw, "2025-07-31_migr_stats.Rdata"))
+
+#load marine indicators
+mar_all_flat <- read_csv(file.path(paths$marine, "2025-08-11_marine_stats.csv"))
+
+
+#combine indicators into common table
+
+
+
+
+#translation table between periods
+period_lookup <- tribble(
+  ~period_code, ~period,
+  0, "1981-2000",
+  0, "1981-2010",
+  1, "2011-2020",
+  2, "2021-2040",
+  3, "2041-2060",
+  4, "2061-2080",
+  5, "2081-2099"
+)
+
+#add period code to migration table
+migr_all_flat <- migr_all_flat %>%
+  left_join(period_lookup, by = "period") %>%
+  relocate(period_code, .after = period) %>%
+  select(-period)
+
+#combine indicators into single table
+all_inds <- fwR_all_flat %>%
+  left_join(migr_all_flat, by = c("FULL_CU_IN",  "CU_NAME", "CU_Species", "FAZ", "period_code", "RCP")) %>%
+  left_join(CVIS_dem, by = c("FULL_CU_IN", "CU_NAME")) %>%
+  select(FULL_CU_IN, CU_NAME, CU_Species, FAZ, period_code, RCP, SSP, contains(tbl_indicators$abbrev))      
+
+
+
+
+
+
+#--------------2. Functions for standardization ------
 standardize_spawning <- function(data, 
                                  indicator_pick,
                                  period_pick = "3",
@@ -100,6 +156,9 @@ standardize_spawning <- function(data,
   
 }
 
+#------------- 3. Calculate standardized scores-------------------------------
+
+
 periods <- c("3","4","5")
 
 fwR_all_std <- fwR_all_flat %>%
@@ -111,7 +170,7 @@ for(i in 1:nrow(indicators)) {
   for(f in 1:length(periods)) {
     
     temp  <- standardize_spawning(fwR_all_flat, 
-                                  indicator_pick = indicators[i,],
+                                  indicator_pick = fwR_indicators[i,],
                                   period_pick = periods[f],
                                   use_gcm_range = T) %>%
       mutate(RCP = as.character(RCP),
@@ -141,7 +200,10 @@ write.csv(fwR_all_std, file = file.path(paths$fw, paste0(today, "_fw_rearing_sta
 
 
 
+plot_std <- filter(fwR_all_std, period == "3", RCP =="45")
 
+ggplot() +
+  geom_point(data = plot_std, aes(x = Tw8proj_wmean, y = std_Tw8proj_wmean, color = CU_Species))
 
 
 
@@ -230,7 +292,7 @@ STD_migr <- CVIS_migr %>%
   mutate(MIG_EXPxSEN = MIG_EXP_AVG * MIG_SEN_AVG)
 
 STD_dem <- CVIS_dem %>%
-  filter(Species_simple %in% species_choose) %>%
+  #filter(Species_simple %in% species_choose) %>%
   mutate(DEM_stat = cat_std(DEM_stat),
          DEM_nmat = decay_std(DEM_nmat, lambda = 3, xmax = 10000),
          DEM_enhinf = enh_std(DEM_enhann, DEM_enhobj))
@@ -290,6 +352,7 @@ ggplot() +
 
 
 
+
 #----------------------- Summarize indicators across CUs------------------------
 
 STD_spn_long <- pivot_longer(STD_spn, cols = c(SPN_EXP_projT_9, SPN_EXP_rateT_9, SPN_EXP_augQ, SPN_EXP_winQ,
@@ -306,19 +369,40 @@ STD_dem_long <- pivot_longer(STD_dem, cols = c(DEM_stat, DEM_nmat),
 
 
 # # summary of values for a single indicator
-# ggplot(STD_spn) +
-#   geom_segment( aes(x=CU_NAME, xend=CU_NAME, y=0, yend=SPN_EXP_rateT_9), color="grey") +
-#   geom_point( aes(x=CU_NAME, y=SPN_EXP_rateT_9), size=3, color="#69b3a2" ) +
-#   coord_flip()+
-#   theme(
-#     legend.position = "none",
-#     panel.border = element_blank(),
-#     panel.spacing = unit(0.1, "lines"),
-#     strip.text.x = element_text(size = 8)
-#   ) +
-#   xlab("") +
-#   ylab("Rate of T increase") 
-# 
+
+# Create a unique ordering of id by sp
+# Create a unique ordering of id by sp
+plot_data <- CVIS_dem
+
+ordered_ids <- plot_data %>%
+  arrange(Species_simple, CU_NAME) %>%
+  distinct(CU_NAME) %>%
+  pull(CU_NAME)
+
+# Apply the ordering
+plot_data$id <- factor(plot_data$CU_NAME, levels = ordered_ids)
+
+plot_data <- filter(plot_data, Species_simple != "Pink")
+
+ggplot(plot_data) +
+  #geom_segment( aes(x=CU_NAME, xend=CU_NAME, y=0, yend=SPN_EXP_rateT_9), color="grey") +
+  geom_point( aes(x=id, y=DEM_nmat, color = Species_simple), size=3 ) +
+  coord_flip()+
+  theme(
+    panel.border = element_blank(),
+    panel.spacing = unit(0.1, "lines"),
+    strip.text.x = element_text(size = 8),
+  ) +
+  xlab("") +
+  ylab("Number of mature individuals")
+
+
+
+
+
+
+
+
 # 
 # 
 # ggplot(CVIS_STD_all) +

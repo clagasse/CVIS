@@ -12,6 +12,7 @@ date: today
 ```{r custom theme, echo = FALSE, message = F, warning = F}
 
 library(viridis)
+library(wesanderson)
 library(gt)        # nice tables
 library(patchwork) # plot layouts
 library(ggtext)  # plot text colors
@@ -99,147 +100,14 @@ indicators %>%
 ```{r plot function}
 
 
-# Function to create a lollipop chart
-plot_lollipop <- function(data, indicator_pick) {
-  # Define suffixes
-  stat_suffix <- "wmean"
-  sp_suffix <- c("wqlow_sp", "wqhigh_sp")
-  gcm_range_suffix <- c("qlow_gcm", "qhigh_gcm")
-  
-  #take column names that contain prefix with model type
-  cols_sub <- names(data)[str_detect(names(data), indicator_pick$abbrev)]
-  
-  #take names with prefix that also contain stat suffix
-  stat_col <- cols_sub[str_detect(cols_sub, paste0(stat_suffix, "$"))]  #must end with wmean
-  min_col  <- cols_sub[str_detect(cols_sub,sp_suffix[1])]
-  max_col  <- cols_sub[str_detect(cols_sub,sp_suffix[2])]
-  min_gcmcol <- cols_sub[str_detect(cols_sub, paste0(gcm_range_suffix[1], collapse = "|"))]
-  max_gcmcol <- cols_sub[str_detect(cols_sub, paste0(gcm_range_suffix[2], collapse = "|"))]
-  
-  id_col <- "CU_NAME"
-  sp_col <- "CU_Species"
-  
-  # Check if mean and ID columns exist
-  if (!all(c(id_col, stat_col) %in% names(data))) {
-    stop("One or more required columns are missing in the data.")
-  }
-  
-  # Prepare data for plotting
-  plot_data <- data %>%
-    select(all_of(c(id_col, stat_col, sp_col))) %>%
-    rename(mean = !!stat_col, id = !!id_col, sp = !!sp_col)
 
-  #palette_colors <- pal_npg("nrc")(5) # 4 colors from Nature Publishing Group palette
-
-  # Create a named color palette using unique categories
-  unique_sp <- unique(plot_data$sp)
-  palette_colors <- pal_npg("nrc")(length(unique_sp))
-  names(palette_colors) <- unique_sp
-  
-  plot_data$color <- palette_colors[plot_data$sp]
-  plot_data$label <- paste0("<span style='color:", plot_data$color, "'>", plot_data$sp, "</span>")
-  
-  
-# Create a unique ordering of id by sp
-ordered_ids <- plot_data %>%
-  arrange(sp, id) %>%
-  distinct(id) %>%
-  pull(id)
-
-# Apply the ordering
-plot_data$id <- factor(plot_data$id, levels = ordered_ids)
-  
-  # Add min and max if available
-  if (length(min_col) == 1 && length(max_col) == 1) {
-    plot_data <- plot_data %>%
-      mutate(
-        min = data[[min_col]],
-        max = data[[max_col]]
-      )
-    has_range <- TRUE
-  } else {
-    has_range <- FALSE
-  }
-  
-  # add GCM range if available
-  if (length(min_gcmcol) == 1 && length(max_gcmcol) == 1) {
-    plot_data <- plot_data %>%
-      mutate(
-        mingcm = data[[min_gcmcol]],
-        maxgcm = data[[max_gcmcol]]
-      )
-    has_gcm <- TRUE
-  } else {
-    has_gcm <- FALSE
-  }
-  
-  # Create the lollipop chart
-  p <- ggplot(plot_data, aes(x = id, color = sp)) +
-    scale_fill_manual(values = palette_colors) 
-  
-  if (has_range) {
-    p <- p + geom_segment(aes(xend = id, y = min, yend = max), 
-                          color = "darkgrey",
-                          linewidth = 2.5)
-  }
-  
-  if (has_gcm) {
-    p <- p + geom_segment(aes(xend = id, y = mingcm, yend = maxgcm), 
-                          color = "darkred",
-                            linewidth = 1)
-  }
-  
-   p +   geom_point(aes(y = mean), size = 2.5) +
-     labs(
-      title = paste(indicator_pick$name),
-      x = "CU",
-      y = stat_col,
-      color = "Species"
-    ) +
-    coord_flip() +
-    theme_minimal() +
-    theme(
-       axis.text.y =element_text(size=7)
-       
-     )
-
-}
 ```
 
 
 ```{r}
 
 
-spatial_indicator_plot <- function(data,
-                                   outline = Fr_basin,
-                                   sp_pick = "Chinook", 
-                                   indicator_pick, 
-                                   palette = "Zissou1") 
-{
-  
-  data_sp <- filter(data, Species == sp_pick)
 
-  #take column names that contain prefix with model type
-  cols_sub <- names(data_sp)[str_detect(names(data_sp), indicator_pick$abbrev)]
-  #take names with prefix that also contain stat suffix
-  stat_col <- cols_sub[str_detect(cols_sub, paste0(stat_suffix, "$"))]
-  
-  data_sp <- mutate(data_sp, plot_col = .data[[stat_col]]) 
-  
- p <- ggplot() +
-  geom_sf(data = data_sp, aes(fill = plot_col), alpha = 0.3) +
-  scale_fill_gradientn(colours = wesanderson::wes_palette("Zissou1", 100, type = "continuous")) +
-  #geom_label(data = cu_boundary_show, aes(label = CUID), size = 2) +
-  geom_sf(data = Fr_basin, colour = "black", fill = NA, alpha = 0.3) + 
-   labs(subtitle = paste(sp_pick, "-", indicator_pick$name),
-        legend = indicator_pick$abbrev)
- 
- #if(palette == "Zissou1") p 
- #if(palette == "Viridis") p + scale_fill_viridis_c()
- 
- return(p)
-
-}
 
 
 
@@ -278,7 +146,7 @@ sp_col <- "CU_Species"
   
   ggplot(plot_data) +
     geom_errorbar(aes(x = lowQpdelta_wmean, y = st8pdelta_wmean, ymin = st8pdelta_qlow_gcm, ymax = st8pdelta_qhigh_gcm), colour = "blue") +
-    geom_errorbarh(aes(x = lowQpdelta_wmean, y = st8pdelta_wmean, xmin = lowQpdelta_wmean_qlow_gcm, xmax = lowQpdelta_wmean_qlow_gcm)) +
+    geom_errorbarh(aes(x = lowQpdelta_wmean, y = st8pdelta_wmean, xmin = lowQpdelta_wmean_qlow_gcm, xmax = lowQpdelta_wmean_qhigh_gcm)) +
         geom_point(aes(x=lowQpdelta_wmean, y=st8pdelta_wmean, col = CU_Species), size = 3) +
     labs(subtitle = "statistical station model (st8) vs PCIC stream model",
          x = "PCIC stream model change in August flow",
@@ -359,11 +227,29 @@ p <- ggplot(plot_data, aes(x = CU_NAME)) +
        y = "Standardized value",
        x = NULL)
 
-
 p
 
 ```
 
+```{r}
+
+#Make a tile plot
+
+ggplot(plot_data, aes(y = CU_NAME, x = indicator)) +
+  geom_tile(aes(fill = wmean)) +
+  geom_text(aes(label = round(wmean,1)), size = 2) + # Add the text labels
+  scale_fill_gradientn(colours = wesanderson::wes_palette("Zissou1", 100, type = "continuous")) +
+  theme(
+       axis.text.y =element_text(size=7),
+       axis.text.x =element_text(size=8),
+       legend.position = "none"
+     ) +
+  labs(title = "Standardized indicator values for Fraser CUs",
+       y = "Standardized value",
+       x = NULL)
+
+
+```
 
 ```{r period 3 indicator plots}
 
@@ -375,11 +261,16 @@ cu_boundary_plot <- cu_boundary %>%
   
 for(i in 1:nrow(indicators)) {
   
+  #reverse the colour palette for indicators where negative values are more severe
+  do_reverse <- FALSE
+  if(indicators$abbrev[i] %in% c("lowQpdelta", "st8pdelta")) do_reverse <- TRUE
+  
   p <- plot_lollipop(data, indicators[i,])
   
   p2 <- spatial_indicator_plot(cu_boundary_plot, 
                                sp_pick = "Chinook",
-                               indicator_pick = indicators[i,])
+                               indicator_pick = indicators[i,],
+                               reversed_pal = do_reverse)
   # p3 <- spatial_indicator_plot(cu_boundary_plot, 
   #                              sp_pick = "Coho",
   #                              indicator_pick =indicators[i,])

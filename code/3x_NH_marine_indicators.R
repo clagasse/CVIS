@@ -1,10 +1,39 @@
-# Marine Indictators
-# Calculating marine indictors for MAZs with layers resulting from the 3a code
-  # Point vector file with historic and future climate data and MAZ column 
-# Spring = April (04) to June (06)
-# Time periods for each model:
-  # SSC and NEP36 historic 1986-2005, future 2046-2065
-  # BCCM historic 1981-2010, future 2041-2070
+# 3b_marine_indicators
+
+# Inputs: 
+#   3a3/Subset surface data: 3a1 masked to only include points with 
+# high confidence inside the EEZ and has a additional column 
+# (compared to containing the MAZ Acronym each point falls withing (e.g. "NEP_SST_sub")
+#                                                                                                                               Input locaitons:                                                                                                                             3a3/Subset surface data and CI data: All saved to "OneDrive - DFO-MPO\0_data_climate\Standardized_Marine_data\" (e.g. "BCCM_SSPH_sub.gdb")
+# Outputs: No outputs other than the graphs and maps generated in the code
+# Output locations: Not saved anywher 
+
+# 
+# The subsetted data created in 3a are used to calculate marine indicators based on MAZs. 
+#These files already have a MAZ column, and have been masked to the area that high certainty in the modeled results.
+# Indicators may change, but currently, there is:
+#Spring difference, 
+#Mean spring projected temperature, 
+#Decadal Rate of change, 
+#mean CI score, 
+#Projected absolute values, 
+#Historic annual average, z score, and seasonality. 
+#Each indicator was calculated for each variable/model combination. 
+# Spring difference: 
+#1) caluculated spring average for future and historic senarios, 
+#2) subtracted the future spring average from the historic spring average 
+#3) calculated the mean difference for each variable for each MAZ, 
+#4) merge data back into a table to present results
+# Mean spring projected temperature: 
+#1) calcuated Spring average for the future scenario, 
+#2) summarize projected values by calculating the mean projected values for each MAZ, 
+#3) merge data back into a table to present results
+
+#------------------------------------------------------------
+
+library(here)
+setwd(here())
+source(file.path(here(), "code", "0_setup.R"))
 
 # Load masked climate data points that was a result of 3a marine data import data 
 BCCM_SST_sub<-read_sf(file.path(paths$climate, "Standardized_Marine_data/BCCM_SST_sub.gdb"))

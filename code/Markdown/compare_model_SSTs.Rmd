@@ -22,6 +22,7 @@ All models were filtered to include only years after 1980.
 The map below shows OISST points and Marine Adaptive Zone polygons that contain them. 
 
 ```{r setup, message = FALSE, echo = FALSE}
+
 p1 <- ggplot() +
   geom_sf(data = filter(oisst_month, year == c(2012)), aes(colour = MAZ_Acrony)) +
   geom_sf(data = MAZ, aes(colour = MAZ_Acrony), alpha = 0.5) +
@@ -90,7 +91,23 @@ p3 <- ggplot(data = filter(combined_spring_ROMs,
        fill = "Model") +
   facet_wrap(~Region, ncol = 1)
 
+
+p4 <- ggplot(data = filter(combined_spring_anoms, 
+                     MAZ_Acrony %in% c("GStr_OISST", "GStr_HOTSSEA", "GStr_ERSST", "GStr_ROM_H", "GStr_ROM_45", "GStr_ROM_85",
+                                       "WVI_ERSST", "WVI_OISST", "WVI_ROM_H", "WVI_ROM_45", "WVI_ROM_85", 
+                                       "Offshore_OISST", "Offshore_ROM_H", "Offshore_ROM_45"))) +
+  geom_boxplot(aes(x = Model, y = sst_anomaly, fill = Model)) +
+  labs(title = "April-July mean annual SST",
+       x = "Model/scenario by marine adaptive zone",
+       y = "Annual SST",
+       fill = "Model") +
+  facet_wrap(~Region, ncol = 1)
+
 p3
+
+
+
+
 
 
 summary_stats <- combined_spring_ROMs %>%
@@ -103,7 +120,7 @@ summary_stats <- combined_spring_ROMs %>%
             end_year = max(year)) %>%
   filter(Region %in% c("GStr", "WVI", "Offshore"))
 
-kable(summary_stats)
+print(summary_stats)
 
 ```
 

@@ -6,18 +6,16 @@ library(here)
 library(tidyverse)
 #use data.table for speed, use dtplyr for dplyr syntax
 library(data.table)
-library(dtplyr)
-library(dplyr, warn.conflicts = FALSE)
+#library(dtplyr)
 
 #spatial packages
 library(sf)      #spatial feature
 library(stars)   #package for data cubes (multi-dimensional spatial arrays)
 
-library(rcartocolor) #mapping palettes
+#library(rcartocolor) #mapping palettes
 library(ggsci) #colour palettes
 #library(wesanderson); library(viridis)  #colour palettes
 library(patchwork) #for multi-panel plots
-library(units)   #for unit conversion
 
 `%notin%` <- Negate(`%in%`)
 
@@ -33,8 +31,10 @@ paths <- list(
     spatial = file.path(here(".."), "0_data_spatial"),
     salmon  = file.path(here(".."), "0_data_salmon"),
     fw      = here("processed_data", "freshwater"),
+    marine  = here("processed_data", "marine"),
     figures = here("output"),
-    reports = here("output", "reports")
+    reports = here("output", "reports"),
+    code    = here("code")
   )
 
 
@@ -42,6 +42,9 @@ paths <- list(
 source(here("code", "2_fw_utils.R"))
 source(here("code", "3_marine_utils.R"))
 source(here("code", "4_scoring_utils.R"))
+
+#load plotting functions
+source(here("code", "0b_plots.R"))
 
 #load CU tables
 source(here("code", "1a_CU_import.R"))   #CU table

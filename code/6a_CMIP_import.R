@@ -1,3 +1,37 @@
+#################   6a CMIP import    ############################
+#   Inputs: 
+#   CMIP 5 NetCDFs: Oringal CMIP 5 NetCDFs with specific scenarios (e.g. "CMIP_45_SST")
+# Input locations:
+#   CMIP 5 NetCDFs: \0.Workspace\0_data_climate\Marine_CMIP5
+# Outputs: 
+#   
+#   Description: 
+#   This code opens the CMIP 5 data, puts the data into useful spatial data frames that are summarized by 
+#  different groups. 
+#   Data was downloaded from https://climate-scenarios.canada.ca/index.php?page=sea-surface-data for 
+#      3 different surface variables (SSpH, SST, SSS), 3 different scenarios (historic, RCP 4.5, RCP 8.5),
+#     four different models (ensemble (median, min, max), CanESM2, IPSL-CM5A-LR, MPI-ESM-LR),
+#    with monthly for every year within the scenarios year range. The year range for future scenarios 
+#   (RCP 4.5 and 8.5) is 2006-2100, while the historic scenario had monthly estimates between 1900-2005. 
+# 
+# The code starts by opening the models and reforming the data into dataframes with the "RCMIP5" package. 
+#  Each unique combination of model, variable, and scenario are made into data frames so there is a total 
+#   of 18 data frames per variable (6 models (including the ensemble median, min, and max models) * 3 scenarios).
+#   These data frames only include years 2040-2070, data points between 210-240 degrees of longitude, 
+#    45-60 degrees of latitude, and have columns for year, month, season, model, and scenario. 
+#   The values for temperature are converted from kelvin to celcius during the data frame creation as well. 
+# 
+# Seasonal definitition:
+#   Winter = Jan-March
+# Spring = April - June
+# Summer = July - September
+# Fall = Oct - December  
+# 
+# After the dataframes are formed, they are bound together using "bind_rows" into larger data frames specific to each variable, so all SST data are in one dataframe. 
+#  Currently, one data frame has the main CMIP5 models CMIP5_SST= Ensemble median, CanESM2, IPSL-CM5A-LR, MPI-ESM-LR, 
+#  and another has the ensemble model median, min, and max models.
+
+
 
 library(here)
 here()

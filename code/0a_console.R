@@ -47,19 +47,28 @@ source(file.path(code_root, "1a_CU_import.R"))   #CU table
 
 source(file.path("code", "2c_FW_rearing_stats.R"))   #rearing stats script
 
+cu_boundary <- st_read(file.path(paths$spatial, "CU_boundaries", "fraser_cus.shp")) %>%
+  st_make_valid() %>%
+  st_transform(crs = 3005)  %>%  #crs 3005 is NAD83/BC Albers
+  left_join(select(cu_Fr, cuid, FULL_CU_IN, spp), 
+            join_by(CUID == cuid)) %>%
+  filter(!is.na(FULL_CU_IN))
 
-
+nuseds_Fr <- read_csv(file.path(paths$salmon, "NuSEDS_CU_System_sites_202406.csv")) %>%
+  st_as_sf(coords = c("X_LONGT", "Y_LAT"), crs = 4269) %>%
+  st_transform(3005) %>%
+  filter(USAGE != "REMOVE")
 
 ### Load freshwater spatial data
-load(here("processed_data", "freshwater", "R_data", "2025-04-04_fw_spatial_inputs.Rdata"))
-load(here("processed_data", "freshwater", "R_data",  "2025-04-22_fw_cu_streams.Rdata"))
-load(here("processed_data", "freshwater", "R_data",  "2025-04-22_fw_upstream_paths.Rdata"))
+load(file.path(paths$fw, "2025-06-05_fw_rearing_spatial_models.Rdata"))
+load(file.path(paths$fw, "2025-05-27_fw_streampicks.Rdata"))
+load(file.path(paths$fw, "2025-07-25_fw_upstream_paths.Rdata"))
 
 #load(here("processed_data", "freshwater", "R_data", "2025-01-24_fw_FAZ_streams.Rdata"))   #FAZ selections of streams
 
 #load summary stat results
-load(here("processed_data", "freshwater", "R_data",  "2025-04-04_SPN_stats.Rdata"))
-load(here("processed_data", "freshwater", "R_data",  "2025-04-04_MIGr_stats.Rdata"))
+load(file.path(paths$fw,  "2025-06-12_fw_rearing_models_indicators.Rdata"))
+load(file.path(paths$fw, "2025-07-31_migr_stats.Rdata"))
 
 #load(here("processed_data", "freshwater", "R_data",  "2025-01-24_fw_FAZstats_output.Rdata"))
 
@@ -84,17 +93,23 @@ load(here("processed_data", "freshwater", "R_data",  "2025-04-04_MIGr_stats.Rdat
 
 ######################## STANDARDIZATION AND SCORING #########################
 
-source(file.path(code_root, "4a_CU_scoring.R"))
+source(file.path(paths$code, "4a_CU_scoring.R"))
 
 ######################## MARKDOWN REPORTS #####################
 
 #load FW rearing indicators
-fwR_all_flat <- read_csv(file.path(paths$fw, "2025-06-06_fw_rearing_stats.csv"))
+fwR_all_flat <- read_csv(file.path(paths$fw, "2025-06-13_fw_rearing_stats.csv"))
 
 fwR_one <- filter(fwR_all_flat, period == "3", RCP == "45")
 ggplot() +
   geom_point(data = fwR_one, aes(x = avg_lon, y= prop_snow)) 
 
+
+#load migration indicators
+load(file.path(paths$fw, "2025-07-30_migr_stats.Rdata"))
+
+#load migration paths
+load(file.path(paths$fw, "2025-07-25_fw_upstream_paths.Rdata"))
 
 
 for(i in 1:n.CUs) {
@@ -126,6 +141,18 @@ rmarkdown::render(
   output_file = paste(today, "fw_spawning_compare.html", sep = "_"),
   output_dir = here("output"),
   output_format = "html_document")
+
+
+## comparison of upstream migration indicators across CUs
+rmarkdown::render(
+  file.path(here("code", "markdown", "2_FW_migr_compare.Rmd")),
+  output_file = paste(today, "fw_migr_compare.html", sep = "_"),
+  output_dir = here("output"),
+  output_format = "html_document")
+
+
+
+
 
 ## comparison of all indicators across CUs
 rmarkdown::render(
