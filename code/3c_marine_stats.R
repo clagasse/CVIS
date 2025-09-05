@@ -20,6 +20,8 @@ library(pacea)
 qlowsp <- 0.1   #lowest quantile for spatial variation in indicator
 qhighsp <- 0.9  #highest quantile for spatial variation in indicator
 
+period_val <- 3   #code to assign indicator results timespan (3 = 2040-2060)
+
 decades <- (2055 - 1995) / 10    #decades between historic and projected period
 
 CI_habitats <- c("All")   #habitat types to include for cumulative impacts
@@ -133,6 +135,7 @@ cu_marine <- cu_timing_Fr %>%
     ),
     join_by("FULL_CU_IN")
   ) %>%
+  relocate(CU_NAME, Species_simple, MAZ, .after = FULL_CU_IN) %>%
   mutate(
     oe_start_month = month(ymd(paste(
       "2000", "01", "01", sep = "-"
@@ -151,7 +154,7 @@ cu_marine <- cu_timing_Fr %>%
 BCCM_SST_long <- BCCM_SST %>%
   pivot_longer(
     cols = -c("SHAPE", "MAZ_Acrony"),
-    names_to = c("scenario", "month"),
+    names_to = c("RCP", "month"),
     names_pattern = 'SST_([A-Za-z0-9]+)_([0-9]+)',
     values_to = "value"
   ) %>%
@@ -160,7 +163,7 @@ BCCM_SST_long <- BCCM_SST %>%
 SSC_SST_long <- SSC_SST %>%
   pivot_longer(
     cols = -c("SHAPE", "MAZ_Acrony"),
-    names_to = c("scenario", "month"),
+    names_to = c("RCP", "month"),
     names_pattern = 'SST_([A-Za-z0-9]+)_([0-9]+)',
     values_to = "value"
   ) %>%
@@ -169,7 +172,7 @@ SSC_SST_long <- SSC_SST %>%
 BCCM_SSS_long <- BCCM_SSS %>%
   pivot_longer(
     cols = -c("SHAPE", "MAZ_Acrony"),
-    names_to = c("scenario", "month"),
+    names_to = c("RCP", "month"),
     names_pattern = 'SSS_([A-Za-z0-9]+)_([0-9]+)',
     values_to = "value"
   ) %>%
@@ -178,7 +181,7 @@ BCCM_SSS_long <- BCCM_SSS %>%
 SSC_SSS_long <- SSC_SSS %>%
   pivot_longer(
     cols = -c("SHAPE", "MAZ_Acrony"),
-    names_to = c("scenario", "month"),
+    names_to = c("RCP", "month"),
     names_pattern = 'SSS_([A-Za-z0-9]+)_([0-9]+)',
     values_to = "value"
   ) %>%
@@ -187,7 +190,7 @@ SSC_SSS_long <- SSC_SSS %>%
 BCCM_SSPH_long <- BCCM_SSPH %>%
   pivot_longer(
     cols = -c("SHAPE", "MAZ_Acrony"),
-    names_to = c("scenario", "month"),
+    names_to = c("RCP", "month"),
     names_pattern = 'SSPH_([A-Za-z0-9]+)_([0-9]+)',
     values_to = "value"
   ) %>%
@@ -216,8 +219,8 @@ CI_long <- CI_points %>%
 
 ROM_SST <- BCCM_SST_long %>%
   filter(MAZ_Acrony != "GStr") %>%
-  bind_rows(filter(hotssea_avg, MAZ_Acrony == "GStr")) %>%
-  bind_rows(filter(SSC_SST_long, scenario != "H" &
+  bind_rows(filter(hotssea_SST, MAZ_Acrony == "GStr")) %>%
+  bind_rows(filter(SSC_SST_long, RCP != "H" &
                      MAZ_Acrony == "GStr"))
 
 ROM_SSS <- BCCM_SSS_long %>%
@@ -235,12 +238,15 @@ summarize_marine_var <- function(model_data,
                                  var_pick,
                                  decades) {
   
-  stat_cols <- "value"
+  stat_cols <- "value"  # name of column with variable values
+  
+  ind_name <- paste0(var_pick, "proj")  #prefix for indicator column name
+  rate_col_name <- paste0(var_pick, "rate", "_mean")  #rate change column
   
   summary_data <- model_data %>%
     as_tibble() %>%
     filter(month %in% months_include, MAZ_Acrony == MAZ_pick) %>%
-    group_by(scenario) %>%
+    group_by(RCP) %>%
     summarize(
       across(
         .cols = c(all_of(stat_cols)),
@@ -249,26 +255,26 @@ summarize_marine_var <- function(model_data,
           qlowsp     = ~quantile(.x, qlowsp, na.rm = T),
           qhighsp    = ~quantile(.x, qhighsp, na.rm = T)
         ),
-        .names = paste0(var_pick, "_", "{.fn}")
+        .names = paste0(ind_name, "_", "{.fn}")
       ),
       .groups = "drop"
     )
   
-  mean_col <- paste0(var_pick, "_mean")
-  new_col_name <- paste0(mean_col, "rate")
+  mean_col <- paste0(ind_name, "_mean")
   
   #get historic value and calculate rate of change from historic
-  histT <- summary_data[[mean_col]][summary_data$scenario == "H"]
+  histT <- summary_data[[mean_col]][summary_data$RCP == "H"]
   
+  #make a new column for rate of change
   summary_data <- summary_data %>%
-    mutate(!!new_col_name := (.data[[mean_col]] - histT)/ decades)
+    mutate(!!rate_col_name := (.data[[mean_col]] - histT)/ decades)
   
-  summary_wide <- summary_data %>%
-    pivot_wider(
-      names_from = "scenario",
-      values_from = c(mean, qlowsp, qhighsp, meanrate),
-      names_glue = paste0(var_pick, "_", "{scenario}_{.value}")
-    )
+  # summary_wide <- summary_data %>%
+  #   pivot_wider(
+  #     names_from = "RCP",
+  #     values_from = matches("mean|qlowsp|qhighsp|meanrate"),
+  #     names_glue = paste0(var_pick, "_", "{RCP}_{.value}")
+  #   )
   
   return(summary_data)
   
@@ -300,6 +306,11 @@ for (i in 1:n.CUs) {
                                     var_pick = "SSS",
                                     decades)
   
+  SS_mar_i <- left_join(SST_mar_i, SSS_mar_i, by = "RCP") %>%
+    mutate(period_code = case_when(
+      RCP %in% c("45", "85") ~ period_val,
+      RCP == "H" ~ 0))
+  
   CI_mar_i <- CI_long %>%
     as_tibble() %>%
     filter(MAZ_Acrony == cu_marine_i$MAZ, habitat == "All") %>%
@@ -316,10 +327,10 @@ for (i in 1:n.CUs) {
     # # SSS_mar <- SSS_mar_i
     # # CI_mar    <- CI_mar_i
     # # 
-    mar_all_flat <- bind_cols(cu_marine_i, SST_mar_i, SSS_mar_i, CI_mar_i)
+    mar_all_flat <- bind_cols(cu_marine_i, SS_mar_i,  CI_mar_i)
   }
   if (i > 1) {
-    temp <- bind_cols(cu_marine_i, SST_mar_i, SSS_mar_i, CI_mar_i)
+    temp <- bind_cols(cu_marine_i, SS_mar_i, CI_mar_i)
     
     mar_all_flat <- bind_rows(mar_all_flat, temp)
     

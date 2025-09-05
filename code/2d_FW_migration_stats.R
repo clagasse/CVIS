@@ -35,10 +35,10 @@ historical <- "0"   #historical climatology period for temperature models
 # 0 = 1981-2000,  1 = 2001-2020
 #for flow models, 0 = 1981-2010
 
-qlowgcm <- 0.1    #lower quantile for statistics on GCM variation
-qhighgcm <- 0.9   #upper quantile for statistics
-qlowday  <- 0.1    #lower quantile for temporal variation within migration window
-qhighday <- 0.9    # upper quantile for temporal variation
+qlgcm <- 0.1    #lower quantile for statistics on GCM variation
+qhgcm <- 0.9   #upper quantile for statistics
+qld  <- 0.1    #lower quantile for temporal variation within migration window
+qhd <- 0.9    # upper quantile for temporal variation
 
 #--------- 1. import spatial objects ---------------------
 #load CU paths
@@ -66,10 +66,10 @@ gcm_models <- st_get_dimension_values(PCIC_daily, "model")
 summarize_attribute <- function(data,
                                 attr_name = "discharge",
                                 type = "mean",  #mean or sum
-                                qlowday = qlowday,   #lower and upper quantiles to extract
-                                qhighday = qhighday,
-                                qlowgcm = qlowgcm,
-                                qhighgcm = qhighgcm) {
+                                qlowday = qld,   #lower and upper quantiles to extract
+                                qhighday = qhd,
+                                qlowgcm = qlgcm,
+                                qhighgcm = qhgcm) {
   
   ## a. SPATIAL DIMENSION -----
   # Get array with average over x and y — keeping period, day of year, and model
@@ -130,15 +130,15 @@ summarize_attribute <- function(data,
                            mean    = NA, 
                            qlowgcm    = NA, 
                            qhighgcm   = NA,
-                           mingcm     = NA,
-                           maxgcm     = NA)
+                           qmingcm     = NA,
+                           qmaxgcm     = NA)
   
   #take average, qlow and qhigh across gcms for each time period and rcp
   gcm_stats$mean <- apply(gcm_doy_avg, 1, mean)
   gcm_stats$qlowgcm  <- apply(gcm_doy_avg, 1, quantile, probs = qlowgcm)
   gcm_stats$qhighgcm  <- apply(gcm_doy_avg, 1, quantile, probs = qhighgcm)
-  gcm_stats$mingcm  <- apply(gcm_doy_avg, 1, min)
-  gcm_stats$maxgcm  <- apply(gcm_doy_avg, 1, max)
+  gcm_stats$qmingcm  <- apply(gcm_doy_avg, 1, min)
+  gcm_stats$qmaxgcm  <- apply(gcm_doy_avg, 1, max)
   
   output <- list(doy = doy_stats, 
                  gcm = gcm_stats)
@@ -150,15 +150,15 @@ summarize_attribute <- function(data,
 cu_migr_stats <- list() #list to store cu migration characteristics
 migrT_rcps <- list()  #list to store temperature results
 migrQ_rcps <- list()  #list to store discharge results
-migrTthr19_rcps <- list()
-migrTthr21_rcps <- list()
+migrA19_rcps <- list()
+migrA21_rcps <- list()
 
 for(j in 1:2) {
   
   migrT_all <- list()  #list to store temperature results
   migrQ_all <- list()  #list to store discharge results
-  migrTthr19_all <- list()
-  migrTthr21_all <- list()
+  migrA19_all <- list()
+  migrA21_all <- list()
   
   if(j == 1) print("Starting migration stats for RCP 45")
   
@@ -188,7 +188,7 @@ for(j in 1:2) {
              migr_dur   = round(migr_e - migr_s),
              max_dist   = max(migr_cu$downstream_distance, na.rm = T),
              main_dist  = sum(migr_cu_main$length_metre), #distance in common for all sites
-             wtd_dist   = wmean(migr_cu$length_metre, migr_cu$prop_paths),  #weighted average migration distance
+             migr_wdist   = sum(migr_cu$length_metre * migr_cu$prop_paths),  #weighted average migration distance
              main_elev  = max(st_coordinates(migr_cu_main)[,3]),  #highest point in common for all sites
              max_elev   = max(st_coordinates(migr_cu)[,3]),      #highest point along all of migration path (ie. highest NUSEDS site)
              s_rate     = max_dist / (rt_to_sp_s),  #movement rate of front of migration window
@@ -200,8 +200,8 @@ for(j in 1:2) {
       cu_migr_stats[[i]]   <- NA
       migrT_all[[i]]       <- NA
       migrQ_all[[i]]       <- NA
-      migrTthr19_all[[i]]  <- NA
-      migrTthr21_all[[i]]  <- NA
+      migrA19_all[[i]]  <- NA
+      migrA21_all[[i]]  <- NA
       
       next
     }
@@ -329,19 +329,19 @@ for(j in 1:2) {
                                        attr_name = "win_Q",
                                        type = "mean")
     
-    migrTthr19_stats <- summarize_attribute(PCIC_cu, 
+    migrA19_stats <- summarize_attribute(PCIC_cu, 
                                             attr_name = "win_Tthr19",
                                             type = "mean")
     
-    migrTthr21_stats <- summarize_attribute(PCIC_cu, 
+    migrA21_stats <- summarize_attribute(PCIC_cu, 
                                              attr_name = "win_Tthr21",
                                              type = "mean")
     
     cu_migr_stats[[i]]   <- cu_timing_i
     migrT_all[[i]]       <- migrT_stats
     migrQ_all[[i]]       <- migrQ_stats
-    migrTthr19_all[[i]]  <- migrTthr19_stats
-    migrTthr21_all[[i]]  <- migrTthr21_stats
+    migrA19_all[[i]]  <- migrA19_stats
+    migrA21_all[[i]]  <- migrA21_stats
 
     print(paste("Migration stats complete for:", cu_i))
     
@@ -350,20 +350,20 @@ for(j in 1:2) {
   names(cu_migr_stats)  <- cu_run$FULL_CU_IN
   names(migrT_all)      <- cu_run$FULL_CU_IN
   names(migrQ_all)      <- cu_run$FULL_CU_IN
-  names(migrTthr19_all) <- cu_run$FULL_CU_IN
-  names(migrTthr21_all) <- cu_run$FULL_CU_IN
+  names(migrA19_all) <- cu_run$FULL_CU_IN
+  names(migrA21_all) <- cu_run$FULL_CU_IN
   
   migrT_rcps[[j]]      <- migrT_all
   migrQ_rcps[[j]]      <- migrQ_all
-  migrTthr19_rcps[[j]] <- migrTthr19_all
-  migrTthr21_rcps[[j]] <- migrTthr21_all
+  migrA19_rcps[[j]] <- migrA19_all
+  migrA21_rcps[[j]] <- migrA21_all
   
 }
 
 names(migrT_rcps) = c("45", "85")
 names(migrQ_rcps) = c("45", "85")
-names(migrTthr19_rcps) = c("45", "85")
-names(migrTthr21_rcps) = c("45", "85")
+names(migrA19_rcps) = c("45", "85")
+names(migrA21_rcps) = c("45", "85")
 
 
 #------------- Flatten results into dataframe
@@ -388,15 +388,15 @@ extract_gcm <- function(data_list, attr_label) {
 # Apply to each object
 df_migrT     <- extract_gcm(migrT_rcps, "migrT")
 df_migrQ     <- extract_gcm(migrQ_rcps, "migrQ")
-df_migrTthr19 <- extract_gcm(migrTthr19_rcps, "migrTthr19")
-df_migrTthr21 <- extract_gcm(migrTthr21_rcps, "migrTthr21")
+df_migrA19 <- extract_gcm(migrA19_rcps, "migrA19")
+df_migrA21 <- extract_gcm(migrA21_rcps, "migrA21")
 
 # Combine all into one data frame
 df_migr_combined <- bind_rows(
   df_migrT,
   df_migrQ,
-  df_migrTthr19,
-  df_migrTthr21
+  df_migrA19,
+  df_migrA21
 )
 
 
@@ -410,7 +410,7 @@ migr_all_flat <- df_migr_combined %>%
   pivot_wider(
     id_cols = c(RCP, FULL_CU_IN, period),
     names_from = attr,
-    values_from = c(mean, q10, q90, min, max),
+    values_from = c(mean, qlowgcm, qhighgcm, qmingcm, qmaxgcm),
     names_glue = "{attr}_{.value}"
   ) %>%
   left_join(select(cu_run, FULL_CU_IN, CU_NAME, CU_Species, FAZ), 
@@ -421,7 +421,7 @@ migr_all_flat <- left_join(migr_all_flat, df_migr_cu,
                            join_by("FULL_CU_IN"))
 
 
-save(cu_migr_stats, migrT_rcps, migrQ_rcps, migrTthr19_rcps, migrTthr21_rcps,
+save(cu_migr_stats, migrT_rcps, migrQ_rcps, migrA19_rcps, migrA21_rcps,
      migr_all_flat,
      file = file.path(paths$fw, paste0(today, "_migr_stats.Rdata")))
 
@@ -429,176 +429,175 @@ save(cu_migr_stats, migrT_rcps, migrQ_rcps, migrTthr19_rcps, migrTthr21_rcps,
 
 
 
-
 ##----------------- PLOTTING-----------------------------
-
-load(file.path(paths$fw, "2025-07-31_migr_stats.Rdata"))
-
-data <- filter(migr_all_flat, period %in% c("1981-2010","2041-2060"), RCP == "45")
-
-stat_suffix <- "mean"
-gcm_range_suffix <- c("q10", "q90")
-#take column names that contain prefix with model type
-cols_sub <- names(data)[str_detect(names(data), "migrTthr21_")]
-
-stat_col <- cols_sub[str_detect(cols_sub, paste0(stat_suffix, "$"))]  #must end with wmean
-min_gcmcol <- cols_sub[str_detect(cols_sub, paste0(gcm_range_suffix[1], collapse = "|"))]
-max_gcmcol <- cols_sub[str_detect(cols_sub, paste0(gcm_range_suffix[2], collapse = "|"))]
-
-id_col <- "CU_NAME"
-sp_col <- "CU_Species"
-per_col <- "period"
-
-# Check if mean and ID columns exist
-if (!all(c(id_col, stat_col) %in% names(data))) {
-  stop("One or more required columns are missing in the data.")
-}
-
-# Prepare data for plotting
-plot_data <- data %>%
-  select(all_of(c(per_col, id_col, stat_col, sp_col, min_gcmcol, max_gcmcol))) %>%
-  rename(mean = !!stat_col, id = !!id_col, sp = !!sp_col, 
-         min = !!min_gcmcol, max = !!max_gcmcol)
-
-# Create a named color palette using unique categories
-unique_sp <- unique(plot_data$sp)
-palette_colors <- pal_npg("nrc")(length(unique_sp))
-names(palette_colors) <- unique_sp
-
-plot_data$color <- palette_colors[plot_data$sp]
-plot_data$label <- paste0("<span style='color:", plot_data$color, "'>", plot_data$sp, "</span>")
-
-# Create a unique ordering of id by sp
-ordered_ids <- plot_data %>%
-  arrange(sp, id) %>%
-  distinct(id) %>%
-  pull(id)
-
-# Apply the ordering
-plot_data$id <- factor(plot_data$id, levels = ordered_ids)
-
-ggplot(plot_data, aes(x = id, color = sp)) +
-  #scale_fill_manual(values = palette_colors) +
-  geom_segment(aes(xend = id, y = min, yend = max),
-               color = "darkgrey",
-               linewidth = 2.5) +
-  geom_point(aes(y = mean, shape = period), size = 2.5) +
-  labs(x = "CU", y = "mean", color = "Species") +
-  coord_flip() +
-  theme_minimal() +
-  theme(axis.text.y = element_text(size = 7))
-
-
-cu_i <- "CK-12"
-
-cu_boundary_i <- cu_boundary[cu_boundary$FULL_CU_IN == cu_i, ]
-nuseds_cu <- nuseds_Fr[nuseds_Fr$FULL_CU_IN == cu_i, ]
-
-migr_cu <- migr_list[[cu_i]]
-
-
-ggplot() +
-  geom_sf(data = cu_boundary_i,
-          fill = "grey",
-          alpha = 0.5) +
-  geom_sf(data = migr_cu) +
-  geom_sf(data = nuseds_cu, colour = "darkgreen")
-
-
-plot_data <- cu_timing_Fr %>% 
-  mutate(rt_sd = (rt_end - rt_start) / 6) %>%
-  rowwise() %>%
-  do(data.frame(
-    id = .$FULL_CU_IN,
-    day = seq(1,365),
-    density = dnorm(seq(1,365), mean = .$rt_peak, sd = .$rt_sd)
-  )) %>%
-  mutate(day_density = day * density)
-  
-  ridge_data <- plot_data %>%
-    gather(key="id", value="density") %>%
-    mutate(value = round(as.numeric(value),0))
-
-ggplot(plot_data, aes(x = day, y = density, color = factor(id))) +
-  geom_line(size = 1) +
-  labs(title = "Salmon Run Timing as Normal Distributions",
-       x = "Day of Year", y = "Density", color = "Run ID") +
-  theme_minimal()
-  
-  gather(key="text", value="rt_start") %>%
-  mutate(text = gsub("\\.", " ",text)) %>%
-  mutate(value = round(as.numeric(value),0))
-
-
-    library(ggridges)
-  library(viridis)
-    
-    
-  ggplot( data =plot_data, aes(y=id, x=density,  fill=id)) +
-  geom_density_ridges(alpha=0.6, bandwidth=4) +
-  scale_fill_viridis(discrete=TRUE) +
-  scale_color_viridis(discrete=TRUE) +
-  theme(
-    legend.position="none",
-    panel.spacing = unit(0.1, "lines"),
-    strip.text.x = element_text(size = 8)
-  ) +
-  xlab("") +
-  ylab("Assigned Probability (%)")
-
-  
-ggplot() +
-  geom()
-  
-  
-  
 # 
-# cu_boundary_i <- cu_boundary[cu_boundary$CUID == cuid_i, ]
-# nuseds_CU <- nuseds_Fr[nuseds_Fr$FULL_CU_IN == CU_IN_i,]
+# load(file.path(paths$fw, "2025-07-31_migr_stats.Rdata"))
 # 
-# # 
-# ggplot(migr_cu_low) +
-#   geom_sf(aes(color = STREAM_ORD)) +
-#   geom_sf(data = cu_boundary_i, color = "black", alpha = 0.1)
+# data <- filter(migr_all_flat, period %in% c("1981-2010","2041-2060"), RCP == "45")
 # 
-# ggplot(migr_cu_high) + 
-#   geom_sf(aes(color = STREAM_ORD)) +
-#   geom_sf(data = cu_boundary_i, color = "black", alpha = 0.1)
+# stat_suffix <- "mean"
+# gcm_range_suffix <- c("q10", "q90")
+# #take column names that contain prefix with model type
+# cols_sub <- names(data)[str_detect(names(data), "migrA21_")]
 # 
-# # FWA_Fr_ord9 <- FWA_Fr_high %>%
-# #   filter(STREAM_ORD >= 8)
-# # 
+# stat_col <- cols_sub[str_detect(cols_sub, paste0(stat_suffix, "$"))]  #must end with wmean
+# min_gcmcol <- cols_sub[str_detect(cols_sub, paste0(gcm_range_suffix[1], collapse = "|"))]
+# max_gcmcol <- cols_sub[str_detect(cols_sub, paste0(gcm_range_suffix[2], collapse = "|"))]
+# 
+# id_col <- "CU_NAME"
+# sp_col <- "CU_Species"
+# per_col <- "period"
+# 
+# # Check if mean and ID columns exist
+# if (!all(c(id_col, stat_col) %in% names(data))) {
+#   stop("One or more required columns are missing in the data.")
+# }
+# 
+# # Prepare data for plotting
+# plot_data <- data %>%
+#   select(all_of(c(per_col, id_col, stat_col, sp_col, min_gcmcol, max_gcmcol))) %>%
+#   rename(mean = !!stat_col, id = !!id_col, sp = !!sp_col, 
+#          min = !!min_gcmcol, max = !!max_gcmcol)
+# 
+# # Create a named color palette using unique categories
+# unique_sp <- unique(plot_data$sp)
+# palette_colors <- pal_npg("nrc")(length(unique_sp))
+# names(palette_colors) <- unique_sp
+# 
+# plot_data$color <- palette_colors[plot_data$sp]
+# plot_data$label <- paste0("<span style='color:", plot_data$color, "'>", plot_data$sp, "</span>")
+# 
+# # Create a unique ordering of id by sp
+# ordered_ids <- plot_data %>%
+#   arrange(sp, id) %>%
+#   distinct(id) %>%
+#   pull(id)
+# 
+# # Apply the ordering
+# plot_data$id <- factor(plot_data$id, levels = ordered_ids)
+# 
+# ggplot(plot_data, aes(x = id, color = sp)) +
+#   #scale_fill_manual(values = palette_colors) +
+#   geom_segment(aes(xend = id, y = min, yend = max),
+#                color = "darkgrey",
+#                linewidth = 2.5) +
+#   geom_point(aes(y = mean, shape = period), size = 2.5) +
+#   labs(x = "CU", y = "mean", color = "Species") +
+#   coord_flip() +
+#   theme_minimal() +
+#   theme(axis.text.y = element_text(size = 7))
+# 
+# 
+# cu_i <- "CK-12"
+# 
+# cu_boundary_i <- cu_boundary[cu_boundary$FULL_CU_IN == cu_i, ]
+# nuseds_cu <- nuseds_Fr[nuseds_Fr$FULL_CU_IN == cu_i, ]
+# 
+# migr_cu <- migr_list[[cu_i]]
+# 
+# 
 # ggplot() +
-#   geom_sf(data = bc_coast) +
-#   geom_sf(data = FWA_Fr_ord9, aes(color = STREAM_ORD))
+#   geom_sf(data = cu_boundary_i,
+#           fill = "grey",
+#           alpha = 0.5) +
+#   geom_sf(data = migr_cu) +
+#   geom_sf(data = nuseds_cu, colour = "darkgreen")
 # 
 # 
+# plot_data <- cu_timing_Fr %>% 
+#   mutate(rt_sd = (rt_end - rt_start) / 6) %>%
+#   rowwise() %>%
+#   do(data.frame(
+#     id = .$FULL_CU_IN,
+#     day = seq(1,365),
+#     density = dnorm(seq(1,365), mean = .$rt_peak, sd = .$rt_sd)
+#   )) %>%
+#   mutate(day_density = day * density)
+#   
+#   ridge_data <- plot_data %>%
+#     gather(key="id", value="density") %>%
+#     mutate(value = round(as.numeric(value),0))
+# 
+# ggplot(plot_data, aes(x = day, y = density, color = factor(id))) +
+#   geom_line(size = 1) +
+#   labs(title = "Salmon Run Timing as Normal Distributions",
+#        x = "Day of Year", y = "Density", color = "Run ID") +
+#   theme_minimal()
+#   
+#   gather(key="text", value="rt_start") %>%
+#   mutate(text = gsub("\\.", " ",text)) %>%
+#   mutate(value = round(as.numeric(value),0))
 # 
 # 
-# PCIC_daymigr_long <- pivot_longer(PCIC_daymigr_thr, 
-#                                   cols = c(T_19, T_21, T_23), 
-#                                   names_to = "T_threshold", values_to = "prop") %>%
-#   mutate(year = as.factor(year))
+#     library(ggridges)
+#   library(viridis)
+#     
+#     
+#   ggplot( data =plot_data, aes(y=id, x=density,  fill=id)) +
+#   geom_density_ridges(alpha=0.6, bandwidth=4) +
+#   scale_fill_viridis(discrete=TRUE) +
+#   scale_color_viridis(discrete=TRUE) +
+#   theme(
+#     legend.position="none",
+#     panel.spacing = unit(0.1, "lines"),
+#     strip.text.x = element_text(size = 8)
+#   ) +
+#   xlab("") +
+#   ylab("Assigned Probability (%)")
 # 
-# plot_cols <- c(T_19 = "black", T_21 = "orange", T_23 = "red")
+#   
+# ggplot() +
+#   geom()
+#   
+#   
+#   
+# # 
+# # cu_boundary_i <- cu_boundary[cu_boundary$CUID == cuid_i, ]
+# # nuseds_CU <- nuseds_Fr[nuseds_Fr$FULL_CU_IN == CU_IN_i,]
+# # 
+# # # 
+# # ggplot(migr_cu_low) +
+# #   geom_sf(aes(color = STREAM_ORD)) +
+# #   geom_sf(data = cu_boundary_i, color = "black", alpha = 0.1)
+# # 
+# # ggplot(migr_cu_high) + 
+# #   geom_sf(aes(color = STREAM_ORD)) +
+# #   geom_sf(data = cu_boundary_i, color = "black", alpha = 0.1)
+# # 
+# # # FWA_Fr_ord9 <- FWA_Fr_high %>%
+# # #   filter(STREAM_ORD >= 8)
+# # # 
+# # ggplot() +
+# #   geom_sf(data = bc_coast) +
+# #   geom_sf(data = FWA_Fr_ord9, aes(color = STREAM_ORD))
+# # 
+# # 
+# # 
+# # 
+# # PCIC_daymigr_long <- pivot_longer(PCIC_daymigr_thr, 
+# #                                   cols = c(T_19, T_21, T_23), 
+# #                                   names_to = "T_threshold", values_to = "prop") %>%
+# #   mutate(year = as.factor(year))
+# # 
+# # plot_cols <- c(T_19 = "black", T_21 = "orange", T_23 = "red")
+# # 
+# # ggplot(PCIC_daymigr_long, aes(x = as.Date(paste0(hist_ystart, "-01-01")) + day, y = prop, linetype = year, colour = T_threshold)) +
+# #   geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + rt_s, 
+# #              linetype = "dotted", colour = "darkgrey", linewidth = 1) +
+# #   geom_text(aes(x = as.Date(paste0(hist_ystart, "-01-01")) + rt_s, y = -0.02), 
+# #             label = "Run timing start", colour = "darkgrey",size = 3) +
+# #   geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + rt_e, 
+# #              linetype = "dotted", colour = "darkgrey", linewidth = 1) +
+# #   geom_text(aes(x = as.Date(paste0(hist_ystart, "-01-01")) + rt_e, y = -0.02), 
+# #             label = "Run timing end", colour = "darkgrey",size = 3) +
+# #   geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + sp_timing_peak, 
+# #              linetype = "dashed", colour = "darkgrey", linewidth = 1) +
+# #   geom_text(aes(x = as.Date(paste0(hist_ystart, "-01-01")) + sp_timing_peak, y = -0.05), 
+# #             label = "Spawning peak", colour = "darkgrey", size = 3) +
+# #   geom_line(linewidth = 1.3) +
+# #   #scale_x_date(date_breaks = "1 month", date_labels = "%b") +
+# #   scale_color_manual(values = plot_cols) +
+# #   scale_linetype_discrete(labels=c(paste0(hist_ystart,"-",hist_ystart+20), paste0(proj_ystart,"-", proj_ystart+20))) +
+# #   labs(color = "T threshold", y = "Number of grid cells", x = "Date") +
+# #   xlim( as.Date(paste0(hist_ystart, "-01-01")) +rt_s-50, as.Date(paste0(hist_ystart, "-01-01")) + sp_timing_peak + 50)
 # 
-# ggplot(PCIC_daymigr_long, aes(x = as.Date(paste0(hist_ystart, "-01-01")) + day, y = prop, linetype = year, colour = T_threshold)) +
-#   geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + rt_s, 
-#              linetype = "dotted", colour = "darkgrey", linewidth = 1) +
-#   geom_text(aes(x = as.Date(paste0(hist_ystart, "-01-01")) + rt_s, y = -0.02), 
-#             label = "Run timing start", colour = "darkgrey",size = 3) +
-#   geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + rt_e, 
-#              linetype = "dotted", colour = "darkgrey", linewidth = 1) +
-#   geom_text(aes(x = as.Date(paste0(hist_ystart, "-01-01")) + rt_e, y = -0.02), 
-#             label = "Run timing end", colour = "darkgrey",size = 3) +
-#   geom_vline(xintercept = as.Date(paste0(hist_ystart, "-01-01")) + sp_timing_peak, 
-#              linetype = "dashed", colour = "darkgrey", linewidth = 1) +
-#   geom_text(aes(x = as.Date(paste0(hist_ystart, "-01-01")) + sp_timing_peak, y = -0.05), 
-#             label = "Spawning peak", colour = "darkgrey", size = 3) +
-#   geom_line(linewidth = 1.3) +
-#   #scale_x_date(date_breaks = "1 month", date_labels = "%b") +
-#   scale_color_manual(values = plot_cols) +
-#   scale_linetype_discrete(labels=c(paste0(hist_ystart,"-",hist_ystart+20), paste0(proj_ystart,"-", proj_ystart+20))) +
-#   labs(color = "T threshold", y = "Number of grid cells", x = "Date") +
-#   xlim( as.Date(paste0(hist_ystart, "-01-01")) +rt_s-50, as.Date(paste0(hist_ystart, "-01-01")) + sp_timing_peak + 50)
-

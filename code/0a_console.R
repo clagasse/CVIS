@@ -1,4 +1,6 @@
-### 0_console  
+### 0a_console 
+
+# this script demonstrates the workflow for the CVIS package
 
 ######################## SETUP #########################
 # setup and packages
@@ -6,98 +8,110 @@
 #load packages and set root project directory
 rm(list=ls())
 
-library(here)
-setwd(here())
-source(file.path(here(), "code", "0_setup.R"))
-
-
-library(corrplot)  #correlation matrix plots
-library(pacea)  #bc_coast shapefile
-library(skimr)  #summary statistics
+## plotting packages
+#library(rcartocolor) #mapping palettes
+library(scico) #scientific colour palettes
+#library(wesanderson); library(viridis)  #colour palettes
+library(patchwork) #for multi-panel plots
 library(ggridges)  #for ridgeline plots
-library(kableExtra)  # nice markdown tables
-library(ggdist)
-#library(gt)   #gg tables for markdown
+library(corrplot)  #correlation matrix plots
+
+## reporting and markdown packages
+library(skimr)  #summary statistics
+#library(ggdist)
+library(gt)   #gg tables for markdown
 #library(Hmisc)   #weighted means and sds
+
+## spatial data packages
+library(pacea)  #bc_coast shapefile
 #library(bcdata)   #retrieving from BC data catalogue
 #install.packages("fwatlasbc", repos = c('https://poissonconsulting.r-universe.dev', 'https://cloud.r-project.org'))
 #library(fwatlasbc)
 
 
-######################## SETTINGS ######################################
-#choose time periods for analysis. each period covers a range of 20 years
-#hist_ystart <- switch(2, 1981, 2001)  #historical range start year for FW model outputs
-#proj_ystart <- switch(1, 2041, 2061, 2081)  #projection range start year for FW model outputs
-
-#int_starts <- c(hist_ystart, proj_ystart)  #start years for historical and projection periods
-
-#tspan <- (proj_ystart - hist_ystart) / 10  #number of decades between time periods
-
-dplyr.summarise.inform <- FALSE  #remove messages when using summarise()
-
-# Colour palette for plotting
-#col_pal <- wes_palette("Darjeeling1")
+#set-up used in every script
+library(here)
+setwd(here())
+source(file.path(here(), "code", "0_setup.R"))
 
 
-######################## LOAD DATA AND SCRIPTS #########################
 
-# Loading data and scripts
-source(file.path(code_root, "1a_CU_import.R"))   #CU table
+# 1 - Freshwater data processing ------------------------------------------
 
+### These scripts import the spatial data files and process them into 
+# common formats. Data is also summarized by time periods
 
-source(file.path("code", "2c_FW_rearing_stats.R"))   #rearing stats script
+## importing and process of stream network data
+# script should not be sourced all at once but run in chunks as it takes a very long time
+#source(file.path("code", "1b_FW_stream_process.R"))  #spawning data import script
 
-cu_boundary <- st_read(file.path(paths$spatial, "CU_boundaries", "fraser_cus.shp")) %>%
-  st_make_valid() %>%
-  st_transform(crs = 3005)  %>%  #crs 3005 is NAD83/BC Albers
-  left_join(select(cu_Fr, cuid, FULL_CU_IN, spp), 
-            join_by(CUID == cuid)) %>%
-  filter(!is.na(FULL_CU_IN))
+## process raw PCIC files to get period averages
+#source(file.path("code", "1c_FW_PCIC_period_averages.R"))  
 
-nuseds_Fr <- read_csv(file.path(paths$salmon, "NuSEDS_CU_System_sites_202406.csv")) %>%
-  st_as_sf(coords = c("X_LONGT", "Y_LAT"), crs = 4269) %>%
-  st_transform(3005) %>%
-  filter(USAGE != "REMOVE")
+## process PCIC Period averages to get GCM model averages
+#source(file.path("code", "1d_FW_PCIC_model_averages.R"))  
 
-### Load freshwater spatial data
-load(file.path(paths$fw, "2025-06-05_fw_rearing_spatial_models.Rdata"))
-load(file.path(paths$fw, "2025-05-27_fw_streampicks.Rdata"))
-load(file.path(paths$fw, "2025-07-25_fw_upstream_paths.Rdata"))
-
-#load(here("processed_data", "freshwater", "R_data", "2025-01-24_fw_FAZ_streams.Rdata"))   #FAZ selections of streams
-
-#load summary stat results
-load(file.path(paths$fw,  "2025-06-12_fw_rearing_models_indicators.Rdata"))
-load(file.path(paths$fw, "2025-07-31_migr_stats.Rdata"))
 
 #load(here("processed_data", "freshwater", "R_data",  "2025-01-24_fw_FAZstats_output.Rdata"))
 
 
 
-######################## FRESHWATER SCRIPTS #########################
+# 2 - Freshwater statistics -----------------------------------------------
+
+### These scripts using the processed data from 1 above to calculate statistics
+# and indicators for each CU. There are freshwater spawning/rearing indicators
+# and freshwater migration indicators
+
+## script to determine which streams from the main data table are within each cu boundary
+source(file.path("code", "2a_FW_boundary_subset.R")) 
+
+## script to calculate spawning statistics for each CU, using subsetted streams from 2a
+source(file.path("code", "2b_FW_rearing_stats.R"))   #rearing stats script
+
+## script to determine migration paths for each CU from river mouth to NUSEDS sites
+# and calculate downstream distance for each stream segment to the ocean
+source(file.path("code", "2c_FW_upstream_paths.R"))  #migration paths script
+
+## script to calculate migration statistics for each CU, using paths from 2c
+source(file.path("code", "2d_FW_migration_stats.R"))  #migration stats script
 
 
-### run script to import freshwater data layers
-#source(file.path(code_root,  "2a_FW_import.R"))
+# 3 - Marine data processing and statistics -----------------------------------
 
-### run script to subset freshwater data layers to CUs
-#source(file.path(code_root,  "2b_FW_spatial_subset.R"))
+### These scripts import the marine data files and process them into
+# common formats. 
 
-### run script to calculate statistics and indicators for CU boundaries (rearing)
-#source(file.path(code_root, "2c_FW_rearing_stats.R"))
+## importing and process of marine data
+source(file.path(paths$code, "3a_marine_data_import.R"))  #marine data import script
 
-### run script to calculate statistics and indicators for migration paths
-#source(file.path(code_root, "2d_FW_migration_stats.R"))
+## script to calculate marine statistics for each CU
+source(file.path(paths$code, "3c_marine_stats.R"))  #marine stats script
+
+## script to get a standardized grid output for marine data (mostly for plotting)
+source(file.path(paths$code, "3b_marine_grid_standardize.R"))  #marine grid standardize script
 
 
+# 4 - Combining and standardizing -----------------------------------------
 
-######################## STANDARDIZATION AND SCORING #########################
-
+## Combining all indicators into a common table, and applying standardization functions
 source(file.path(paths$code, "4a_CU_scoring.R"))
 
-######################## MARKDOWN REPORTS #####################
 
-#load FW rearing indicators
+
+# 5. Plotting -------------------------------------------------------------
+
+
+
+# 6. Reports --------------------------------------------------------------
+
+
+#load summary stat results
+load(file.path(paths$fw,  "2025-06-12_fw_rearing_models_indicators.Rdata"))
+load(file.path(paths$fw, "2025-07-31_migr_stats.Rdata"))
+
+
+
+#FW rearing indicators
 fwR_all_flat <- read_csv(file.path(paths$fw, "2025-06-13_fw_rearing_stats.csv"))
 
 fwR_one <- filter(fwR_all_flat, period == "3", RCP == "45")

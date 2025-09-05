@@ -700,8 +700,8 @@ hotssea_SST_join <- st_join(x=hotssea_SST, y=MAZ, left = FALSE)
 hotssea_SST <- hotssea_SST_join %>%
   group_by(month, MAZ_Acrony, geometry) %>%
   summarize(value = mean(sst, na.rm = T)) %>%
-  mutate(month = as.character(month),
-         scenario = "H",
+  mutate(month = as.numeric(month),
+         RCP = "H",
          model = "HOTSSea") %>%
   ungroup()
 
@@ -729,7 +729,7 @@ SSC_SST_summary <- SSC_SST_long %>%
             .groups = "drop")
 
 hotssea_summary <- hotssea_SST %>%
-  group_by(scenario, month, MAZ_Acrony) %>%
+  group_by(RCP, month, MAZ_Acrony) %>%
   summarize(mean    = mean(value, na.rm = T),
             qlowsp = quantile(value, qlowsp, na.rm = T),
             qhighsp = quantile(value, qhighsp, na.rm = T),

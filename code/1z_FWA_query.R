@@ -1,4 +1,4 @@
-## 22_FWA_query.R
+## 2z_FWA_query.R
 #Use the fwapgr package to query data from the freshwater atlas of BC
 
 #package info:  https://github.com/poissonconsulting/fwapgr

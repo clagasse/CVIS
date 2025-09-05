@@ -166,14 +166,7 @@ simulate_range <- function(x, n = 100) {
 # ggplot() +
 #   geom_histogram(data = CVIS_CU, aes(x = rateT_spn), bins = 20, fill = "darkgreen")
 # 
-# ggplot() +
-#   geom_histogram(data = CVIS_std, aes(x = rateT_spn_rawstd), bins = 20, fill = "purple")
-# 
-# ggplot() +
-#   geom_line(data = CVIS_std, aes(x = rateT_spn, y = rateT_spn_rawstd)) +
-#   geom_point(data = CVIS_std, aes(x = rateT_spn, y = rateT_spn_rawstd)) +
-#   geom_line(data = CVIS_std, aes(x = rateT_spn, y = rateT_spn_asymp), color = "red") +
-#   geom_point(data = CVIS_std, aes(x = rateT_spn, y = rateT_spn_asymp))
+
 # 
 # ggplot() +
 #   geom_line(data = CVIS_std, aes(x = augQ_spn, y = augQ_spn_rawstd)) +
