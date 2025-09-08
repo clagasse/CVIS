@@ -13,30 +13,30 @@ library(here)
 setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
 
-#install_github("pbs-assess/pacea")
+# install_github("pbs-assess/pacea")
 library(ggdist)
 library(pacea)
 
-qlowsp <- 0.1   #lowest quantile for spatial variation in indicator
-qhighsp <- 0.9  #highest quantile for spatial variation in indicator
+qlowsp <- 0.1   # lowest quantile for spatial variation in indicator
+qhighsp <- 0.9  # highest quantile for spatial variation in indicator
 
-period_val <- 3   #code to assign indicator results timespan (3 = 2040-2060)
+period_val <- 3   # code to assign indicator results timespan (3 = 2040-2060)
 
-decades <- (2055 - 1995) / 10    #decades between historic and projected period
+decades <- (2055 - 1995) / 10    # decades between historic and projected period
 
-CI_habitats <- c("All")   #habitat types to include for cumulative impacts
+CI_habitats <- c("All")   # habitat types to include for cumulative impacts
 
 #---------1. Import----------------------------------
 
-#BCCM model can be pulled from two sources - Pacea and .shp file provided by Angelica Pena
+# BCCM model can be pulled from two sources - Pacea and .shp file provided by Angelica Pena
 #  Use .shp file in this script
 
 # For Georgia Strait, use HotSsea as the historic SST climatology
 # OISST from PacEA is an alternative source based on observations
 #  Salish Sea Cast is the projected SST
 
-#read OISST data from pacea
-#oisst_month <- st_transform(oisst_month,crs = "EPSG:3005")
+# read OISST data from pacea
+# oisst_month <- st_transform(oisst_month,crs = "EPSG:3005")
 
 ## read in marine adaptive zones shapefile
 MAZ     <- st_read(file.path(paths$spatial, "MAZ", "MAZ_Final.shp"))
@@ -45,13 +45,13 @@ MAZ     <- st_read(file.path(paths$spatial, "MAZ", "MAZ_Final.shp"))
 SSC_SSS <- st_read(file.path(
   paths$climate,
   "Standardized_Marine_data",
-  "Points" ,
+  "Points",
   "SSC_SSS_sub.gdb"
 ))
 SSC_SST <- st_read(file.path(
   paths$climate,
   "Standardized_Marine_data",
-  "Points" ,
+  "Points",
   "SSC_SST_sub.gdb"
 ))
 
@@ -59,7 +59,7 @@ BCCM_SST  <- read_sf(
   file.path(
     paths$climate,
     "Standardized_Marine_data",
-    "Points" ,
+    "Points",
     "BCCM_SST_sub.gdb"
   )
 )
@@ -68,7 +68,7 @@ BCCM_SSS  <- read_sf(
   file.path(
     paths$climate,
     "Standardized_Marine_data",
-    "Points" ,
+    "Points",
     "BCCM_SSS_sub.gdb"
   )
 )
@@ -76,13 +76,14 @@ BCCM_SSPH <- read_sf(
   file.path(
     paths$climate,
     "Standardized_Marine_data",
-    "Points" ,
+    "Points",
     "BCCM_SSPH_sub.gdb"
   )
 )
 
-#To use Pacea SSTs, uncomment the next line:
-#BCCM_paceaSST_sub <- bccm_surface_temperature()
+
+# To use Pacea SSTs, uncomment the next line:
+# BCCM_paceaSST_sub <- bccm_surface_temperature()
 
 # NEP36
 # NEP_SST<- read_sf( file.path(paths$climate,"Standardized_Marine_data", "Points" ,"NEP_SST_sub.gdb"))
@@ -93,21 +94,21 @@ BCCM_SSPH <- read_sf(
 SSC_SST <- read_sf(file.path(
   paths$climate,
   "Standardized_Marine_data",
-  "Points" ,
+  "Points",
   "SSC_SST_sub.gdb"
 ))
 SSC_SSS <- read_sf(file.path(
   paths$climate,
   "Standardized_Marine_data",
-  "Points" ,
+  "Points",
   "SSC_SSS_sub.gdb"
 ))
 
-#HOTSSea SST historical output (1980-2018)
+# HOTSSea SST historical output (1980-2018)
 hotssea_SST <- read_sf(file.path(
   paths$climate,
   "Standardized_Marine_data",
-  "Points" ,
+  "Points",
   "HOTSSea_SST.gdb"
 ))
 
@@ -116,12 +117,12 @@ CI_points <- read_sf(
   file.path(
     paths$climate,
     "Standardized_Marine_data",
-    "Points" ,
+    "Points",
     "CI_points_sub.gdb"
   )
 )
 
-#get cu timing for ocean entry
+# get cu timing for ocean entry
 cu_marine <- cu_timing_Fr %>%
   select(FULL_CU_IN, oe_age, oe_dat_qual, oe_start, oe_peak, oe_end, n_oe) %>%
   left_join(
@@ -149,13 +150,13 @@ cu_marine <- cu_timing_Fr %>%
 
 #------------- 2. Reshaping and summarizing ----------------------
 
-#BCCMpacea_SST <- st_join(BCCMpacea_SST, left = FALSE, MAZ["MAZ_Acrony"])
+# BCCMpacea_SST <- st_join(BCCMpacea_SST, left = FALSE, MAZ["MAZ_Acrony"])
 
 BCCM_SST_long <- BCCM_SST %>%
   pivot_longer(
     cols = -c("SHAPE", "MAZ_Acrony"),
     names_to = c("RCP", "month"),
-    names_pattern = 'SST_([A-Za-z0-9]+)_([0-9]+)',
+    names_pattern = "SST_([A-Za-z0-9]+)_([0-9]+)",
     values_to = "value"
   ) %>%
   mutate(model = "BCCM", month = as.numeric(month))
@@ -164,7 +165,7 @@ SSC_SST_long <- SSC_SST %>%
   pivot_longer(
     cols = -c("SHAPE", "MAZ_Acrony"),
     names_to = c("RCP", "month"),
-    names_pattern = 'SST_([A-Za-z0-9]+)_([0-9]+)',
+    names_pattern = "SST_([A-Za-z0-9]+)_([0-9]+)",
     values_to = "value"
   ) %>%
   mutate(model = "SSC", month = as.numeric(month))
@@ -173,7 +174,7 @@ BCCM_SSS_long <- BCCM_SSS %>%
   pivot_longer(
     cols = -c("SHAPE", "MAZ_Acrony"),
     names_to = c("RCP", "month"),
-    names_pattern = 'SSS_([A-Za-z0-9]+)_([0-9]+)',
+    names_pattern = "SSS_([A-Za-z0-9]+)_([0-9]+)",
     values_to = "value"
   ) %>%
   mutate(model = "BCCM", month = as.numeric(month))
@@ -182,7 +183,7 @@ SSC_SSS_long <- SSC_SSS %>%
   pivot_longer(
     cols = -c("SHAPE", "MAZ_Acrony"),
     names_to = c("RCP", "month"),
-    names_pattern = 'SSS_([A-Za-z0-9]+)_([0-9]+)',
+    names_pattern = "SSS_([A-Za-z0-9]+)_([0-9]+)",
     values_to = "value"
   ) %>%
   mutate(model = "SSC", month = as.numeric(month))
@@ -191,7 +192,7 @@ BCCM_SSPH_long <- BCCM_SSPH %>%
   pivot_longer(
     cols = -c("SHAPE", "MAZ_Acrony"),
     names_to = c("RCP", "month"),
-    names_pattern = 'SSPH_([A-Za-z0-9]+)_([0-9]+)',
+    names_pattern = "SSPH_([A-Za-z0-9]+)_([0-9]+)",
     values_to = "value"
   ) %>%
   mutate(model = "BCCM", month = as.numeric(month))
@@ -215,13 +216,13 @@ CI_long <- CI_points %>%
   )
 
 
-#get hotssea historic average temperature
+# get hotssea historic average temperature
 
 ROM_SST <- BCCM_SST_long %>%
   filter(MAZ_Acrony != "GStr") %>%
   bind_rows(filter(hotssea_SST, MAZ_Acrony == "GStr")) %>%
   bind_rows(filter(SSC_SST_long, RCP != "H" &
-                     MAZ_Acrony == "GStr"))
+    MAZ_Acrony == "GStr"))
 
 ROM_SSS <- BCCM_SSS_long %>%
   filter(MAZ_Acrony != "GStr") %>%
@@ -237,12 +238,12 @@ summarize_marine_var <- function(model_data,
                                  MAZ_pick,
                                  var_pick,
                                  decades) {
-  
+
   stat_cols <- "value"  # name of column with variable values
-  
-  ind_name <- paste0(var_pick, "proj")  #prefix for indicator column name
-  rate_col_name <- paste0(var_pick, "rate", "_mean")  #rate change column
-  
+
+  ind_name <- paste0(var_pick, "proj")  # prefix for indicator column name
+  rate_col_name <- paste0(var_pick, "rate", "_mean")  # rate change column
+
   summary_data <- model_data %>%
     as_tibble() %>%
     filter(month %in% months_include, MAZ_Acrony == MAZ_pick) %>%
@@ -251,66 +252,66 @@ summarize_marine_var <- function(model_data,
       across(
         .cols = c(all_of(stat_cols)),
         .fns = list(
-          mean       = ~mean(.x, na.rm = T),
-          qlowsp     = ~quantile(.x, qlowsp, na.rm = T),
-          qhighsp    = ~quantile(.x, qhighsp, na.rm = T)
+          mean       = ~ mean(.x, na.rm = T),
+          qlowsp     = ~ quantile(.x, qlowsp, na.rm = T),
+          qhighsp    = ~ quantile(.x, qhighsp, na.rm = T)
         ),
         .names = paste0(ind_name, "_", "{.fn}")
       ),
       .groups = "drop"
     )
-  
+
   mean_col <- paste0(ind_name, "_mean")
-  
-  #get historic value and calculate rate of change from historic
+
+  # get historic value and calculate rate of change from historic
   histT <- summary_data[[mean_col]][summary_data$RCP == "H"]
-  
-  #make a new column for rate of change
+
+  # make a new column for rate of change
   summary_data <- summary_data %>%
-    mutate(!!rate_col_name := (.data[[mean_col]] - histT)/ decades)
-  
+    mutate(!!rate_col_name := (.data[[mean_col]] - histT) / decades)
+
   # summary_wide <- summary_data %>%
   #   pivot_wider(
   #     names_from = "RCP",
   #     values_from = matches("mean|qlowsp|qhighsp|meanrate"),
   #     names_glue = paste0(var_pick, "_", "{RCP}_{.value}")
   #   )
-  
+
   return(summary_data)
-  
+
 }
 
 
 for (i in 1:n.CUs) {
   cu_i <- cu_run$FULL_CU_IN[i]
-  
+
   cu_marine_i <- cu_marine[cu_marine$FULL_CU_IN == cu_i, ]
-  
+
   months_include <- seq(
     from = cu_marine_i$ns_timing_start,
     to = cu_marine_i$ns_timing_end,
     by = 1
   )
-  
-  #match MAZ and take mean, qlow and qhigh of included months for historic and each RCP
-  
+
+  # match MAZ and take mean, qlow and qhigh of included months for historic and each RCP
+
   SST_mar_i <- summarize_marine_var(ROM_SST,
-                                    months_include,
-                                    MAZ_pick = cu_marine_i$MAZ,
-                                    var_pick = "SST",
-                                    decades)
-  
+    months_include,
+    MAZ_pick = cu_marine_i$MAZ,
+    var_pick = "SST",
+    decades)
+
   SSS_mar_i <- summarize_marine_var(ROM_SSS,
-                                    months_include,
-                                    MAZ_pick = cu_marine_i$MAZ,
-                                    var_pick = "SSS",
-                                    decades)
-  
+    months_include,
+    MAZ_pick = cu_marine_i$MAZ,
+    var_pick = "SSS",
+    decades)
+
   SS_mar_i <- left_join(SST_mar_i, SSS_mar_i, by = "RCP") %>%
     mutate(period_code = case_when(
       RCP %in% c("45", "85") ~ period_val,
       RCP == "H" ~ 0))
-  
+
   CI_mar_i <- CI_long %>%
     as_tibble() %>%
     filter(MAZ_Acrony == cu_marine_i$MAZ, habitat == "All") %>%
@@ -319,34 +320,32 @@ for (i in 1:n.CUs) {
       CI_qlowsp = quantile(value, qlowsp, na.rm = T),
       CI_qhighsp = quantile(value, qhighsp, na.rm = T)
     )
-  
-  
+
+
   if (i == 1) {
     # cu_marine_all <- cu_marine_i
     # # SST_mar <- SST_mar_i
     # # SSS_mar <- SSS_mar_i
     # # CI_mar    <- CI_mar_i
-    # # 
+    # #
     mar_all_flat <- bind_cols(cu_marine_i, SS_mar_i,  CI_mar_i)
   }
   if (i > 1) {
     temp <- bind_cols(cu_marine_i, SS_mar_i, CI_mar_i)
-    
+
     mar_all_flat <- bind_rows(mar_all_flat, temp)
-    
+
     # cu_marine_all <- bind_rows(cu_marine_all, cu_marine_i)
     # SST_mar <- bind_rows(SST_mar, SST_mar_i)
     # SSS_mar <- bind_rows(SSS_mar, SSS_mar_i)
     # CI_mar <- bind_rows(CI_mar, CI_mar_i)
   }
-  
+
 }
 
 
 
 
 write.csv(mar_all_flat,
-          file = file.path(paths$marine, paste0(today, "_marine_stats.csv")),
-          row.names = FALSE)
-
-
+  file = file.path(paths$marine, paste0(today, "_marine_stats.csv")),
+  row.names = FALSE)

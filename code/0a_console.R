@@ -1,35 +1,35 @@
-### 0a_console 
+### 0a_console
 
 # this script demonstrates the workflow for the CVIS package
 
 ######################## SETUP #########################
 # setup and packages
 
-#load packages and set root project directory
-rm(list=ls())
+# load packages and set root project directory
+rm(list = ls())
 
 ## plotting packages
-#library(rcartocolor) #mapping palettes
-library(scico) #scientific colour palettes
-#library(wesanderson); library(viridis)  #colour palettes
-library(patchwork) #for multi-panel plots
-library(ggridges)  #for ridgeline plots
-library(corrplot)  #correlation matrix plots
+# library(rcartocolor) #mapping palettes
+library(scico) # scientific colour palettes
+# library(wesanderson); library(viridis)  #colour palettes
+library(patchwork) # for multi-panel plots
+library(ggridges)  # for ridgeline plots
+library(corrplot)  # correlation matrix plots
 
 ## reporting and markdown packages
-library(skimr)  #summary statistics
-#library(ggdist)
-library(gt)   #gg tables for markdown
-#library(Hmisc)   #weighted means and sds
+library(skimr)  # summary statistics
+# library(ggdist)
+library(gt)   # gg tables for markdown
+# library(Hmisc)   #weighted means and sds
 
 ## spatial data packages
-library(pacea)  #bc_coast shapefile
-#library(bcdata)   #retrieving from BC data catalogue
-#install.packages("fwatlasbc", repos = c('https://poissonconsulting.r-universe.dev', 'https://cloud.r-project.org'))
-#library(fwatlasbc)
+library(pacea)  # bc_coast shapefile
+# library(bcdata)   #retrieving from BC data catalogue
+# install.packages("fwatlasbc", repos = c('https://poissonconsulting.r-universe.dev', 'https://cloud.r-project.org'))
+# library(fwatlasbc)
 
 
-#set-up used in every script
+# set-up used in every script
 library(here)
 setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
@@ -38,21 +38,21 @@ source(file.path(here(), "code", "0_setup.R"))
 
 # 1 - Freshwater data processing ------------------------------------------
 
-### These scripts import the spatial data files and process them into 
+### These scripts import the spatial data files and process them into
 # common formats. Data is also summarized by time periods
 
 ## importing and process of stream network data
 # script should not be sourced all at once but run in chunks as it takes a very long time
-#source(file.path("code", "1b_FW_stream_process.R"))  #spawning data import script
+# source(file.path("code", "1b_FW_stream_process.R"))  #spawning data import script
 
 ## process raw PCIC files to get period averages
-#source(file.path("code", "1c_FW_PCIC_period_averages.R"))  
+# source(file.path("code", "1c_FW_PCIC_period_averages.R"))
 
 ## process PCIC Period averages to get GCM model averages
-#source(file.path("code", "1d_FW_PCIC_model_averages.R"))  
+# source(file.path("code", "1d_FW_PCIC_model_averages.R"))
 
 
-#load(here("processed_data", "freshwater", "R_data",  "2025-01-24_fw_FAZstats_output.Rdata"))
+# load(here("processed_data", "freshwater", "R_data",  "2025-01-24_fw_FAZstats_output.Rdata"))
 
 
 
@@ -63,32 +63,32 @@ source(file.path(here(), "code", "0_setup.R"))
 # and freshwater migration indicators
 
 ## script to determine which streams from the main data table are within each cu boundary
-source(file.path("code", "2a_FW_boundary_subset.R")) 
+source(file.path("code", "2a_FW_boundary_subset.R"))
 
 ## script to calculate spawning statistics for each CU, using subsetted streams from 2a
-source(file.path("code", "2b_FW_rearing_stats.R"))   #rearing stats script
+source(file.path("code", "2b_FW_rearing_stats.R"))   # rearing stats script
 
 ## script to determine migration paths for each CU from river mouth to NUSEDS sites
 # and calculate downstream distance for each stream segment to the ocean
-source(file.path("code", "2c_FW_upstream_paths.R"))  #migration paths script
+source(file.path("code", "2c_FW_upstream_paths.R"))  # migration paths script
 
 ## script to calculate migration statistics for each CU, using paths from 2c
-source(file.path("code", "2d_FW_migration_stats.R"))  #migration stats script
+source(file.path("code", "2d_FW_migration_stats.R"))  # migration stats script
 
 
 # 3 - Marine data processing and statistics -----------------------------------
 
 ### These scripts import the marine data files and process them into
-# common formats. 
+# common formats.
 
 ## importing and process of marine data
-source(file.path(paths$code, "3a_marine_data_import.R"))  #marine data import script
+source(file.path(paths$code, "3a_marine_data_import.R"))  # marine data import script
 
 ## script to calculate marine statistics for each CU
-source(file.path(paths$code, "3c_marine_stats.R"))  #marine stats script
+source(file.path(paths$code, "3c_marine_stats.R"))  # marine stats script
 
 ## script to get a standardized grid output for marine data (mostly for plotting)
-source(file.path(paths$code, "3b_marine_grid_standardize.R"))  #marine grid standardize script
+source(file.path(paths$code, "3b_marine_grid_standardize.R"))  # marine grid standardize script
 
 
 # 4 - Combining and standardizing -----------------------------------------
@@ -100,51 +100,65 @@ source(file.path(paths$code, "4a_CU_scoring.R"))
 
 # 5. Plotting -------------------------------------------------------------
 
+# plots of indicator values across CUs
+source(file.path(paths$code, "5b_plots_compare.R"))
 
 
 # 6. Reports --------------------------------------------------------------
+# load results from other scripts
+
+# freshwater stream subsets by CU boundary
+load(file.path(paths$fw, "2025-05-27_fw_streampicks.Rdata"))
+## freshwater stream network model outputs
+load(file.path(paths$fw, "2025-06-12_fw_stream_models.Rdata"))
+# freshwater stream indicator statistics
+load(file.path(paths$fw, "_fw_rearing_indicators.Rdata"))
+
+# migration paths
+load(file.path(paths$fw, "2025-07-25_fw_upstream_paths.Rdata"))
+# migration indicators
+load(file.path(paths$fw, "2025-09-04_migr_stats.Rdata"))
 
 
-#load summary stat results
-load(file.path(paths$fw,  "2025-06-12_fw_rearing_models_indicators.Rdata"))
-load(file.path(paths$fw, "2025-07-31_migr_stats.Rdata"))
 
 
 
-#FW rearing indicators
+
+
+# FW rearing indicators
 fwR_all_flat <- read_csv(file.path(paths$fw, "2025-06-13_fw_rearing_stats.csv"))
 
 fwR_one <- filter(fwR_all_flat, period == "3", RCP == "45")
 ggplot() +
-  geom_point(data = fwR_one, aes(x = avg_lon, y= prop_snow)) 
+  geom_point(data = fwR_one, aes(x = avg_lon, y = prop_snow))
 
 
-#load migration indicators
+# load migration indicators
 load(file.path(paths$fw, "2025-07-30_migr_stats.Rdata"))
 
-#load migration paths
+# load migration paths
 load(file.path(paths$fw, "2025-07-25_fw_upstream_paths.Rdata"))
 
 
-for(i in 1:n.CUs) {
+for (i in 1:n.CUs) {
 
-CU_IN_i <- cu_run$FULL_CU_IN[i]
-CU_IN_i <- "CO-5"
-  
-rmarkdown::render(
-  file.path(here(),"code", "markdown", "0a_CU_profile.Rmd"),
-  output_file = paste(today, CU_IN_i, "_profile.html", sep = "_"),
-  output_dir = here("output", "CU_profiles"),
-  output_format = "html_document", 
-  params = list(FULL_CU_IN = CU_IN_i))
+  CU_IN_i <- cu_run$FULL_CU_IN[i]
+  CU_IN_i <- "CO-5"
 
-## overview of freshwater spawning indicators
-rmarkdown::render(
-  file.path(here("code", "markdown", "2_FW_spawning_report.Rmd")),
-  output_file = paste(today, CU_IN_i,"fw_spawning.html", sep = "_"),
-  output_dir = here("output", "CU_profiles"),
-  output_format = "html_document",
-  params = list(FULL_CU_IN = CU_IN_i))
+  rmarkdown::render(
+    file.path(here(), "code", "markdown", "0a_CU_profile.Rmd"),
+    output_file = paste(today, CU_IN_i, "_profile.html", sep = "_"),
+    output_dir = here("output", "CU_profiles"),
+    output_format = "html_document",
+    params = list(FULL_CU_IN = CU_IN_i))
+
+  ## overview of freshwater spawning indicators
+  rmarkdown::render(
+    file.path(here("code", "markdown", "2_FW_spawning_report.Rmd")),
+    output_file = paste(today, CU_IN_i, "fw_spawning.html", sep = "_"),
+    output_dir = here("output", "CU_profiles"),
+    output_format = "html_document",
+    params = list(FULL_CU_IN = CU_IN_i))
 
 
 }
@@ -189,6 +203,4 @@ shinyApp(ui, server)
 #   output_file = paste(today, "fw_CU_detail.html", sep = "_"),
 #   output_dir = here("output"),
 #   output_format = "html_document")
-# 
-
-
+#

@@ -14,158 +14,112 @@ library(here)
 setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
 
-
-#load FW rearing indicators
+# load FW rearing indicators
 fwR_all_flat <- read_csv(file.path(paths$fw, "2025-09-04_fw_rearing_stats.csv")) %>%
   mutate(RCP = as.character(RCP)) %>%
-  rename(period_code = period,
-         fw_res = Peak_Spawn_To_Ocean_Entry_Days) %>% 
+  rename(
+    period_code = period,
+    fw_res = Peak_Spawn_To_Ocean_Entry_Days
+  ) %>%
   left_join(period_lookup, join_by(period_code)) %>%
   relocate(period, .after = period_code)
 
 
-#load FW migration indicators
+# load FW migration indicators
 load(file.path(paths$fw, "2025-09-04_migr_stats.Rdata"))
 
-#load marine indicators
+# load marine indicators
 mar_all_flat <- read_csv(file.path(paths$marine, "2025-09-04_marine_stats.csv"))
 
 
-#combine indicators into common table
-all_flat <- left_join(fwR_all_flat,
-                      migr_all_flat,
-                      join_by(FULL_CU_IN, CU_NAME, CU_Species, FAZ, RCP, period)) %>%
+# combine indicators into common table
+all_flat <- left_join(
+  fwR_all_flat,
+  migr_all_flat,
+  join_by(FULL_CU_IN, CU_NAME, CU_Species, FAZ, RCP, period)
+) %>%
   left_join(mar_all_flat, join_by(FULL_CU_IN, CU_NAME, RCP, period_code)) %>%
   left_join(CVIS_dem, join_by(FULL_CU_IN, CU_NAME, Species_simple))
 
-#extract indicator columns, including mean and variation
+# extract indicator columns, including mean and variation
 all_inds <- all_flat %>%
-  select(FULL_CU_IN, CU_NAME, CU_Species, FAZ, period_code, RCP, SSP, contains(tbl_indicators$abbrev))      
+  select(FULL_CU_IN, CU_NAME, CU_Species, FAZ, period_code, RCP, SSP, contains(tbl_indicators$abbrev))
 
 
 
 
 #--------------2. Functions for standardization ------
-standardize_indicator <- function(data, 
-                                 indicator_pick,
-                                 std_fun = "linear_std", 
-                                 gcm_range_suffix = c("qlowgcm", "qhighgcm"),
-                                 use_gcm_range = TRUE)  #use GCMs to include GCM quantiles in standardization ranges, set FALSE to only use mean values
+standardize_indicator <- function(data,
+                                  indicator_pick,
+                                  std_fun = "linear_std",
+                                  gcm_range_suffix = c("qlowgcm", "qhighgcm"),
+                                  use_gcm_range = TRUE) # use GCMs to include GCM quantiles in standardization ranges, set FALSE to only use mean values
 {
   stat_suffix <- "mean"
   id_col <- "FULL_CU_IN"
-  
-  #data <- filter(data, period == period_pick)
-  
-  #take column names that contain prefix with model type
+
+  # data <- filter(data, period == period_pick)
+
+  # take column names that contain prefix with model type
   cols_sub <- names(data)[str_detect(names(data), indicator_pick)]
-  
-  #take names with prefix that also contain stat suffix
-  stat_col <- cols_sub[str_detect(cols_sub, paste0(stat_suffix, "$"))]  #must end with mean
+
+  # take names with prefix that also contain stat suffix
+  stat_col <- cols_sub[str_detect(cols_sub, paste0(stat_suffix, "$"))] # must end with mean
   min_gcmcol <- cols_sub[str_detect(cols_sub, paste0(gcm_range_suffix[1], collapse = "|"))]
   max_gcmcol <- cols_sub[str_detect(cols_sub, paste0(gcm_range_suffix[2], collapse = "|"))]
-  
-  #some indicators don't have a mean, just the raw value. in that case, use the abbreviation
-  if(length(stat_col) == 0) stat_col <- cols_sub
-  
+
+  # some indicators don't have a mean, just the raw value. in that case, use the abbreviation
+  if (length(stat_col) == 0) stat_col <- cols_sub
+
   data <- select(data, c(FULL_CU_IN, stat_col, min_gcmcol, max_gcmcol, RCP, period_code))
-  
+
   if (length(min_gcmcol) == 1 && length(max_gcmcol) == 1 && use_gcm_range == TRUE) {
-  #put gcm lows and highs and mean into one column
-  data_long <- pivot_longer(data,
-                           cols = starts_with(indicator_pick),
-                           names_prefix = paste0(indicator_pick, "_")) 
-  
-  data_std <- data_long %>%
-    group_by(RCP, period_code) %>%
-    reframe(FULL_CU_IN = FULL_CU_IN, 
-            std = get(std_fun)(value),
-            name = name) %>%
-    pivot_wider(names_from = name,
-                values_from = std,
-                names_prefix = paste0(indicator_pick, "_"))
-  
-  
+    # put gcm lows and highs and mean into one column
+    data_long <- pivot_longer(data,
+      cols = starts_with(indicator_pick),
+      names_prefix = paste0(indicator_pick, "_")
+    )
+
+    data_std <- data_long %>%
+      group_by(RCP, period_code) %>%
+      reframe(
+        FULL_CU_IN = FULL_CU_IN,
+        std = get(std_fun)(value),
+        name = name
+      ) %>%
+      pivot_wider(
+        names_from = name,
+        values_from = std,
+        names_prefix = paste0(indicator_pick, "_")
+      )
   } else {
     data_std <- data %>%
       group_by(RCP, period_code) %>%
-      reframe(FULL_CU_IN = FULL_CU_IN, 
-              !!stat_col := get(std_fun)(!!sym(stat_col)))
-    #std_qlowgcm= get(std_fun)(!!sym(min_gcmcol)),
-    #std_qhighgcm = get(std_fun)(!!sym(max_gcmcol)))
+      reframe(
+        FULL_CU_IN = FULL_CU_IN,
+        !!stat_col := get(std_fun)(!!sym(stat_col))
+      )
+    # std_qlowgcm= get(std_fun)(!!sym(min_gcmcol)),
+    # std_qhighgcm = get(std_fun)(!!sym(max_gcmcol)))
   }
 
-  
-  # 
-  # if (length(min_gcmcol) == 1 && length(max_gcmcol) == 1 && use_gcm_range == TRUE) {
-  #   #select indicator columns and give one column each indicator
-  #   wide_data <- pivot_wider(select(data, c(FULL_CU_IN, stat_col, min_gcmcol, max_gcmcol, RCP, period_code)),
-  #                            names_from = c(RCP, period_code),
-  #                            #names_prefix = paste0(indicator_pick, "_", stat_suffix, "_"),
-  #                            values_from = all_of(c(stat_col, min_gcmcol, max_gcmcol)))
-  # } else {
-  #   wide_data <- pivot_wider(select(data, c(FULL_CU_IN, stat_col, RCP, period_code)),
-  #                            names_from = c(RCP, period_code),
-  #                            names_prefix = paste0(indicator_pick, "_", stat_suffix, "_"),
-  #                            values_from = all_of(c(stat_col)))
-  # }
-  #   
-  # 
-  # #pivot into a single row for calculating standardized values
-  # long_data <- pivot_longer(wide_data,
-  #                           cols = starts_with(indicator_pick),
-  #                           names_prefix = paste0(indicator_pick, "_"))
-  # 
-  # #calculate indicator using function.  choose function using name of std_fun
-  # long_data$std <- get(std_fun)(long_data$value)
-  # 
-  # 
-  # 
-  # #put back into wide data frame to join original
-  # wide_std <- pivot_wider(select(long_data, -value),
-  #                         id_cols = c(FULL_CU_IN),
-  #                         names_from = name,
-  #                         values_from = std)
-  # 
-  # RCPs_grep <- paste(RCPs, collapse = "|")
-  # 
-  # #pivot across RCP to match original data structure
-  # data_std <- pivot_longer(wide_std,
-  #                          cols = -FULL_CU_IN,
-  #                          names_to = "name",
-  #                          values_to = "value"
-  # ) %>%
-  #   mutate(
-  #     RCP = as.numeric(str_extract(name, RCPs_grep)),
-  #     period = as.numeric(period_pick),
-  #     variable = str_remove(name, paste0("_(", RCPs_grep, ")$"))
-  #   ) %>%
-  #   select(-name) %>%
-  #   pivot_wider(
-  #     names_from = variable,
-  #     values_from = value,
-  #     names_prefix = paste0("std", "_" , indicator_pick, "_")
-  #   )
-  
   return(data_std)
-  
 }
 
 #------------- 3. Calculate standardized scores-------------------------------
 
-all_std <- select(all_flat, "FULL_CU_IN", "RCP", "period_code") 
+all_std <- select(all_flat, "FULL_CU_IN", "RCP", "period_code")
 
-for(i in 1:nrow(tbl_indicators)) {
-    
-    temp  <- standardize_indicator(all_flat, 
-                                  indicator_pick = tbl_indicators$abbrev[i],
-                                  std_fun = tbl_indicators$std_fun[i],
-                                  use_gcm_range = T)
-    
+for (i in 1:nrow(tbl_indicators)) {
+  temp <- standardize_indicator(all_flat,
+    indicator_pick = tbl_indicators$abbrev[i],
+    std_fun = tbl_indicators$std_fun[i],
+    use_gcm_range = T
+  )
+
 
   all_std <- all_std %>%
     left_join(temp, join_by("FULL_CU_IN", "RCP", "period_code"))
-  
 }
 
 
@@ -180,7 +134,7 @@ for(i in 1:nrow(tbl_indicators)) {
 ## add std to col names for standardized values
 all_flat_std <- all_std %>%
   rename_with(
-    .fn = ~ paste0( "std_", .x),
+    .fn = ~ paste0("std_", .x),
     .cols = matches(tbl_indicators$abbrev)
   )
 
