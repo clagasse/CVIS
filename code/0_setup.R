@@ -53,7 +53,7 @@ source(here("code", "1a_CU_import.R"))   # CU table
 
 # Select subset of CUs to run for analysis
 cu_run <- cu_Fr %>%
-  filter(spp %in% c("co"),  # c("ck", "co", "cm", "sk")
+  filter(spp %in% c("ck", "co", "cm", "sk"),  # exclude pink salmon for now
     FULL_CU_IN %notin% c("SER-02", "SER-03")) %>% # remove widgeon and Harrison river for now (throws error)
   arrange(spp)
 
@@ -141,3 +141,33 @@ nuseds_Fr <- read_csv(file.path(paths$salmon, "NuSEDS_CU_System_sites_202406.csv
 #     n >= 5 & max.count == 0 & last.year >= 1999 ~ "CAUTION",
 #     n >= 5 & max.count != 0 & last.year >= 1999 ~ "KEEP"
 #   ))
+
+
+
+# ggplot custom theme -----------------------------------------------------
+
+theme_cvis <- function(base_size = 14) {
+  theme_bw(base_size = base_size) %+replace%
+    theme(
+      # L'ensemble de la figure
+      plot.title = element_text(size = rel(1), face = "bold", margin = margin(0, 0, 5, 0), hjust = 0),
+      # Zone où se situe le graphique
+      panel.grid.minor = element_blank(),
+      panel.border = element_blank(),
+      # Les axes
+      axis.title = element_text(size = rel(0.85), face = "bold"),
+      axis.text = element_text(size = rel(0.70), face = "bold"),
+      axis.line = element_line(color = "black"),
+      # La légende
+      legend.title = element_text(size = rel(0.85), face = "bold"),
+      legend.text = element_text(size = rel(0.70), face = "bold"),
+      legend.key = element_rect(fill = "transparent", colour = NA),
+      legend.key.size = unit(1.5, "lines"),
+      legend.background = element_rect(fill = "transparent", colour = NA),
+      # Les étiquettes dans le cas d'un facetting
+      strip.background = element_rect(fill = "#17252D", color = "#17252D"),
+      strip.text = element_text(size = rel(0.85), face = "bold", color = "white", margin = margin(5, 0, 5, 0))
+    )
+}
+theme_set(theme_cvis())
+theme_set(theme_cvis())

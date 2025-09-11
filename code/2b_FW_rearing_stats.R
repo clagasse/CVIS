@@ -1,6 +1,6 @@
 #-------------------------- 1. Overview and setup ----------------------
 #
-# 2c_FW_rearing_stats.R
+# 2b_FW_rearing_stats.R
 #
 # This code loads stream-level climate and stressor models processed in 2a_FW_data_process.R
 # and calculates summary statistics of climate indicators relevant to spawning and rearing.
@@ -33,6 +33,9 @@ qhighsp <- 0.9    # upper quantile for spatial variation
 
 #--------- 2. load spatial objects ---------------------
 
+# load CU stream selections - for subsetting when calculating statistics
+load(file.path(paths$fw, "2025-05-27_fw_streampicks.Rdata"))
+
 ### BC FISH PASS stream accessibility and linear habitat model
 
 # there are two main stream network objects
@@ -64,9 +67,6 @@ load(file.path(paths$fw, "ENM_all_sp.Rds"))
 # load statistical model projections of August flows for flow stations
 load(file.path(paths$fw,  "Statistical_flow_projections.Rds"))
 
-
-# load CU stream selections - for subsetting when calculating statistics
-load(file.path(paths$fw, "2025-05-27_fw_streampicks.Rdata"))
 
 # load flow stations spatial objects
 stations_stats <- read.csv(file.path(paths$climate, "Ruzzante_low_flows", "stations_performance.csv"))
@@ -744,6 +744,18 @@ for (i in 1:length(periods)) {
   }
 }
 
+# rename columns and add period lookup
+fwR_all_flat <- fwR_all_flat %>%
+  mutate(RCP = as.character(RCP),
+    period = as.numeric(period)) %>%
+  rename(
+    period_code = period,
+    fw_res = Peak_Spawn_To_Ocean_Entry_Days
+  ) %>%
+  left_join(period_lookup, join_by(period_code)) %>%
+  relocate(period, .after = period_code)
+
+
 
 #--------------- 5. Create spatial summary object -----------------------------
 
@@ -827,10 +839,9 @@ fwModels <- bcfpa %>%
 
 #----------------- 6. Write files---------
 
-saveRDS(fwModels, paste0(today, "_fw_stream_models.Rds"))
+saveRDS(fwModels, file.path(paths$fw, paste0(today, "_fw_stream_models.Rds")))
 save(fwR_all, fwR_all_flat, file = file.path(paths$fw, paste0(today, "_fw_rearing_indicators.Rdata")))
 
-write.csv(fwR_all_flat, file = file.path(paths$fw, paste0(today, "_fw_rearing_stats.csv")), row.names = FALSE)
 
-
+# write.csv(fwR_all_flat, file = file.path(paths$fw, paste0(today, "_fw_rearing_stats.csv")), row.names = FALSE)
 # ExPanD(fwR_all_flat)

@@ -7,11 +7,11 @@
 
 cu_smu <- read.csv(file.path(paths$salmon, "CrossWalkData_2025-02-14.csv")) %>%
   filter(Conservation.Unit.Area == "FRASER INTERIOR",
-         Conservation.Unit.Type == "Current",
-         str_detect(Stock.Management.Unit.Name, "OKANAGAN", negate = TRUE)) %>%
-  select(Stock.Management.Unit.Name, Stock.Management.Unit.Id, 
-         Conservation.Unit.Name, Conservation.Unit.Area, Full.Conservation.Unit.Index,
-         Conservation.Unit.Species, Designatable.Unit.Number)
+    Conservation.Unit.Type == "Current",
+    str_detect(Stock.Management.Unit.Name, "OKANAGAN", negate = TRUE)) %>%
+  select(Stock.Management.Unit.Name, Stock.Management.Unit.Id,
+    Conservation.Unit.Name, Conservation.Unit.Area, Full.Conservation.Unit.Index,
+    Conservation.Unit.Species, Designatable.Unit.Number)
 
 spp_lookup <- tibble(
   spp_abr = c("ck", "cm", "co", "pk", "pk", "sk", "sk"),
@@ -20,8 +20,8 @@ spp_lookup <- tibble(
   Species = c("Chinook", "Chum", "Coho", "Pink-Even", "Pink-Odd", "Sockeye (Lake Type)", "Sockeye (River Type)"),
   Species_simple = c("Chinook", "Chum", "Coho", "Pink", "Pink", "Sockeye", "Sockeye"),
   PSF_species = c("Chinook", "Chum", "Coho", "Pink", "Pink", "Sockeye-Lake", "Sockeye-River"))
-  
-  
+
+
 
 
 #--------------------- Up-to-date CU list--------------------------------------
@@ -33,8 +33,13 @@ cu_list <- read.csv(file.path(paths$salmon,  "CCVA_CU_List.csv"), skip = 1) %>%
 
 cu_Fr <- cu_list %>%
   filter(CU_Area == "FRASER INTERIOR",
-         str_detect(CU_NAME, "OKANAGAN", negate = TRUE),
-         str_detect(CU_NAME, "BOUNDARY BAY", negate = TRUE))
+    str_detect(CU_NAME, "OKANAGAN", negate = TRUE),
+    str_detect(CU_NAME, "BOUNDARY BAY", negate = TRUE)) %>%
+  mutate(
+    CVIS_NAME = str_remove_all(CU_NAME, regex("TIMING", ignore_case = TRUE)) %>%
+      str_trim()) %>%  # remove extra spaces if any
+  mutate(CVIS_NAME = paste0(FULL_CU_IN, "_", CVIS_NAME)) %>%
+  relocate(CVIS_NAME, .after = CU_NAME)
 
 
 #--------------------- CU Decoder ---------------------------------------------
@@ -45,15 +50,15 @@ cu_decoder <- read.csv(file.path(paths$salmon, "all_regions_cu_du_smu_decoder.cs
   relocate(spp_abrC)
 
 
-#====================Import timing data compiled by PSF========================
+# ====================Import timing data compiled by PSF========================
 
-# cu_timing_old <- read.csv(file.path(salmon_dat, "Timing data", 
+# cu_timing_old <- read.csv(file.path(salmon_dat, "Timing data",
 #                                 "Life Cycle Timing by CU - CCVA old", "3Life_cycle_timing_by_CU_CL.csv")) %>%
 #   filter(region == "fraser", !is.na(cuid)) %>%
 #   left_join(select(cu_list, cuid, FULL_CU_IN), join_by(cuid))
 
-cu_timing <- read.csv(file.path(paths$salmon, "Timing data", 
-                              "CU_timing_published_CL.csv")) %>%
+cu_timing <- read.csv(file.path(paths$salmon, "Timing data",
+  "CU_timing_published_CL.csv")) %>%
   rename(sp_dat_qual = dat_qual)
 
 cu_timing_Fr <- filter(cu_timing, region == "fraser", !is.na(cuid)) %>%
@@ -63,35 +68,31 @@ cu_timing_Fr <- filter(cu_timing, region == "fraser", !is.na(cuid)) %>%
 
 cu_timing_long <- cu_timing_Fr %>%
   pivot_longer(cols = c(fm_start, fm_peak, fm_end, fm_dat_qual, oe_start, oe_peak, oe_end, oe_dat_qual,
-                        rt_start, rt_peak, rt_end, rt_dat_qual, sp_start, sp_peak, sp_end, sp_dat_qual),
-               names_to = "timing_event",
-               values_to = "date") %>%
+    rt_start, rt_peak, rt_end, rt_dat_qual, sp_start, sp_peak, sp_end, sp_dat_qual),
+  names_to = "timing_event",
+  values_to = "date") %>%
   select(-c(faz:oe_source_faz)) %>%
   mutate(life_stage = str_sub(timing_event, start = 1, end = 2),
-         timing = str_sub(timing_event, start = 4)) %>%
+    timing = str_sub(timing_event, start = 4)) %>%
   select(-timing_event) %>%
   pivot_wider(names_from = timing, values_from = date) %>%
   mutate(life_stage = if_else(life_stage == "fm", "freshwater_migration",
-                              if_else(life_stage == "oe", "ocean_entry",
-                                      if_else(life_stage == "rt", "run_timing",
-                                              if_else(life_stage == "sp", "spawning",
-                                                      if_else(life_stage == "ar", "arrival", NA)))))) %>%
+    if_else(life_stage == "oe", "ocean_entry",
+      if_else(life_stage == "rt", "run_timing",
+        if_else(life_stage == "sp", "spawning",
+          if_else(life_stage == "ar", "arrival", NA)))))) %>%
   arrange(species)
 
 
 #--------------------- Create CVIS table of demographic factors-----------------
 
 CVIS_dem <- cu_Fr %>%
-  select(cuid, CU_NAME, FULL_CU_IN, Species_simple,
-         WSP_population_status, Most_Recent_Generational_Average,
-         SEP_avg_annual_releases_actual, SEP_primary_prod_objective, Ratio_releases_to_generational_avg) %>%
+  select(cuid, FULL_CU_IN, CU_NAME, CVIS_NAME, Species_simple,
+    WSP_population_status, Most_Recent_Generational_Average,
+    SEP_avg_annual_releases_actual, SEP_primary_prod_objective, Ratio_releases_to_generational_avg) %>%
   rename(DEM_CUstatus = WSP_population_status,
-         DEM_CUnmat  = Most_Recent_Generational_Average,
-         DEM_enhann = SEP_avg_annual_releases_actual,
-         DEM_enhobj = SEP_primary_prod_objective,
-         DEM_relrat = Ratio_releases_to_generational_avg) %>%
-  mutate(across(where(is.character), ~na_if(.x, "")))  #convert blanks to NAs
-
-
-
-
+    DEM_CUnmat  = Most_Recent_Generational_Average,
+    DEM_enhann = SEP_avg_annual_releases_actual,
+    DEM_enhobj = SEP_primary_prod_objective,
+    DEM_relrat = Ratio_releases_to_generational_avg) %>%
+  mutate(across(where(is.character), ~ na_if(.x, "")))  # convert blanks to NAs

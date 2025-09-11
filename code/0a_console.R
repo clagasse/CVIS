@@ -13,11 +13,13 @@ rm(list = ls())
 library(scico) # scientific colour palettes
 # library(wesanderson); library(viridis)  #colour palettes
 library(patchwork) # for multi-panel plots
-library(ggridges)  # for ridgeline plots
+# library(ggridges)  # for ridgeline plots
 library(corrplot)  # correlation matrix plots
+# library(ggdist)  #ggplot visualizations for distributions
+library(ggspatial)
 
 ## reporting and markdown packages
-library(skimr)  # summary statistics
+# library(skimr)  # summary statistics
 # library(ggdist)
 library(gt)   # gg tables for markdown
 # library(Hmisc)   #weighted means and sds
@@ -33,6 +35,31 @@ library(pacea)  # bc_coast shapefile
 library(here)
 setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
+
+
+# load results from other scripts
+
+# freshwater stream subsets by CU boundary
+load(file.path(paths$fw, "2025-05-27_fw_streampicks.Rdata"))
+## freshwater stream network model outputs
+load(file.path(paths$fw, "2025-06-12_fw_stream_models.Rdata"))
+# freshwater stream indicator statistics
+load(file.path(paths$fw, "2025-09-10_fw_rearing_indicators.Rdata"))
+# migration paths
+load(file.path(paths$fw, "2025-07-25_fw_upstream_paths.Rdata"))
+# migration indicators
+load(file.path(paths$fw, "2025-09-10_migr_stats.Rdata"))
+# marine indicators
+load(file.path(paths$marine, "2025-09-10_marine_stats.Rdata"))
+
+# spatial models
+# PCIC ensemble model outputs by period
+PCIC_daily45 <- read_mdim(file.path(paths$climate, "PCIC_averaged", "combined",
+  "daily_rcp45_ensemble.nc"))
+# stream model outputs for freshwater spawning and rearing indicators
+load(file.path(paths$fw, "2025-09-10_fw_stream_models.Rds"))
+# lakes_Fr - freshwater lakes for plotting
+load(file.path(paths$fw, "BC_FWA_LAKES_FR.Rds"))
 
 
 
@@ -100,54 +127,23 @@ source(file.path(paths$code, "4a_CU_scoring.R"))
 
 # 5. Plotting -------------------------------------------------------------
 
+# plots of maps and other outputs for individual CU
+source(file.path(paths$code, "5a_plots_CU.R"))
+
 # plots of indicator values across CUs
 source(file.path(paths$code, "5b_plots_compare.R"))
 
 
 # 6. Reports --------------------------------------------------------------
-# load results from other scripts
-
-# freshwater stream subsets by CU boundary
-load(file.path(paths$fw, "2025-05-27_fw_streampicks.Rdata"))
-## freshwater stream network model outputs
-load(file.path(paths$fw, "2025-06-12_fw_stream_models.Rdata"))
-# freshwater stream indicator statistics
-load(file.path(paths$fw, "_fw_rearing_indicators.Rdata"))
-
-# migration paths
-load(file.path(paths$fw, "2025-07-25_fw_upstream_paths.Rdata"))
-# migration indicators
-load(file.path(paths$fw, "2025-09-04_migr_stats.Rdata"))
-
-
-
-
-
-
-
-# FW rearing indicators
-fwR_all_flat <- read_csv(file.path(paths$fw, "2025-06-13_fw_rearing_stats.csv"))
-
-fwR_one <- filter(fwR_all_flat, period == "3", RCP == "45")
-ggplot() +
-  geom_point(data = fwR_one, aes(x = avg_lon, y = prop_snow))
-
-
-# load migration indicators
-load(file.path(paths$fw, "2025-07-30_migr_stats.Rdata"))
-
-# load migration paths
-load(file.path(paths$fw, "2025-07-25_fw_upstream_paths.Rdata"))
-
 
 for (i in 1:n.CUs) {
 
   CU_IN_i <- cu_run$FULL_CU_IN[i]
-  CU_IN_i <- "CO-5"
+  # CU_IN_i <- "CO-5"
 
   rmarkdown::render(
-    file.path(here(), "code", "markdown", "0a_CU_profile.Rmd"),
-    output_file = paste(today, CU_IN_i, "_profile.html", sep = "_"),
+    file.path(here(), "code", "markdown", "6a_CU_indicator_report.Rmd"),
+    output_file = paste(today, CU_IN_i, "CVIS_report.html", sep = "_"),
     output_dir = here("output", "CU_profiles"),
     output_format = "html_document",
     params = list(FULL_CU_IN = CU_IN_i))
@@ -162,6 +158,7 @@ for (i in 1:n.CUs) {
 
 
 }
+
 
 ## comparison of freshwater spawning indicators across CUs
 rmarkdown::render(

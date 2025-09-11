@@ -14,7 +14,6 @@ setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
 
 # install_github("pbs-assess/pacea")
-library(ggdist)
 library(pacea)
 
 qlowsp <- 0.1   # lowest quantile for spatial variation in indicator
@@ -344,8 +343,9 @@ for (i in 1:n.CUs) {
 }
 
 
+save(mar_all_flat,
+  file = file.path(paths$marine, paste0(today, "_marine_stats.Rdata")))
 
-
-write.csv(mar_all_flat,
-  file = file.path(paths$marine, paste0(today, "_marine_stats.csv")),
-  row.names = FALSE)
+# write.csv(mar_all_flat,
+#   file = file.path(paths$marine, paste0(today, "_marine_stats.csv")),
+#   row.names = FALSE)

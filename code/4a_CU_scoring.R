@@ -14,22 +14,12 @@ library(here)
 setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
 
-# load FW rearing indicators
-fwR_all_flat <- read_csv(file.path(paths$fw, "2025-09-04_fw_rearing_stats.csv")) %>%
-  mutate(RCP = as.character(RCP)) %>%
-  rename(
-    period_code = period,
-    fw_res = Peak_Spawn_To_Ocean_Entry_Days
-  ) %>%
-  left_join(period_lookup, join_by(period_code)) %>%
-  relocate(period, .after = period_code)
-
-
-# load FW migration indicators
-load(file.path(paths$fw, "2025-09-04_migr_stats.Rdata"))
-
-# load marine indicators
-mar_all_flat <- read_csv(file.path(paths$marine, "2025-09-04_marine_stats.csv"))
+# # freshwater stream indicator statistics
+# load(file.path(paths$fw, "2025-09-10_fw_rearing_indicators.Rdata"))
+# # migration indicators
+# load(file.path(paths$fw, "2025-09-10_migr_stats.Rdata"))
+# # marine indicators
+# load(file.path(paths$marine, "2025-09-10_marine_stats.Rdata"))
 
 
 # combine indicators into common table
@@ -43,7 +33,7 @@ all_flat <- left_join(
 
 # extract indicator columns, including mean and variation
 all_inds <- all_flat %>%
-  select(FULL_CU_IN, CU_NAME, CU_Species, FAZ, period_code, RCP, SSP, contains(tbl_indicators$abbrev))
+  select(FULL_CU_IN, CU_NAME, CVIS_NAME, CU_Species, FAZ, period_code, RCP, SSP, contains(tbl_indicators$abbrev))
 
 
 
@@ -141,7 +131,8 @@ all_flat_std <- all_std %>%
 all_flat_std <- all_flat_std %>%
   left_join(all_flat, join_by(FULL_CU_IN, RCP, period_code))
 
-
+# order categories as factors
+all_flat_std$CU_Species <- factor(all_flat_std$CU_Species, levels = sort(unique(all_flat_std$CU_Species)))
 
 
 write.csv(all_flat_std, file = file.path(paths$indicators, paste0(today, "_standardized_indicators.csv")), row.names = FALSE)
