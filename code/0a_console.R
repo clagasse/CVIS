@@ -41,14 +41,12 @@ source(file.path(here(), "code", "0_setup.R"))
 
 # freshwater stream subsets by CU boundary
 load(file.path(paths$fw, "2025-05-27_fw_streampicks.Rdata"))
-## freshwater stream network model outputs
-load(file.path(paths$fw, "2025-06-12_fw_stream_models.Rdata"))
 # freshwater stream indicator statistics
-load(file.path(paths$fw, "2025-09-10_fw_rearing_indicators.Rdata"))
+load(file.path(paths$fw, "2025-09-11_fw_rearing_indicators.Rdata"))
 # migration paths
 load(file.path(paths$fw, "2025-07-25_fw_upstream_paths.Rdata"))
 # migration indicators
-load(file.path(paths$fw, "2025-09-10_migr_stats.Rdata"))
+load(file.path(paths$fw, "2025-09-11_migr_stats.Rdata"))
 # marine indicators
 load(file.path(paths$marine, "2025-09-10_marine_stats.Rdata"))
 
@@ -57,9 +55,23 @@ load(file.path(paths$marine, "2025-09-10_marine_stats.Rdata"))
 PCIC_daily45 <- read_mdim(file.path(paths$climate, "PCIC_averaged", "combined",
   "daily_rcp45_ensemble.nc"))
 # stream model outputs for freshwater spawning and rearing indicators
-load(file.path(paths$fw, "2025-09-10_fw_stream_models.Rds"))
+fwModels <- readRDS(file.path(paths$fw, "2025-09-11_fw_stream_models.Rds"))
+### Load ENM - these are lower resolution stream segments than bcfpa
+load(file.path(paths$fw, "ENM_all_sp.Rds"))
 # lakes_Fr - freshwater lakes for plotting
 load(file.path(paths$fw, "BC_FWA_LAKES_FR.Rds"))
+
+stations_stats <- read.csv(file.path(paths$climate, "Ruzzante_low_flows", "stations_performance.csv"))
+# watershed hydrologic regimes
+watershed_flow <- st_read(file.path(paths$climate, "Ruzzante_low_flows", "watersheds.gpkg"), quiet = TRUE) %>%
+  left_join(select(stations_stats, ID, regime), by = c("ID" = "ID")) %>%
+  mutate(regime = as.factor(regime)) %>%
+  st_transform(3005)
+
+# marine SST grid
+SST_grid <- st_read(file.path(paths$climate,
+  "Standardized_Marine_data", "Grid",  "SST_bc_coast.gdb"))
+MAZ     <- st_read(file.path(paths$spatial, "MAZ", "MAZ_Final.shp"))
 
 
 
@@ -144,17 +156,17 @@ for (i in 1:n.CUs) {
   rmarkdown::render(
     file.path(here(), "code", "markdown", "6a_CU_indicator_report.Rmd"),
     output_file = paste(today, CU_IN_i, "CVIS_report.html", sep = "_"),
-    output_dir = here("output", "CU_profiles"),
+    output_dir = here("output", "CU_reports"),
     output_format = "html_document",
     params = list(FULL_CU_IN = CU_IN_i))
 
-  ## overview of freshwater spawning indicators
-  rmarkdown::render(
-    file.path(here("code", "markdown", "2_FW_spawning_report.Rmd")),
-    output_file = paste(today, CU_IN_i, "fw_spawning.html", sep = "_"),
-    output_dir = here("output", "CU_profiles"),
-    output_format = "html_document",
-    params = list(FULL_CU_IN = CU_IN_i))
+  # ## overview of freshwater spawning indicators
+  # rmarkdown::render(
+  #   file.path(here("code", "markdown", "2_FW_spawning_report.Rmd")),
+  #   output_file = paste(today, CU_IN_i, "fw_spawning.html", sep = "_"),
+  #   output_dir = here("output", "CU_profiles"),
+  #   output_format = "html_document",
+  #   params = list(FULL_CU_IN = CU_IN_i))
 
 
 }

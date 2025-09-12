@@ -90,9 +90,9 @@ CVIS_dem <- cu_Fr %>%
   select(cuid, FULL_CU_IN, CU_NAME, CVIS_NAME, Species_simple,
     WSP_population_status, Most_Recent_Generational_Average,
     SEP_avg_annual_releases_actual, SEP_primary_prod_objective, Ratio_releases_to_generational_avg) %>%
-  rename(DEM_CUstatus = WSP_population_status,
-    DEM_CUnmat  = Most_Recent_Generational_Average,
-    DEM_enhann = SEP_avg_annual_releases_actual,
-    DEM_enhobj = SEP_primary_prod_objective,
-    DEM_relrat = Ratio_releases_to_generational_avg) %>%
+  rename(CUstatus = WSP_population_status,
+    CUnmat  = Most_Recent_Generational_Average,
+    enhann = SEP_avg_annual_releases_actual,
+    enhobj = SEP_primary_prod_objective,
+    relrat = Ratio_releases_to_generational_avg) %>%
   mutate(across(where(is.character), ~ na_if(.x, "")))  # convert blanks to NAs

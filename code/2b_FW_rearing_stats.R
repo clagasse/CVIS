@@ -415,7 +415,7 @@ ENM_stats <- function(ENM_cu,
     mutate(Fav_hist = Fav_f.0) %>%  # historical fav
     fill(Fav_hist, .direction = "down") %>%
     mutate(Fav = coalesce(Fav_f.9, Fav_hist),
-      Fav_change = Fav - Fav_hist, ) %>% # calculate change from historical
+      Favchange = Fav - Fav_hist, ) %>% # calculate change from historical
     select(-c(Fav_f.0, Fav_hist, Fav_f.9, Fav_change_9))
 
 
@@ -750,7 +750,7 @@ fwR_all_flat <- fwR_all_flat %>%
     period = as.numeric(period)) %>%
   rename(
     period_code = period,
-    fw_res = Peak_Spawn_To_Ocean_Entry_Days
+    fwres = Peak_Spawn_To_Ocean_Entry_Days
   ) %>%
   left_join(period_lookup, join_by(period_code)) %>%
   relocate(period, .after = period_code)

@@ -97,13 +97,18 @@ stream_indicator_plot <- function(fwModels,
   var_sym <- sym(variable)
   hist_sym <- sym(histogram_fill)
 
+  color_range <- range(fwModels[[as.character(var_sym)]], na.rm = TRUE)
+
   ## stream map
   p1 <- ggplot() +
     geom_sf(data = fwModels, aes(color = !!var_sym), linewidth = 1.) +
-    scale_color_scico(palette = scico_palette, direction = palette_direction) +
+    scale_color_scico(palette = scico_palette,
+      direction = palette_direction,
+      limits = color_range) +
     geom_sf(data = cu_boundary, color = "black", alpha = 0.3) +
     coord_sf(xlim = st_bbox(cu_boundary)[c(1, 3)],
-      ylim = st_bbox(cu_boundary)[c(2, 4)]) +
+      ylim = st_bbox(cu_boundary)[c(2, 4)],
+      datum = NA) +    # this eliminates axis labels
     labs(subtitle = plot_title,
       color = unit_label)
 
@@ -113,12 +118,14 @@ stream_indicator_plot <- function(fwModels,
 
   if (temp_stations == TRUE) {
     p1 <- p1 +
-      geom_sf(data = Tw_stations, aes(shape = "Temperature Gauge"), show.legend = TRUE) +
+      geom_sf(data = Tw_stations, aes(shape = "Temperature Gauge"),
+        size = 0.6, show.legend = TRUE) +
       coord_sf(xlim = st_bbox(cu_boundary)[c(1, 3)],
-        ylim = st_bbox(cu_boundary)[c(2, 4)]) +
+        ylim = st_bbox(cu_boundary)[c(2, 4)],
+        datum = NA) +
       scale_shape_manual(
         values = c("Temperature Gauge" = 16),
-        name = NULL # This is your legend title
+        name = NULL
       )
   }
 
@@ -144,13 +151,20 @@ stream_indicator_plot <- function(fwModels,
     annotate("text",
       x = mean(fwModels[[variable]], na.rm = TRUE),
       y = y_pos,
-      label = "mean")
+      label = "mean") +
+    theme_void() +
+    theme(
+      axis.line.x = element_line(color = "black"),
+      axis.text.x = element_text(color = "black"),
+      axis.ticks.x = element_line(color = "black"),
+      axis.title.x = element_text(color = "black")
+    )
 
   if (sum(!is.na(xlim)) > 0) {
     h1 <- h1 + xlim(xlim)
   }
 
-  p1 / h1 + plot_layout(heights = c(3, 1))
+  p1 / h1 + plot_layout(heights = c(4, 1))
 }
 
 
@@ -277,9 +291,123 @@ cu_hydrologic_regime <- function(cu_boundary_i,
     geom_sf(data = cu_boundary_i, color = "black", fill = "grey") +
     geom_sf(data = watershed_flow_cu, aes(fill = regime), alpha = 0.3) +
     geom_sf(data = stations_cu, colour = "darkred", size = 2) +
-    geom_sf(data = st_zm(fwModels_cu), alpha = 0.4) +
+    # geom_sf(data = st_zm(fwModels_cu), alpha = 0.4) +
     coord_sf(xlim = st_bbox(cu_boundary_i)[c(1, 3)],
-      ylim = st_bbox(cu_boundary_i)[c(2, 4)])
+      ylim = st_bbox(cu_boundary_i)[c(2, 4)]) +
+    labs(fill = "Hydrologic regime",
+      color = "Flow gauge")
+
+}
+
+
+
+# 9. CU lollipop plot of indicator values -------------------------------------------------
+
+
+# ind_cu <- get_CU_indicators(all_flat_std,
+#   cu_i = "CK-10",
+#   RCP_pick = "45",
+#   period_pick = "3",
+#   indicators_choose = tbl_indicators$abbrev)
+
+plot_cu_lolli <- function(data,   # need indicator data for a single CU, use get_cu_indicators()
+                          # indicators_choose = c("migrT", "migrQ", "migrA21", "migrdist"),
+                          indicators_choose = c("CUstatus", "CUnmat"),
+                          use_standardized = TRUE,  # use raw or transformed (standardized values)
+                          plot_colours = species_palette) {
+
+  colors <- c(
+    "CU" = "blue",
+    "Species Mean" = "black",
+    "Above Species Mean" = "darkred",
+    "Below Species Mean" = "forestgreen",
+    "GCM Variation" = "gray60"
+  )
+
+  data <- data %>%
+    filter(indicator %in% indicators_choose) %>%
+    mutate(
+      above_sp = case_when(
+        is.na(sp_value) ~ NA,
+        cu_value > sp_value ~ "Above Species Mean",
+        TRUE ~ "Below Species Mean"
+      )
+    )
+
+  # check if gcm variation values exist
+  gcm_check <- sum(data$stat == "qlowgcm")
+
+
+  data_wide <- data %>%
+    pivot_wider(id_cols = indicator,
+      names_from = stat,
+      values_from = c(cu_value, sp_value)
+    ) %>%
+    mutate(
+      above_sp = case_when(
+        is.na(sp_value_mean) ~ NA,
+        cu_value_mean > sp_value_mean ~ "Above Species Mean",
+        TRUE ~ "Below Species Mean"
+      )
+    )
+
+  p <- ggplot(data_wide, aes(x = indicator))
+  if (gcm_check >= 1) {   # add gcm variation if data exists
+    # GCM variation segment
+    p <- p + geom_segment(aes(xend = indicator, y = cu_value_qlowgcm, yend = cu_value_qhighgcm,
+      color = "GCM Variation"), size = 2)
+  }
+  # CU vs Species Mean segment
+  p <- p + geom_segment(aes(xend = indicator,
+    y = cu_value_mean, yend = sp_value_mean,
+    color = above_sp),
+  size = 3, alpha = 0.5) +
+    # Points
+    geom_point(aes(y = cu_value_mean, color = "CU"), size = 3) +
+    geom_point(aes(y = sp_value_mean, color = "Species Mean"), size = 2) +
+    # Flip coordinates
+    coord_flip() +
+    # Labels and theme
+    labs(
+      x = "",
+      y = "Standardized Value",
+      color = "Legend"
+    ) +
+    scale_color_manual(values = colors) +
+    ylim(0, 1)
+
+  return(p)
+}
+
+
+
+
+# 10. Marine indicators map -----------------------------------------------
+
+# SST_cu_sp <- subset_and_mean_sst(sf_data = filter(SST_grid, MAZ_Acrony == "GStr"),
+#   timing_df = cu_mar,
+#   RCP_pick = "45")
+#
+# MAZ <- st_read(file.path(paths$spatial, "MAZ", "MAZ_Final.shp"))
+#
+# MAZ_GStr <- filter(MAZ, MAZ_Acrony == "GStr")
+
+marine_indicator_plot <- function(SST_cu_sp,
+                                  MAZ,
+                                  scico_palette = "roma",
+                                  unit_label = "Degrees C",
+                                  plot_title = "",
+                                  palette_direction = -1) {
+
+  p <- ggplot() +
+    geom_sf(data = SST_cu_sp, aes(fill = mean_sst)) +
+    scale_fill_scico(palette = scico_palette, direction = palette_direction) +
+    geom_sf(data = MAZ, fill = NA, color = "black") +
+    coord_sf(xlim = st_bbox(MAZ)[c(1, 3)],
+      ylim = st_bbox(MAZ)[c(2, 4)]) +
+    labs(fill = unit_label,
+      title = plot_title)
+
 
 }
 

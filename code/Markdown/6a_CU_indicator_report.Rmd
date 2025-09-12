@@ -39,6 +39,8 @@ title: `r cu_run_i$CU_NAME` - Climate Vulnerability Indicator Report
 ---
 
 
+
+
 ```{r spatial subset, echo = FALSE, message = F, warning = F}
 
 
@@ -66,11 +68,6 @@ ENM_cu <- reaches_ENM_all[reaches_ENM_sub,]
 #read Temperature gauge locations
 Tw_stations <- st_read(file.path(paths$climate, "Tw_stations.gdb"), quiet = TRUE)
 
-#watershed hydrologic regimes
-watershed_flow <- st_read(file.path(paths$climate, "Ruzzante_low_flows", "watersheds.gpkg"), quiet = TRUE) %>%
-  left_join(select(stations_stats, ID, regime), by = c("ID" = "ID")) %>%
-  mutate(regime = as.factor(regime)) %>%
-  st_transform(3005)
 #subset in CU boundary
 temp <- unlist(st_intersects(cu_boundary_i, watershed_flow))
 watershed_flow_cu <- watershed_flow[temp,]
@@ -93,15 +90,55 @@ migr_flat_cu <- migr_all_flat[migr_all_flat$FULL_CU_IN == cu_i,]
 cu_timing_long_i <- cu_timing_long[cu_timing_long$FULL_CU_IN == cu_i, ]
 cu_timing_i <- cu_timing_Fr[cu_timing_Fr$FULL_CU_IN == cu_i, ]
 
+
+#get long data frame of standardized indicator values for the CU
+ind_cu <- get_CU_indicators(all_flat_std,
+  cu_i,
+  indicators_choose = tbl_indicators$abbrev,
+  RCP_pick = "45",
+  period_pick = "3"
+)
+
+
 ```
 
 
-```{r}
+```{r cu boundary}
 ### boundary location
 p1 <- cu_boundary_highlight(cu_boundary, 
                       cu_pick = cu_i)
 
 p1
+
+```
+
+## Demographic Overview
+ 
+### Status and abundance
+```{r demographics summary}
+
+tbl_indicators %>% 
+  filter(type == "dem") %>%
+  gt()
+
+dem_details <- cu_run_i %>%
+  select(FULL_CU_IN, CU_NAME, 
+         gen_length, 
+         WSP_population_status, Most_Recent_Generational_Average)
+         #SEP_avg_annual_releases_actual, SEP_primary_prod_objective)
+
+dem_details %>%
+  gt() %>%
+  fmt_number(
+    columns = c(gen_length, Most_Recent_Generational_Average),
+    decimals = 2
+  )
+
+pdem <- plot_cu_lolli(ind_cu,
+              indicators_choose = c("CUstatus", "CUnmat"))
+
+pdem
+
 
 ```
 
@@ -111,42 +148,34 @@ p1
 Timing by life history stage is taken from Wilson and Peacock (2025) [https://cdnsciencepub.com/doi/10.1139/cjfas-2024-0213].
 
 Data quality is rated on a scale of 1 to 5 based on number of observations and their recentness, with 1 being the highest quality data.
-```{r}
+```{r life stage timing}
 
 tp <- cu_timing_plot(cu_timing_long_i)
 
 tp
 ```
 
-## Demographic Overview
- 
-### Status and abundance
-```{r demographics summary}
-
-dem_details <- cu_run_i %>%
-  select(FULL_CU_IN, CU_NAME, 
-         gen_length, 
-         WSP_population_status, Most_Recent_Generational_Average,
-         SEP_avg_annual_releases_actual, SEP_primary_prod_objective)
-
-dem_details %>%
-  gt() %>%
-  fmt_number(
-    columns = c(gen_length, Most_Recent_Generational_Average, SEP_avg_annual_releases_actual),
-    decimals = 2
-  )
-
-
-```
-
-### Enhancement
-
-
-
 
 ## Spawning and Rearing
 
-### Stream accessibility
+```{r}
+
+tbl_indicators %>% 
+  filter(type == "fwR") %>%
+  gt()
+
+pfw <- plot_cu_lolli(ind_cu,
+              indicators_choose = c("highQpdelta", "lowQpdelta", 
+                                    "Tw8rate", "Tw8proj", 
+                                    "ct",
+                                    "Favchange",
+                                    "fwres"))
+pfw
+
+```
+
+
+### Stream accessibility map
 ```{r data tables}
 
 
@@ -201,7 +230,7 @@ fwR_cu$streams %>%
 
 ```
 
-### Hydrologic Characteristics
+### Hydrologic Regime
 
 ```{r hydrology}
 
@@ -550,9 +579,24 @@ ct_plot
 
 ## Upstream Migration
 
+```{r Upstream migr}
+
+tbl_indicators %>% 
+  filter(type == "migr") %>%
+  gt()
+
+pm <- plot_cu_lolli(ind_cu,
+              indicators_choose = c("migrT",
+                                    "migrQ",
+                                    "migrA21",
+                                    "migrdist"))
+pm
+```
+
+
 ### Migration path
 
-```{r}
+```{r MIgration path}
 
 
 mplot <- migration_path_plot(migr_cu,
@@ -568,7 +612,7 @@ mplot
 
 ### Migration timing and temperature
 
-```{r}
+```{r Migration temp}
 
 
 timeplot <- migr_timing_plot(migrT_rcps,
@@ -578,6 +622,49 @@ timeplot <- migr_timing_plot(migrT_rcps,
                              period_choose = c("1981-2010", "2041-2060"))
 
 timeplot
+
+```
+
+
+## Nearshore Marine
+
+```{r Marine}
+
+### subset indicator values
+cu_mar <- mar_all_flat[mar_all_flat$FULL_CU_IN == cu_i, ]
+
+start_month <- month.name[unique(cu_mar$ns_timing_start)]
+  end_month <- month.name[unique(cu_mar$ns_timing_end)]
+
+MAZ_pick <- unique(cu_mar$MAZ)
+
+
+tbl_indicators %>% 
+  filter(type == "mar") %>%
+  gt()
+
+pmar <- plot_cu_lolli(ind_cu,
+              indicators_choose = c("SSTproj",
+                                    "CI"))
+pmar
+
+```
+
+### SST
+
+```{r SST}
+
+# subset SST time and locations spatial object
+SST_cu_sp <- subset_and_mean_sst(sf_data = filter(SST_grid, MAZ_Acrony == MAZ_pick),
+  timing_df = cu_mar,
+  RCP_pick = "45")
+
+p <- marine_indicator_plot(SST_cu_sp,
+  MAZ = filter(MAZ, MAZ_Acrony == "GStr"),
+  plot_title = paste0("Projected SST, RCP 45, ", start_month, "-", end_month))
+
+p
+
 
 ```
 

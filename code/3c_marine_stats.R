@@ -232,55 +232,6 @@ ROM_SSS <- BCCM_SSS_long %>%
 #-----------3. Get indicators by CU ----------------------
 
 
-summarize_marine_var <- function(model_data,
-                                 months_include,
-                                 MAZ_pick,
-                                 var_pick,
-                                 decades) {
-
-  stat_cols <- "value"  # name of column with variable values
-
-  ind_name <- paste0(var_pick, "proj")  # prefix for indicator column name
-  rate_col_name <- paste0(var_pick, "rate", "_mean")  # rate change column
-
-  summary_data <- model_data %>%
-    as_tibble() %>%
-    filter(month %in% months_include, MAZ_Acrony == MAZ_pick) %>%
-    group_by(RCP) %>%
-    summarize(
-      across(
-        .cols = c(all_of(stat_cols)),
-        .fns = list(
-          mean       = ~ mean(.x, na.rm = T),
-          qlowsp     = ~ quantile(.x, qlowsp, na.rm = T),
-          qhighsp    = ~ quantile(.x, qhighsp, na.rm = T)
-        ),
-        .names = paste0(ind_name, "_", "{.fn}")
-      ),
-      .groups = "drop"
-    )
-
-  mean_col <- paste0(ind_name, "_mean")
-
-  # get historic value and calculate rate of change from historic
-  histT <- summary_data[[mean_col]][summary_data$RCP == "H"]
-
-  # make a new column for rate of change
-  summary_data <- summary_data %>%
-    mutate(!!rate_col_name := (.data[[mean_col]] - histT) / decades)
-
-  # summary_wide <- summary_data %>%
-  #   pivot_wider(
-  #     names_from = "RCP",
-  #     values_from = matches("mean|qlowsp|qhighsp|meanrate"),
-  #     names_glue = paste0(var_pick, "_", "{RCP}_{.value}")
-  #   )
-
-  return(summary_data)
-
-}
-
-
 for (i in 1:n.CUs) {
   cu_i <- cu_run$FULL_CU_IN[i]
 

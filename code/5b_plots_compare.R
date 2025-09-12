@@ -354,184 +354,63 @@ spatial_indicator_plot <- function(data,
 
 
 
-# 5. CU specific lollipop -------------------------------------------------
-
-
-# Function to create a lollipop chart of indicator values across CUs
-plot_cu_lolli <- function(data,
-                          indicator_pick,
-                          indicator_name,
-                          indicator_stat,
-                          use_standardized = FALSE,  # use raw or transformed (standardized values)
-                          plot_colours = species_palette) {
-  # Define suffixes
-  stat_suffix <- if_else(indicator_stat == "value", indicator_pick, indicator_stat)
-  sp_suffix <- c("qlowsp", "qhighsp")
-  gcm_range_suffix <- c("qlowgcm", "qhighgcm")
-
-  # take column names that contain prefix with model type
-  cols_sub <- names(data)[str_detect(names(data), indicator_pick)]
-
-  if (use_standardized == TRUE) {
-    cols_sub <- cols_sub[str_detect(cols_sub, "std")]  # select std columns
-  }
-  if (use_standardized == FALSE) {
-    cols_sub <- cols_sub[!str_detect(cols_sub, "std")]  # remove std columns if using raw
-  }
-
-  # take names with prefix that also contain stat suffix
-  stat_col <- cols_sub[str_detect(cols_sub, stat_suffix)] # must contain mean
-  min_spcol <- cols_sub[str_detect(cols_sub, sp_suffix[1])]
-  max_spcol <- cols_sub[str_detect(cols_sub, sp_suffix[2])]
-  min_gcmcol <- cols_sub[str_detect(cols_sub, paste0(gcm_range_suffix[1], collapse = "|"))]
-  max_gcmcol <- cols_sub[str_detect(cols_sub, paste0(gcm_range_suffix[2], collapse = "|"))]
-
-  id_col <- "CVIS_NAME"
-  sp_col <- "CU_Species"
-
-  # Check if mean and ID columns exist
-  if (!all(c(id_col, stat_col) %in% names(data))) {
-    stop("One or more required columns are missing in the data.")
-  }
-
-  # Prepare data for plotting
-  plot_data <- data %>%
-    select(all_of(c(id_col, stat_col, sp_col))) %>%
-    rename(
-      mean = !!stat_col,
-      id = !!id_col,
-      sp = !!sp_col
-    )
-
-  # palette_colors <- pal_npg("nrc")(5) # 4 colors from Nature Publishing Group palette
-
-  # # Create a named color palette using unique categories
-  # unique_sp <- unique(plot_data$sp)
-  # palette_colors <- pal_npg("nrc")(length(unique_sp))
-  # names(palette_colors) <- unique_sp
-
-  # plot_data$color <- species_palette[plot_data$sp]
-  # plot_data$label <- paste0("<span style='color:",
-  #                           plot_data$color,
-  #                           "'>",
-  #                           plot_data$sp,
-  #                           "</span>")
-  #
-
-  # Create a unique ordering of id by sp
-  ordered_ids <- plot_data %>%
-    arrange(sp, id) %>%
-    distinct(id) %>%
-    pull(id)
-
-  # Apply the ordering
-  plot_data$id <- factor(plot_data$id, levels = ordered_ids)
-
-  # Add min and max if available
-  if (length(min_spcol) == 1 && length(max_spcol) == 1) {
-    plot_data <- plot_data %>%
-      mutate(min = data[[min_spcol]], max = data[[max_spcol]])
-    has_range <- TRUE
-  } else {
-    has_range <- FALSE
-  }
-
-  # add GCM range if available
-  if (length(min_gcmcol) == 1 && length(max_gcmcol) == 1) {
-    plot_data <- plot_data %>%
-      mutate(mingcm = data[[min_gcmcol]], maxgcm = data[[max_gcmcol]])
-    has_gcm <- TRUE
-  } else {
-    has_gcm <- FALSE
-  }
-
-  # Create the lollipop chart
-  p <- ggplot(plot_data, aes(x = id, color = sp)) +
-    scale_fill_manual(values = plot_colours)
-
-  if (has_range) {
-    p <- p + geom_segment(aes(xend = id, y = min, yend = max),
-      color = "darkgrey",
-      linewidth = 2.5
-    )
-  }
-
-  if (has_gcm) {
-    p <- p + geom_segment(
-      aes(xend = id, y = mingcm, yend = maxgcm),
-      color = "darkred",
-      linewidth = 1
-    )
-  }
-
-  p + geom_point(aes(y = mean), size = 2.5) +
-    labs(
-      title = paste(indicator_name),
-      x = "CU",
-      y = stat_col,
-      color = "Species"
-    ) +
-    coord_flip() +
-    theme(axis.text.y = element_text(size = 7))
-}
-
 
 
 # Test plots --------------------------------------------------------------
 
 
 
-flat_std_sub <- filter(
-  all_flat_std,
-  RCP == "45", period_code == 3
-)
-
-for (i in 1:nrow(tbl_indicators)) {
-  # Construct filename
-  file_name <- paste0(paths$figures, "/ind_", tbl_indicators$abbrev[i], ".png")
-
-  png(filename = file_name, width = 800, height = 600)
-
-  p <- plot_lollipop(flat_std_sub,
-    indicator_pick = tbl_indicators$abbrev[i],
-    indicator_stat = tbl_indicators$stat[i],
-    indicator_name = tbl_indicators$name[i],
-    use_standardized = FALSE
-  )
-
-  print(p)
-
-  # Construct filename
-  file_name <- paste0(paths$figures, "/map_", tbl_indicators$abbrev[i], ".png")
-
-  png(filename = file_name, width = 800, height = 600)
-
-  p2 <- spatial_indicator_plot(flat_std_sub,
-    cu_boundary,
-    indicator_pick = tbl_indicators$abbrev[i],
-    indicator_stat = tbl_indicators$stat[i],
-    indicator_name = tbl_indicators$name[i])
-
-  print(p2)
-
-  dev.off()
-}
-
-
-p <- plot_std_vs_raw(flat_std_sub,
-  indicator_pick = tbl_indicators$abbrev[i],
-  indicator_stat = tbl_indicators$stat[i],
-  indicator_name = tbl_indicators$name[i],
-  indicator_fun = tbl_indicators$std_fun[i]
-)
-
-print(p)
-
-# make a multi-panel plot of standardized indicator values
-
-
-multi_p <- multi_indicator_plot(flat_std_sub,
-  indicators_metadata = tbl_indicators,
-  title_custom = "Migration indicators")
-
-print(multi_p)
+# flat_std_sub <- filter(
+#   all_flat_std,
+#   RCP == "45", period_code == 3
+# )
+#
+# for (i in 1:nrow(tbl_indicators)) {
+#   # Construct filename
+#   file_name <- paste0(paths$figures, "/ind_", tbl_indicators$abbrev[i], ".png")
+#
+#   png(filename = file_name, width = 800, height = 600)
+#
+#   p <- plot_lollipop(flat_std_sub,
+#     indicator_pick = tbl_indicators$abbrev[i],
+#     indicator_stat = tbl_indicators$stat[i],
+#     indicator_name = tbl_indicators$name[i],
+#     use_standardized = FALSE
+#   )
+#
+#   print(p)
+#
+#   # Construct filename
+#   file_name <- paste0(paths$figures, "/map_", tbl_indicators$abbrev[i], ".png")
+#
+#   png(filename = file_name, width = 800, height = 600)
+#
+#   p2 <- spatial_indicator_plot(flat_std_sub,
+#     cu_boundary,
+#     indicator_pick = tbl_indicators$abbrev[i],
+#     indicator_stat = tbl_indicators$stat[i],
+#     indicator_name = tbl_indicators$name[i])
+#
+#   print(p2)
+#
+#   dev.off()
+# }
+#
+#
+# p <- plot_std_vs_raw(flat_std_sub,
+#   indicator_pick = tbl_indicators$abbrev[i],
+#   indicator_stat = tbl_indicators$stat[i],
+#   indicator_name = tbl_indicators$name[i],
+#   indicator_fun = tbl_indicators$std_fun[i]
+# )
+#
+# print(p)
+#
+# # make a multi-panel plot of standardized indicator values
+#
+#
+# multi_p <- multi_indicator_plot(flat_std_sub,
+#   indicators_metadata = tbl_indicators,
+#   title_custom = "Migration indicators")
+#
+# print(multi_p)

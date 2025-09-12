@@ -84,18 +84,18 @@ period_lookup <- tribble(
 # table of indicator abbreviations and full names
 tbl_indicators <- tribble(
   ~abbrev,      ~type,    ~stat, ~std_fun, ~name,
-  "Fav_change", "fwR",    "mean",   "invlinear_std",     "ENM Change in Favourability",
+  "Favchange", "fwR",    "mean",   "invlinear_std",     "ENM Change in Favourability",
   "ct",         "fwR",    "mean",    "linear_std",        "Cumulative threats to freshwater habitat",
   "Tw8rate",    "fwR",    "mean",    "linear_std",        "Rate of change in August Temperature",
   "Tw8proj",    "fwR",    "mean",     "exponential_std", "Projected August Temperature",
   "highQpdelta", "fwR",   "mean",   "linear_std", "Proportional change in August flow (stream model)",
   "lowQpdelta",  "fwR",   "mean",   "invlinear_std", "Proportional change in Nov-Jan flow (stream model)",
   "st8pdelta",  "fwR",    "mean", "invlinear_std", "Proportional change in August flow (station model)",
-  "fw_res",     "fwR",    "value",    "step_std",   "Freshwater residency time",
+  "fwres",     "fwR",    "value",    "step_std",   "Freshwater residency time",
   "migrT",      "migr",   "mean",    "linear_std",     "Projected temperature during upstream migration",
   "migrQ",      "migr",   "mean",      "linear_std",    "Projected discharge during upstream migration",
   "migrA21",    "migr",   "mean",    "exponential_std", "Average proportion of path above 21 degrees during upstream migration",
-  "migr_wdist",   "migr", "value",      "linear_std",     "Length of upstream migration",
+  "migrdist",   "migr",  "value",      "linear_std",     "Length of upstream migration",
   "SSTproj",     "mar",   "mean", "linear_std",  "Projected nearshore SST during ocean entry",
   "CI",          "mar",   "mean", "linear_std",   "Cumulative impacts to marine nearshore habitat",
   "CUstatus",    "dem",   "value",    "cat_std", "WSP status",
@@ -169,5 +169,4 @@ theme_cvis <- function(base_size = 14) {
       strip.text = element_text(size = rel(0.85), face = "bold", color = "white", margin = margin(5, 0, 5, 0))
     )
 }
-theme_set(theme_cvis())
 theme_set(theme_cvis())
