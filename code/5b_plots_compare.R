@@ -17,14 +17,44 @@
 #
 ###############################################################################
 
+# libraries for plotting
+library(ggforce)   # for custom facet sizes
+library(ggtext)  # for coloured text in axis labels
+library(RColorBrewer)
+# library(ggsci)   # colour palettes - pal_futurama
+
 ## color palette function
 get_scico_palette <- function(data, column, palette_name = "berlin") {
   categories <- sort(unique(data[[column]]))
   setNames(scico(length(categories), palette = palette_name), categories)
 }
 
-species_palette <- get_scico_palette(cu_run, "CU_Species", "berlin")
+# species_palette <- get_scico_palette(cu_run, "CU_Species", "batlow")
 
+
+get_brewer_palette <- function(data, column, palette_name = "Set2") {
+  categories <- sort(unique(data[[column]]))
+
+  setNames(brewer.pal(length(categories), name = palette_name), categories)
+  # brewer.pal(n, palette)
+}
+
+species_palette <- get_brewer_palette(cu_run, "CU_Species", "Set1")
+
+
+# species_palette <- pal_futurama()(length(unique(cu_run$CU_Species)))
+#
+# species_palette_lookup <- tibble("sp" = unique(cu_run$CU_Species),
+#                                     "col" = species_palette)
+
+# species_colors <- c(
+#   "Chinook" = "#1b9e77",
+#   "Sockeye (Lake Type)" = "#d95f02",
+#   "Coho" = "#7570b3",
+#   "Chum" = "goldenrod",
+#   "Pink" = "darkmagenta"
+# )
+#
 
 # 1. Indicator value comparison, standardized vs raw ----------------------
 
@@ -43,7 +73,9 @@ plot_std_vs_raw <- function(data,
   gcm_range_suffix <- c("qlowgcm", "qhighgcm")
 
   # Define suffixes
-  stat_suffix <- if_else(indicator_stat == "value", indicator_pick, indicator_stat)
+  stat_suffix <- if_else(indicator_stat %in% c("value", "category"), indicator_pick, indicator_stat)
+
+  if (indicator_stat == "category") include_histogram <- FALSE # check if indicator is a category
 
   # take column names that contain prefix with model type
   cols_sub <- names(data)[str_detect(names(data), indicator_pick)]
@@ -83,7 +115,7 @@ plot_std_vs_raw <- function(data,
 
   p <- ggplot(plot_data) +
     labs(
-      title = paste(indicator_name),
+      # title = paste(indicator_name),
       subtitle = paste0("Standardization function: ", indicator_fun),
       color = "Species",
       x = "Raw (unstandardized)",
@@ -137,10 +169,14 @@ plot_lollipop <- function(data,
                           indicator_stat,
                           use_standardized = FALSE,  # use raw or transformed (standardized values)
                           plot_colours = species_palette) {
-  # Define suffixes
-  stat_suffix <- if_else(indicator_stat == "value", indicator_pick, indicator_stat)
+
+  id_col <- "CVIS_NAME"
+  sp_col <- "CU_Species"
   sp_suffix <- c("qlowsp", "qhighsp")
   gcm_range_suffix <- c("qlowgcm", "qhighgcm")
+
+  # Define suffixes
+  stat_suffix <- if_else(indicator_stat %in% c("value", "category"), indicator_pick, indicator_stat)
 
   # take column names that contain prefix with model type
   cols_sub <- names(data)[str_detect(names(data), indicator_pick)]
@@ -148,9 +184,7 @@ plot_lollipop <- function(data,
   if (use_standardized == TRUE) {
     cols_sub <- cols_sub[str_detect(cols_sub, "std")]  # select std columns
   }
-  if (use_standardized == FALSE) {
-    cols_sub <- cols_sub[!str_detect(cols_sub, "std")]  # remove std columns if using raw
-  }
+  if (use_standardized == FALSE) cols_sub <- cols_sub[!str_detect(cols_sub, "std")]
 
   # take names with prefix that also contain stat suffix
   stat_col <- cols_sub[str_detect(cols_sub, stat_suffix)] # must contain mean
@@ -159,13 +193,6 @@ plot_lollipop <- function(data,
   min_gcmcol <- cols_sub[str_detect(cols_sub, paste0(gcm_range_suffix[1], collapse = "|"))]
   max_gcmcol <- cols_sub[str_detect(cols_sub, paste0(gcm_range_suffix[2], collapse = "|"))]
 
-  id_col <- "CVIS_NAME"
-  sp_col <- "CU_Species"
-
-  # Check if mean and ID columns exist
-  if (!all(c(id_col, stat_col) %in% names(data))) {
-    stop("One or more required columns are missing in the data.")
-  }
 
   # Prepare data for plotting
   plot_data <- data %>%
@@ -176,34 +203,16 @@ plot_lollipop <- function(data,
       sp = !!sp_col
     )
 
-  # palette_colors <- pal_npg("nrc")(5) # 4 colors from Nature Publishing Group palette
-
-  # # Create a named color palette using unique categories
-  # unique_sp <- unique(plot_data$sp)
-  # palette_colors <- pal_npg("nrc")(length(unique_sp))
-  # names(palette_colors) <- unique_sp
-
-  # plot_data$color <- species_palette[plot_data$sp]
-  # plot_data$label <- paste0("<span style='color:",
-  #                           plot_data$color,
-  #                           "'>",
-  #                           plot_data$sp,
-  #                           "</span>")
-  #
-
-  # Create a unique ordering of id by sp
-  ordered_ids <- plot_data %>%
-    arrange(sp, id) %>%
-    distinct(id) %>%
-    pull(id)
-
-  # Apply the ordering
-  plot_data$id <- factor(plot_data$id, levels = ordered_ids)
+  plot_data <- plot_data %>%
+    mutate(id_label = paste0(
+      "<span style='color:", plot_colours[plot_data$sp], "'>",
+      plot_data$id, "</span>"
+    ))
 
   # Add min and max if available
   if (length(min_spcol) == 1 && length(max_spcol) == 1) {
     plot_data <- plot_data %>%
-      mutate(min = data[[min_spcol]], max = data[[max_spcol]])
+      mutate(minsp = data[[min_spcol]], maxsp = data[[max_spcol]])
     has_range <- TRUE
   } else {
     has_range <- FALSE
@@ -218,36 +227,48 @@ plot_lollipop <- function(data,
     has_gcm <- FALSE
   }
 
-  # Create the lollipop chart
-  p <- ggplot(plot_data, aes(x = id, color = sp)) +
-    scale_fill_manual(values = plot_colours)
+  p <- ggplot(plot_data, aes(x = id_label))
 
+  # Actual plot layers
   if (has_range) {
-    p <- p + geom_segment(aes(xend = id, y = min, yend = max),
-      color = "darkgrey",
-      linewidth = 2.5
-    )
+    p <- p + geom_segment(aes(xend = id_label, y = minsp, yend = maxsp),
+      color = "darkgrey", linewidth = 2.5)
   }
-
   if (has_gcm) {
-    p <- p + geom_segment(
-      aes(xend = id, y = mingcm, yend = maxgcm),
-      color = "darkred",
-      linewidth = 1
-    )
+    p <- p + geom_segment(aes(xend = id_label, y = mingcm, yend = maxgcm),
+      color = "darkred", linewidth = 1)
   }
 
-  p + geom_point(aes(y = mean), size = 2.5) +
+  # Point layer with dynamic fill
+  p <- p + geom_point(aes(y = mean, fill = mean), shape = 21, color = "black", size = 2.5) +
+    scale_fill_gradient(name = "Mean", low = "lightblue", high = "darkblue") +
+
+    # Dummy layers for line segment legend
+    geom_segment(aes(x = 1, xend = 1, y = 1, yend = 2, color = "Spatial range"),
+      linewidth = 2.5, inherit.aes = FALSE) +
+    geom_segment(aes(x = 1, xend = 1, y = 1, yend = 2, color = "GCM range"),
+      linewidth = 1, inherit.aes = FALSE) +
+
+    # Manual legend styling for segments
+    scale_color_manual(
+      values = c("Spatial range" = "darkgrey",
+        "GCM range" = "darkred")
+    ) +
+
     labs(
       title = paste(indicator_name),
-      x = "CU",
-      y = stat_col,
-      color = "Species"
+      y = stat_col
     ) +
     coord_flip() +
-    theme(axis.text.y = element_text(size = 7))
+    theme(
+      axis.text.y = element_markdown(size = 7),
+      legend.position = "right"
+    )
+
+  return(p)
 }
 
+data <- filter_std
 
 
 # 3. Multiple indicator plot ----------------------------------------------
@@ -309,13 +330,15 @@ multi_indicator_plot <- function(data,
 
 spatial_indicator_plot <- function(data,
                                    outline = Fr_basin,
-                                   sp_pick = "Chinook",
+                                   sp_pick = c("Chinook", "Coho", "Sockeye (Lake Type)"),
                                    indicator_pick,
                                    indicator_name,
                                    indicator_stat = "mean",
-                                   use_standardized = FALSE,
-                                   scico_palette = "berlin",
-                                   palette_direction = 1) {
+                                   use_standardized = TRUE,
+                                   brewer_palette = "RdYlGn",
+                                   palette_direction = -1) {
+  sp_col <- "CU_Species"
+
   # Define suffixes
   stat_suffix <- if_else(indicator_stat == "value", indicator_pick, indicator_stat)
 
@@ -329,23 +352,30 @@ spatial_indicator_plot <- function(data,
     cols_sub <- cols_sub[!str_detect(cols_sub, "std")]  # remove std columns if using raw
   }
 
+  # cols_sub <- cols_sub[!str_detect(cols_sub, "gcm")]  # remove gcm variation columns
+
   # take names with prefix that also contain stat suffix
   stat_col <- cols_sub[str_detect(cols_sub, stat_suffix)] # must contain mean
 
-  data <- mutate(data, plot_col = .data[[stat_col]])
+  data <- mutate(data, plot_col = .data[[stat_col]],
+    sp_col = .data[[sp_col]])
 
-  cu_boundary_plot <- filter(cu_boundary, Species == sp_pick)
+  data_sp <- filter(data, sp_col %in% sp_pick)
 
-  cu_boundary_plot <- cu_boundary_plot %>%
-    left_join(select(data, FULL_CU_IN, plot_col), join_by(FULL_CU_IN))
+  cu_boundary_plot <- cu_boundary %>%
+    left_join(select(data_sp, FULL_CU_IN, plot_col), join_by(FULL_CU_IN)) %>%
+    filter(!is.na(plot_col))
+
 
   p <- ggplot() +
     geom_sf(data = cu_boundary_plot, aes(fill = plot_col), alpha = 0.3) +
-    scale_fill_scico(palette = scico_palette, direction = palette_direction) +
+    scale_fill_distiller(palette = brewer_palette, direction = palette_direction) +
     # geom_label(data = cu_boundary_show, aes(label = CUID), size = 2) +
     geom_sf(data = Fr_basin, colour = "black", fill = NA, alpha = 0.3) +
-    labs(subtitle = paste(sp_pick, "-", indicator_pick),
-      fill = indicator_pick)
+    labs(fill = indicator_pick) +
+    coord_sf(datum = NA) +
+    facet_grid(. ~ Species)
+
 
   return(p)
 
@@ -354,6 +384,133 @@ spatial_indicator_plot <- function(data,
 
 
 
+# 5. Tile plot of standardized indicator values ---------------------------
+
+
+indicator_tile_plot <- function(data,
+                                indicators_choose = c("migrT", "migrQ", "migrA21", "migr_wdist"),
+                                brewer_palette = "RdYlGn",
+                                palette_direction = -1,
+                                plot_colours = species_palette) {
+
+  id_col <- "CVIS_NAME"
+  sp_col <- "CU_Species"
+
+  # take column names that contain prefix with model type
+  cols_sub <- names(data)[str_detect(names(data), paste0(indicators_choose, collapse = "|"))]
+
+  cols_sub <- cols_sub[str_detect(cols_sub, "std")]  # select std columns
+
+  cols_sub <- cols_sub[!str_detect(cols_sub, "gcm")]  # remove gcm variation columns
+
+  # Prepare data for plotting
+  plot_data <- data %>%
+    select(all_of(c(id_col, sp_col, cols_sub))) %>%
+    pivot_longer(names_to = "indicator",
+      values_to = "value",
+      cols = cols_sub) %>%
+    rename(
+      id = !!id_col,
+      sp = !!sp_col
+    ) %>%
+    mutate(indicator = str_remove(indicator, "std_")) %>%
+    mutate(indicator = str_remove(indicator, "_mean"))
+
+  plot_data <- plot_data %>%
+    mutate(id_label = paste0(
+      "<span style='color:", plot_colours[plot_data$sp], "'>",
+      plot_data$id, "</span>"
+    ))
+
+
+  p <- ggplot(plot_data, aes(y = id_label, x = indicator)) +
+    geom_tile(aes(fill = value)) +
+    geom_text(aes(label = round(value, 1)), size = 2) + # Add the text labels
+    scale_fill_distiller(palette = brewer_palette, direction = palette_direction) +
+    theme(
+      axis.text.y = element_markdown(size = 6),
+      axis.text.x = element_text(size = 8, angle = 45, hjust = 1),
+      legend.position = "none"
+    ) +
+    labs(y = NULL,
+      x = NULL)
+
+
+  # ggplot(plot_data, aes(y = id, x = indicator)) +
+  #   geom_tile(aes(fill = value)) +
+  #   geom_text(aes(label = round(value, 1)), size = 1.8) +
+  #   scale_fill_scico(palette = scico_palette,
+  #     direction = palette_direction,
+  #     limits = c(0, 1)) +
+  #   theme(
+  #     axis.text.y = element_text(size = 6),
+  #     axis.text.x = element_text(size = 8, angle = 45, hjust = 1),
+  #     legend.position = "none",
+  #     # plot.margin = margin(5, 5, 5, 5)
+  #   ) +
+  #   labs(y = NULL,
+  #     x = NULL) +
+  #   # facet_grid(sp ~ ., scales = "free_y")
+  #   facet_col(~sp, scales = "free_y", space = "free")
+
+  p
+
+}
+
+#
+data <- all_flat_std %>%
+  filter(RCP == "45",
+    period_code == 3)
+
+indicator_tile_plot(data,
+  indicators_choose = c("Favchange", "ct", "fwres"))
+
+
+indicator_tile_plot(filter_std,
+  # indicators_metadata = tbl_indicators,
+  indicators_choose = tbl_indicators$abbrev[tbl_indicators$type == "migr"],
+  title_custom = "Migration indicators")
+
+
+dem_p <- indicator_tile_plot(filter_std,
+  # indicators_metadata = tbl_indicators,
+  indicators_choose = tbl_indicators$abbrev[tbl_indicators$type == "dem"],
+  title_custom = "Demographic indicators")
+
+# 6. Correlation analysis and plots ---------------------------------------
+
+
+get_correlation_matrix <- function(data,
+                                   indicators_choose = tbl_indicators$abbrev,
+                                   use_standardized = TRUE) {
+  # take column names that contain prefix with model type
+  cols_sub <- names(data)[str_detect(names(data), paste0(indicators_choose, collapse = "|"))]
+
+  if (use_standardized == TRUE) {
+    cols_sub <- cols_sub[str_detect(cols_sub, "std")]  # select std columns
+  }
+  if (use_standardized == FALSE) {
+    cols_sub <- cols_sub[!str_detect(cols_sub, "std")]  # remove std columns if using raw
+  }
+
+  cols_sub <- cols_sub[str_detect(cols_sub, "mean")]  # take only mean, get rid of gcm ranges
+
+  cor_data <- data %>%
+    select(all_of(cols_sub))
+
+  cor(cor_data,  use = "pairwise.complete.obs")
+
+
+}
+
+# cor_indicators <- tbl_indicators$abbrev[tbl_indicators$type %in% c("fwR", "migr")]
+#
+# std_cor <- get_correlation_matrix(filter_std,
+#   #indicators_choose = cor_indicators,
+#   use_standardized = F)
+#
+#
+# corrplot(std_cor,  method = "number", tl.col = "black")
 
 
 # Test plots --------------------------------------------------------------

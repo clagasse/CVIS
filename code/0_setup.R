@@ -98,7 +98,7 @@ tbl_indicators <- tribble(
   "migrdist",   "migr",  "value",      "linear_std",     "Length of upstream migration",
   "SSTproj",     "mar",   "mean", "linear_std",  "Projected nearshore SST during ocean entry",
   "CI",          "mar",   "mean", "linear_std",   "Cumulative impacts to marine nearshore habitat",
-  "CUstatus",    "dem",   "value",    "cat_std", "WSP status",
+  "CUstatus",    "dem",   "category",    "cat_std", "WSP status",
   "CUnmat",      "dem",   "value",  "decay_std", "Number of mature individuals")
 
 
@@ -162,11 +162,11 @@ theme_cvis <- function(base_size = 14) {
       legend.title = element_text(size = rel(0.85), face = "bold"),
       legend.text = element_text(size = rel(0.70), face = "bold"),
       legend.key = element_rect(fill = "transparent", colour = NA),
-      legend.key.size = unit(1.5, "lines"),
+      legend.key.size = unit(1.2, "lines"),
       legend.background = element_rect(fill = "transparent", colour = NA),
       # Les étiquettes dans le cas d'un facetting
-      strip.background = element_rect(fill = "#17252D", color = "#17252D"),
-      strip.text = element_text(size = rel(0.85), face = "bold", color = "white", margin = margin(5, 0, 5, 0))
+      strip.background = element_rect(fill = "black", color = "black"),
+      strip.text = element_text(size = rel(0.6), face = "bold", color = "white", margin = margin(2, 0, 2, 0))
     )
 }
 theme_set(theme_cvis())

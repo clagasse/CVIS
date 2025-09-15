@@ -139,7 +139,8 @@ stream_indicator_plot <- function(fwModels,
   # add custom labels for BCFishPass
   if (histogram_fill == "model_rs") {
     h1 <- h1 +    labs(fill = "Habitat Potential (BC Fishpass)") +
-      scale_fill_manual(values = c("2-ACCESSIBLE" = "darkgrey", "1-SPAWNING/REARING" = "forestgreen"))
+      scale_fill_manual(values = c("2-ACCESSIBLE" = "darkgrey",
+        "1-SPAWNING/REARING" = "forestgreen"))
   }
 
 
@@ -147,7 +148,8 @@ stream_indicator_plot <- function(fwModels,
   y_pos <- max(ggplot_build(h1)$data[[1]]$count, na.rm = TRUE) * 1.05
   # add mean value line and label
   h1 <- h1 +
-    geom_vline(aes(xintercept = mean(!!var_sym, na.rm = TRUE)), color = "red", linetype = "dashed") +
+    geom_vline(aes(xintercept = mean(!!var_sym, na.rm = TRUE)),
+      color = "red", linetype = "dashed") +
     annotate("text",
       x = mean(fwModels[[variable]], na.rm = TRUE),
       y = y_pos,

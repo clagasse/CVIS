@@ -5,6 +5,8 @@ output:
     number-sections: true
     toc_float: true
     toc_collapsed: true
+    toc_depth: 3
+    theme: flatly
 params:
   FULL_CU_IN: "CK-3"
 ---
@@ -117,9 +119,6 @@ p1
 ### Status and abundance
 ```{r demographics summary}
 
-tbl_indicators %>% 
-  filter(type == "dem") %>%
-  gt()
 
 dem_details <- cu_run_i %>%
   select(FULL_CU_IN, CU_NAME, 
@@ -133,6 +132,11 @@ dem_details %>%
     columns = c(gen_length, Most_Recent_Generational_Average),
     decimals = 2
   )
+
+
+tbl_indicators %>% 
+  filter(type == "dem") %>%
+  gt()
 
 pdem <- plot_cu_lolli(ind_cu,
               indicators_choose = c("CUstatus", "CUnmat"))

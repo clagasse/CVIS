@@ -1,0 +1,552 @@
+---
+title: "CVIS Report"
+output:
+  html_document:
+    toc: true
+    number-sections: true
+    toc_float: true
+    toc_collapsed: true
+    toc_depth: 3
+    theme: flatly
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning = F, message = F, results = 'asis')
+
+```
+
+This report summarizes climate vulnerability indicators for conservation units of Pacific salmon in the Fraser basin. Preliminary outputs of indicators are shown for 49 conservation units.
+
+# Methods Overview
+
+For each indicator of environmental change, a historical baseline period beginning in 1980 was compared to projected conditions averaged over 20-year periods, from 2041 to 2060, 2061 to 2080, and 2081 to 2100. Indicators were also compared across two emissions scenarios or representative concentration pathways (RCPs), RCP45 and RCP85, representing moderate and high trajectories for continued greenhouse gas emissions. We focus on the mid-century 2041 to 2060 period and RCP45 emissions scenario for comparison of vulnerability scores due to its relevancy for informing planning and decision-making, and lower uncertainty compared to end-of-century projections.
+
+**Indicator Standardization** Raw indicator values were standardized between 0 and 1 to improve comparability, facilitate interpretation, and represent risk using mechanistic relationships and thresholds. A linear function was used for most indicators, with the lowest and highest values scaled to the minimum and maximum mean CU value across all GCMs. An exponential function was used for the projected temperature indicator to represent increasing risk at higher temperatures. Ecological niche model values were not standardized as the model predicted improved habitat favourability for most CUs.
+
+### Data sources
+
+**BCFishPass** - Freshwater fish habitat accessibility model used to subset accessible streams. [<https://smnorris.github.io/bcfishpass/index.html>]\
+**CU boundaries** - spatial boundaries for CUs based on Freshwater Adaptive Zones. Taken from PSF data library [<https://data.salmonwatersheds.ca/result?datasetid=104>]\
+**PCIC gridded model output** - indicators from the Salmon Climate Impacts portal [<https://pacificclimate.org/analysis-tools/salmon-climate-impacts-portal>]\
+**PSF CU-Specific Life History Timing** - timing of freshwater life history events for each CU, used to subset PCIC model outputs for upstream migration timing [<https://datadryad.org/dataset/doi:10.5061/dryad.wm37pvmwx>]
+
+### Indicators
+
+The following is a preliminary list of indicators, their standardization method, life stage (type), and their abbreviation. Not all indicators are currently included in this report:
+
+```{r}
+
+tbl_indicators %>%
+  gt() %>%
+  tab_header("Vulnerability Indicators") %>%
+  tab_options(
+    table.font.size = "small",           # Reduce overall font size
+    data_row.padding = px(1),           # Minimize padding between rows
+  )
+
+```
+
+### Standardized indicator values {.tabset .tabset-pills}  
+
+The following plots show standardized values of indicators across all conservation units. The values are standardized to a 0-1 scale, where 0 is the lowest value and 1 is the highest value for each indicator for each projected time period and emissions scenario.
+
+```{r all indicator plots, results = 'asis'}
+
+for (RCP_pick in unique(all_flat_std$RCP))
+{
+
+  cat("#### ", RCP_pick, "\n\n", sep = "")
+
+  filter_std <- all_flat_std %>%
+    filter(RCP == RCP_pick,
+      period_code == 3)
+
+  fw_p <- indicator_tile_plot(filter_std,
+    # indicators_metadata = tbl_indicators,
+    indicators_choose = c("Tw8proj", "Tw8rate", "highQpdelta", "lowQpdelta",
+                          "Favchange", "ct", "fwres"))
+  
+  cat("##### Spawning & Rearing exposure indicators")
+  
+  print(fw_p)
+
+  # fw_p2 <- indicator_tile_plot(filter_std,
+  #   # ndicators_metadata = tbl_indicators,
+  #   indicators_choose = c("Favchange", "ct", "fwres"),
+  #   title_custom = "Spawning & Rearing indicators")
+  # 
+  # print(fw_p2)
+
+  migr_p <- indicator_tile_plot(filter_std,
+    # indicators_metadata = tbl_indicators,
+    indicators_choose = tbl_indicators$abbrev[tbl_indicators$type == "migr"])
+
+  print(migr_p)
+
+  dem_p <- indicator_tile_plot(filter_std,
+    # indicators_metadata = tbl_indicators,
+    indicators_choose = tbl_indicators$abbrev[tbl_indicators$type %in% c("dem", "mar")])
+
+  print(dem_p)
+
+  # mar_p <- indicator_tile_plot(filter_std,
+  #   # indicators_metadata = tbl_indicators,
+  #   indicators_choose = tbl_indicators$abbrev[tbl_indicators$type == "mar"],
+  #   title_custom = "Marine indicators")
+  # 
+  # print(mar_p)
+
+  cat("\n\n")
+
+}
+```
+
+### Correlation of indicators {.tabset .tabset-pills}  
+
+One test for the utility of an indicator is the correlation with other indicator values. The plot below shows correlation of raw indicator values, subsetted to show indicators of freshwater environmental change only. 
+
+```{r correlation, results = 'asis'}
+
+#include only freshwater indicators in correlation matrix
+#  cor_indicators <- tbl_indicators$abbrev[tbl_indicators$type %in% c("fwR", "migr")]
+
+
+for (RCP_pick in unique(all_flat_std$RCP))
+{
+
+  cat("#### ", RCP_pick, "\n\n", sep = "")
+
+  filter_std <- all_flat_std %>%
+    filter(RCP == RCP_pick,
+      period_code == 3)
+  
+  cor_data <- get_correlation_matrix(filter_std,
+  indicators_choose = cor_indicators,
+  use_standardized = F)
+  
+  corrplot(cor_data,  method = "number", tl.col = "black")
+  
+  #print(p)
+  
+  cat("\n\n")
+  
+}
+  
+```
+
+
+
+# Freshwater spawning to rearing
+
+### Spatial analysis methods
+
+Vulnerability indicators for freshwater spawning and rearing life stages represent environmental change to streams, as well as cumulative threats to stream habitats and freshwater residency times. The British Columbia Freshwater Atlas was used as the stream network with spatial delineation to Pacific salmon conservation units based upon conservation unit boundaries. The stream network was limited to accessible streams with channel width and gradients that meet criteria for intrinsic habitat potential for each Pacific salmon species using the [BC Fishpass accessibility model] (<https://smnorris.github.io/bcfishpass/02_model_access.html>) and [habitat model](https://smnorris.github.io/bcfishpass/03_model_habitat_linear.html). For sockeye salmon, the habitat model also includes criteria for proximity to lakes. This filtering process removed smaller and inaccessible streams while retaining all stream segments with observed occurrences and modelled habitat potential.
+
+Environmental change indicators included projected August stream temperatures, rate of change in August stream temperature, percent change in August flows, percent change in flows from November to January, and change in environmental niche model habitat suitability. Each indicator was calculated as the mean value across all stream segments assigned to the conservation unit, weighted by stream segment length. Temperature indicators (projected and rate of change) were based on a statistical downscaling approach fitted to streams throughout British Columbia (Weller et al. 2024). Hydrologic indicators were based on the Pacific Climate Impacts Consortium gridded hydrological model that was further downscaled to the Fraser basin stream network (CSAS 2024). For the indicator of percent change in August flows, an alternative set of projections using a statistical downscaling approach fitted to hydrometric stations in BC (Ruzzante in prep) was also applied to compare variation in responses (to be further described in an appendix).
+
+Variation in environmental change indicators for each CU was summarized across global climate model projections and spatial dimensions using 80% quantile ranges. Spatial variation quantiles were weighted by stream length and characterized the range in responses for accessible streams with intrinsic habitat potential using the ensemble mean of climate model projections. Global climate model quantiles represented the variation of the weighted mean for streams within the CU boundary across all included global climate models (generally 6).
+
+To represent overall risk across indicators for the spawning and rearing stages, an average of standardized risk scores was calculated. Other methods for combining risk scores will be further tested.
+
+The freshwater spawning/rearing indicators are:
+
+```{r spawning rearing tbl}
+tbl_indicators %>%
+  filter(type %in% c("fwR")) %>%
+  gt() %>%
+  tab_header("Spawning and rearing indicators") %>%
+    tab_options(
+    table.font.size = "small",           # Reduce overall font size
+    data_row.padding = px(1),           # Minimize padding between rows
+  )
+```
+
+```{r plotting function}
+make_indicator_plots <- function(data,
+                                 ind_pick,
+                                 tbl = tbl_indicators,
+                                 standardized_plots = FALSE,
+                                 make_spatial = TRUE)
+{
+  
+  ind_row <- tbl_indicators[tbl_indicators$abbrev == ind_pick,]
+  
+  
+  p <- plot_lollipop(data,
+    indicator_pick = ind_row$abbrev,
+    indicator_stat = ind_row$stat,
+    indicator_name = ind_row$name,
+    use_standardized = standardized_plots
+  )
+   
+   prs <- plot_std_vs_raw(data,
+    indicator_pick = ind_row$abbrev,
+    indicator_stat = ind_row$stat,
+    indicator_name = ind_row$name,
+    indicator_fun =  ind_row$std_fun)
+   
+
+  
+  print(p)
+  
+  print(prs)
+  
+  if(make_spatial == TRUE) {
+  pmap <- spatial_indicator_plot(data,
+    cu_boundary,
+    indicator_pick = ind_row$abbrev,
+    indicator_stat = ind_row$stat,
+    indicator_name = ind_row$name,
+    use_standardized = standardized_plots)
+    
+  print(pmap)
+  
+  }
+  
+}
+```
+
+
+### Projected August temperature (Tw8Proj) {.tabset .tabset-pills} 
+
+```{r projT plots, results = 'asis'}
+#fw_indicators <- tbl_indicators$abbrev[tbl_indicators$type %in% c("fwR")]
+
+ind_pick <- "Tw8proj"
+
+for(RCP_pick in unique(all_flat_std$RCP))
+{
+  
+  cat("#### ", RCP_pick, "\n\n", sep = "")
+  
+  filter_std <- all_flat_std %>%
+    filter(RCP == RCP_pick, 
+           period_code == 3)
+  
+  make_indicator_plots(filter_std, 
+                       ind_pick = "Tw8proj")
+ 
+  cat("\n\n")
+  
+}
+
+```
+
+
+### Rate of change in August temperature {.tabset .tabset-pills} 
+
+```{r}
+
+for(RCP_pick in unique(all_flat_std$RCP))
+{
+  
+  cat("#### ", RCP_pick, "\n\n", sep = "")
+  
+  filter_std <- all_flat_std %>%
+    filter(RCP == RCP_pick, 
+           period_code == 3)
+  
+  make_indicator_plots(filter_std, 
+                       ind_pick = "Tw8rate")
+ 
+  cat("\n\n")
+  
+}
+```
+
+
+### Change in August flow  {.tabset .tabset-pills} 
+
+```{r}
+
+for(RCP_pick in unique(all_flat_std$RCP))
+{
+  
+  cat("#### ", RCP_pick, "\n\n", sep = "")
+  
+  filter_std <- all_flat_std %>%
+    filter(RCP == RCP_pick, 
+           period_code == 3)
+  
+  make_indicator_plots(filter_std, 
+                       ind_pick = "lowQpdelta")
+ 
+  cat("\n\n")
+  
+}
+```
+
+
+### Change in Nov-Jan flow  {.tabset .tabset-pills} 
+
+```{r}
+
+for(RCP_pick in unique(all_flat_std$RCP))
+{
+  
+  cat("#### ", RCP_pick, "\n\n", sep = "")
+  
+  filter_std <- all_flat_std %>%
+    filter(RCP == RCP_pick, 
+           period_code == 3)
+  
+  make_indicator_plots(filter_std, 
+                       ind_pick = "highQpdelta")
+ 
+  cat("\n\n")
+  
+}
+```
+
+
+### Cumulative threats  {.tabset .tabset-pills} 
+
+```{r}
+
+for(RCP_pick in unique(all_flat_std$RCP))
+{
+  
+  cat("#### ", RCP_pick, "\n\n", sep = "")
+  
+  filter_std <- all_flat_std %>%
+    filter(RCP == RCP_pick, 
+           period_code == 3)
+  
+  make_indicator_plots(filter_std, 
+                       ind_pick = "ct")
+ 
+  cat("\n\n")
+  
+}
+```
+
+
+### ENM Favourability Change  {.tabset .tabset-pills} 
+
+```{r}
+
+for(RCP_pick in unique(all_flat_std$RCP))
+{
+  
+  cat("#### ", RCP_pick, "\n\n", sep = "")
+  
+  filter_std <- all_flat_std %>%
+    filter(RCP == RCP_pick, 
+           period_code == 3)
+  
+  make_indicator_plots(filter_std, 
+                       ind_pick = "Favchange")
+ 
+  cat("\n\n")
+  
+}
+```
+
+# Upstream Migration
+
+### Analysis Methods
+
+
+```{r migration table}
+tbl_indicators %>%
+  filter(type %in% c("migr")) %>%
+  gt() %>%
+  tab_header("Upstream migration indicators") %>%
+    tab_options(
+    table.font.size = "small",           # Reduce overall font size
+    data_row.padding = px(1),           # Minimize padding between rows
+  )
+```
+
+
+
+### Projected temperature during migration  {.tabset .tabset-pills}
+
+```{r}
+
+for(RCP_pick in unique(all_flat_std$RCP))
+{
+  
+  cat("#### ", RCP_pick, "\n\n", sep = "")
+  
+  filter_std <- all_flat_std %>%
+    filter(RCP == RCP_pick, 
+           period_code == 3)
+  
+  make_indicator_plots(filter_std, 
+                       ind_pick = "migrT",
+                       make_spatial = F)
+ 
+  cat("\n\n")
+  
+}
+```
+
+
+### Projected proportion of migration above 21 degrees C  {.tabset .tabset-pills}
+
+```{r}
+
+for(RCP_pick in unique(all_flat_std$RCP))
+{
+  
+  cat("#### ", RCP_pick, "\n\n", sep = "")
+  
+  filter_std <- all_flat_std %>%
+    filter(RCP == RCP_pick, 
+           period_code == 3)
+  
+  make_indicator_plots(filter_std, 
+                       ind_pick = "migrA21",
+                       make_spatial = F)
+ 
+  cat("\n\n")
+  
+}
+```
+
+### Change in discharge during migration  {.tabset .tabset-pills}
+
+```{r}
+
+for(RCP_pick in unique(all_flat_std$RCP))
+{
+  
+  cat("#### ", RCP_pick, "\n\n", sep = "")
+  
+  filter_std <- all_flat_std %>%
+    filter(RCP == RCP_pick, 
+           period_code == 3)
+  
+  make_indicator_plots(filter_std, 
+                       ind_pick = "migrQ",
+                       make_spatial = F)
+ 
+  cat("\n\n")
+  
+}
+```
+
+
+### Length of upstream migration  {.tabset .tabset-pills}
+
+```{r}
+
+for(RCP_pick in unique(all_flat_std$RCP))
+{
+  
+  cat("#### ", RCP_pick, "\n\n", sep = "")
+  
+  filter_std <- all_flat_std %>%
+    filter(RCP == RCP_pick, 
+           period_code == 3)
+  
+  make_indicator_plots(filter_std, 
+                       ind_pick = "migrdist",
+                       make_spatial = F)
+ 
+  cat("\n\n")
+  
+}
+```
+
+
+# Demographic indicators
+
+
+```{r demographics table}
+tbl_indicators %>%
+  filter(type %in% c("dem")) %>%
+  gt() %>%
+  tab_header("Demographics indicators") %>%
+    tab_options(
+    table.font.size = "small",           # Reduce overall font size
+    data_row.padding = px(1),           # Minimize padding between rows
+  )
+```
+
+
+
+
+### WSP Status  {.tabset .tabset-pills}
+
+```{r}
+
+for(RCP_pick in unique(all_flat_std$RCP))
+{
+  
+  cat("#### ", RCP_pick, "\n\n", sep = "")
+  
+  filter_std <- all_flat_std %>%
+    filter(RCP == RCP_pick, 
+           period_code == 3)
+  
+  make_indicator_plots(filter_std, 
+                       ind_pick = "CUstatus",
+                       standardized_plots = T,
+                       make_spatial = F)
+ 
+  cat("\n\n")
+  
+}
+```
+
+### Number of mature individuals  {.tabset .tabset-pills}
+
+```{r}
+
+for(RCP_pick in unique(all_flat_std$RCP))
+{
+  
+  cat("#### ", RCP_pick, "\n\n", sep = "")
+  
+  filter_std <- all_flat_std %>%
+    filter(RCP == RCP_pick, 
+           period_code == 3)
+  
+  make_indicator_plots(filter_std, 
+                       ind_pick = "CUnmat",
+                       standardized_plots = F,
+                       make_spatial = F)
+ 
+  cat("\n\n")
+  
+}
+```
+
+
+# Nearshore marine indicators
+
+```{r}
+
+tbl_indicators %>%
+  filter(type %in% c("mar")) %>%
+  gt() %>%
+  tab_header("Nearshore marine indicators") %>%
+    tab_options(
+    table.font.size = "small",           # Reduce overall font size
+    data_row.padding = px(1),           # Minimize padding between rows
+  )
+```
+
+
+```{r}
+
+for(RCP_pick in unique(all_flat_std$RCP))
+{
+  
+  cat("#### ", RCP_pick, "\n\n", sep = "")
+  
+  filter_std <- all_flat_std %>%
+    filter(RCP == RCP_pick, 
+           period_code == 3)
+  
+  make_indicator_plots(filter_std, 
+                       ind_pick = "SSTproj",
+                       standardized_plots = F,
+                       make_spatial = F)
+ 
+  cat("\n\n")
+  
+}
+```

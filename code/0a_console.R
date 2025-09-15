@@ -50,16 +50,20 @@ load(file.path(paths$fw, "2025-09-11_migr_stats.Rdata"))
 # marine indicators
 load(file.path(paths$marine, "2025-09-10_marine_stats.Rdata"))
 
+
 # spatial models
-# PCIC ensemble model outputs by period
-PCIC_daily45 <- read_mdim(file.path(paths$climate, "PCIC_averaged", "combined",
-  "daily_rcp45_ensemble.nc"))
 # stream model outputs for freshwater spawning and rearing indicators
 fwModels <- readRDS(file.path(paths$fw, "2025-09-11_fw_stream_models.Rds"))
 ### Load ENM - these are lower resolution stream segments than bcfpa
 load(file.path(paths$fw, "ENM_all_sp.Rds"))
 # lakes_Fr - freshwater lakes for plotting
 load(file.path(paths$fw, "BC_FWA_LAKES_FR.Rds"))
+
+basins <- st_read(file.path(paths$spatial, "BC_Basins", "BC_Basins_GoogleMapPL.shp"), quiet = TRUE) %>%
+  st_cast("POLYGON")
+st_crs(basins) <- 4269
+basins <- st_transform(basins, crs = 3005)
+Fr_basin <- filter(basins, BASIN == "FRASER")
 
 stations_stats <- read.csv(file.path(paths$climate, "Ruzzante_low_flows", "stations_performance.csv"))
 # watershed hydrologic regimes
@@ -74,6 +78,9 @@ SST_grid <- st_read(file.path(paths$climate,
 MAZ     <- st_read(file.path(paths$spatial, "MAZ", "MAZ_Final.shp"))
 
 
+# PCIC ensemble model outputs by period
+PCIC_daily45 <- read_mdim(file.path(paths$climate, "PCIC_averaged", "combined",
+  "daily_rcp45_ensemble.nc"))
 
 # 1 - Freshwater data processing ------------------------------------------
 
@@ -92,7 +99,6 @@ MAZ     <- st_read(file.path(paths$spatial, "MAZ", "MAZ_Final.shp"))
 
 
 # load(here("processed_data", "freshwater", "R_data",  "2025-01-24_fw_FAZstats_output.Rdata"))
-
 
 
 # 2 - Freshwater statistics -----------------------------------------------
@@ -135,16 +141,12 @@ source(file.path(paths$code, "3b_marine_grid_standardize.R"))  # marine grid sta
 ## Combining all indicators into a common table, and applying standardization functions
 source(file.path(paths$code, "4a_CU_scoring.R"))
 
-
-
 # 5. Plotting -------------------------------------------------------------
 
 # plots of maps and other outputs for individual CU
 source(file.path(paths$code, "5a_plots_CU.R"))
-
 # plots of indicator values across CUs
 source(file.path(paths$code, "5b_plots_compare.R"))
-
 
 # 6. Reports --------------------------------------------------------------
 
@@ -160,51 +162,24 @@ for (i in 1:n.CUs) {
     output_format = "html_document",
     params = list(FULL_CU_IN = CU_IN_i))
 
-  # ## overview of freshwater spawning indicators
-  # rmarkdown::render(
-  #   file.path(here("code", "markdown", "2_FW_spawning_report.Rmd")),
-  #   output_file = paste(today, CU_IN_i, "fw_spawning.html", sep = "_"),
-  #   output_dir = here("output", "CU_profiles"),
-  #   output_format = "html_document",
-  #   params = list(FULL_CU_IN = CU_IN_i))
-
-
 }
-
-
-## comparison of freshwater spawning indicators across CUs
-rmarkdown::render(
-  file.path(here("code", "markdown", "2_FW_spawning_compare.Rmd")),
-  output_file = paste(today, "fw_spawning_compare.html", sep = "_"),
-  output_dir = here("output"),
-  output_format = "html_document")
-
-
-## comparison of upstream migration indicators across CUs
-rmarkdown::render(
-  file.path(here("code", "markdown", "2_FW_migr_compare.Rmd")),
-  output_file = paste(today, "fw_migr_compare.html", sep = "_"),
-  output_dir = here("output"),
-  output_format = "html_document")
-
-
-
-
 
 ## comparison of all indicators across CUs
 rmarkdown::render(
-  file.path(here("code", "markdown", "0b_CVIS_overview.Rmd")),
+  file.path(here("code", "markdown", "6b_CVIS_overview.Rmd")),
   output_file = paste(today, "CVIS_overview.html", sep = "_"),
   output_dir = here("output"),
   output_format = "html_document")
 
 
 
+
+
 ## Shiny app
-
-source(file.path(here(), "code", "shiny", "FW_spawning_app.R"))
-
-shinyApp(ui, server)
+#
+# source(file.path(here(), "code", "shiny", "FW_spawning_app.R"))
+#
+# shinyApp(ui, server)
 
 
 # rmarkdown::render(
@@ -213,3 +188,19 @@ shinyApp(ui, server)
 #   output_dir = here("output"),
 #   output_format = "html_document")
 #
+
+
+# ## comparison of freshwater spawning indicators across CUs
+# rmarkdown::render(
+#   file.path(here("code", "markdown", "2_FW_spawning_compare.Rmd")),
+#   output_file = paste(today, "fw_spawning_compare.html", sep = "_"),
+#   output_dir = here("output"),
+#   output_format = "html_document")
+#
+#
+# ## comparison of upstream migration indicators across CUs
+# rmarkdown::render(
+#   file.path(here("code", "markdown", "2_FW_migr_compare.Rmd")),
+#   output_file = paste(today, "fw_migr_compare.html", sep = "_"),
+#   output_dir = here("output"),
+#   output_format = "html_document")
