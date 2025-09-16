@@ -482,7 +482,7 @@ for(RCP_pick in unique(all_flat_std$RCP))
 
 **PSF CU-Specific Life History Timing** - ocean entry timing used to determine projected SST [<https://datadryad.org/dataset/doi:10.5061/dryad.wm37pvmwx>]
 
-**HOTSSea -** hindcast of the Salish Sea used for the historical climatology of SST
+**HOTSSea -** hindcast of the Salish Sea used for the historical climatology of SST [<https://gmd.copernicus.org/articles/18/211/2025/>]
 
 **SalishSeaCast** - Regional oceanographic model of the Salish Sea used for projected SST between 2046-2065
 

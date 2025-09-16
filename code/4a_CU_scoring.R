@@ -39,65 +39,8 @@ all_inds <- all_flat %>%
 
 
 
-#--------------2. Functions for standardization ------
-standardize_indicator <- function(data,
-                                  indicator_pick,
-                                  std_fun = "linear_std",
-                                  std_params = NA,
-                                  gcm_range_suffix = c("qlowgcm", "qhighgcm"),
-                                  use_gcm_range = FALSE) # use GCMs to include GCM quantiles in standardization ranges, set FALSE to only use mean values
-{
-  stat_suffix <- "mean"
-  id_col <- "FULL_CU_IN"
 
-  # take column names that contain prefix with model type
-  cols_sub <- names(data)[str_detect(names(data), indicator_pick)]
-
-  # take names with prefix that also contain stat suffix
-  stat_col <- cols_sub[str_detect(cols_sub, paste0(stat_suffix, "$"))] # must end with mean
-  min_gcmcol <- cols_sub[str_detect(cols_sub, paste0(gcm_range_suffix[1], collapse = "|"))]
-  max_gcmcol <- cols_sub[str_detect(cols_sub, paste0(gcm_range_suffix[2], collapse = "|"))]
-
-  # some indicators don't have a mean, just the raw value. in that case, use the abbreviation
-  if (length(stat_col) == 0) stat_col <- cols_sub
-
-  data <- select(data, c(id_col, stat_col, min_gcmcol, max_gcmcol, RCP, period_code))
-
-  if (length(min_gcmcol) == 1 && length(max_gcmcol) == 1 && use_gcm_range == TRUE) {
-    # put gcm lows and highs and mean into one column
-    data_long <- pivot_longer(data,
-      cols = starts_with(indicator_pick),
-      names_prefix = paste0(indicator_pick, "_")
-    )
-
-    data_std <- data_long %>%
-      group_by(RCP, period_code) %>%
-      reframe(
-        FULL_CU_IN = FULL_CU_IN,
-        std = do.call(std_fun, c(list(value), std_params)),
-        name = name
-      ) %>%
-      pivot_wider(
-        names_from = name,
-        values_from = std,
-        names_prefix = paste0(indicator_pick, "_")
-      )
-  } else {
-    data_std <- data %>%
-      group_by(RCP, period_code) %>%
-      reframe(
-        FULL_CU_IN = FULL_CU_IN,
-        !!stat_col := do.call(std_fun, c(list(!!sym(stat_col)), std_params))
-        #!!stat_col := get(std_fun)(!!sym(stat_col))
-      )
-    # std_qlowgcm= get(std_fun)(!!sym(min_gcmcol)),
-    # std_qhighgcm = get(std_fun)(!!sym(max_gcmcol)))
-  }
-
-  return(data_std)
-}
-
-#------------- 3. Calculate standardized scores-------------------------------
+#------------- 2. Calculate standardized scores-------------------------------
 
 all_std <- select(all_flat, "FULL_CU_IN", "RCP", "period_code")
 
@@ -138,6 +81,9 @@ all_flat_std <- all_std %>%
 all_flat_std <- all_flat_std %>%
   left_join(all_flat, join_by(FULL_CU_IN, RCP, period_code))
 
+
+# 3. Species and all CU averages ------------------------------------------
+
 # calculate species and all CU average for each indicator (for plotting) and put into unique columns
 all_std_sp_avgs <- all_flat_std %>%
   group_by(CU_Species, RCP, period_code) %>%
@@ -147,7 +93,6 @@ all_std_sp_avgs <- all_flat_std %>%
   rename_with(.fn = ~ paste0("spavg_", .x), .cols = starts_with("std_"))  %>%
   # bind new columns back to CU values
   left_join(all_flat_std, join_by(CU_Species, RCP, period_code))
-
 
 
 # calculate overall average for each indicator (for plotting)
@@ -160,61 +105,25 @@ all_std_avgs <- all_flat_std %>%
 all_flat_std$CU_Species <- factor(all_flat_std$CU_Species, levels = sort(unique(all_flat_std$CU_Species)))
 
 
+# 4. Overall scores using additive and multiplicative methods -------------
+
+means_std <- all_flat_std %>%
+  subset_ind_table(indicators_choose = tbl_indicators$abbrev,
+    get_std = T,
+    get_raw = F) %>%
+  sum_selected_columns(match_strings = tbl_indicators$abbrev,
+    new_col_name = "std_addall") %>%
+  sum_selected_columns(match_strings = c("Tw8rate", "Tw8proj", "lowQpdelta", "highQpdelta", "ct"),
+    new_col_name = "std_addfwR") %>%
+  sum_selected_columns(match_strings = tbl_indicators$abbrev[tbl_indicators$type == "migr"],
+    new_col_name = "std_addmigr") %>%
+  multiply_selected_columns(match_strings = tbl_indicators$abbrev,
+    new_col_name = "std_prodall") %>%
+  multiply_selected_columns(match_strings = c("Tw8rate", "Tw8proj", "lowQpdelta", "highQpdelta", "ct"),
+    new_col_name = "std_prodfwR") %>%
+  multiply_selected_columns(match_strings = tbl_indicators$abbrev[tbl_indicators$type == "migr"],
+    new_col_name = "std_prodmigr")
+
+
+
 write.csv(all_flat_std, file = file.path(paths$indicators, paste0(today, "_standardized_indicators.csv")), row.names = FALSE)
-
-
-
-# 4. Functions for reorganizing indicator data -------------------------------
-
-get_CU_indicators <- function(data,
-                              cu_i,
-                              RCP_pick = "45",
-                              period_pick = "3",
-                              indicators_choose = tbl_indicators$abbrev,
-                              use_standardized = TRUE) {
-  data <- filter(data,
-    RCP == RCP_pick,
-    period_code == period_pick)
-
-  sp_col <- "CU_Species"
-  id_col <- "FULL_CU_IN"
-
-  sp_pick <- data %>%
-    filter(FULL_CU_IN == cu_i) %>%
-    pull(sp_col) %>%
-    as.character() %>%
-    unique()
-
-  # subset columns for chosen indicators
-  cols_sub <- names(data)[str_detect(names(data), paste(indicators_choose, collapse = "|"))]
-
-  data_sub <- data %>%
-    select(all_of(c(id_col, sp_col, cols_sub)))
-
-  sp_avgs <- data_sub %>%
-    filter(CU_Species == sp_pick) %>%
-    summarize(across(starts_with("std_"), \(x) mean(x, na.rm = TRUE)), .groups = "drop") %>%
-    # mutate(FULL_CU_IN = "Species average", CU_NAME = "Species average") %>%
-    # rename columns to indicate species average
-    # rename_with(.fn = ~ paste0("spavg_", .x), .cols = starts_with("std_")) %>%
-    pivot_longer(cols = contains("std"),
-      values_to = "sp_value",
-      names_prefix = "std_",
-      names_sep = "_",
-      names_to = c("indicator", "stat"))
-
-  data_CU <- data_sub %>%
-    filter(FULL_CU_IN == cu_i) %>%
-    select(id_col, sp_col, starts_with("std_")) %>%
-    pivot_longer(cols = contains("std"),
-      values_to = "cu_value",
-      names_prefix = "std_",
-      names_sep = "_",
-      names_to = c("indicator", "stat"))
-
-  data_CU <- data_CU %>%
-    left_join(sp_avgs, join_by(indicator, stat)) %>%
-    mutate(stat = if_else(is.na(stat), "mean", stat))  # fill NAs with mean
-
-  return(data_CU)
-}

@@ -128,16 +128,16 @@ summarize_attribute <- function(data,
   gcm_stats <- tibble(period = st_get_dimension_values(data, "period"),
     mean    = NA,
     qlowgcm    = NA,
-    qhighgcm   = NA,
-    qmingcm     = NA,
-    qmaxgcm     = NA)
+    qhighgcm   = NA)
+  # qmingcm     = NA,
+  # qmaxgcm     = NA)
 
   # take average, qlow and qhigh across gcms for each time period and rcp
   gcm_stats$mean <- apply(gcm_doy_avg, 1, mean)
   gcm_stats$qlowgcm  <- apply(gcm_doy_avg, 1, quantile, probs = qlowgcm)
   gcm_stats$qhighgcm  <- apply(gcm_doy_avg, 1, quantile, probs = qhighgcm)
-  gcm_stats$qmingcm  <- apply(gcm_doy_avg, 1, min)
-  gcm_stats$qmaxgcm  <- apply(gcm_doy_avg, 1, max)
+  # gcm_stats$qmingcm  <- apply(gcm_doy_avg, 1, min)
+  # gcm_stats$qmaxgcm  <- apply(gcm_doy_avg, 1, max)
 
   output <- list(doy = doy_stats,
     gcm = gcm_stats)
@@ -409,7 +409,7 @@ migr_all_flat <- df_migr_combined %>%
   pivot_wider(
     id_cols = c(RCP, FULL_CU_IN, period),
     names_from = attr,
-    values_from = c(mean, qlowgcm, qhighgcm, qmingcm, qmaxgcm),
+    values_from = c(mean, qlowgcm, qhighgcm),
     names_glue = "{attr}_{.value}"
   ) %>%
   left_join(select(cu_run, FULL_CU_IN, CU_NAME, CU_Species, FAZ),

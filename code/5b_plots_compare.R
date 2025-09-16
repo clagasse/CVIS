@@ -18,7 +18,7 @@
 ###############################################################################
 
 # libraries for plotting
-library(ggforce)   # for custom facet sizes
+# library(ggforce)   # for custom facet sizes
 library(ggtext)  # for coloured text in axis labels
 library(RColorBrewer)
 # library(ggsci)   # colour palettes - pal_futurama
@@ -63,86 +63,41 @@ species_palette <- get_brewer_palette(cu_run, "CU_Species", "Set1")
 
 plot_std_vs_raw <- function(data,
                             indicator_pick,
-                            indicator_name,
                             indicator_stat,
-                            indicator_fun,
                             plot_colours = species_palette,
+                            gcm_range_suffix = c("qlowgcm", "qhighgcm"),
                             include_histogram = TRUE) {
 
-  sp_col <- "CU_Species"
-  gcm_range_suffix <- c("qlowgcm", "qhighgcm")
-
-  # Define suffixes
-  stat_suffix <- if_else(indicator_stat %in% c("value", "category"), indicator_pick, indicator_stat)
+  data_sub <- subset_ind_table(data,
+    indicators_choose = indicator_pick,
+    get_raw = T,
+    get_std = T,
+    get_gcm = T)
 
   if (indicator_stat == "category") include_histogram <- FALSE # check if indicator is a category
 
-  # take column names that contain prefix with model type
-  cols_sub <- names(data)[str_detect(names(data), indicator_pick)]
+  plot_data <- rename_ind_table(data_sub,
+    indicator_abbrev = indicator_pick)
 
-  # get raw and standardized columns
-  cols_sub_raw <- cols_sub[!str_detect(cols_sub, "std")]
-  cols_sub_std <- cols_sub[str_detect(cols_sub, "std")]
-
-
-  # take names with prefix that also contain stat suffix
-  stat_col_raw <- cols_sub_raw[str_detect(cols_sub_raw, stat_suffix)] # must contain mean
-  stat_col_std <- cols_sub_std[str_detect(cols_sub_std, stat_suffix)]
-
-  min_gcmcol_raw <- cols_sub_raw[str_detect(cols_sub_raw, paste0(gcm_range_suffix[1], collapse = "|"))]
-  max_gcmcol_raw <- cols_sub_raw[str_detect(cols_sub_raw, paste0(gcm_range_suffix[2], collapse = "|"))]
-  min_gcmcol_std <- cols_sub_std[str_detect(cols_sub_std, paste0(gcm_range_suffix[1], collapse = "|"))]
-  max_gcmcol_std <- cols_sub_std[str_detect(cols_sub_std, paste0(gcm_range_suffix[2], collapse = "|"))]
-
-  # Prepare data for plotting
-  plot_data <- data %>%
-    select(all_of(c(stat_col_std, stat_col_raw, sp_col))) %>%
-    rename(
-      raw = !!stat_col_raw,
-      std = !!stat_col_std,
-      sp = !!sp_col
-    )
-
-  # add GCM range if available
-  if (length(min_gcmcol_raw) == 1 && length(max_gcmcol_raw) == 1) {
-    plot_data <- plot_data %>%
-      mutate(min_gcm_raw = data[[min_gcmcol_raw]], max_gcm_raw = data[[max_gcmcol_raw]])
-    has_gcm_raw <- TRUE
-  } else {
-    has_gcm_raw <- FALSE
-  }
-  # add GCM range if available
-  if (length(min_gcmcol_std) == 1 && length(max_gcmcol_std) == 1) {
-    plot_data <- plot_data %>%
-      mutate(min_gcm_std = data[[min_gcmcol_std]], max_gcm_std = data[[max_gcmcol_std]])
-    has_gcm_std <- TRUE
-  } else {
-    has_gcm_std <- FALSE
-  }
+  # boolean for whether gcm ranges are in the data
+  has_gcm <- FALSE
+  if (sum(str_detect(names(plot_data), "gcm")) > 0) has_gcm <- TRUE
 
   p <- ggplot(plot_data) +
     labs(
-      # title = paste(indicator_name),
-      subtitle = paste0("Standardization function: ", indicator_fun),
       color = "Species",
       x = "Raw (unstandardized)",
       y = "Standardized"
     )
 
-  if (has_gcm_raw) {
+  if (has_gcm) {
     p <- p + geom_segment(
-      aes(x = min_gcm_raw, xend = max_gcm_raw, y = std),
+      aes(x = min_gcm, xend = max_gcm, y = std),
       color = "grey",
       linewidth = 1
     )
   }
-  if (has_gcm_std) {
-    p <- p + geom_segment(
-      aes(x = raw, y = min_gcm_std, yend = max_gcm_std),
-      color = "grey",
-      linewidth = 1
-    )
-  }
+
 
   p <- p + geom_point(aes(x = raw, y = std, color = sp), size = 2.5) +
     scale_fill_manual(values = plot_colours)
@@ -179,38 +134,56 @@ plot_lollipop <- function(data,
                           use_standardized = FALSE,  # use raw or transformed (standardized values)
                           plot_colours = species_palette) {
 
-  id_col <- "CVIS_NAME"
-  sp_col <- "CU_Species"
-  sp_suffix <- c("qlowsp", "qhighsp")
-  gcm_range_suffix <- c("qlowgcm", "qhighgcm")
+  data_sub <- subset_ind_table(data,
+    indicators_choose = indicator_pick,
+    id_col = "CVIS_NAME",
+    get_raw = T,
+    get_std = T,
+    get_gcm = T,
+    get_spat = T)
 
-  # Define suffixes
-  stat_suffix <- if_else(indicator_stat %in% c("value", "category"), indicator_pick, indicator_stat)
+  plot_data <- rename_ind_table(data_sub,
+    indicator_abbrev = indicator_pick)
 
-  # take column names that contain prefix with model type
-  cols_sub <- names(data)[str_detect(names(data), indicator_pick)]
+  # boolean for whether gcm ranges are in the data
+  has_gcm <- FALSE
+  if (sum(str_detect(names(plot_data), "gcm")) > 0) has_gcm <- TRUE
 
-  if (use_standardized == TRUE) {
-    cols_sub <- cols_sub[str_detect(cols_sub, "std")]  # select std columns
-  }
-  if (use_standardized == FALSE) cols_sub <- cols_sub[!str_detect(cols_sub, "std")]
+  # boolean for whether gcm ranges are in the data
+  has_spat <- FALSE
+  if (sum(str_detect(names(plot_data), "sp")) > 0) has_spat <- TRUE
 
-  # take names with prefix that also contain stat suffix
-  stat_col <- cols_sub[str_detect(cols_sub, stat_suffix)] # must contain mean
-  min_spcol <- cols_sub[str_detect(cols_sub, sp_suffix[1])]
-  max_spcol <- cols_sub[str_detect(cols_sub, sp_suffix[2])]
-  min_gcmcol <- cols_sub[str_detect(cols_sub, paste0(gcm_range_suffix[1], collapse = "|"))]
-  max_gcmcol <- cols_sub[str_detect(cols_sub, paste0(gcm_range_suffix[2], collapse = "|"))]
-
-
-  # Prepare data for plotting
-  plot_data <- data %>%
-    select(all_of(c(id_col, stat_col, sp_col))) %>%
-    rename(
-      mean = !!stat_col,
-      id = !!id_col,
-      sp = !!sp_col
-    )
+  #
+  #   sp_suffix <- c("qlowsp", "qhighsp")
+  #   gcm_range_suffix <- c("qlowgcm", "qhighgcm")
+  #
+  #   # Define suffixes
+  #   stat_suffix <- if_else(indicator_stat %in% c("value", "category"), indicator_pick, indicator_stat)
+  #
+  #   # take column names that contain prefix with model type
+  #   cols_sub <- names(data)[str_detect(names(data), indicator_pick)]
+  #
+  #   if (use_standardized == TRUE) {
+  #     cols_sub <- cols_sub[str_detect(cols_sub, "std")]  # select std columns
+  #   }
+  #   if (use_standardized == FALSE) cols_sub <- cols_sub[!str_detect(cols_sub, "std")]
+  #
+  #   # take names with prefix that also contain stat suffix
+  #   stat_col <- cols_sub[str_detect(cols_sub, stat_suffix)] # must contain mean
+  #   min_spcol <- cols_sub[str_detect(cols_sub, sp_suffix[1])]
+  #   max_spcol <- cols_sub[str_detect(cols_sub, sp_suffix[2])]
+  #   min_gcmcol <- cols_sub[str_detect(cols_sub, paste0(gcm_range_suffix[1], collapse = "|"))]
+  #   max_gcmcol <- cols_sub[str_detect(cols_sub, paste0(gcm_range_suffix[2], collapse = "|"))]
+  #
+  #
+  #   # Prepare data for plotting
+  #   plot_data <- data %>%
+  #     select(all_of(c(id_col, stat_col, sp_col))) %>%
+  #     rename(
+  #       mean = !!stat_col,
+  #       id = !!id_col,
+  #       sp = !!sp_col
+  #     )
 
   plot_data <- plot_data %>%
     mutate(id_label = paste0(
@@ -218,39 +191,39 @@ plot_lollipop <- function(data,
       plot_data$id, "</span>"
     ))
 
-  # Add min and max if available
-  if (length(min_spcol) == 1 && length(max_spcol) == 1) {
-    plot_data <- plot_data %>%
-      mutate(minsp = data[[min_spcol]], maxsp = data[[max_spcol]])
-    has_range <- TRUE
-  } else {
-    has_range <- FALSE
-  }
-
-  # add GCM range if available
-  if (length(min_gcmcol) == 1 && length(max_gcmcol) == 1) {
-    plot_data <- plot_data %>%
-      mutate(mingcm = data[[min_gcmcol]], maxgcm = data[[max_gcmcol]])
-    has_gcm <- TRUE
-  } else {
-    has_gcm <- FALSE
-  }
+  # # Add min and max if available
+  # if (length(min_spcol) == 1 && length(max_spcol) == 1) {
+  #   plot_data <- plot_data %>%
+  #     mutate(minsp = data[[min_spcol]], maxsp = data[[max_spcol]])
+  #   has_range <- TRUE
+  # } else {
+  #   has_range <- FALSE
+  # }
+  #
+  # # add GCM range if available
+  # if (length(min_gcmcol) == 1 && length(max_gcmcol) == 1) {
+  #   plot_data <- plot_data %>%
+  #     mutate(mingcm = data[[min_gcmcol]], maxgcm = data[[max_gcmcol]])
+  #   has_gcm <- TRUE
+  # } else {
+  #   has_gcm <- FALSE
+  # }
 
   p <- ggplot(plot_data, aes(x = id_label))
 
   # Actual plot layers
-  if (has_range) {
-    p <- p + geom_segment(aes(xend = id_label, y = minsp, yend = maxsp),
+  if (has_spat) {
+    p <- p + geom_segment(aes(xend = id_label, y = min_spat, yend = max_spat),
       color = "darkgrey", linewidth = 2.5)
   }
   if (has_gcm) {
-    p <- p + geom_segment(aes(xend = id_label, y = mingcm, yend = maxgcm),
+    p <- p + geom_segment(aes(xend = id_label, y = min_gcm, yend = max_gcm),
       color = "darkred", linewidth = 1)
   }
 
   # Point layer with dynamic fill
-  p <- p + geom_point(aes(y = mean, fill = mean), shape = 21, color = "black", size = 2.5) +
-    scale_fill_gradient(name = "Mean", low = "lightblue", high = "darkblue") +
+  p <- p + geom_point(aes(y = raw, fill = std), shape = 21, color = "black", size = 2.5) +
+    scale_fill_gradient(name = "Standardized", low = "lightblue", high = "darkblue") +
 
     # Dummy layers for line segment legend
     geom_segment(aes(x = Inf, xend = Inf, y = Inf, yend = Inf, color = "Spatial range"),
@@ -276,8 +249,6 @@ plot_lollipop <- function(data,
 
   return(p)
 }
-
-data <- filter_std
 
 
 # 3. Multiple indicator plot ----------------------------------------------
@@ -342,48 +313,58 @@ spatial_indicator_plot <- function(data,
                                    sp_pick = c("Chinook", "Coho", "Sockeye (Lake Type)"),
                                    indicator_pick,
                                    indicator_name,
-                                   indicator_stat = "mean",
-                                   use_standardized = TRUE,
+                                   use_standardized = T,
+                                   id_col = "FULL_CU_IN",
                                    brewer_palette = "RdYlGn",
                                    palette_direction = -1) {
-  sp_col <- "CU_Species"
 
-  # Define suffixes
-  stat_suffix <- if_else(indicator_stat == "value", indicator_pick, indicator_stat)
+  data_sub <- subset_ind_table(data,
+    indicators_choose = indicator_pick,
+    sp_col = "CU_Species",
+    id_col = "FULL_CU_IN",
+    get_raw = !use_standardized,
+    get_std = use_standardized,
+    get_gcm = F)
 
-  # take column names that contain prefix with model type
-  cols_sub <- names(data)[str_detect(names(data), indicator_pick)]
+  plot_data <- rename_ind_table(data_sub,
+    indicator_abbrev = indicator_pick,
+    single_value_col = T)
 
-  if (use_standardized == TRUE) {
-    cols_sub <- cols_sub[str_detect(cols_sub, "std")]  # select std columns
-  }
-  if (use_standardized == FALSE) {
-    cols_sub <- cols_sub[!str_detect(cols_sub, "std")]  # remove std columns if using raw
-  }
-
-  # cols_sub <- cols_sub[!str_detect(cols_sub, "gcm")]  # remove gcm variation columns
-
-  # take names with prefix that also contain stat suffix
-  stat_col <- cols_sub[str_detect(cols_sub, stat_suffix)] # must contain mean
-
-  data <- mutate(data, plot_col = .data[[stat_col]],
-    sp_col = .data[[sp_col]])
-
-  data_sp <- filter(data, sp_col %in% sp_pick)
+  # # Define suffixes
+  # stat_suffix <- if_else(indicator_stat == "value", indicator_pick, indicator_stat)
+  #
+  # # take column names that contain prefix with model type
+  # cols_sub <- names(data)[str_detect(names(data), indicator_pick)]
+  #
+  # if (use_standardized == TRUE) {
+  #   cols_sub <- cols_sub[str_detect(cols_sub, "std")]  # select std columns
+  # }
+  # if (use_standardized == FALSE) {
+  #   cols_sub <- cols_sub[!str_detect(cols_sub, "std")]  # remove std columns if using raw
+  # }
+  #
+  # # cols_sub <- cols_sub[!str_detect(cols_sub, "gcm")]  # remove gcm variation columns
+  #
+  # # take names with prefix that also contain stat suffix
+  # stat_col <- cols_sub[str_detect(cols_sub, stat_suffix)] # must contain mean
+  #
+  # data <- mutate(data, plot_col = .data[[stat_col]],
+  #   sp_col = .data[[sp_col]])
+  #
+  # data_sp <- filter(data, sp_col %in% sp_pick)
 
   cu_boundary_plot <- cu_boundary %>%
-    left_join(select(data_sp, FULL_CU_IN, plot_col), join_by(FULL_CU_IN)) %>%
-    filter(!is.na(plot_col))
-
+    left_join(select(plot_data, id, value), by = join_by(!!sym(id_col) == id)) %>%
+    filter(!is.na(value))
 
   p <- ggplot() +
-    geom_sf(data = cu_boundary_plot, aes(fill = plot_col), alpha = 0.3) +
+    geom_sf(data = cu_boundary_plot, aes(fill = value), alpha = 0.3) +
     scale_fill_distiller(palette = brewer_palette, direction = palette_direction) +
     # geom_label(data = cu_boundary_show, aes(label = CUID), size = 2) +
     geom_sf(data = Fr_basin, colour = "black", fill = NA, alpha = 0.3) +
     labs(fill = indicator_pick) +
     coord_sf(datum = NA) +
-    facet_grid(. ~ Species)
+    facet_grid(. ~ sp)
 
 
   return(p)
@@ -397,34 +378,32 @@ spatial_indicator_plot <- function(data,
 
 
 indicator_tile_plot <- function(data,
-                                indicators_choose = c("migrT", "migrQ", "migrA21", "migr_wdist"),
+                                indicators_choose = c("migrT", "migrQ", "migrA21", "migrdist"),
                                 brewer_palette = "RdYlGn",
                                 palette_direction = -1,
                                 plot_colours = species_palette) {
 
-  id_col <- "CVIS_NAME"
-  sp_col <- "CU_Species"
 
-  # take column names that contain prefix with model type
-  cols_sub <- names(data)[str_detect(names(data), paste0(indicators_choose, collapse = "|"))]
+  data_sub <- subset_ind_table(data,
+    indicators_choose,
+    get_raw = F,
+    get_std = T,
+    get_gcm = F,
+    id_col = "CVIS_NAME")
 
-  cols_sub <- cols_sub[str_detect(cols_sub, "std")]  # select std columns
-
-  cols_sub <- cols_sub[!str_detect(cols_sub, "gcm")]  # remove gcm variation columns
+  # # take column names that contain prefix with model type
+  cols_sub <- names(data_sub)[str_detect(names(data_sub), paste0(indicators_choose, collapse = "|"))]
 
   # Prepare data for plotting
-  plot_data <- data %>%
-    select(all_of(c(id_col, sp_col, cols_sub))) %>%
+  plot_data <- data_sub %>%
+    # select(all_of(c(id_col, sp_col, cols_sub))) %>%
     pivot_longer(names_to = "indicator",
       values_to = "value",
       cols = cols_sub) %>%
-    rename(
-      id = !!id_col,
-      sp = !!sp_col
-    ) %>%
     mutate(indicator = str_remove(indicator, "std_")) %>%
     mutate(indicator = str_remove(indicator, "_mean"))
 
+  # add a label for coloured text using ggtext
   plot_data <- plot_data %>%
     mutate(id_label = paste0(
       "<span style='color:", plot_colours[plot_data$sp], "'>",
@@ -444,24 +423,6 @@ indicator_tile_plot <- function(data,
     labs(y = NULL,
       x = NULL)
 
-
-  # ggplot(plot_data, aes(y = id, x = indicator)) +
-  #   geom_tile(aes(fill = value)) +
-  #   geom_text(aes(label = round(value, 1)), size = 1.8) +
-  #   scale_fill_scico(palette = scico_palette,
-  #     direction = palette_direction,
-  #     limits = c(0, 1)) +
-  #   theme(
-  #     axis.text.y = element_text(size = 6),
-  #     axis.text.x = element_text(size = 8, angle = 45, hjust = 1),
-  #     legend.position = "none",
-  #     # plot.margin = margin(5, 5, 5, 5)
-  #   ) +
-  #   labs(y = NULL,
-  #     x = NULL) +
-  #   # facet_grid(sp ~ ., scales = "free_y")
-  #   facet_col(~sp, scales = "free_y", space = "free")
-
   p
 
 }
@@ -471,20 +432,19 @@ indicator_tile_plot <- function(data,
 
 get_correlation_matrix <- function(data,
                                    indicators_choose = tbl_indicators$abbrev,
-                                   use_standardized = TRUE) {
+                                   use_standardized = F) {
+
+  data_sub <- subset_ind_table(data,
+    indicators_choose,
+    get_raw = !use_standardized,
+    get_std = use_standardized,
+    get_gcm = F)
+
   # take column names that contain prefix with model type
-  cols_sub <- names(data)[str_detect(names(data), paste0(indicators_choose, collapse = "|"))]
+  cols_sub <- names(data_sub)[str_detect(names(data_sub), paste0(indicators_choose, collapse = "|"))]
 
-  if (use_standardized == TRUE) {
-    cols_sub <- cols_sub[str_detect(cols_sub, "std")]  # select std columns
-  }
-  if (use_standardized == FALSE) {
-    cols_sub <- cols_sub[!str_detect(cols_sub, "std")]  # remove std columns if using raw
-  }
-
-  cols_sub <- cols_sub[str_detect(cols_sub, "mean")]  # take only mean, get rid of gcm ranges
-
-  cor_data <- data %>%
+  # take just indicator columns, remove sp and id
+  cor_data <- data_sub %>%
     select(all_of(cols_sub))
 
   cor(cor_data,  use = "pairwise.complete.obs")
@@ -514,9 +474,7 @@ make_indicator_plots <- function(data,
 
   prs <- plot_std_vs_raw(data,
     indicator_pick = ind_row$abbrev,
-    indicator_stat = ind_row$stat,
-    indicator_name = ind_row$name,
-    indicator_fun =  ind_row$std_fun)
+    indicator_stat = ind_row$stat)
 
   print(p)
 

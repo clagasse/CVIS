@@ -1,7 +1,9 @@
 ## 4_scoring_utils.R
 
 # Functions for standardization of indices, scoring and plotting
+# as well as reshaping indicator data tables
 
+# 1. Standardization functions --------------------------------------------
 
 # raw standardization function between 0 and 1 using min and max values
 # if xmin or xmax are set, a manual min and max range are used for standardizing between 0 and 1
@@ -155,9 +157,6 @@ enh_std <- function(x, ..., z) {
 }
 
 
-
-
-
 simulate_range <- function(x, n = 100) {
 
   minx <- min(x, na.rm = T)
@@ -169,16 +168,252 @@ simulate_range <- function(x, n = 100) {
 }
 
 
+# 2. Data tidying and reshaping -------------------------------------------
 
-# sim_std <- simulate_range(seq(-0.5,0.1, by = 0.01))
+sum_selected_columns <- function(data, match_strings, new_col_name = "row_sum") {
+  data %>%
+    rowwise() %>%
+    mutate(
+      !!new_col_name := sum(
+        c_across(
+          matches(paste(match_strings, collapse = "|"))
+        ),
+        na.rm = TRUE
+      )
+    ) %>%
+    ungroup()
+}
 
-# ggplot() +
-#   geom_histogram(data = CVIS_CU, aes(x = rateT_spn), bins = 20, fill = "darkgreen")
-#
+multiply_selected_columns <- function(data, match_strings, new_col_name = "row_product") {
+  data %>%
+    rowwise() %>%
+    mutate(
+      !!new_col_name := prod(
+        c_across(
+          matches(paste(match_strings, collapse = "|"))
+        ),
+        na.rm = TRUE
+      )
+    ) %>%
+    ungroup()
+}
 
-#
-# ggplot() +
-#   geom_line(data = CVIS_std, aes(x = augQ_spn, y = augQ_spn_rawstd)) +
-#   geom_point(data = CVIS_std, aes(x = augQ_spn, y = augQ_spn_rawstd)) +
-#   geom_line(data = CVIS_std, aes(x = augQ_spn, y = augQ_spn_decay), color = "red") +
-#   geom_point(data = CVIS_std, aes(x = augQ_spn, y = augQ_spn_decay))
+
+# helper function used in other functions for subsetting indicator table
+# by default will take the mean and gcm variation of unstandardized columns for the selected indicator
+subset_ind_table <- function(data,
+                             indicators_choose,
+                             sp_col = "CU_Species",
+                             stat_suffix = "mean",
+                             id_col = "FULL_CU_IN",
+                             get_raw = T,  # include unstandardized columns
+                             get_std = F,  # include standardized columns
+                             get_gcm = T,  # include gcm variation
+                             get_spat = F, # include spatial variation
+                             gcm_range_suffix = c("qlowgcm", "qhighgcm", "qmingcm", "qmaxgcm"),
+                             sp_range_suffix = c("qlowsp", "qhighsp")
+) {
+  # take column names that contain prefix with model type
+  cols_sub <- names(data)[str_detect(names(data), paste0(indicators_choose, collapse = "|"))]
+
+  # remove raw or std cols if selected
+  if (get_raw == F) cols_sub <- cols_sub[str_detect(cols_sub, "std")]
+  if (get_std == F) cols_sub <- cols_sub[!str_detect(cols_sub, "std")]
+
+  if (length(indicators_choose) == 1) {
+    # take names with prefix that also contain stat suffix
+    stat_col <- cols_sub[str_detect(cols_sub, stat_suffix)] # contains "mean" or other suffix
+    # some indicators don't have a mean, just the raw value. in that case, use the abbreviation
+    if (length(stat_col) == 0) stat_col <- cols_sub
+  } else {
+    stat_col <- cols_sub[!str_detect(cols_sub, paste0(gcm_range_suffix, collapse = "|"))]  # remove gcm variation columns for now
+    stat_col <- stat_col[!str_detect(stat_col, paste0(sp_range_suffix, collapse = "|"))] # remove spat variation columns for now
+  }
+
+  cols_out <- c(id_col, sp_col, stat_col)
+
+  # get gcm min and max cols
+  if (get_gcm == T) {
+    gcm_cols   <- cols_sub[str_detect(cols_sub, paste0(gcm_range_suffix, collapse = "|"))]
+    cols_out <- c(cols_out, gcm_cols)
+  }
+
+  # get spatial min and max cols
+  if (get_spat == T) {
+    spat_cols <- cols_sub[str_detect(cols_sub, paste0(sp_range_suffix, collapse = "|"))]
+    cols_out <- c(cols_out, spat_cols)
+  }
+
+  data_sub <- data %>%
+    select(cols_out) %>%
+    rename(id = !!id_col,
+      sp = !!sp_col)
+
+  return(data_sub)
+
+}
+
+# utility to function to update indicator column names for plotting
+rename_ind_table <- function(data,
+                             indicator_abbrev,
+                             gcm_range_suffix = c("qlowgcm", "qhighgcm"),
+                             sp_range_suffix = c("qlowsp", "qhighsp"),
+                             single_value_col = FALSE) {
+  # take column names that contain prefix with model type
+  cols_sub <- names(data)[str_detect(names(data), indicator_abbrev)]
+
+  # get raw and standardized columns
+  stat_col <- cols_sub[!str_detect(cols_sub, "std")]
+  stat_col <- stat_col[!str_detect(stat_col, paste0(gcm_range_suffix, collapse = "|"))]
+  stat_col <- stat_col[!str_detect(stat_col, paste0(sp_range_suffix, collapse = "|"))]
+
+  std_col <- cols_sub[str_detect(cols_sub, "std")]
+
+  # get gcm variation columns
+  min_gcmcol <- cols_sub[str_detect(cols_sub, gcm_range_suffix[1])]
+  max_gcmcol <- cols_sub[str_detect(cols_sub, gcm_range_suffix[2])]
+
+  # get sp variation columns
+  min_spatcol <- cols_sub[str_detect(cols_sub, sp_range_suffix[1])]
+  max_spatcol <- cols_sub[str_detect(cols_sub, sp_range_suffix[2])]
+
+  # create output dataframe with consistent names
+  out_data <- data
+  if (length(stat_col) > 0) out_data <- rename(out_data, raw = !!stat_col)
+  if (length(std_col) > 0) out_data <- rename(out_data, std = !!std_col)
+
+  if (length(min_gcmcol) > 0 & length(max_gcmcol) > 0) {
+    out_data <- rename(out_data,
+      min_gcm = !!min_gcmcol,
+      max_gcm = !!max_gcmcol)
+  }
+  if (length(min_spatcol) > 0 & length(max_spatcol) > 0) {
+    out_data <- rename(out_data,
+      min_spat = !!min_spatcol,
+      max_spat = !!max_spatcol)
+  }
+
+  if (single_value_col == TRUE & length(stat_col) > 0) out_data  <-  rename(out_data, value = raw)
+  if (single_value_col == TRUE & length(std_col)  > 0) out_data <-  rename(out_data, value = std)
+
+  return(out_data)
+
+}
+
+
+standardize_indicator <- function(data,
+                                  indicator_pick,
+                                  std_fun = "linear_std",
+                                  std_params = NA,
+                                  gcm_range_suffix = c("qlowgcm", "qhighgcm"),
+                                  use_gcm_range = FALSE) # use GCMs to include GCM quantiles in standardization ranges, set FALSE to only use mean values
+{
+  stat_suffix <- "mean"
+  id_col <- "FULL_CU_IN"
+
+  # take column names that contain prefix with model type
+  cols_sub <- names(data)[str_detect(names(data), indicator_pick)]
+
+  # take names with prefix that also contain stat suffix
+  stat_col <- cols_sub[str_detect(cols_sub, paste0(stat_suffix, "$"))] # must end with mean
+  min_gcmcol <- cols_sub[str_detect(cols_sub, paste0(gcm_range_suffix[1], collapse = "|"))]
+  max_gcmcol <- cols_sub[str_detect(cols_sub, paste0(gcm_range_suffix[2], collapse = "|"))]
+
+  # some indicators don't have a mean, just the raw value. in that case, use the abbreviation
+  if (length(stat_col) == 0) stat_col <- cols_sub
+
+  data <- select(data, c(id_col, stat_col, min_gcmcol, max_gcmcol, RCP, period_code))
+
+  if (length(min_gcmcol) == 1 && length(max_gcmcol) == 1 && use_gcm_range == TRUE) {
+    # put gcm lows and highs and mean into one column
+    data_long <- pivot_longer(data,
+      cols = starts_with(indicator_pick),
+      names_prefix = paste0(indicator_pick, "_")
+    )
+
+    data_std <- data_long %>%
+      group_by(RCP, period_code) %>%
+      reframe(
+        FULL_CU_IN = FULL_CU_IN,
+        std = do.call(std_fun, c(list(value), std_params)),
+        name = name
+      ) %>%
+      pivot_wider(
+        names_from = name,
+        values_from = std,
+        names_prefix = paste0(indicator_pick, "_")
+      )
+  } else {
+    data_std <- data %>%
+      group_by(RCP, period_code) %>%
+      reframe(
+        FULL_CU_IN = FULL_CU_IN,
+        !!stat_col := do.call(std_fun, c(list(!!sym(stat_col)), std_params))
+        # !!stat_col := get(std_fun)(!!sym(stat_col))
+      )
+    # std_qlowgcm= get(std_fun)(!!sym(min_gcmcol)),
+    # std_qhighgcm = get(std_fun)(!!sym(max_gcmcol)))
+  }
+
+  return(data_std)
+}
+
+
+# function to get selected indicator results from a single CU and pivot longer for plotting
+get_CU_indicators <- function(data,
+                              cu_i,
+                              RCP_pick = "45",
+                              period_pick = "3",
+                              indicators_choose = tbl_indicators$abbrev,
+                              use_standardized = TRUE) {
+  data <- filter(data,
+    RCP == RCP_pick,
+    period_code == period_pick)
+
+  sp_col <- "CU_Species"
+  id_col <- "FULL_CU_IN"
+
+  sp_pick <- data %>%
+    filter(FULL_CU_IN == cu_i) %>%
+    pull(sp_col) %>%
+    as.character() %>%
+    unique()
+
+  # subset columns for chosen indicators
+  cols_sub <- names(data)[str_detect(names(data), paste(indicators_choose, collapse = "|"))]
+
+  data_sub <- data %>%
+    select(all_of(c(id_col, sp_col, cols_sub)))
+
+  sp_avgs <- data_sub %>%
+    filter(CU_Species == sp_pick) %>%
+    summarize(across(starts_with("std_"), \(x) mean(x, na.rm = TRUE)), .groups = "drop") %>%
+    # mutate(FULL_CU_IN = "Species average", CU_NAME = "Species average") %>%
+    # rename columns to indicate species average
+    # rename_with(.fn = ~ paste0("spavg_", .x), .cols = starts_with("std_")) %>%
+    pivot_longer(cols = contains("std"),
+      values_to = "sp_value",
+      names_prefix = "std_",
+      names_sep = "_",
+      names_to = c("indicator", "stat"))
+
+  data_CU <- data_sub %>%
+    filter(FULL_CU_IN == cu_i) %>%
+    select(id_col, sp_col, starts_with("std_")) %>%
+    pivot_longer(cols = contains("std"),
+      values_to = "cu_value",
+      names_prefix = "std_",
+      names_sep = "_",
+      names_to = c("indicator", "stat"))
+
+  data_CU <- data_CU %>%
+    left_join(sp_avgs, join_by(indicator, stat)) %>%
+    mutate(stat = if_else(is.na(stat), "mean", stat))  # fill NAs with mean
+
+  return(data_CU)
+}
+
+
+
+# test <- subset_ind_table(all_flat,
+#   indicators_choose = c("Tw8rate", "Tw8proj", "CUstatus"))
