@@ -1,5 +1,6 @@
 ---
-title: "CVIS Report"
+title: "Climate Vulnerability Indicators for Salmon: Methods and Results (draft)"
+date: "`r format(Sys.Date(), '%d %B %Y')`"
 output:
   html_document:
     toc: true
@@ -15,24 +16,19 @@ knitr::opts_chunk$set(echo = F, warning = F, message = F, results = 'asis')
 
 ```
 
-This report summarizes climate vulnerability indicators for conservation units of Pacific salmon in the Fraser basin. Preliminary outputs of indicators are shown for 49 conservation units.
+This report summarizes climate vulnerability indicators for conservation units of Pacific salmon in the Fraser basin. Preliminary outputs of indicators are shown for 48 conservation units.
 
 # Methods Overview
 
-For each indicator of environmental change, a historical baseline period beginning in 1980 was compared to projected conditions averaged over 20-year periods, from 2041 to 2060, 2061 to 2080, and 2081 to 2100. Indicators were also compared across two emissions scenarios or representative concentration pathways (RCPs), RCP45 and RCP85, representing moderate and high trajectories for continued greenhouse gas emissions. We focus on the mid-century 2041 to 2060 period and RCP45 emissions scenario for comparison of vulnerability scores due to its relevancy for informing planning and decision-making, and lower uncertainty compared to end-of-century projections.
+For each indicator of environmental change, a historical baseline period beginning in 1980 was compared to projected conditions averaged over 20-year periods, from 2041 to 2060, 2061 to 2080, and 2081 to 2100. Indicators were also compared across two emissions scenarios or representative concentration pathways (RCPs), RCP45 and RCP85, representing moderate and high trajectories for continued greenhouse gas emissions. We focus on the mid-century 2041 to 2060 period for comparison of vulnerability scores due to its relevancy for informing planning and decision-making, and lower uncertainty compared to end-of-century projections.
 
-**Indicator Standardization** Raw indicator values were standardized between 0 and 1 to improve comparability, facilitate interpretation, and represent risk using mechanistic relationships and thresholds. A linear function was used for most indicators, with the lowest and highest values scaled to the minimum and maximum mean CU value across all GCMs. An exponential function was used for the projected temperature indicator to represent increasing risk at higher temperatures. Ecological niche model values were not standardized as the model predicted improved habitat favourability for most CUs.
+**Indicator Standardization**
 
-### Data sources
-
-**BCFishPass** - Freshwater fish habitat accessibility model used to subset accessible streams. [<https://smnorris.github.io/bcfishpass/index.html>]\
-**CU boundaries** - spatial boundaries for CUs based on Freshwater Adaptive Zones. Taken from PSF data library [<https://data.salmonwatersheds.ca/result?datasetid=104>]\
-**PCIC gridded model output** - indicators from the Salmon Climate Impacts portal [<https://pacificclimate.org/analysis-tools/salmon-climate-impacts-portal>]\
-**PSF CU-Specific Life History Timing** - timing of freshwater life history events for each CU, used to subset PCIC model outputs for upstream migration timing [<https://datadryad.org/dataset/doi:10.5061/dryad.wm37pvmwx>]
+Raw indicator values were standardized between 0 and 1 to improve comparability, facilitate interpretation, and represent risk using mechanistic relationships and thresholds. A linear function was used for most indicators, with the lowest and highest values scaled to the minimum and maximum mean CU value across all GCMs. An exponential function was used for the projected temperature indicator to represent increasing risk at higher temperatures.
 
 ### Indicators
 
-The following is a preliminary list of indicators, their standardization method, life stage (type), and their abbreviation. Not all indicators are currently included in this report:
+The following indicators are included in this report:
 
 ```{r}
 
@@ -46,7 +42,9 @@ tbl_indicators %>%
 
 ```
 
-### Standardized indicator values {.tabset .tabset-pills}  
+# Preliminary Results (all indicators)
+
+### Standardized indicator values {.tabset .tabset-pills}
 
 The following plots show standardized values of indicators across all conservation units. The values are standardized to a 0-1 scale, where 0 is the lowest value and 1 is the highest value for each indicator for each projected time period and emissions scenario.
 
@@ -64,52 +62,41 @@ for (RCP_pick in unique(all_flat_std$RCP))
   fw_p <- indicator_tile_plot(filter_std,
     # indicators_metadata = tbl_indicators,
     indicators_choose = c("Tw8proj", "Tw8rate", "highQpdelta", "lowQpdelta",
-                          "Favchange", "ct", "fwres"))
+                          "Favchange", "ct"))
   
-  cat("##### Spawning & Rearing exposure indicators")
-  
-  print(fw_p)
-
-  # fw_p2 <- indicator_tile_plot(filter_std,
-  #   # ndicators_metadata = tbl_indicators,
-  #   indicators_choose = c("Favchange", "ct", "fwres"),
-  #   title_custom = "Spawning & Rearing indicators")
-  # 
-  # print(fw_p2)
-
   migr_p <- indicator_tile_plot(filter_std,
     # indicators_metadata = tbl_indicators,
     indicators_choose = tbl_indicators$abbrev[tbl_indicators$type == "migr"])
 
-  print(migr_p)
+
 
   dem_p <- indicator_tile_plot(filter_std,
     # indicators_metadata = tbl_indicators,
     indicators_choose = tbl_indicators$abbrev[tbl_indicators$type %in% c("dem", "mar")])
 
+  
+  cat("##### Spawning & Rearing exposure indicators \n\n")
+  print(fw_p)
+  cat("\n\n")
+  cat("##### Upstream migration indicators \n\n")
+  print(migr_p)
+  cat("\n\n")
+  cat("##### Demographic and marine indicators")
   print(dem_p)
-
-  # mar_p <- indicator_tile_plot(filter_std,
-  #   # indicators_metadata = tbl_indicators,
-  #   indicators_choose = tbl_indicators$abbrev[tbl_indicators$type == "mar"],
-  #   title_custom = "Marine indicators")
-  # 
-  # print(mar_p)
 
   cat("\n\n")
 
 }
 ```
 
-### Correlation of indicators {.tabset .tabset-pills}  
+### Correlation of indicators {.tabset .tabset-pills}
 
-One test for the utility of an indicator is the correlation with other indicator values. The plot below shows correlation of raw indicator values, subsetted to show indicators of freshwater environmental change only. 
+One test for the utility of an indicator is the correlation with other indicator values. The plot below shows correlation of raw indicator values, subsetted to show indicators of freshwater environmental change only.
 
 ```{r correlation, results = 'asis'}
 
 #include only freshwater indicators in correlation matrix
 #  cor_indicators <- tbl_indicators$abbrev[tbl_indicators$type %in% c("fwR", "migr")]
-
 
 for (RCP_pick in unique(all_flat_std$RCP))
 {
@@ -121,10 +108,10 @@ for (RCP_pick in unique(all_flat_std$RCP))
       period_code == 3)
   
   cor_data <- get_correlation_matrix(filter_std,
-  indicators_choose = cor_indicators,
+  #indicators_choose = cor_indicators,
   use_standardized = F)
   
-  corrplot(cor_data,  method = "number", tl.col = "black")
+  corrplot(cor_data,  method = 'pie', tl.col = "black")
   
   #print(p)
   
@@ -134,19 +121,27 @@ for (RCP_pick in unique(all_flat_std$RCP))
   
 ```
 
-
-
 # Freshwater spawning to rearing
+
+### Data Sources
+
+**BCFishPass** - Freshwater fish habitat accessibility model used to subset accessible streams. [<https://smnorris.github.io/bcfishpass/index.html>]\
+**CU boundaries** - spatial boundaries for CUs based on Freshwater Adaptive Zones. Taken from PSF data library [<https://data.salmonwatersheds.ca/result?datasetid=104>] **Cumulative Threats** - Cumulative threats to anadromous salmon stream habitat in the Fraser Basin [<https://www.dfo-mpo.gc.ca/csas-sccs/Publications/SAR-AS/2024/2024_041-eng.pdf>]\
+**Thermalscapes Stream Temperatures** - Statistically downscaled projections of August stream temperature developed across British Columbia [<https://datadryad.org/dataset/doi:10.5061/dryad.bzkh189fk>]
+
+**August flow projections at gauge stations** - Preliminary model outputs of statistically downscaled flow projections for gauge stations in British Columbia. Developed by Sacha Ruzzante et al.
+
+**Environmental Niche Models** - Models of current and future habitat favourability for British Columbia and the Western US [<https://cdnsciencepub.com/doi/10.1139/cjfas-2023-0096>]
+
+**PSF CU-Specific Life History Timing** - timing of life history events for determining freshwater residency time [<https://datadryad.org/dataset/doi:10.5061/dryad.wm37pvmwx>]
 
 ### Spatial analysis methods
 
-Vulnerability indicators for freshwater spawning and rearing life stages represent environmental change to streams, as well as cumulative threats to stream habitats and freshwater residency times. The British Columbia Freshwater Atlas was used as the stream network with spatial delineation to Pacific salmon conservation units based upon conservation unit boundaries. The stream network was limited to accessible streams with channel width and gradients that meet criteria for intrinsic habitat potential for each Pacific salmon species using the [BC Fishpass accessibility model] (<https://smnorris.github.io/bcfishpass/02_model_access.html>) and [habitat model](https://smnorris.github.io/bcfishpass/03_model_habitat_linear.html). For sockeye salmon, the habitat model also includes criteria for proximity to lakes. This filtering process removed smaller and inaccessible streams while retaining all stream segments with observed occurrences and modelled habitat potential.
+Vulnerability indicators for freshwater spawning and rearing life stages represent environmental change to streams, as well as cumulative threats to stream habitats and freshwater residency times. The British Columbia Freshwater Atlas was used as the stream network with spatial delineation to Pacific salmon conservation units based upon conservation unit boundaries. The stream network was limited to accessible streams with channel width and gradients that meet criteria for intrinsic habitat potential for each Pacific salmon species using the [BC Fishpass accessibility model](https://smnorris.github.io/bcfishpass/02_model_access.html) and [habitat model](https://smnorris.github.io/bcfishpass/03_model_habitat_linear.html). For sockeye salmon, the habitat model also includes criteria for proximity to lakes. This filtering process removed smaller and inaccessible streams while retaining all stream segments with observed occurrences and modelled habitat potential.
 
 Environmental change indicators included projected August stream temperatures, rate of change in August stream temperature, percent change in August flows, percent change in flows from November to January, and change in environmental niche model habitat suitability. Each indicator was calculated as the mean value across all stream segments assigned to the conservation unit, weighted by stream segment length. Temperature indicators (projected and rate of change) were based on a statistical downscaling approach fitted to streams throughout British Columbia (Weller et al. 2024). Hydrologic indicators were based on the Pacific Climate Impacts Consortium gridded hydrological model that was further downscaled to the Fraser basin stream network (CSAS 2024). For the indicator of percent change in August flows, an alternative set of projections using a statistical downscaling approach fitted to hydrometric stations in BC (Ruzzante in prep) was also applied to compare variation in responses (to be further described in an appendix).
 
 Variation in environmental change indicators for each CU was summarized across global climate model projections and spatial dimensions using 80% quantile ranges. Spatial variation quantiles were weighted by stream length and characterized the range in responses for accessible streams with intrinsic habitat potential using the ensemble mean of climate model projections. Global climate model quantiles represented the variation of the weighted mean for streams within the CU boundary across all included global climate models (generally 6).
-
-To represent overall risk across indicators for the spawning and rearing stages, an average of standardized risk scores was calculated. Other methods for combining risk scores will be further tested.
 
 The freshwater spawning/rearing indicators are:
 
@@ -161,53 +156,7 @@ tbl_indicators %>%
   )
 ```
 
-```{r plotting function}
-make_indicator_plots <- function(data,
-                                 ind_pick,
-                                 tbl = tbl_indicators,
-                                 standardized_plots = FALSE,
-                                 make_spatial = TRUE)
-{
-  
-  ind_row <- tbl_indicators[tbl_indicators$abbrev == ind_pick,]
-  
-  
-  p <- plot_lollipop(data,
-    indicator_pick = ind_row$abbrev,
-    indicator_stat = ind_row$stat,
-    indicator_name = ind_row$name,
-    use_standardized = standardized_plots
-  )
-   
-   prs <- plot_std_vs_raw(data,
-    indicator_pick = ind_row$abbrev,
-    indicator_stat = ind_row$stat,
-    indicator_name = ind_row$name,
-    indicator_fun =  ind_row$std_fun)
-   
-
-  
-  print(p)
-  
-  print(prs)
-  
-  if(make_spatial == TRUE) {
-  pmap <- spatial_indicator_plot(data,
-    cu_boundary,
-    indicator_pick = ind_row$abbrev,
-    indicator_stat = ind_row$stat,
-    indicator_name = ind_row$name,
-    use_standardized = standardized_plots)
-    
-  print(pmap)
-  
-  }
-  
-}
-```
-
-
-### Projected August temperature (Tw8Proj) {.tabset .tabset-pills} 
+### Projected August temperature (Tw8Proj) {.tabset .tabset-pills}
 
 ```{r projT plots, results = 'asis'}
 #fw_indicators <- tbl_indicators$abbrev[tbl_indicators$type %in% c("fwR")]
@@ -232,8 +181,7 @@ for(RCP_pick in unique(all_flat_std$RCP))
 
 ```
 
-
-### Rate of change in August temperature {.tabset .tabset-pills} 
+### Rate of change in August temperature {.tabset .tabset-pills}
 
 ```{r}
 
@@ -254,8 +202,7 @@ for(RCP_pick in unique(all_flat_std$RCP))
 }
 ```
 
-
-### Change in August flow  {.tabset .tabset-pills} 
+### Change in August flow {.tabset .tabset-pills}
 
 ```{r}
 
@@ -269,15 +216,20 @@ for(RCP_pick in unique(all_flat_std$RCP))
            period_code == 3)
   
   make_indicator_plots(filter_std, 
-                       ind_pick = "lowQpdelta")
+                       ind_pick = "lowQpdelta",
+                       spatial_pal_dir = 1)
  
+  make_indicator_plots(filter_std, 
+                       ind_pick = "st8pdelta",
+                       spatial_pal_dir = 1)
+ 
+  
   cat("\n\n")
   
 }
 ```
 
-
-### Change in Nov-Jan flow  {.tabset .tabset-pills} 
+### Change in Nov-Jan flow {.tabset .tabset-pills}
 
 ```{r}
 
@@ -298,8 +250,7 @@ for(RCP_pick in unique(all_flat_std$RCP))
 }
 ```
 
-
-### Cumulative threats  {.tabset .tabset-pills} 
+### Cumulative threats {.tabset .tabset-pills}
 
 ```{r}
 
@@ -320,8 +271,7 @@ for(RCP_pick in unique(all_flat_std$RCP))
 }
 ```
 
-
-### ENM Favourability Change  {.tabset .tabset-pills} 
+### ENM Favourability Change {.tabset .tabset-pills}
 
 ```{r}
 
@@ -335,7 +285,8 @@ for(RCP_pick in unique(all_flat_std$RCP))
            period_code == 3)
   
   make_indicator_plots(filter_std, 
-                       ind_pick = "Favchange")
+                       ind_pick = "Favchange",
+                       spatial_pal_dir = 1)
  
   cat("\n\n")
   
@@ -344,8 +295,20 @@ for(RCP_pick in unique(all_flat_std$RCP))
 
 # Upstream Migration
 
+### Data Sources
+
+**PCIC Variable Infiltration Capacity With Glaciers (VIC-GL) gridded model** - Dynamically downscaled projections of stream temperature and flow from 1980 to 2099 for gauged watersheds within British Columbia [<https://pacificclimate.org/analysis-tools/salmon-climate-impacts-portal>]\
+**PSF CU-Specific Life History Timing** - timing of freshwater life history events for each CU [<https://datadryad.org/dataset/doi:10.5061/dryad.wm37pvmwx>]
+
+**NUSEDS (New Spawning Escapement Database)** - CU spawning sites used to determine migration end points [<https://open.canada.ca/data/en/dataset/c48669a3-045b-400d-b730-48aafe8c5ee6>]
+
 ### Analysis Methods
 
+Indicators for the upstream migration life stage represent changes to stream temperatures and flows, and distance to spawning sites. For each CU, a migration path from river mouth to NUSEDS spawning sites was subsetted from the BC Freshwater Atlas stream network. The upstream migration distance was calculated as the length of all stream segments within the migration path, weighted by the proportion of spawning sites that terminated past the segment.
+
+To estimate temperatures and flow during upstream migration, an upstream movement model was applied to stream segments within the migration path and used to subset days of the year and spatial grid cells from the VIC-GL model. The model began with stream segments within 100km of the river mouth at the start of run timing. The front end of this spatial subset was moved upstream at a rate equal to the distance to spawning sites divided by the number of days between spawn timing start and run timing start. This assumes that the spawn timing start coincides with arrival to the spawning sites. The tail end of the migration was modelled to arrive at the spawning grounds at the peak spawn date, and moved upstream at a rate equal to the distance to spawning sites divided by the number of days between spawn timing peak and run timing end.
+
+Migration temperatures are represented using two indicators: a) projected temperatures during the migration window, and b) proportion of the migration path above 21 degrees Celsius. The latter indicator is intended to represent thermal barriers to migration that can develop at high temperatures and is calculated as the average of the number of grid cells above 21 degrees Celsius across all days included in the upstream movement model.
 
 ```{r migration table}
 tbl_indicators %>%
@@ -358,9 +321,7 @@ tbl_indicators %>%
   )
 ```
 
-
-
-### Projected temperature during migration  {.tabset .tabset-pills}
+### Projected temperature during migration {.tabset .tabset-pills}
 
 ```{r}
 
@@ -382,8 +343,7 @@ for(RCP_pick in unique(all_flat_std$RCP))
 }
 ```
 
-
-### Projected proportion of migration above 21 degrees C  {.tabset .tabset-pills}
+### Projected proportion of migration above 21 degrees C {.tabset .tabset-pills}
 
 ```{r}
 
@@ -405,7 +365,7 @@ for(RCP_pick in unique(all_flat_std$RCP))
 }
 ```
 
-### Change in discharge during migration  {.tabset .tabset-pills}
+### Change in discharge during migration {.tabset .tabset-pills}
 
 ```{r}
 
@@ -427,8 +387,7 @@ for(RCP_pick in unique(all_flat_std$RCP))
 }
 ```
 
-
-### Length of upstream migration  {.tabset .tabset-pills}
+### Length of upstream migration {.tabset .tabset-pills}
 
 ```{r}
 
@@ -450,9 +409,15 @@ for(RCP_pick in unique(all_flat_std$RCP))
 }
 ```
 
-
 # Demographic indicators
 
+### Data Sources
+
+**WSP Status Assessments** - Recent assessments for Fraser basin conservation units using methods described in CSAS 2024 [<https://www.dfo-mpo.gc.ca/csas-sccs/Publications/ScR-RS/2024/2024_004-eng.html>]
+
+### Methods
+
+Demographic indicators were derived from recent Wild Salmon Policy assessments in the Fraser Basin using the Rapid Status Approximations method. The status indicator represents the categorical status assessments (Red, Red/Amber, Amber, Amber/Green, Green), which is transformed between 0 to 1 using a step transformation. The number of mature individuals is calculated as the arithmetic mean of the number of spawners from the most recent generation for which data was compiled and available.
 
 ```{r demographics table}
 tbl_indicators %>%
@@ -465,10 +430,7 @@ tbl_indicators %>%
   )
 ```
 
-
-
-
-### WSP Status  {.tabset .tabset-pills}
+### WSP Status {.tabset .tabset-pills}
 
 ```{r}
 
@@ -491,7 +453,7 @@ for(RCP_pick in unique(all_flat_std$RCP))
 }
 ```
 
-### Number of mature individuals  {.tabset .tabset-pills}
+### Number of mature individuals {.tabset .tabset-pills}
 
 ```{r}
 
@@ -514,8 +476,25 @@ for(RCP_pick in unique(all_flat_std$RCP))
 }
 ```
 
-
 # Nearshore marine indicators
+
+### Data Sources
+
+**PSF CU-Specific Life History Timing** - ocean entry timing used to determine projected SST [<https://datadryad.org/dataset/doi:10.5061/dryad.wm37pvmwx>]
+
+**HOTSSea -** hindcast of the Salish Sea used for the historical climatology of SST
+
+**SalishSeaCast** - Regional oceanographic model of the Salish Sea used for projected SST between 2046-2065
+
+**Marine Adaptive Zones** - Developed as part of CU definitions by Holtby and Ciruna (2007), adjusted to cover the marine regions.
+
+**Cumulative Impacts -** Marine habitat cumulative impacts [<https://www.dfo-mpo.gc.ca/csas-sccs/Publications/ResDocs-DocRech/2024/2024_024-eng.html>]
+
+### Analysis Methods
+
+Marine indicators represent changes to sea surface temperature within marine adaptive zones surrounding the period of marine entry for each conservation unit. Sea surface temperature projections from the Salish Sea Cast model were averaged for the month prior to the start of ocean entry to the month following the end of ocean entry. Historical climatologies were estimated using the same method but averaged from the HOTSSea model for better representation of historic SSTs.
+
+The spatial domain over which SSTs were averaged was the Strait of Georgia marine adaptive zone. The same spatial domain was applied to all CUs from the Fraser basin as they all share a common ocean entry point.
 
 ```{r}
 
@@ -529,6 +508,7 @@ tbl_indicators %>%
   )
 ```
 
+### Projected sea surface temperature near ocean entry {.tabset .tabset-pills}
 
 ```{r}
 

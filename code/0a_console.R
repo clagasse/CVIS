@@ -26,9 +26,6 @@ library(gt)   # gg tables for markdown
 
 ## spatial data packages
 library(pacea)  # bc_coast shapefile
-# library(bcdata)   #retrieving from BC data catalogue
-# install.packages("fwatlasbc", repos = c('https://poissonconsulting.r-universe.dev', 'https://cloud.r-project.org'))
-# library(fwatlasbc)
 
 
 # set-up used in every script
@@ -170,8 +167,6 @@ rmarkdown::render(
   output_file = paste(today, "CVIS_overview.html", sep = "_"),
   output_dir = here("output"),
   output_format = "html_document")
-
-
 
 
 

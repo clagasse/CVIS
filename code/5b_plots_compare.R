@@ -106,11 +106,18 @@ plot_std_vs_raw <- function(data,
   # add GCM range if available
   if (length(min_gcmcol_raw) == 1 && length(max_gcmcol_raw) == 1) {
     plot_data <- plot_data %>%
-      mutate(min_gcm_raw = data[[min_gcmcol_raw]], max_gcm_raw = data[[max_gcmcol_raw]]) %>%
-      mutate(min_gcm_std = data[[min_gcmcol_std]], max_gcm_std = data[[max_gcmcol_std]])
-    has_gcm <- TRUE
+      mutate(min_gcm_raw = data[[min_gcmcol_raw]], max_gcm_raw = data[[max_gcmcol_raw]])
+    has_gcm_raw <- TRUE
   } else {
-    has_gcm <- FALSE
+    has_gcm_raw <- FALSE
+  }
+  # add GCM range if available
+  if (length(min_gcmcol_std) == 1 && length(max_gcmcol_std) == 1) {
+    plot_data <- plot_data %>%
+      mutate(min_gcm_std = data[[min_gcmcol_std]], max_gcm_std = data[[max_gcmcol_std]])
+    has_gcm_std <- TRUE
+  } else {
+    has_gcm_std <- FALSE
   }
 
   p <- ggplot(plot_data) +
@@ -122,17 +129,19 @@ plot_std_vs_raw <- function(data,
       y = "Standardized"
     )
 
-  if (has_gcm) {
+  if (has_gcm_raw) {
     p <- p + geom_segment(
       aes(x = min_gcm_raw, xend = max_gcm_raw, y = std),
       color = "grey",
       linewidth = 1
-    ) +
-      geom_segment(
-        aes(x = raw, y = min_gcm_std, yend = max_gcm_std),
-        color = "grey",
-        linewidth = 1
-      )
+    )
+  }
+  if (has_gcm_std) {
+    p <- p + geom_segment(
+      aes(x = raw, y = min_gcm_std, yend = max_gcm_std),
+      color = "grey",
+      linewidth = 1
+    )
   }
 
   p <- p + geom_point(aes(x = raw, y = std, color = sp), size = 2.5) +
@@ -244,9 +253,9 @@ plot_lollipop <- function(data,
     scale_fill_gradient(name = "Mean", low = "lightblue", high = "darkblue") +
 
     # Dummy layers for line segment legend
-    geom_segment(aes(x = 1, xend = 1, y = 1, yend = 2, color = "Spatial range"),
+    geom_segment(aes(x = Inf, xend = Inf, y = Inf, yend = Inf, color = "Spatial range"),
       linewidth = 2.5, inherit.aes = FALSE) +
-    geom_segment(aes(x = 1, xend = 1, y = 1, yend = 2, color = "GCM range"),
+    geom_segment(aes(x = Inf, xend = Inf, y = Inf, yend = Inf, color = "GCM range"),
       linewidth = 1, inherit.aes = FALSE) +
 
     # Manual legend styling for segments
@@ -256,7 +265,7 @@ plot_lollipop <- function(data,
     ) +
 
     labs(
-      title = paste(indicator_name),
+      subtitle = paste(indicator_name),
       y = stat_col
     ) +
     coord_flip() +
@@ -457,28 +466,8 @@ indicator_tile_plot <- function(data,
 
 }
 
-#
-data <- all_flat_std %>%
-  filter(RCP == "45",
-    period_code == 3)
-
-indicator_tile_plot(data,
-  indicators_choose = c("Favchange", "ct", "fwres"))
-
-
-indicator_tile_plot(filter_std,
-  # indicators_metadata = tbl_indicators,
-  indicators_choose = tbl_indicators$abbrev[tbl_indicators$type == "migr"],
-  title_custom = "Migration indicators")
-
-
-dem_p <- indicator_tile_plot(filter_std,
-  # indicators_metadata = tbl_indicators,
-  indicators_choose = tbl_indicators$abbrev[tbl_indicators$type == "dem"],
-  title_custom = "Demographic indicators")
 
 # 6. Correlation analysis and plots ---------------------------------------
-
 
 get_correlation_matrix <- function(data,
                                    indicators_choose = tbl_indicators$abbrev,
@@ -500,17 +489,53 @@ get_correlation_matrix <- function(data,
 
   cor(cor_data,  use = "pairwise.complete.obs")
 
-
 }
 
-# cor_indicators <- tbl_indicators$abbrev[tbl_indicators$type %in% c("fwR", "migr")]
-#
-# std_cor <- get_correlation_matrix(filter_std,
-#   #indicators_choose = cor_indicators,
-#   use_standardized = F)
-#
-#
-# corrplot(std_cor,  method = "number", tl.col = "black")
+
+
+# 7. Make all plots -------------------------------------------------------
+
+# utility function to make all plots for an indicator, used for markdown reporting
+make_indicator_plots <- function(data,
+                                 ind_pick,
+                                 tbl = tbl_indicators,
+                                 standardized_plots = FALSE,
+                                 make_spatial = TRUE,
+                                 spatial_pal_dir = -1) {
+
+  ind_row <- tbl[tbl$abbrev == ind_pick, ]
+
+  p <- plot_lollipop(data,
+    indicator_pick = ind_row$abbrev,
+    indicator_stat = ind_row$stat,
+    indicator_name = ind_row$name,
+    use_standardized = standardized_plots
+  )
+
+  prs <- plot_std_vs_raw(data,
+    indicator_pick = ind_row$abbrev,
+    indicator_stat = ind_row$stat,
+    indicator_name = ind_row$name,
+    indicator_fun =  ind_row$std_fun)
+
+  print(p)
+
+  print(prs)
+
+  if (make_spatial == TRUE) {
+    pmap <- spatial_indicator_plot(data,
+      cu_boundary,
+      indicator_pick = ind_row$abbrev,
+      indicator_stat = ind_row$stat,
+      indicator_name = ind_row$name,
+      use_standardized = standardized_plots,
+      palette_direction = spatial_pal_dir)
+
+    print(pmap)
+
+  }
+
+}
 
 
 # Test plots --------------------------------------------------------------

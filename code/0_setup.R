@@ -84,15 +84,15 @@ period_lookup <- tribble(
 # table of indicator abbreviations and full names
 tbl_indicators <- tribble(
   ~abbrev,      ~type,    ~stat, ~std_fun, ~name,
-  "Favchange", "fwR",    "mean",   "invlinear_std",     "ENM Change in Favourability",
+  "Favchange", "fwR",    "mean",     "decay_std",     "ENM Change in Favourability",
   "ct",         "fwR",    "mean",    "linear_std",        "Cumulative threats to freshwater habitat",
-  "Tw8rate",    "fwR",    "mean",    "linear_std",        "Rate of change in August Temperature",
-  "Tw8proj",    "fwR",    "mean",     "exponential_std", "Projected August Temperature",
-  "highQpdelta", "fwR",   "mean",   "linear_std", "Proportional change in August flow (stream model)",
-  "lowQpdelta",  "fwR",   "mean",   "invlinear_std", "Proportional change in Nov-Jan flow (stream model)",
-  "st8pdelta",  "fwR",    "mean", "invlinear_std", "Proportional change in August flow (station model)",
+  "Tw8rate",    "fwR",    "mean",    "exponential_std",        "Rate of change in August Temperature",
+  "Tw8proj",    "fwR",    "mean",    "exponential_std", "Projected August Temperature",
+  "lowQpdelta", "fwR",   "mean",    "decay_std",       "Proportional change in August flow (stream model)",
+  "st8pdelta",  "fwR",    "mean",    "decay_std",     "Proportional change in August flow (station model)",
+  "highQpdelta",  "fwR",   "mean",    "exponential_std", "Proportional change in Nov-Jan flow (stream model)",
   "fwres",     "fwR",    "value",    "step_std",   "Freshwater residency time",
-  "migrT",      "migr",   "mean",    "linear_std",     "Projected temperature during upstream migration",
+  "migrT",      "migr",   "mean",    "exponential_std",     "Projected temperature during upstream migration",
   "migrQ",      "migr",   "mean",      "linear_std",    "Projected discharge during upstream migration",
   "migrA21",    "migr",   "mean",    "exponential_std", "Average proportion of path above 21 degrees during upstream migration",
   "migrdist",   "migr",  "value",      "linear_std",     "Length of upstream migration",
@@ -100,6 +100,27 @@ tbl_indicators <- tribble(
   "CI",          "mar",   "mean", "linear_std",   "Cumulative impacts to marine nearshore habitat",
   "CUstatus",    "dem",   "category",    "cat_std", "WSP status",
   "CUnmat",      "dem",   "value",  "decay_std", "Number of mature individuals")
+
+
+
+tbl_standardize <- tribble(
+  ~abbrev,      ~type,      ~std_fun,        ~lambda, ~xmin, ~xmax,
+  "Favchange", "fwR",        "decay_std",        3,     NA,   0,
+  "ct",         "fwR",      "linear_std",        NA,    NA,   NA,
+  "Tw8rate",    "fwR",      "exponential_std",    3,    NA,   NA,
+  "Tw8proj",    "fwR",       "exponential_std",   3,    14,   NA,
+  "lowQpdelta",  "fwR",    "decay_std",           3,    NA,   NA,
+  "st8pdelta",  "fwR",    "decay_std",            3,    NA,   NA,
+  "highQpdelta", "fwR",    "exponential_std",     3,    NA,   NA,
+  "fwres",     "fwR",      "step_std",            NA,   NA,   NA,
+  "migrT",      "migr",    "exponential_std",     3,    13,   NA,
+  "migrQ",      "migr",       "linear_std",      NA,   NA,   NA,
+  "migrA21",    "migr",     "exponential_std",    3,    0,    NA,
+  "migrdist",   "migr",      "linear_std",        NA,   NA,   NA,
+  "SSTproj",     "mar",   "linear_std",           NA,   NA,   NA,
+  "CI",          "mar",   "linear_std",           NA,   NA,   NA,
+  "CUstatus",    "dem",       "cat_std",        NA,    NA,   NA,
+  "CUnmat",      "dem",     "decay_std",         3,    0, 10000)
 
 
 
@@ -150,17 +171,17 @@ theme_cvis <- function(base_size = 14) {
   theme_bw(base_size = base_size) %+replace%
     theme(
       # L'ensemble de la figure
-      plot.title = element_text(size = rel(1), face = "bold", margin = margin(0, 0, 5, 0), hjust = 0),
+      plot.title = element_text(size = rel(0.9), face = "bold", margin = margin(0, 0, 5, 0)),
       # Zone où se situe le graphique
       panel.grid.minor = element_blank(),
       panel.border = element_blank(),
       # Les axes
-      axis.title = element_text(size = rel(0.85), face = "bold"),
-      axis.text = element_text(size = rel(0.70), face = "bold"),
+      axis.title = element_text(size = rel(0.75), face = "bold"),
+      axis.text = element_text(size = rel(0.60), face = "bold"),
       axis.line = element_line(color = "black"),
       # La légende
-      legend.title = element_text(size = rel(0.85), face = "bold"),
-      legend.text = element_text(size = rel(0.70), face = "bold"),
+      legend.title = element_text(size = rel(0.75), face = "bold"),
+      legend.text = element_text(size = rel(0.65), face = "bold"),
       legend.key = element_rect(fill = "transparent", colour = NA),
       legend.key.size = unit(1.2, "lines"),
       legend.background = element_rect(fill = "transparent", colour = NA),

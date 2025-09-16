@@ -14,12 +14,12 @@ library(here)
 setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
 
-# # freshwater stream indicator statistics
-load(file.path(paths$fw, "2025-09-11_fw_rearing_indicators.Rdata"))
-# migration indicators
-load(file.path(paths$fw, "2025-09-11_migr_stats.Rdata"))
-# marine indicators
-load(file.path(paths$marine, "2025-09-10_marine_stats.Rdata"))
+# # # freshwater stream indicator statistics
+# load(file.path(paths$fw, "2025-09-11_fw_rearing_indicators.Rdata"))
+# # migration indicators
+# load(file.path(paths$fw, "2025-09-11_migr_stats.Rdata"))
+# # marine indicators
+# load(file.path(paths$marine, "2025-09-10_marine_stats.Rdata"))
 
 
 # combine indicators into common table
@@ -43,13 +43,12 @@ all_inds <- all_flat %>%
 standardize_indicator <- function(data,
                                   indicator_pick,
                                   std_fun = "linear_std",
+                                  std_params = NA,
                                   gcm_range_suffix = c("qlowgcm", "qhighgcm"),
-                                  use_gcm_range = TRUE) # use GCMs to include GCM quantiles in standardization ranges, set FALSE to only use mean values
+                                  use_gcm_range = FALSE) # use GCMs to include GCM quantiles in standardization ranges, set FALSE to only use mean values
 {
   stat_suffix <- "mean"
   id_col <- "FULL_CU_IN"
-
-  # data <- filter(data, period == period_pick)
 
   # take column names that contain prefix with model type
   cols_sub <- names(data)[str_detect(names(data), indicator_pick)]
@@ -62,7 +61,7 @@ standardize_indicator <- function(data,
   # some indicators don't have a mean, just the raw value. in that case, use the abbreviation
   if (length(stat_col) == 0) stat_col <- cols_sub
 
-  data <- select(data, c(FULL_CU_IN, stat_col, min_gcmcol, max_gcmcol, RCP, period_code))
+  data <- select(data, c(id_col, stat_col, min_gcmcol, max_gcmcol, RCP, period_code))
 
   if (length(min_gcmcol) == 1 && length(max_gcmcol) == 1 && use_gcm_range == TRUE) {
     # put gcm lows and highs and mean into one column
@@ -75,7 +74,7 @@ standardize_indicator <- function(data,
       group_by(RCP, period_code) %>%
       reframe(
         FULL_CU_IN = FULL_CU_IN,
-        std = get(std_fun)(value),
+        std = do.call(std_fun, c(list(value), std_params)),
         name = name
       ) %>%
       pivot_wider(
@@ -88,7 +87,8 @@ standardize_indicator <- function(data,
       group_by(RCP, period_code) %>%
       reframe(
         FULL_CU_IN = FULL_CU_IN,
-        !!stat_col := get(std_fun)(!!sym(stat_col))
+        !!stat_col := do.call(std_fun, c(list(!!sym(stat_col)), std_params))
+        #!!stat_col := get(std_fun)(!!sym(stat_col))
       )
     # std_qlowgcm= get(std_fun)(!!sym(min_gcmcol)),
     # std_qhighgcm = get(std_fun)(!!sym(max_gcmcol)))
@@ -102,10 +102,16 @@ standardize_indicator <- function(data,
 all_std <- select(all_flat, "FULL_CU_IN", "RCP", "period_code")
 
 for (i in 1:nrow(tbl_indicators)) {
+
+  std_params_i <- as.list(tbl_standardize[i, ])
+
+  # args <- list(std_params_i)
+
   temp <- standardize_indicator(all_flat,
     indicator_pick = tbl_indicators$abbrev[i],
     std_fun = tbl_indicators$std_fun[i],
-    use_gcm_range = T
+    std_params = std_params_i,
+    use_gcm_range = F
   )
 
 

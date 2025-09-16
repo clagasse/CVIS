@@ -187,7 +187,7 @@ for (j in 1:2) {
         migr_dur   = round(migr_e - migr_s),
         max_dist   = max(migr_cu$downstream_distance, na.rm = T),
         main_dist  = sum(migr_cu_main$length_metre), # distance in common for all sites
-        migrdist   = sum(migr_cu$length_metre * migr_cu$prop_paths),  # weighted average migration distance
+        migrdist   = round(sum(migr_cu$length_metre * migr_cu$prop_paths) / 1000),  # weighted average migration distance
         main_elev  = max(st_coordinates(migr_cu_main)[, 3]),  # highest point in common for all sites
         max_elev   = max(st_coordinates(migr_cu)[, 3]),      # highest point along all of migration path (ie. highest NUSEDS site)
         s_rate     = max_dist / (rt_to_sp_s),  # movement rate of front of migration window
