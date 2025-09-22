@@ -24,7 +24,7 @@ For each indicator of environmental change, a historical baseline period beginni
 
 **Indicator Standardization**
 
-Raw indicator values were standardized between 0 and 1 to improve comparability, facilitate interpretation, and represent risk using mechanistic relationships and thresholds. A linear function was used for most indicators, with the lowest and highest values scaled to the minimum and maximum mean CU value across all GCMs. An exponential function was used for the projected temperature indicator to represent increasing risk at higher temperatures.
+Raw indicator values were standardized between 0 and 1 to improve comparability, facilitate interpretation, and represent risk using mechanistic relationships and thresholds. A linear function or exponential function was used for most indicators, with the lowest and highest values scaled to the minimum and maximum CU values, using ensemble means across GCMs.  
 
 ### Indicators
 
@@ -88,6 +88,66 @@ for (RCP_pick in unique(all_flat_std$RCP))
 
 }
 ```
+
+### Combined indicator scores {.tabset .tabset-pills}
+
+Overall climate vulnerability can be measured as the sum or average of the standardized scores for each indicator.  The following plots show total scores and ranks across most indicators.  Three methods are used for calculating total scores and ranks:  
+addall - sum of all standardized indicator values  
+avgall - average of all standardized indicator values  
+sumavgs - sum of the average score for each life stage/type (freshwater spawning & rearing, upstream migration, demographic, and marine).  
+
+```{r combined scores}
+
+for (RCP_pick in unique(combined_scores_std$RCP))
+{
+  
+  cat("#### ", RCP_pick, "\n\n", sep = "")
+  
+  filter_std <- combined_scores_std %>%
+    filter(RCP == RCP_pick,
+           period_code == 3)
+  
+  p <- indicator_tile_plot(filter_std,
+                     indicators_choose = c("std_rankaddall", "std_rankavgall", "std_ranksumavgs"))
+  
+  print(p)
+  cat("\n\n")
+  
+   p <- multi_indicator_plot(filter_std,
+                     indicators_choose = c("std_addfwR", "std_addmigr", "std_adddem", "std_addmar", "std_addall"),
+                     title_custom = "Additive scores by category")
+
+  print(p)
+  cat("\n\n")
+  
+     p <- multi_indicator_plot(filter_std,
+                     indicators_choose = c("std_avgfwR", "std_avgmigr", "std_avgdem", "std_avgmar", "std_avgall"),
+                     title_custom = "Average scores by category")
+
+  print(p)
+  cat("\n\n")
+  # 
+  # p <- plot_lollipop(filter_std,
+  #                    indicator_pick = "std_avgall",
+  #                    indicator_name = "Average of all scores",
+  #                    use_standardized = T)
+  # 
+  # print(p)
+  # cat("\n\n")
+  # 
+  # p <- plot_lollipop(filter_std,
+  #                    indicator_pick = "std_sumavgs",
+  #                    indicator_name = "Sum of category average score",
+  #                    use_standardized = T)
+  # 
+  # print(p)
+  # cat("\n\n")
+}
+
+
+```
+
+
 
 ### Correlation of indicators {.tabset .tabset-pills}
 
@@ -202,7 +262,7 @@ for(RCP_pick in unique(all_flat_std$RCP))
 }
 ```
 
-### Change in August flow {.tabset .tabset-pills}
+### Change in August flow (stream model) {.tabset .tabset-pills}
 
 ```{r}
 
@@ -219,11 +279,28 @@ for(RCP_pick in unique(all_flat_std$RCP))
                        ind_pick = "lowQpdelta",
                        spatial_pal_dir = 1)
  
+  cat("\n\n")
+  
+}
+```
+
+### Change in August flow (station model) {.tabset .tabset-pills}
+
+```{r}
+
+for(RCP_pick in unique(all_flat_std$RCP))
+{
+  
+  cat("#### ", RCP_pick, "\n\n", sep = "")
+  
+  filter_std <- all_flat_std %>%
+    filter(RCP == RCP_pick, 
+           period_code == 3)
+ 
   make_indicator_plots(filter_std, 
                        ind_pick = "st8pdelta",
                        spatial_pal_dir = 1)
  
-  
   cat("\n\n")
   
 }

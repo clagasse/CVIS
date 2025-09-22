@@ -129,10 +129,10 @@ plot_std_vs_raw <- function(data,
 # Function to create a lollipop chart of indicator values across CUs
 plot_lollipop <- function(data,
                           indicator_pick,
-                          indicator_name,
-                          indicator_stat,
+                          indicator_name = "",
                           use_standardized = FALSE,  # use raw or transformed (standardized values)
-                          plot_colours = species_palette) {
+                          plot_colours = species_palette,
+                          ...) {
 
   data_sub <- subset_ind_table(data,
     indicators_choose = indicator_pick,
@@ -151,7 +151,7 @@ plot_lollipop <- function(data,
 
   # boolean for whether gcm ranges are in the data
   has_spat <- FALSE
-  if (sum(str_detect(names(plot_data), "sp")) > 0) has_spat <- TRUE
+  if (sum(str_detect(names(plot_data), "spat")) > 0) has_spat <- TRUE
 
   #
   #   sp_suffix <- c("qlowsp", "qhighsp")
@@ -222,12 +222,19 @@ plot_lollipop <- function(data,
   }
 
   # Point layer with dynamic fill
-  p <- p + geom_point(aes(y = raw, fill = std), shape = 21, color = "black", size = 2.5) +
-    scale_fill_gradient(name = "Standardized", low = "lightblue", high = "darkblue") +
+  if (use_standardized == F) {
+    p <- p + geom_point(aes(y = raw, fill = std), shape = 21, color = "black", size = 2.5) +
+      scale_fill_gradient(name = "Std score", low = "lightblue", high = "darkblue")
+  }
+  if (use_standardized == T) {
+    p <- p + geom_point(aes(y = std, fill = std), shape = 21, color = "black", size = 2.5) +
+      scale_fill_gradient(name = "Std score", low = "lightblue", high = "darkblue")
 
-    # Dummy layers for line segment legend
-    geom_segment(aes(x = Inf, xend = Inf, y = Inf, yend = Inf, color = "Spatial range"),
-      linewidth = 2.5, inherit.aes = FALSE) +
+  }
+
+  # Dummy layers for line segment legend
+  p <- p + geom_segment(aes(x = Inf, xend = Inf, y = Inf, yend = Inf, color = "Spatial range"),
+    linewidth = 2.5, inherit.aes = FALSE) +
     geom_segment(aes(x = Inf, xend = Inf, y = Inf, yend = Inf, color = "GCM range"),
       linewidth = 1, inherit.aes = FALSE) +
 
@@ -239,7 +246,9 @@ plot_lollipop <- function(data,
 
     labs(
       subtitle = paste(indicator_name),
-      y = stat_col
+      fill = "Standardized",
+      y = NULL,
+      x = NULL
     ) +
     coord_flip() +
     theme(
@@ -256,48 +265,51 @@ plot_lollipop <- function(data,
 # Make a multi-panel plot of indicators using the lollipop chart and patchwork
 
 multi_indicator_plot <- function(data,
-                                 indicators_metadata,
                                  indicators_choose = c("migrT", "migrQ", "migrA21", "migr_wdist"),
                                  use_standardized_all = T,
                                  title_custom = "") {
 
   seq_pick <- seq_along(indicators_choose)
-  tbl_sub <- filter(tbl_indicators, abbrev %in% indicators_choose)
 
   tt <- 1
-  for (i in seq_pick) {
+  for (ind in indicators_choose) {
 
     if (tt == 1) {
       a1 <- plot_lollipop(data,
-        indicator_pick = tbl_sub$abbrev[i],
-        indicator_stat = tbl_sub$stat[i],
-        indicator_name = tbl_sub$name[i],
+        indicator_pick = ind,
         use_standardized = use_standardized_all
       ) +
-        theme(legend.position = "none") +
-        labs(title = "")
+        theme(legend.position = "none",
+          axis.text.x = element_text(size = 8, angle = 45, hjust = 1)) +
+        labs(title = "",
+          y = ind,
+          x = NULL)
 
       multi_p <- a1
     } else {
       a1 <- plot_lollipop(data,
-        indicator_pick = tbl_sub$abbrev[i],
-        indicator_stat = tbl_sub$stat[i],
-        indicator_name = tbl_sub$name[i],
+        indicator_pick = ind,
         use_standardized = use_standardized_all
       ) +
         theme(legend.position = "none",
-          axis.text.y = element_blank()) +
+          axis.text.y = element_blank(),
+          axis.text.x = element_text(size = 8, angle = 45, hjust = 1)) +
         labs(title = "",
-          x = "")
+          y = ind,
+          x = NULL)
       multi_p <- multi_p | a1
     }
 
     tt <- tt + 1
   }
 
-  multi_p <- multi_p + plot_annotation(
-    title = title_custom
-  )
+  multi_p <- multi_p +
+    # plot_layout(ncol = tt)
+    theme(plot.margin = margin(0, 0, 0, 0)) +
+    plot_layout(guides = "collect") +
+    plot_annotation(
+      title = title_custom
+    )
 
   return(multi_p)
 
@@ -364,7 +376,7 @@ spatial_indicator_plot <- function(data,
     geom_sf(data = Fr_basin, colour = "black", fill = NA, alpha = 0.3) +
     labs(fill = indicator_pick) +
     coord_sf(datum = NA) +
-    facet_grid(. ~ sp)
+    facet_grid(. ~ Species)
 
 
   return(p)
@@ -443,9 +455,12 @@ get_correlation_matrix <- function(data,
   # take column names that contain prefix with model type
   cols_sub <- names(data_sub)[str_detect(names(data_sub), paste0(indicators_choose, collapse = "|"))]
 
-  # take just indicator columns, remove sp and id
+  # filter to numeric columns only
+  numeric_cols <- cols_sub[sapply(data_sub[cols_sub], is.numeric)]
+
+  # take just numeric indicator columns, remove sp and id
   cor_data <- data_sub %>%
-    select(all_of(cols_sub))
+    select(all_of(numeric_cols))
 
   cor(cor_data,  use = "pairwise.complete.obs")
 
@@ -467,7 +482,6 @@ make_indicator_plots <- function(data,
 
   p <- plot_lollipop(data,
     indicator_pick = ind_row$abbrev,
-    indicator_stat = ind_row$stat,
     indicator_name = ind_row$name,
     use_standardized = standardized_plots
   )
@@ -484,7 +498,6 @@ make_indicator_plots <- function(data,
     pmap <- spatial_indicator_plot(data,
       cu_boundary,
       indicator_pick = ind_row$abbrev,
-      indicator_stat = ind_row$stat,
       indicator_name = ind_row$name,
       use_standardized = standardized_plots,
       palette_direction = spatial_pal_dir)

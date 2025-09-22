@@ -171,32 +171,45 @@ simulate_range <- function(x, n = 100) {
 # 2. Data tidying and reshaping -------------------------------------------
 
 sum_selected_columns <- function(data, match_strings, new_col_name = "row_sum") {
+
+  pattern <- paste(match_strings, collapse = "|")
+  selected_cols <- grep(pattern, names(data), value = TRUE)
+
+  # Apply row-wise sum across selected columns
   data %>%
     rowwise() %>%
     mutate(
-      !!new_col_name := sum(
-        c_across(
-          matches(paste(match_strings, collapse = "|"))
-        ),
-        na.rm = TRUE
-      )
+      !!new_col_name := sum(c_across(all_of(selected_cols)), na.rm = TRUE)
     ) %>%
     ungroup()
 }
 
 multiply_selected_columns <- function(data, match_strings, new_col_name = "row_product") {
+  pattern <- paste(match_strings, collapse = "|")
+  selected_cols <- grep(pattern, names(data), value = TRUE)
+
+  # Apply row-wise sum across selected columns
   data %>%
     rowwise() %>%
     mutate(
-      !!new_col_name := prod(
-        c_across(
-          matches(paste(match_strings, collapse = "|"))
-        ),
-        na.rm = TRUE
-      )
+      !!new_col_name := prod(c_across(all_of(selected_cols)), na.rm = TRUE)
     ) %>%
     ungroup()
 }
+
+average_selected_columns <- function(data, match_strings, new_col_name = "row_product") {
+  pattern <- paste(match_strings, collapse = "|")
+  selected_cols <- grep(pattern, names(data), value = TRUE)
+
+  # Apply row-wise sum across selected columns
+  data %>%
+    rowwise() %>%
+    mutate(
+      !!new_col_name := mean(c_across(all_of(selected_cols)), na.rm = TRUE)
+    ) %>%
+    ungroup()
+}
+
 
 
 # helper function used in other functions for subsetting indicator table
@@ -206,10 +219,13 @@ subset_ind_table <- function(data,
                              sp_col = "CU_Species",
                              stat_suffix = "mean",
                              id_col = "FULL_CU_IN",
+                             rcp_col = "RCP",
+                             period_col = "period_code",
                              get_raw = T,  # include unstandardized columns
                              get_std = F,  # include standardized columns
                              get_gcm = T,  # include gcm variation
-                             get_spat = F, # include spatial variation
+                             get_spat = F, # include spatial variation,
+                             rename_cols = T,  # rename id and sp cols
                              gcm_range_suffix = c("qlowgcm", "qhighgcm", "qmingcm", "qmaxgcm"),
                              sp_range_suffix = c("qlowsp", "qhighsp")
 ) {
@@ -230,7 +246,11 @@ subset_ind_table <- function(data,
     stat_col <- stat_col[!str_detect(stat_col, paste0(sp_range_suffix, collapse = "|"))] # remove spat variation columns for now
   }
 
-  cols_out <- c(id_col, sp_col, stat_col)
+  cols_out <- c(id_col, sp_col)
+  # include rcp and period columns if present
+  if (sum(str_detect(names(data), rcp_col)) > 0) cols_out <- c(cols_out, rcp_col)
+  if (sum(str_detect(names(data), period_col)) > 0) cols_out <- c(cols_out, period_col)
+  cols_out <- c(cols_out, stat_col)
 
   # get gcm min and max cols
   if (get_gcm == T) {
@@ -245,9 +265,10 @@ subset_ind_table <- function(data,
   }
 
   data_sub <- data %>%
-    select(cols_out) %>%
-    rename(id = !!id_col,
-      sp = !!sp_col)
+    select(cols_out)
+
+  if (rename_cols == T) data_sub <- rename(data_sub,
+    id = !!id_col,  sp = !!sp_col)
 
   return(data_sub)
 
@@ -256,9 +277,10 @@ subset_ind_table <- function(data,
 # utility to function to update indicator column names for plotting
 rename_ind_table <- function(data,
                              indicator_abbrev,
-                             gcm_range_suffix = c("qlowgcm", "qhighgcm"),
+                             gcm_range_suffix = c("qlowgcm", "qhighgcm", "qmingcm", "qmaxgcm"),
                              sp_range_suffix = c("qlowsp", "qhighsp"),
-                             single_value_col = FALSE) {
+                             single_value_col = FALSE) ## if true output will be in a single column named "value"
+{
   # take column names that contain prefix with model type
   cols_sub <- names(data)[str_detect(names(data), indicator_abbrev)]
 
@@ -412,6 +434,24 @@ get_CU_indicators <- function(data,
 
   return(data_CU)
 }
+
+# function to convert a numeric score to a rank based on values across CUs, also can rank within groups
+rank_scores <- function(data, score_col, group_cols, rank_col = "score_rank", descending = TRUE) {
+  data %>%
+    group_by(across(all_of(group_cols))) %>%
+    mutate(
+      !!rank_col := rank(
+        !!sym(score_col),
+        ties.method = "average",
+        na.last = "keep"
+      )
+    ) %>%
+    mutate(
+      !!rank_col := if (descending) max(!!sym(rank_col), na.rm = TRUE) + 1 - !!sym(rank_col) else !!sym(rank_col)
+    ) %>%
+    ungroup()
+}
+
 
 
 

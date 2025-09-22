@@ -31,14 +31,6 @@ all_flat <- left_join(
   left_join(mar_all_flat, join_by(FULL_CU_IN, CU_NAME, RCP, period_code)) %>%
   left_join(CVIS_dem, join_by(FULL_CU_IN, CU_NAME, Species_simple))
 
-# extract indicator columns, including mean and variation
-all_inds <- all_flat %>%
-  select(FULL_CU_IN, CU_NAME, CVIS_NAME, CU_Species, FAZ,
-    period_code, RCP, SSP, contains(tbl_indicators$abbrev))
-
-
-
-
 
 #------------- 2. Calculate standardized scores-------------------------------
 
@@ -81,6 +73,8 @@ all_flat_std <- all_std %>%
 all_flat_std <- all_flat_std %>%
   left_join(all_flat, join_by(FULL_CU_IN, RCP, period_code))
 
+# order categories as factors
+all_flat_std$CU_Species <- factor(all_flat_std$CU_Species, levels = sort(unique(all_flat_std$CU_Species)))
 
 # 3. Species and all CU averages ------------------------------------------
 
@@ -101,29 +95,67 @@ all_std_avgs <- all_flat_std %>%
   summarize(across(starts_with("std_"), \(x) mean(x, na.rm = TRUE)), .groups = "drop") %>%
   mutate(FULL_CU_IN = "All CUs", CU_NAME = "All CUs", CU_Species = "All CUs")
 
-# order categories as factors
-all_flat_std$CU_Species <- factor(all_flat_std$CU_Species, levels = sort(unique(all_flat_std$CU_Species)))
 
 
 # 4. Overall scores using additive and multiplicative methods -------------
 
-means_std <- all_flat_std %>%
+combined_scores_std <- all_flat_std %>%
   subset_ind_table(indicators_choose = tbl_indicators$abbrev,
     get_std = T,
-    get_raw = F) %>%
+    get_raw = F,
+    id_col = "CVIS_NAME",
+    rename_cols = F) %>%
   sum_selected_columns(match_strings = tbl_indicators$abbrev,
     new_col_name = "std_addall") %>%
   sum_selected_columns(match_strings = c("Tw8rate", "Tw8proj", "lowQpdelta", "highQpdelta", "ct"),
     new_col_name = "std_addfwR") %>%
   sum_selected_columns(match_strings = tbl_indicators$abbrev[tbl_indicators$type == "migr"],
     new_col_name = "std_addmigr") %>%
-  multiply_selected_columns(match_strings = tbl_indicators$abbrev,
-    new_col_name = "std_prodall") %>%
+  sum_selected_columns(match_strings = tbl_indicators$abbrev[tbl_indicators$type == "dem"],
+    new_col_name = "std_adddem") %>%
+  sum_selected_columns(match_strings = tbl_indicators$abbrev[tbl_indicators$type == "mar"],
+    new_col_name = "std_addmar") %>%
   multiply_selected_columns(match_strings = c("Tw8rate", "Tw8proj", "lowQpdelta", "highQpdelta", "ct"),
     new_col_name = "std_prodfwR") %>%
   multiply_selected_columns(match_strings = tbl_indicators$abbrev[tbl_indicators$type == "migr"],
-    new_col_name = "std_prodmigr")
+    new_col_name = "std_prodmigr") %>%
+  multiply_selected_columns(match_strings = tbl_indicators$abbrev[tbl_indicators$type == "dem"],
+    new_col_name = "std_proddem") %>%
+  multiply_selected_columns(match_strings = tbl_indicators$abbrev[tbl_indicators$type == "mar"],
+    new_col_name = "std_prodmar") %>%
+  average_selected_columns(match_strings = tbl_indicators$abbrev,
+    new_col_name = "std_avgall") %>%
+  average_selected_columns(match_strings = c("Tw8rate", "Tw8proj", "lowQpdelta", "highQpdelta", "ct"),
+    new_col_name = "std_avgfwR") %>%
+  average_selected_columns(match_strings = tbl_indicators$abbrev[tbl_indicators$type == "migr"],
+    new_col_name = "std_avgmigr") %>%
+  average_selected_columns(match_strings = tbl_indicators$abbrev[tbl_indicators$type == "dem"],
+    new_col_name = "std_avgdem") %>%
+  average_selected_columns(match_strings = tbl_indicators$abbrev[tbl_indicators$type == "mar"],
+    new_col_name = "std_avgmar") %>%
+  sum_selected_columns(match_strings = c("std_avgfwR", "std_avgmigr", "std_avgdem", "std_avgmar"),
+    new_col_name = "std_sumavgs")
 
 
+# get ranked scores
+combined_scores_std <- combined_scores_std %>%
+  rank_scores(
+    score_col = "std_addall",
+    group_col = c("RCP", "period_code"),
+    rank_col = "std_rankaddall",
+    descending = F
+  ) %>%
+  rank_scores(
+    score_col = "std_sumavgs",
+    group_col = c("RCP", "period_code"),
+    rank_col = "std_ranksumavgs",
+    descending = F
+  ) %>%
+  rank_scores(
+    score_col = "std_avgall",
+    group_col = c("RCP", "period_code"),
+    rank_col = "std_rankavgall",
+    descending = F
+  )
 
 write.csv(all_flat_std, file = file.path(paths$indicators, paste0(today, "_standardized_indicators.csv")), row.names = FALSE)

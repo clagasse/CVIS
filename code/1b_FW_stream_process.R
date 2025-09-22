@@ -131,8 +131,6 @@ FWA_Fr <- future_lapply(Fr_codes, function(layer) {
 # flatten list into single sf
 FWA_Fr <- do.call(rbind, FWA_Fr)
 
-
-
 # join watershed code
 bcfpc <- bcfpc %>%
   left_join(data.table(FWA_Fr) %>%
@@ -532,6 +530,111 @@ save(wp_vm, file = file.path(paths$fw, "Statistical_flow_projections.Rds"))
 
 
 #---------------- Ecological Niche Models --------------------------------------
+
+# load(file.path(paths$fw, "BCFP_combined_Fr.Rds")) #load bcfp stream network
+load(file.path(paths$fw, "BCFP_combined_accessible_Fr.Rds"))
+
+### importing ENM favourability model layers
+# Provided by Josie Iacarella, Sep 2025
+
+# historic layers
+hist_layers <- st_layers(file.path(paths$climate, "Salmon_ENMs", "Baseline_accessible streams.gdb"))$name
+ENM_hist_list <- lapply(hist_layers, function(layer_name) {
+  st_read(file.path(paths$climate, "Salmon_ENMs", "Baseline_accessible streams.gdb"), layer = layer_name)
+})
+names(ENM_hist_list) <-  sub("_.*", "", hist_layers)
+# RCP 45
+RCP45_layers <- st_layers(file.path(paths$climate, "Salmon_ENMs", "Future_RCP45_2041to2060_allstreams.gdb"))$name
+ENM_45_list <- lapply(RCP45_layers, function(layer_name) {
+  st_read(file.path(paths$climate, "Salmon_ENMs", "Future_RCP45_2041to2060_allstreams.gdb"), layer = layer_name)
+})
+names(ENM_45_list) <-  sub("_.*", "", RCP45_layers)
+# RCP 85
+RCP85_layers <- st_layers(file.path(paths$climate, "Salmon_ENMs", "Future_RCP85_2041to2060_allstreams.gdb"))$name
+ENM_85_list <- lapply(RCP85_layers, function(layer_name) {
+  st_read(file.path(paths$climate, "Salmon_ENMs", "Future_RCP85_2041to2060_allstreams.gdb"), layer = layer_name)
+})
+names(ENM_85_list) <-  sub("_.*", "", RCP85_layers)
+
+# Get the common species names
+species <- intersect(names(ENM_hist_list), intersect(names(ENM_45_list), names(ENM_85_list)))
+
+fix_column_name <- function(df) {
+  if ("SDM_accID_" %in% names(df)) {
+    names(df)[names(df) == "SDM_accID_"] <- "SDM_accID_v3"
+  }
+  names(df) <- gsub("RASTERVALU", "Fav", names(df))
+
+  return(df)
+}
+
+# Apply to each list
+ENM_hist_list <- lapply(ENM_hist_list, fix_column_name)
+ENM_45_list   <- lapply(ENM_45_list, fix_column_name)
+ENM_85_list   <- lapply(ENM_85_list, fix_column_name)
+
+### Join ENM 45 and 85 to each other using SDM ID all, then join to BCFPA base
+
+# Create a list of joined results for each species
+ENM_joined_list <- map(species, function(sp) {
+  rcp45 <- ENM_45_list[[sp]]
+  rcp85 <- ENM_85_list[[sp]]
+  rcp85_df <- st_drop_geometry(rcp85)
+  # hist_df <- st_drop_geometry(hist)
+
+  # join_rcp <- st_join(rcp45, rcp85, left = FALSE, suffix = c("_45", "_85"))
+  join_rcp <- left_join(rcp45, rcp85_df, join_by(SDM_ID_all), suffix = c("_45", "_85"))
+
+  # join_all <- left_join(join_rcp, hist_df, by = join_by(SDM_ID_all == SDM_accID_v3), suffix = c("", "_hist"))
+  # join_all <- st_join(join_rcp, hist, left = FALSE, suffix = c("", "_hist"))
+
+  # Rename Fav columns to include species name
+  names(df) <- gsub("Fav", paste0("Fav_", sp), names(df))
+
+  return(join_rcp)
+})
+names(ENM_joined_list) <- species
+
+ENM_df <- ENM_joined_list[[1]]
+for (i in 2:length(bcfpa_with_fav)) {
+  temp <- st_drop_geometry(ENM_joined_list[[i]]) %>%
+    select(SDM_ID_all, contains("Fav"))
+  ENM_df <- left_join(ENM_df, temp,
+    by = c("SDM_ID_all"))
+}
+
+ENM_df <- st_transform(ENM_df, 3005)
+
+bcfpa_ENM <- st_join(st_zm(bcfpa), ENM_df, left = TRUE)
+
+
+### Join historic values separately, as they contain different streams
+# Rename Fav columns to include species name and hist
+ENM_hist_list <- map(species, function(sp) {
+  hist <- ENM_hist_list[[sp]]
+  names(hist) <- gsub("Fav", paste0("Fav_", sp, "_hist"), names(hist))
+  return(hist)
+})
+names(ENM_hist_list) <- species
+
+# join each species to bcfpa base
+for (i in 1:length(ENM_hist_list)) {
+  temp <- ENM_hist_list[[i]] %>%
+    st_transform(3005) %>%
+    select(-c(SDM_accID_v3, Shape_Length))
+  bcfpa_ENM <- st_join(bcfpa_ENM, temp, left = TRUE)
+}
+
+# multiple ENM values match some segmented stream ids, so take first match only
+bcfpa_ENM <- bcfpa_ENM %>%
+  group_by(segmented_stream_id) %>%
+  slice(1) %>%
+  ungroup()
+
+
+save(bcfpa_ENM, file = file.path(paths$fw, "ENM_bcfpa_matched.Rds"))
+
+# ENMs old data set -------------------------------------------------------
 
 # Accessible at: https://github.com/freshwater-spatial-ecology/Salmon-ENMs-2023
 

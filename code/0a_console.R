@@ -175,27 +175,3 @@ rmarkdown::render(
 # source(file.path(here(), "code", "shiny", "FW_spawning_app.R"))
 #
 # shinyApp(ui, server)
-
-
-# rmarkdown::render(
-#   file.path(here(),"code","0_CU_detail_report.Rmd"),
-#   output_file = paste(today, "fw_CU_detail.html", sep = "_"),
-#   output_dir = here("output"),
-#   output_format = "html_document")
-#
-
-
-# ## comparison of freshwater spawning indicators across CUs
-# rmarkdown::render(
-#   file.path(here("code", "markdown", "2_FW_spawning_compare.Rmd")),
-#   output_file = paste(today, "fw_spawning_compare.html", sep = "_"),
-#   output_dir = here("output"),
-#   output_format = "html_document")
-#
-#
-# ## comparison of upstream migration indicators across CUs
-# rmarkdown::render(
-#   file.path(here("code", "markdown", "2_FW_migr_compare.Rmd")),
-#   output_file = paste(today, "fw_migr_compare.html", sep = "_"),
-#   output_dir = here("output"),
-#   output_format = "html_document")
