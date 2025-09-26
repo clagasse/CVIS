@@ -31,9 +31,10 @@ paths <- list(
   salmon  = file.path(here(".."), "0_data_salmon"),
   fw      = here("processed_data", "freshwater"),
   marine  = here("processed_data", "marine"),
+  output  = here("output"),
   indicators = here("processed_data"),
   figures = here("output", "figures"),
-  reports = here("output", "reports"),
+  reports = here("reports"),
   code    = here("code")
 )
 

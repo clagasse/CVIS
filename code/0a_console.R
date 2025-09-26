@@ -155,7 +155,7 @@ for (i in 1:n.CUs) {
   rmarkdown::render(
     file.path(here(), "code", "markdown", "6a_CU_indicator_report.Rmd"),
     output_file = paste(today, CU_IN_i, "CVIS_report.html", sep = "_"),
-    output_dir = here("output", "CU_reports"),
+    output_dir = file.path(paths$reports, "CU_reports"),
     output_format = "html_document",
     params = list(FULL_CU_IN = CU_IN_i))
 
@@ -165,7 +165,7 @@ for (i in 1:n.CUs) {
 rmarkdown::render(
   file.path(here("code", "markdown", "6b_CVIS_overview.Rmd")),
   output_file = paste(today, "CVIS_overview.html", sep = "_"),
-  output_dir = here("output"),
+  output_dir = file.path(paths$reports),
   output_format = "html_document")
 
 

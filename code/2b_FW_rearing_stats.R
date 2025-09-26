@@ -53,16 +53,17 @@ load(file.path(paths$fw, "BCFP_combined_accessible_Fr.Rds"))
 # load stream network model outputs - all on the same stream network as bcfpa
 # temperature and cumulative threat models
 load(file.path(paths$fw, "fw_models_T_CT.Rds"))
-# August historic and projected flows
+# fwQ8 - August historic and projected flows
 load(file.path(paths$fw, "stream_flow_August_Fr_accessible.Rds"))
-# historic flows - all months and annual (1981-2010)
-load(file.path(paths$fw, "stream_flow_historic_Fr_accessible.Rds"))
-# NovDecJan historic and projected flows
+# fwQNDJ - NovDecJan historic and projected flows
 load(file.path(paths$fw, "stream_flow_NovDecJan_Fr_accessible.Rds"))
-
+# hflow - historic flows - all months and annual (1981-2010) - USED FOR PEAK MONTHLY FLOW
+#load(file.path(paths$fw, "stream_flow_historic_Fr_accessible.Rds"))
 
 ### Load ENM - these are lower resolution stream segments than bcfpa
 load(file.path(paths$fw, "ENM_all_sp.Rds"))
+
+load(file.path(paths$fw, "ENM_bcfpa_matched.Rds"))
 
 # load statistical model projections of August flows for flow stations
 load(file.path(paths$fw,  "Statistical_flow_projections.Rds"))

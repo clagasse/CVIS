@@ -1,16 +1,15 @@
-###############################################################################
-#
+
 # 2a_FW_data_process.R
 #
 # Read in raw spatial data files and process them into R data frames and sf objects
 #
 # This script takes a while to run and should only be needed when new input files need to be generated
 #
-###############################################################################
 
 library(here)
 setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
+
 
 # library(future.apply) # parallel processing
 
@@ -20,7 +19,11 @@ source(file.path(here(), "code", "0_setup.R"))
 # Then run:
 # sf_use_s2(FALSE)
 
-#--------------Load watershed basin polygons (for clipping primarily)--------------------
+
+#  1. Stream network and other spatial layer loading ----------------------
+
+#--------------Basins polygons (for clipping primarily)--------------------
+
 # BC Basins shapefile:  https://www.arcgis.com/home/item.html?id=7fe30c4a1cc34d14b560d868429bda35
 
 basins <- st_read(file.path(paths$spatial, "BC_Basins", "BC_Basins_GoogleMapPL.shp"), quiet = TRUE) %>%
@@ -48,9 +51,7 @@ cu_boundary <- st_read(file.path(paths$spatial, "CU_boundaries", "fraser_cus.shp
 # }
 
 
-
-
-#  Load and subset FWA lakes layer (for plotting) ------------------------------------
+#  FWA lakes layer (for plotting) ------------------------------------
 
 lakes_fwa <- st_read(file.path(paths$spatial, "BC_FWA_LAKES", "FWA_LAKES_POLY.gpkg"))
 
@@ -70,7 +71,8 @@ lakes_Fr <- lakes_fwa[lakes_Fr[[1]], ]
 save(lakes_Fr, file = file.path(paths$fw, "BC_FWA_LAKES_FR.Rds"))
 
 
-#--------------Load and subset BC FISH PASS stream accessibility and linear habitat model------------------
+# BC FISHPASS stream accessibility and linear habitat model------------------
+
 # Load BC Fishpass models and subset to Fraser basin and accessible streams
 
 # Info at: https://smnorris.github.io/bcfishpass/index.html
@@ -111,7 +113,8 @@ bcfpc <- bcfph_Fr %>%
     multiple = "first")
 
 
-#--------------- FRESHWATER ATLAS QUERY AND PROCESS------------------------------
+#----- FWA Query and Process------------------------------------
+
 # Freshwater Atlas is already used by BC Fishpass, but we need the original FWA Watershed Codes for
 # subsetting operations in some scripts
 
@@ -147,13 +150,18 @@ bcfpc <- bcfpc %>%
     model_spawning_co == TRUE | model_spawning_pk == TRUE |
     model_spawning_sk == TRUE |
     model_rearing_ch == TRUE | model_rearing_co == TRUE |
-    model_rearing_sk == TRUE, TRUE, FALSE))
+    model_rearing_sk == TRUE, TRUE, FALSE)) %>%
+  mutate(model_habitat_ch = if_else(model_spawning_ch == TRUE | model_rearing_ch == TRUE, TRUE, FALSE),
+    model_habitat_cm = if_else(model_spawning_cm == TRUE, TRUE, FALSE),
+    model_habitat_co = if_else(model_spawning_co == TRUE | model_rearing_co == TRUE, TRUE, FALSE),
+    model_habitat_pk = if_else(model_spawning_pk == TRUE, TRUE, FALSE),
+    model_habitat_sk = if_else(model_spawning_sk == TRUE | model_rearing_sk == TRUE, TRUE, FALSE),
+  )
 
 # save as new .R object
 # st_write(bcfpc, file.path(paths$spatial, "BCFishpass", "freshwater_fish_habitat_accessibility_MODEL",
 #                             "Fraser_fish_habitat_accessibility_MODEL.gpkg"), driver = "GPKG")
 save(bcfpc, file = file.path(paths$fw, "BCFP_combined_Fr.Rds"))
-
 
 # subset accessible streams only
 bcfpa <- filter(bcfpc, model_access_salmon %in% c("OBSERVED", "INFERRED"))
@@ -161,65 +169,134 @@ bcfpa <- filter(bcfpc, model_access_salmon %in% c("OBSERVED", "INFERRED"))
 bcfpl <- filter(bcfpc, stream_order >= 2)
 
 save(bcfpa, file = file.path(paths$fw, "BCFP_combined_accessible_Fr.Rds"))
+# st_write(bcfpa, file.path(paths$spatial, "BCFP_accessible_Fr.gdb"), driver = "OpenFileGDB" )
 
 # save a version with first order streams excluded
 # first order streams represent ~2/3 of the streams but have less than 1% modelled rearing and spawning reaches
-save(bcfpl, file = file.path(paths$fw, "BCFishpass", "BCFP_combined_order2_Fr.Rds"))
+# save(bcfpl, file = file.path(paths$fw, "BCFP_combined_order2_Fr.Rds"))
 
 
 # create stream network data table
 bcfpmod <- as.data.table(bcfpa) %>%
   select(segmented_stream_id, linear_feature_id, FWA_WATERSHED_CODE, channel_width, length_metre,
     mad_m3s, upstream_area_ha, gradient, gnis_name, model_access_salmon,
-    model_habitat_salmon)
-
-# get index of linear_feature_ids that are accessible
-lf_id_access <- bcfpa$linear_feature_id[!is.na(bcfpa$linear_feature_id)]
+    model_habitat_salmon,
+    model_habitat_ch, model_habitat_cm, model_habitat_co, model_habitat_pk, model_habitat_sk)
 
 
 
-#-------------------- Load climate model outputs--------------------------------
-## Thermalscapes august stream temperature
-# Accessed from:  https://datadryad.org/dataset/doi:10.5061/dryad.bzkh189fk#readme
+# 2. Model Processing into R Spatial Object --------------------
 
-tscapes <- st_read(file.path(paths$climate, "bc_stream_thermalscapes.gdb"), layer = "thermalscape_fraser") %>%
-  as.data.table()
+#---------------- Ecological Niche Models --------------------------------------
 
-# tscapes_nest <- data.table(tscapes)%>%
-#   select(-c("Shape")) %>%
-#   mutate(Tw_00_0 = pmap(select(., ends_with("00_0")), c),
-#          Tw_00_1 = pmap(select(., ends_with("00_1")), c),
-#          Tw_45_3 = pmap(select(., ends_with("45_3")), c),
-#          Tw_45_5 = pmap(select(., ends_with("45_5")), c),
-#          Tw_85_3 = pmap(select(., ends_with("85_3")), c),
-#          Tw_85_5 = pmap(select(., ends_with("85_5")), c)) %>%
-#   select(-c(contains("Tw8")))
+# load(file.path(paths$fw, "BCFP_combined_Fr.Rds")) #load bcfp stream network
+load(file.path(paths$fw, "BCFP_combined_accessible_Fr.Rds"))
 
-## 7 Day Equivalent Model (7DECM) stream temperature
-# not currently available online
-T7DEC <- read_csv(file.path(paths$climate, "7DEC", "ThreshRisk_7DEC_Fraser.csv")) %>%
-  as.data.table() %>%
-  mutate(Risk20_9_45_3 = ifelse(Tav_9_45_3 < 20 & ThiPI_9_45_3 < 20, "Low", ifelse(Tav_9_45_3 < 20 & ThiPI_9_45_3 > 20, "Moderate",
-    ifelse(Tav_9_45_3 > 20 & TlowPI_9_45_3 < 20, "High",
-      "Severe"))),
-  Risk24_9_45_3 = ifelse(Tav_9_45_3 < 24 & ThiPI_9_45_3 < 24, "Low", ifelse(Tav_9_45_3 < 24 & ThiPI_9_45_3 > 24, "Moderate",
-    ifelse(Tav_9_45_3 > 24 & TlowPI_9_45_3 < 24, "High",
-      "Severe"))))
+### importing ENM favourability model layers
+# Provided by Josie Iacarella, Sep 2025
 
-# Risk16_mod_len = Risk16_9_45_3 %in% c("Moderate", "High", "Very High") * Shape_Length,
-# Risk20_mod_len = Risk20_9_45_3 %in% c("Moderate", "High", "Very High") * Shape_Length,
-# Risk24_mod_len = Risk24_9_45_3 %in% c("Moderate", "High", "Very High") * Shape_Length)
+# historic layers
+hist_layers <- st_layers(file.path(paths$climate, "Salmon_ENMs", "Baseline_accessible streams.gdb"))$name
+ENM_hist_list <- lapply(hist_layers, function(layer_name) {
+  st_read(file.path(paths$climate, "Salmon_ENMs", "Baseline_accessible streams.gdb"), layer = layer_name)
+})
+names(ENM_hist_list) <-  sub("_.*", "", hist_layers)
+# RCP 45
+RCP45_layers <- st_layers(file.path(paths$climate, "Salmon_ENMs", "Future_RCP45_2041to2060_allstreams.gdb"))$name
+ENM_45_list <- lapply(RCP45_layers, function(layer_name) {
+  st_read(file.path(paths$climate, "Salmon_ENMs", "Future_RCP45_2041to2060_allstreams.gdb"), layer = layer_name)
+})
+names(ENM_45_list) <-  sub("_.*", "", RCP45_layers)
+# RCP 85
+RCP85_layers <- st_layers(file.path(paths$climate, "Salmon_ENMs", "Future_RCP85_2041to2060_allstreams.gdb"))$name
+ENM_85_list <- lapply(RCP85_layers, function(layer_name) {
+  st_read(file.path(paths$climate, "Salmon_ENMs", "Future_RCP85_2041to2060_allstreams.gdb"), layer = layer_name)
+})
+names(ENM_85_list) <-  sub("_.*", "", RCP85_layers)
+
+# Get the common species names
+species <- intersect(names(ENM_hist_list), intersect(names(ENM_45_list), names(ENM_85_list)))
+
+fix_column_name <- function(df) {
+  if ("SDM_accID_" %in% names(df)) {
+    names(df)[names(df) == "SDM_accID_"] <- "SDM_accID_v3"
+  }
+  names(df) <- gsub("RASTERVALU", "Fav", names(df))
+
+  return(df)
+}
+
+# Apply to each list
+ENM_hist_list <- lapply(ENM_hist_list, fix_column_name)
+ENM_45_list   <- lapply(ENM_45_list, fix_column_name)
+ENM_85_list   <- lapply(ENM_85_list, fix_column_name)
+
+### Join ENM 45 and 85 to each other using SDM ID all, then join to BCFPA base
+
+# Create a list of joined results for each species
+ENM_joined_list <- map(species, function(sp) {
+  rcp45 <- ENM_45_list[[sp]]
+  rcp85 <- ENM_85_list[[sp]]
+  rcp85_df <- st_drop_geometry(rcp85)
+  # hist_df <- st_drop_geometry(hist)
+
+  # join_rcp <- st_join(rcp45, rcp85, left = FALSE, suffix = c("_45", "_85"))
+  join_rcp <- left_join(rcp45, rcp85_df, join_by(SDM_ID_all), suffix = c("_45_3", "_85_3"))
+
+  # join_all <- left_join(join_rcp, hist_df, by = join_by(SDM_ID_all == SDM_accID_v3), suffix = c("", "_hist"))
+  # join_all <- st_join(join_rcp, hist, left = FALSE, suffix = c("", "_hist"))
+
+  # Rename Fav columns to include species name
+  names(join_rcp) <- gsub("Fav", paste0("Fav_", sp), names(join_rcp))
+
+  return(join_rcp)
+})
+names(ENM_joined_list) <- species
+
+ENM_df <- ENM_joined_list[[1]]
+for (i in 2:length(ENM_joined_list)) {
+  temp <- st_drop_geometry(ENM_joined_list[[i]]) %>%
+    select(SDM_ID_all, contains("Fav"))
+  ENM_df <- left_join(ENM_df, temp,
+    by = c("SDM_ID_all"))
+}
+
+ENM_df <- st_transform(ENM_df, 3005)
+
+### Join historic values separately, as each species has a different subset of streams
+
+# Rename Fav columns to include species name and hist
+ENM_hist_list <- map(species, function(sp) {
+  hist <- ENM_hist_list[[sp]]
+  names(hist) <- gsub("Fav", paste0("Fav_", sp, "_hist_0"), names(hist))
+  return(hist)
+})
+
+# use SDM_ID to join by key
+for (i in 1:length(ENM_hist_list)) {
+  # temp <- ENM_hist_list[[i]] %>%
+  #   st_transform(3005) %>%
+  #   select(-c(SDM_accID_v3, Shape_Length))
+  # ENM_df_all <- st_join(ENM_df_all, temp, left = TRUE)
+
+  temp <- ENM_hist_list[[i]] %>%
+    st_drop_geometry() %>%
+    select(-c(Shape_Length))
+  ENM_df <- left_join(ENM_df, temp, join_by(SDM_ID_all == SDM_accID_v3))
+}
 
 
+# clean up column names, and calculate Fav change
 
-# join temperature models to bcfp
-fwT <- bcfpmod %>%
-  left_join(tscapes,
-    join_by(linear_feature_id == LINEAR_FEATURE_ID),
-    relationship = "many-to-one") %>%
-  left_join(select(T7DEC, -c(STREAM_ORDER, region)),
-    join_by(linear_feature_id == LINEAR_FEATURE_ID),
-    multiple = "first")
+ENM_df$Shape_Length <- ENM_df$Shape_Leng
+
+ENM_df <- ENM_df %>%
+  select(-any_of(c("Shape_Leng", "Shape_Length_45_3", "Shape_Length_85_3")))
+
+
+save(ENM_df, file = file.path(paths$fw, "ENM_all_species.Rds"))
+rm(ENM_hist_list, ENM_joined_list, ENM_45_list, ENM_85_list)
+
 
 #----------------- Stream level flow data -----------------------------------
 
@@ -244,18 +321,42 @@ names(pflow_GCMs) <- pflow_names
 save(pflow_GCMs, file = file.path(paths$fw, "stream_flow_GCMs_Fr.Rds"))
 
 
+
 #-----   Extract August or Nov-Jan flow projections and merge with historic values
+
+# choose months to extract
+## use either August (8) or Nov-Jan (1,11,12)
+month_pick <- c(8)
+
+# choose stream base network to subset using linear id
+base_network <- switch(2, "bcfpa", "tscapes")
+
+if (base_network == "bcfpa") {
+  load(file.path(paths$fw, "BCFP_combined_accessible_Fr.Rds"))
+  # get index of linear_feature_ids that are accessible
+  lf_id_access <- bcfpa$linear_feature_id[!is.na(bcfpa$linear_feature_id)]
+  rm(bcfpa)
+}
+
+# or use Thermalscapes stream network as base
+if (base_network == "tscapes") {
+  tscapes <- st_read(file.path(paths$climate, "bc_stream_thermalscapes.gdb"),
+    layer = "thermalscape_fraser")
+  lf_id_access <- tscapes$LINEAR_FEATURE_ID[!is.na(tscapes$LINEAR_FEATURE_ID)]
+  rm(tscapes)
+}
+
+
+# load GCM flow data
+load(file.path(paths$fw, "stream_flow_GCMs_Fr.Rds"))
 
 # import historical flow data object
 hflow <- st_read(file.path(paths$climate, "Fraserflow", "Historic_Flow_Data.gdb")) %>%
   as.data.table() %>%
   select(-contains("min_flow"), -contains("max_flow")) # %>%#remove min and max year values from periods
 
-# choose months to extract
-## use either August (8) or Nov-Jan (1,11,12)
-month_pick <- c(1, 11, 12)
 
-load(file.path(paths$fw, "stream_flow_GCMs_Fr.Rds")) # load GCM flow data
+
 
 pflow_names <- names(pflow_GCMs)
 
@@ -279,14 +380,16 @@ pflow_GCMs <- lapply(pflow_GCMs, function(dt) {
 
 gc()
 
+# dt <- pflow_GCMs[[1]]
+
 pflow_GCMs <- lapply(pflow_GCMs, function(dt) {
   if (length(month_pick) > 1) {
     # Step 1: Reshape to wide format
     dt <- dcast(dt, linear_feature_id + description_id ~ time_id,
       value.var = "mean_runoff_m3s", fun.aggregate = mean)
     # Step 2: Compute row-wise average across time columns
-    dt <- dt[, mean_runoff_m3s := rowMeans(.SD, na.rm = TRUE), .SDcols = month_pick]
-    dt <- dt[, -month_pick]
+    dt <- dt[, mean_runoff_m3s := rowMeans(.SD, na.rm = TRUE), .SDcols = as.character(month_pick)]
+    dt[, (as.character(month_pick)) := NULL]
     dt$time_id <- 18
   }
 
@@ -297,7 +400,7 @@ pflow_GCMs <- lapply(pflow_GCMs, function(dt) {
 
 
 
-# get mean, min, and max for each scenario and combine into data.table
+# get mean for each scenario and combine into data.table
 for (i in 1:2) {
 
   if (i == 1) rcp_pick <- "rcp45"
@@ -385,61 +488,282 @@ all_flow_wide <- all_flow %>%
     values_fn = mean   # some linear features have repeats, so this takes the average of values
   )
 
-if (month_pick == 8) {
-  fwQ8 <- bcfpmod %>%
-    left_join(all_flow_wide,
-      join_by(linear_feature_id),
-      multiple = "first")
+# save(all_flow_wide, file = file.path(paths$fw, "stream_flow_processed.Rds"))
 
-  save(fwQ8, file = file.path(paths$fw, "stream_flow_August_Fr_accessible.Rds"))
+if (length(month_pick) == 1) {
+  if (base_network == "bcfpa") {
+    fwQ8 <- bcfpmod %>%
+      left_join(all_flow_wide,
+        join_by(linear_feature_id),
+        multiple = "first")
+    save(fwQ8, file = file.path(paths$fw, "stream_flow_August_Fr_accessible.Rds"))
+  }
+  if (base_network == "tscapes") {
+    fwQ8 <- all_flow_wide
+    save(fwQ8, file = file.path(paths$fw, "stream_flow_August_Fr_tscapes.Rds"))
+  }
 }
 
 if (length(month_pick) > 1) {
 
-  fwQNDJ <- bcfpmod %>%
-    left_join(all_flow_wide,
-      join_by(linear_feature_id),
-      multiple = "first") %>%
+  fwQNDJ <- all_flow_wide %>%
     mutate(flow_historical_mean_0_18 =
       rowMeans(select(., all_of(paste0("flow_historical_mean_0_", month_pick)))))
-  save(fwQNDJ, file = file.path(paths$fw, "stream_flow_NovDecJan_Fr_accessible.Rds"))
+
+  if (base_network == "bcfpa") {
+    fwQNDJ <- bcfpmod %>%
+      left_join(fwQNDJ,
+        join_by(linear_feature_id),
+        multiple = "first")
+
+    save(fwQNDJ, file = file.path(paths$fw, "stream_flow_NovDecJan_Fr_accessible.Rds"))
+  }
+  if (base_network == "tscapes") save(fwQNDJ, file = file.path(paths$fw, "stream_flow_NovDecJan_Fr_tscapes.Rds"))
 }
 
-# save historic flow object
-hflow <- bcfpmod %>%
-  left_join(hflow,
-    join_by(linear_feature_id == LINEAR_FEATURE_ID),
-    multiple = "first")
-
-save(hflow, file = file.path(paths$fw, "stream_flow_historic_Fr_accessible.Rds"))
-
-#---------------------Join stream network model outputs--------------------------
-
-# load(file.path(paths$fw, "BCFP_combined_Fr.Rds")) #load bcfp stream network
-
-# bcfpcmod <- as.data.table(bcfpc) %>%
-#   select(segmented_stream_id, linear_feature_id, FWA_WATERSHED_CODE, channel_width, length_metre,
-#          mad_m3s, upstream_area_ha, gradient, gnis_name, model_access_salmon,
-#          model_habitat_salmon)
-
-# tscapes_bcfp <- tscapes %>%
-#   left_join(bcfpcmod,
-#             join_by(LINEAR_FEATURE_ID == linear_feature_id))
+# save historic flow object - NOT NEEDED
+# hflow <- bcfpmod %>%
+#   left_join(hflow,
+#     join_by(linear_feature_id == LINEAR_FEATURE_ID),
+#     multiple = "first")
 #
+# if (base_network == "bcfpa") save(hflow, file = file.path(paths$fw, "stream_flow_historic_Fr_accessible.Rds"))
+# if (base_network == "tscapes") save(hflow, file = file.path(paths$fw, "stream_flow_historic_Fr_tscapes.Rds"))
 
+
+
+
+# Temperature -------------------------------------------------------------
+
+## Thermalscapes august stream temperature
+# Accessed from:  https://datadryad.org/dataset/doi:10.5061/dryad.bzkh189fk#readme
+tscapes <- st_read(file.path(paths$climate, "bc_stream_thermalscapes.gdb"), layer = "thermalscape_fraser") # %>%
+# as.data.table()
+
+## 7 Day Equivalent Model (7DECM) stream temperature
+# not currently available online
+# T7DEC <- read_csv(file.path(paths$climate, "7DEC", "ThreshRisk_7DEC_Fraser.csv")) %>%
+#   as.data.table() %>%
+#   mutate(Risk20_9_45_3 = ifelse(Tav_9_45_3 < 20 & ThiPI_9_45_3 < 20, "Low", ifelse(Tav_9_45_3 < 20 & ThiPI_9_45_3 > 20, "Moderate",
+#     ifelse(Tav_9_45_3 > 20 & TlowPI_9_45_3 < 20, "High",
+#       "Severe"))),
+#   Risk24_9_45_3 = ifelse(Tav_9_45_3 < 24 & ThiPI_9_45_3 < 24, "Low", ifelse(Tav_9_45_3 < 24 & ThiPI_9_45_3 > 24, "Moderate",
+#     ifelse(Tav_9_45_3 > 24 & TlowPI_9_45_3 < 24, "High",
+#       "Severe"))))
+
+# Risk16_mod_len = Risk16_9_45_3 %in% c("Moderate", "High", "Very High") * Shape_Length,
+# Risk20_mod_len = Risk20_9_45_3 %in% c("Moderate", "High", "Very High") * Shape_Length,
+# Risk24_mod_len = Risk24_9_45_3 %in% c("Moderate", "High", "Very High") * Shape_Length)
+
+# join temperature models to bcfp
+# fwT <- bcfpmod %>%
+#   left_join(tscapes,
+#     join_by(linear_feature_id == LINEAR_FEATURE_ID),
+#     relationship = "many-to-one")
+# %>%
+#   left_join(select(T7DEC, -c(STREAM_ORDER, region)),
+#     join_by(linear_feature_id == LINEAR_FEATURE_ID),
+#     multiple = "first")
+
+
+
+
+# 3. Join stream network models on common base stream network------
+
+# choose stream base network
+base_network <- switch(2, "bcfpa", "tscapes")
+
+## load R objects/ spatial data layers
+
+## BC fishpass
+load(file.path(paths$fw, "BCFP_combined_Fr.Rds")) # load bcfp stream network
+
+## Thermalscapes august stream temperature
+# Accessed from:  https://datadryad.org/dataset/doi:10.5061/dryad.bzkh189fk#readme
+tscapes <- st_read(file.path(paths$climate, "bc_stream_thermalscapes.gdb"),
+  layer = "thermalscape_fraser")
 
 # Cumulative threat score for Fraser streams
 fwct <- st_read(file.path(paths$spatial, "CumulativeThreatScore", "CumulativeThreat_FRB.shp")) %>%
   as.data.table()
 
-# join cumulative threats model to bcfp
-fwct <- bcfpmod %>%
-  left_join(select(fwct, -c(WATERSHED_, WATERSHED1, watershe_1)),
-    join_by(linear_feature_id == LINEAR_FEA),
-    multiple = "first")
+# ENM
+load(file.path(paths$fw, "ENM_all_species.Rds"))
+
+# August and Nov-Jan flow
+if (base_network == "tscapes") {
+  load(file.path(paths$fw, "stream_flow_August_Fr_tscapes.Rds")) %>%
+    as.data.table()
+  load(file.path(paths$fw, "stream_flow_NovDecJan_Fr_tscapes.Rds")) %>%
+    as.data.table()
+}
+if (base_network == "bcfpa") {
+  load(file.path(paths$fw, "stream_flow_August_Fr_accessible.Rds"))
+  load(file.path(paths$fw, "stream_flow_NovDecJan_Fr_accessible.Rds"))
+}
 
 
-save(fwT, fwct, file = file.path("processed_data", "Freshwater", "fw_models_T_CT.Rds"))
+# combine on common base network
+if (base_network == "bcfpa") {
+  # subset accessible streams only
+  bcfpa <- filter(bcfpc, model_access_salmon %in% c("OBSERVED", "INFERRED"))
+
+  fw_models <- bcfpa %>%
+    select(segmented_stream_id, linear_feature_id, FWA_WATERSHED_CODE, channel_width, length_metre,
+      mad_m3s, upstream_area_ha, gradient, gnis_name, model_access_salmon,
+      model_habitat_salmon,
+      model_habitat_ch, model_habitat_cm, model_habitat_co, model_habitat_pk, model_habitat_sk)
+
+  # get rid of multiple matches by taking first observation only
+  fw_models <- bcfpa %>%
+    left_join(st_drop_geometry(tscapes),
+      by = join_by(linear_feature_id == LINEAR_FEATURE_ID, FWA_WATERSHED_CODE),
+      multiple = "first")
+
+  # join cumulative threats model to bcfp
+  fwct <- bcfpmod %>%
+    left_join(select(fwct, -c(WATERSHED_, WATERSHED1, watershe_1)),
+      join_by(linear_feature_id == LINEAR_FEA),
+      multiple = "first")
+
+}
+
+
+
+
+if (base_network == "tscapes") {
+  bcfpmod <- as.data.table(bcfpc) %>%
+    select(segmented_stream_id, linear_feature_id, FWA_WATERSHED_CODE, channel_width, length_metre,
+      mad_m3s, upstream_area_ha, gradient, gnis_name, model_access_salmon,
+      model_habitat_salmon,
+      model_habitat_ch, model_habitat_cm, model_habitat_co, model_habitat_pk, model_habitat_sk)
+
+  fw_models <- tscapes %>%
+    left_join(bcfpmod,
+      by = join_by(LINEAR_FEATURE_ID == linear_feature_id, FWA_WATERSHED_CODE)) %>%
+    group_by(LINEAR_FEATURE_ID) %>%
+    slice(1) %>%
+    ungroup() %>%
+    relocate(channel_width, length_metre,
+      mad_m3s, upstream_area_ha, gradient, gnis_name, model_access_salmon,
+      model_habitat_salmon,
+      model_habitat_ch, model_habitat_cm, model_habitat_co, model_habitat_pk, model_habitat_sk, .after = FWA_WATERSHED_CODE)
+  # join cumulative threats
+  fw_models <- fw_models %>%
+    left_join(select(fwct, -any_of(c("WATERSHED_", "WATERSHED1", "watershe_1", "geometry"))),
+      join_by(LINEAR_FEATURE_ID == LINEAR_FEA),
+      multiple = "first")
+  # join Aug flow
+  fw_models <- fw_models %>%
+    left_join(fwQ8,
+      join_by(LINEAR_FEATURE_ID == linear_feature_id),
+      multiple = "first")
+  # join Nov-Jan flow
+  fw_models <- fw_models %>%
+    left_join(select(fwQNDJ, -any_of("flow_historical_mean_0_17")),
+      join_by(LINEAR_FEATURE_ID == linear_feature_id),
+      multiple = "first")
+
+  # spatial join with ENM
+  fw_models <- fw_models %>%
+    st_join(select(ENM_df, -any_of("Shape_Length")),
+      left = TRUE) %>%
+    group_by(LINEAR_FEATURE_ID) %>%
+    slice(1) %>%
+    ungroup()
+
+  save(fw_models, file = file.path(paths$fw, "fw_models_tscapes.Rds"))
+
+}
+
+
+
+
+# 4. Calculate indicators for combined model object---------
+
+T_model <- "Tw8"
+historical <- "0"
+
+load(file.path(paths$fw, "fw_models_tscapes.Rds"))
+
+### Low flow stats
+## same process as CU stats
+GCMs <- c("access1", "canesm2", "ccsm4", "cnrm", "hadgem2", "mpi")
+GCM_grep <- paste(paste0(GCMs, collapse = "|"), "mean", sep = "|")
+
+fw_models_df <- st_drop_geometry(fw_models)
+
+### High flow stats
+## same process as CU stats
+flow_long <- fw_models_df %>%
+  select(LINEAR_FEATURE_ID, contains("flow")) %>%
+  pivot_longer(cols = matches("^flow"),
+    names_to = c(".value", "RCP", "GCM", "period", "month"),
+    names_pattern = paste0("^(flow)_(rcp\\d{2}|historical)_(", GCM_grep, ")_(\\d+)_(\\d+)$")) %>%
+  mutate(RCP = substr(RCP, start = 4, stop = 5)) # remove rcp from column character
+
+flow_wide <- flow_long %>%
+  filter(GCM == "mean") %>%
+  pivot_wider(
+    names_from = c(month, RCP, period),
+    values_from = flow,
+    names_prefix = "flow_") %>%
+  arrange(LINEAR_FEATURE_ID)
+
+hist_col_18 <- names(flow_wide)[str_detect(names(flow_wide), "flow_18_to_0")]
+proj_col_18 <- names(flow_wide)[str_detect(names(flow_wide), "45|85")]
+proj_col_18 <- proj_col_18[str_detect(proj_col_18, "18")]
+
+fwQNDJ_wide <- flow_wide %>%
+  mutate(histQ = !!sym(hist_col_18),
+    across(contains(proj_col_18), ~ (.x - histQ) / histQ, .names = "Qpdelta_{.col}")) %>%
+  select(LINEAR_FEATURE_ID, contains("Qpdelta"))
+
+hist_col_8 <- names(flow_wide)[str_detect(names(flow_wide), "flow_8_to_0")]
+proj_col_8 <- names(flow_wide)[str_detect(names(flow_wide), "45|85")]
+proj_col_8 <- proj_col_8[str_detect(proj_col_8, "_8_")]
+
+fwQ8_wide <- flow_wide %>%
+  mutate(histQ = !!sym(hist_col_8),
+         across(contains(proj_col_8), ~ (.x - histQ) / histQ, .names = "Qpdelta_{.col}")) %>%
+  select(LINEAR_FEATURE_ID, contains("Qpdelta"))
+
+
+## Historic flow stats for all months
+# hflow_sub <- hflow %>%
+#   select(segmented_stream_id, contains("flow")) %>%
+#   rename_with(~ str_replace_all(., "mean_flow_m3s", "flow")) %>%
+#   rename_with(~ str_replace_all(.,  "_1$", "_0"))
+
+
+# temp stats by stream
+fwT_indi <- fw_models_df %>%
+  mutate(histT = !!sym(paste(T_model, "0_00", historical, sep = "_"))) %>%  # add historical Tw8
+  select(LINEAR_FEATURE_ID, histT,
+    all_of(grep(paste0("^", T_model, "_", 9), names(fw_models), value = TRUE))) %>%
+  mutate(across(contains(T_model), ~ .x - histT, .names = "delta_{.col}"))
+
+
+## create spatial object with all indicator variables
+fw_sp_ind <- fw_models %>%
+  select(LINEAR_FEATURE_ID, FWA_WATERSHED_CODE, channel_width, length_metre,
+         mad_m3s, upstream_area_ha, gradient, gnis_name, model_access_salmon,
+         model_habitat_salmon,
+         model_habitat_ch, model_habitat_cm, model_habitat_co, model_habitat_pk, model_habitat_sk,
+         CT_anad,
+         contains("Fav")) %>%
+  left_join(fwT_indi,
+    join_by(LINEAR_FEATURE_ID)) %>%
+  left_join(fwQ8_wide,
+    join_by(LINEAR_FEATURE_ID)) %>%
+  left_join(fwQNDJ_wide,
+    join_by(LINEAR_FEATURE_ID))
+
+
+save(fw_sp_ind, file = file.path(paths$fw, "fw_stream_indicators_sp.Rds"))
+
+
+
 
 #----------------------Ruzzante statistical low flow projections ------------------------------
 
@@ -526,113 +850,6 @@ save(wp_vm, file = file.path(paths$fw, "Statistical_flow_projections.Rds"))
 #   rename(in_CU = value)
 #
 
-
-
-
-#---------------- Ecological Niche Models --------------------------------------
-
-# load(file.path(paths$fw, "BCFP_combined_Fr.Rds")) #load bcfp stream network
-load(file.path(paths$fw, "BCFP_combined_accessible_Fr.Rds"))
-
-### importing ENM favourability model layers
-# Provided by Josie Iacarella, Sep 2025
-
-# historic layers
-hist_layers <- st_layers(file.path(paths$climate, "Salmon_ENMs", "Baseline_accessible streams.gdb"))$name
-ENM_hist_list <- lapply(hist_layers, function(layer_name) {
-  st_read(file.path(paths$climate, "Salmon_ENMs", "Baseline_accessible streams.gdb"), layer = layer_name)
-})
-names(ENM_hist_list) <-  sub("_.*", "", hist_layers)
-# RCP 45
-RCP45_layers <- st_layers(file.path(paths$climate, "Salmon_ENMs", "Future_RCP45_2041to2060_allstreams.gdb"))$name
-ENM_45_list <- lapply(RCP45_layers, function(layer_name) {
-  st_read(file.path(paths$climate, "Salmon_ENMs", "Future_RCP45_2041to2060_allstreams.gdb"), layer = layer_name)
-})
-names(ENM_45_list) <-  sub("_.*", "", RCP45_layers)
-# RCP 85
-RCP85_layers <- st_layers(file.path(paths$climate, "Salmon_ENMs", "Future_RCP85_2041to2060_allstreams.gdb"))$name
-ENM_85_list <- lapply(RCP85_layers, function(layer_name) {
-  st_read(file.path(paths$climate, "Salmon_ENMs", "Future_RCP85_2041to2060_allstreams.gdb"), layer = layer_name)
-})
-names(ENM_85_list) <-  sub("_.*", "", RCP85_layers)
-
-# Get the common species names
-species <- intersect(names(ENM_hist_list), intersect(names(ENM_45_list), names(ENM_85_list)))
-
-fix_column_name <- function(df) {
-  if ("SDM_accID_" %in% names(df)) {
-    names(df)[names(df) == "SDM_accID_"] <- "SDM_accID_v3"
-  }
-  names(df) <- gsub("RASTERVALU", "Fav", names(df))
-
-  return(df)
-}
-
-# Apply to each list
-ENM_hist_list <- lapply(ENM_hist_list, fix_column_name)
-ENM_45_list   <- lapply(ENM_45_list, fix_column_name)
-ENM_85_list   <- lapply(ENM_85_list, fix_column_name)
-
-### Join ENM 45 and 85 to each other using SDM ID all, then join to BCFPA base
-
-# Create a list of joined results for each species
-ENM_joined_list <- map(species, function(sp) {
-  rcp45 <- ENM_45_list[[sp]]
-  rcp85 <- ENM_85_list[[sp]]
-  rcp85_df <- st_drop_geometry(rcp85)
-  # hist_df <- st_drop_geometry(hist)
-
-  # join_rcp <- st_join(rcp45, rcp85, left = FALSE, suffix = c("_45", "_85"))
-  join_rcp <- left_join(rcp45, rcp85_df, join_by(SDM_ID_all), suffix = c("_45", "_85"))
-
-  # join_all <- left_join(join_rcp, hist_df, by = join_by(SDM_ID_all == SDM_accID_v3), suffix = c("", "_hist"))
-  # join_all <- st_join(join_rcp, hist, left = FALSE, suffix = c("", "_hist"))
-
-  # Rename Fav columns to include species name
-  names(df) <- gsub("Fav", paste0("Fav_", sp), names(df))
-
-  return(join_rcp)
-})
-names(ENM_joined_list) <- species
-
-ENM_df <- ENM_joined_list[[1]]
-for (i in 2:length(bcfpa_with_fav)) {
-  temp <- st_drop_geometry(ENM_joined_list[[i]]) %>%
-    select(SDM_ID_all, contains("Fav"))
-  ENM_df <- left_join(ENM_df, temp,
-    by = c("SDM_ID_all"))
-}
-
-ENM_df <- st_transform(ENM_df, 3005)
-
-bcfpa_ENM <- st_join(st_zm(bcfpa), ENM_df, left = TRUE)
-
-
-### Join historic values separately, as they contain different streams
-# Rename Fav columns to include species name and hist
-ENM_hist_list <- map(species, function(sp) {
-  hist <- ENM_hist_list[[sp]]
-  names(hist) <- gsub("Fav", paste0("Fav_", sp, "_hist"), names(hist))
-  return(hist)
-})
-names(ENM_hist_list) <- species
-
-# join each species to bcfpa base
-for (i in 1:length(ENM_hist_list)) {
-  temp <- ENM_hist_list[[i]] %>%
-    st_transform(3005) %>%
-    select(-c(SDM_accID_v3, Shape_Length))
-  bcfpa_ENM <- st_join(bcfpa_ENM, temp, left = TRUE)
-}
-
-# multiple ENM values match some segmented stream ids, so take first match only
-bcfpa_ENM <- bcfpa_ENM %>%
-  group_by(segmented_stream_id) %>%
-  slice(1) %>%
-  ungroup()
-
-
-save(bcfpa_ENM, file = file.path(paths$fw, "ENM_bcfpa_matched.Rds"))
 
 # ENMs old data set -------------------------------------------------------
 
