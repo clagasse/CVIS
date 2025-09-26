@@ -725,7 +725,7 @@ proj_col_8 <- proj_col_8[str_detect(proj_col_8, "_8_")]
 
 fwQ8_wide <- flow_wide %>%
   mutate(histQ = !!sym(hist_col_8),
-         across(contains(proj_col_8), ~ (.x - histQ) / histQ, .names = "Qpdelta_{.col}")) %>%
+    across(contains(proj_col_8), ~ (.x - histQ) / histQ, .names = "Qpdelta_{.col}")) %>%
   select(LINEAR_FEATURE_ID, contains("Qpdelta"))
 
 
@@ -747,11 +747,11 @@ fwT_indi <- fw_models_df %>%
 ## create spatial object with all indicator variables
 fw_sp_ind <- fw_models %>%
   select(LINEAR_FEATURE_ID, FWA_WATERSHED_CODE, channel_width, length_metre,
-         mad_m3s, upstream_area_ha, gradient, gnis_name, model_access_salmon,
-         model_habitat_salmon,
-         model_habitat_ch, model_habitat_cm, model_habitat_co, model_habitat_pk, model_habitat_sk,
-         CT_anad,
-         contains("Fav")) %>%
+    mad_m3s, upstream_area_ha, gradient, gnis_name, model_access_salmon,
+    model_habitat_salmon,
+    model_habitat_ch, model_habitat_cm, model_habitat_co, model_habitat_pk, model_habitat_sk,
+    CT_anad,
+    contains("Fav")) %>%
   left_join(fwT_indi,
     join_by(LINEAR_FEATURE_ID)) %>%
   left_join(fwQ8_wide,
