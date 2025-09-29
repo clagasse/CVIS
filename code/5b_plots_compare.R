@@ -14,7 +14,6 @@
 
 # 5. Comparison of indicator value between PCIC and statistical models
 
-#
 ###############################################################################
 
 # libraries for plotting

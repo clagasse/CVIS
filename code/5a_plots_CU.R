@@ -73,12 +73,11 @@ stream_accessible_plot <- function(stream_data,
     geom_sf(data = nuseds_cu, aes(fill = SPECIES), alpha = 0.6) +
     coord_sf(xlim = st_bbox(cu_boundary_i)[c(1, 3)],
       ylim = st_bbox(cu_boundary_i)[c(2, 4)]) +
-    labs(subtitle = paste(cu_run_i$CU_NAME), colour = "BC FishPass",
+    labs(colour = "BC FishPass",
       fill = "NUSEDS sites")
 
   return(p)
 }
-
 
 
 # 3. fw cu boundary/stream plots --------------

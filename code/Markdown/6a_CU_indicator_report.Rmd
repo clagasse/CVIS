@@ -183,6 +183,8 @@ pfw
 ```{r data tables}
 
 
+
+
 acc_plot <- stream_accessible_plot(fwModels_cu,
   nuseds_cu,
   cu_boundary_i)

@@ -8,9 +8,7 @@
 library(here)
 
 library(tidyverse)
-# use data.table for speed, use dtplyr for dplyr syntax
-library(data.table)
-# library(dtplyr)
+library(data.table)  # for faster processing of some operations
 
 # spatial packages
 library(sf)      # spatial feature
@@ -54,8 +52,8 @@ source(here("code", "1a_CU_import.R"))   # CU table
 
 # Select subset of CUs to run for analysis
 cu_run <- cu_Fr %>%
-  filter(spp %in% c("ck", "co", "cm", "sk"),  # exclude pink salmon for now
-    FULL_CU_IN %notin% c("SER-02", "SER-03")) %>% # remove widgeon and Harrison river for now (throws error)
+  filter(spp %in% c("ck", "co", "cm", "sk", "pk"),  # exclude pink salmon for now
+    FULL_CU_IN %notin% c("SER-02")) %>% # remove widgeon and Harrison river for now (throws error)
   arrange(spp)
 
 
@@ -109,12 +107,12 @@ tbl_standardize <- tribble(
   "Favchange", "fwR",        "decay_std",        3,     NA,   0,
   "ct",         "fwR",      "linear_std",        NA,    0,   NA,
   "Tw8rate",    "fwR",      "exponential_std",    3,    NA,   NA,
-  "Tw8proj",    "fwR",       "exponential_std",   3,    14,   NA,
+  "Tw8proj",    "fwR",       "exponential_std",   3,    15,   NA,
   "lowQpdelta",  "fwR",    "decay_std",           3,    NA,   0,
   "st8pdelta",  "fwR",    "decay_std",            3,    NA,   0,
   "highQpdelta", "fwR",    "exponential_std",     3,    0,   NA,
   "fwres",     "fwR",      "step_std",            NA,   NA,   NA,
-  "migrT",      "migr",    "exponential_std",     3,    13,   NA,
+  "migrT",      "migr",    "exponential_std",     3,    15,   NA,
   "migrQ",      "migr",       "linear_std",      NA,   NA,   NA,
   "migrA21",    "migr",     "exponential_std",    3,    0,    NA,
   "migrdist",   "migr",      "linear_std",        NA,   NA,   NA,

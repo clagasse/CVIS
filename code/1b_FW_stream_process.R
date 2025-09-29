@@ -10,6 +10,7 @@ library(here)
 setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
 
+library(janitor)
 
 # library(future.apply) # parallel processing
 
@@ -342,7 +343,7 @@ if (base_network == "bcfpa") {
 if (base_network == "tscapes") {
   tscapes <- st_read(file.path(paths$climate, "bc_stream_thermalscapes.gdb"),
     layer = "thermalscape_fraser")
-  lf_id_access <- tscapes$LINEAR_FEATURE_ID[!is.na(tscapes$LINEAR_FEATURE_ID)]
+  lf_id_access <- tscapes$linear_feature_id[!is.na(tscapes$linear_feature_id)]
   rm(tscapes)
 }
 
@@ -460,7 +461,7 @@ flow_summary_long <- flow_summary %>%
 hflow_long <- hflow %>%
   mutate(scenario = "historical",
     period = "0") %>%
-  filter(LINEAR_FEATURE_ID %in% lf_id_access) %>%
+  filter(linear_feature_id %in% lf_id_access) %>%
   rename_with(~ str_sub(.x, end = -3), starts_with("mean_flow")) %>% # remove _1 from col names
   pivot_longer(
     cols = starts_with("mean_flow_m3s_"),
@@ -471,8 +472,7 @@ hflow_long <- hflow %>%
   mutate(time_id = as.integer(time_id),
     model = "mean") %>%
   filter(time_id %in% c(month_pick, 17)) %>%
-  select(LINEAR_FEATURE_ID, time_id, scenario, period, model, value) %>%
-  rename(linear_feature_id = LINEAR_FEATURE_ID) %>%
+  select(linear_feature_id, time_id, scenario, period, model, value) %>%
   as.data.table()
 
 
@@ -535,10 +535,7 @@ if (length(month_pick) > 1) {
 
 # Temperature -------------------------------------------------------------
 
-## Thermalscapes august stream temperature
-# Accessed from:  https://datadryad.org/dataset/doi:10.5061/dryad.bzkh189fk#readme
-tscapes <- st_read(file.path(paths$climate, "bc_stream_thermalscapes.gdb"), layer = "thermalscape_fraser") # %>%
-# as.data.table()
+
 
 ## 7 Day Equivalent Model (7DECM) stream temperature
 # not currently available online
@@ -580,15 +577,18 @@ load(file.path(paths$fw, "BCFP_combined_Fr.Rds")) # load bcfp stream network
 
 ## Thermalscapes august stream temperature
 # Accessed from:  https://datadryad.org/dataset/doi:10.5061/dryad.bzkh189fk#readme
-tscapes <- st_read(file.path(paths$climate, "bc_stream_thermalscapes.gdb"),
-  layer = "thermalscape_fraser")
+tscapes <- st_read(file.path(paths$climate, "bc_stream_thermalscapes.gdb"), layer = "thermalscape_fraser") %>%
+  clean_names()
+st_geometry(tscapes) <- "shape"
 
 # Cumulative threat score for Fraser streams
 fwct <- st_read(file.path(paths$spatial, "CumulativeThreatScore", "CumulativeThreat_FRB.shp")) %>%
-  as.data.table()
+  as.data.table() %>%
+  clean_names()
 
 # ENM
-load(file.path(paths$fw, "ENM_all_species.Rds"))
+load(file.path(paths$fw, "ENM_all_species.Rds")) # %>%
+ENM_df <- clean_names(ENM_df)
 
 # August and Nov-Jan flow
 if (base_network == "tscapes") {
@@ -598,8 +598,10 @@ if (base_network == "tscapes") {
     as.data.table()
 }
 if (base_network == "bcfpa") {
-  load(file.path(paths$fw, "stream_flow_August_Fr_accessible.Rds"))
-  load(file.path(paths$fw, "stream_flow_NovDecJan_Fr_accessible.Rds"))
+  load(file.path(paths$fw, "stream_flow_August_Fr_accessible.Rds")) %>%
+    clean_names()
+  load(file.path(paths$fw, "stream_flow_NovDecJan_Fr_accessible.Rds")) %>%
+    clean_names()
 }
 
 
@@ -611,13 +613,15 @@ if (base_network == "bcfpa") {
   fw_models <- bcfpa %>%
     select(segmented_stream_id, linear_feature_id, FWA_WATERSHED_CODE, channel_width, length_metre,
       mad_m3s, upstream_area_ha, gradient, gnis_name, model_access_salmon,
+      model_rearing_ch, model_rearing_co, model_rearing_sk,
+      model_spawning_ch, model_spawning_co, model_spawning_cm, model_spawning_pk, model_spawning_sk,
       model_habitat_salmon,
       model_habitat_ch, model_habitat_cm, model_habitat_co, model_habitat_pk, model_habitat_sk)
 
   # get rid of multiple matches by taking first observation only
   fw_models <- bcfpa %>%
     left_join(st_drop_geometry(tscapes),
-      by = join_by(linear_feature_id == LINEAR_FEATURE_ID, FWA_WATERSHED_CODE),
+      by = join_by(linear_feature_id),
       multiple = "first")
 
   # join cumulative threats model to bcfp
@@ -628,47 +632,52 @@ if (base_network == "bcfpa") {
 
 }
 
-
-
+# sub4 <- fw_models[fw_models$linear_feature_id == 700732747,]
+# sub2 <- fw_models_cu[fw_models_cu$linear_feature_id == 700732747,]
 
 if (base_network == "tscapes") {
   bcfpmod <- as.data.table(bcfpc) %>%
-    select(segmented_stream_id, linear_feature_id, FWA_WATERSHED_CODE, channel_width, length_metre,
+    select(segmented_stream_id, linear_feature_id, channel_width, length_metre, downstream_route_measure,
       mad_m3s, upstream_area_ha, gradient, gnis_name, model_access_salmon,
+      model_rearing_ch, model_rearing_co, model_rearing_sk,
+      model_spawning_ch, model_spawning_co, model_spawning_cm, model_spawning_pk, model_spawning_sk,
       model_habitat_salmon,
       model_habitat_ch, model_habitat_cm, model_habitat_co, model_habitat_pk, model_habitat_sk)
 
   fw_models <- tscapes %>%
     left_join(bcfpmod,
-      by = join_by(LINEAR_FEATURE_ID == linear_feature_id, FWA_WATERSHED_CODE)) %>%
-    group_by(LINEAR_FEATURE_ID) %>%
+      by = join_by(linear_feature_id)) %>%
+    group_by(linear_feature_id) %>%
+    arrange(desc(model_spawning_sk), desc(model_habitat_salmon), downstream_route_measure) %>%
     slice(1) %>%
     ungroup() %>%
-    relocate(channel_width, length_metre,
+    relocate(channel_width, length_metre, segmented_stream_id, downstream_route_measure,
       mad_m3s, upstream_area_ha, gradient, gnis_name, model_access_salmon,
+      model_rearing_ch, model_rearing_co, model_rearing_sk,
+      model_spawning_ch, model_spawning_co, model_spawning_cm, model_spawning_pk, model_spawning_sk,
       model_habitat_salmon,
-      model_habitat_ch, model_habitat_cm, model_habitat_co, model_habitat_pk, model_habitat_sk, .after = FWA_WATERSHED_CODE)
+      model_habitat_ch, model_habitat_cm, model_habitat_co, model_habitat_pk, model_habitat_sk, .after = fwa_watershed_code)
   # join cumulative threats
   fw_models <- fw_models %>%
-    left_join(select(fwct, -any_of(c("WATERSHED_", "WATERSHED1", "watershe_1", "geometry"))),
-      join_by(LINEAR_FEATURE_ID == LINEAR_FEA),
+    left_join(select(fwct, -any_of(c("watershed_", "watershed1", "watershe_1", "geometry", "shape_leng", "length_km"))),
+      join_by(linear_feature_id == linear_fea),
       multiple = "first")
   # join Aug flow
   fw_models <- fw_models %>%
     left_join(fwQ8,
-      join_by(LINEAR_FEATURE_ID == linear_feature_id),
+      join_by(linear_feature_id),
       multiple = "first")
   # join Nov-Jan flow
   fw_models <- fw_models %>%
     left_join(select(fwQNDJ, -any_of("flow_historical_mean_0_17")),
-      join_by(LINEAR_FEATURE_ID == linear_feature_id),
+      join_by(linear_feature_id),
       multiple = "first")
 
   # spatial join with ENM
   fw_models <- fw_models %>%
-    st_join(select(ENM_df, -any_of("Shape_Length")),
+    st_join(select(ENM_df, -any_of("shape_length")),
       left = TRUE) %>%
-    group_by(LINEAR_FEATURE_ID) %>%
+    group_by(linear_feature_id) %>%
     slice(1) %>%
     ungroup()
 
@@ -677,11 +686,9 @@ if (base_network == "tscapes") {
 }
 
 
-
-
 # 4. Calculate indicators for combined model object---------
 
-T_model <- "Tw8"
+T_model <- "tw8"
 historical <- "0"
 
 load(file.path(paths$fw, "fw_models_tscapes.Rds"))
@@ -696,9 +703,9 @@ fw_models_df <- st_drop_geometry(fw_models)
 ### High flow stats
 ## same process as CU stats
 flow_long <- fw_models_df %>%
-  select(LINEAR_FEATURE_ID, contains("flow")) %>%
+  select(linear_feature_id, contains("flow")) %>%
   pivot_longer(cols = matches("^flow"),
-    names_to = c(".value", "RCP", "GCM", "period", "month"),
+    names_to = c(".value", "rcp", "gcm", "period", "month"),
     names_pattern = paste0("^(flow)_(rcp\\d{2}|historical)_(", GCM_grep, ")_(\\d+)_(\\d+)$")) %>%
   mutate(RCP = substr(RCP, start = 4, stop = 5)) # remove rcp from column character
 
@@ -715,18 +722,18 @@ proj_col_18 <- names(flow_wide)[str_detect(names(flow_wide), "45|85")]
 proj_col_18 <- proj_col_18[str_detect(proj_col_18, "18")]
 
 fwQNDJ_wide <- flow_wide %>%
-  mutate(histQ = !!sym(hist_col_18),
-    across(contains(proj_col_18), ~ (.x - histQ) / histQ, .names = "Qpdelta_{.col}")) %>%
-  select(LINEAR_FEATURE_ID, contains("Qpdelta"))
+  mutate(histq = !!sym(hist_col_18),
+    across(contains(proj_col_18), ~ (.x - histq) / histq, .names = "qpdelta_{.col}")) %>%
+  select(linear_feature_id, contains("qpdelta"))
 
 hist_col_8 <- names(flow_wide)[str_detect(names(flow_wide), "flow_8_to_0")]
 proj_col_8 <- names(flow_wide)[str_detect(names(flow_wide), "45|85")]
 proj_col_8 <- proj_col_8[str_detect(proj_col_8, "_8_")]
 
 fwQ8_wide <- flow_wide %>%
-  mutate(histQ = !!sym(hist_col_8),
-    across(contains(proj_col_8), ~ (.x - histQ) / histQ, .names = "Qpdelta_{.col}")) %>%
-  select(LINEAR_FEATURE_ID, contains("Qpdelta"))
+  mutate(histq = !!sym(hist_col_8),
+    across(contains(proj_col_8), ~ (.x - histq) / histq, .names = "qpdelta_{.col}")) %>%
+  select(linear_feature_id, contains("qpdelta"))
 
 
 ## Historic flow stats for all months
@@ -738,26 +745,26 @@ fwQ8_wide <- flow_wide %>%
 
 # temp stats by stream
 fwT_indi <- fw_models_df %>%
-  mutate(histT = !!sym(paste(T_model, "0_00", historical, sep = "_"))) %>%  # add historical Tw8
-  select(LINEAR_FEATURE_ID, histT,
+  mutate(histt = !!sym(paste(T_model, "0_00", historical, sep = "_"))) %>%  # add historical Tw8
+  select(linear_feature_id, histt,
     all_of(grep(paste0("^", T_model, "_", 9), names(fw_models), value = TRUE))) %>%
   mutate(across(contains(T_model), ~ .x - histT, .names = "delta_{.col}"))
 
 
 ## create spatial object with all indicator variables
 fw_sp_ind <- fw_models %>%
-  select(LINEAR_FEATURE_ID, FWA_WATERSHED_CODE, channel_width, length_metre,
+  select(linear_feature_id, fwa_watershed_code, channel_width, length_metre,
     mad_m3s, upstream_area_ha, gradient, gnis_name, model_access_salmon,
     model_habitat_salmon,
     model_habitat_ch, model_habitat_cm, model_habitat_co, model_habitat_pk, model_habitat_sk,
-    CT_anad,
-    contains("Fav")) %>%
+    ct_anad,
+    contains("fav")) %>%
   left_join(fwT_indi,
-    join_by(LINEAR_FEATURE_ID)) %>%
+    join_by(linear_feature_id)) %>%
   left_join(fwQ8_wide,
-    join_by(LINEAR_FEATURE_ID)) %>%
+    join_by(linear_feature_id)) %>%
   left_join(fwQNDJ_wide,
-    join_by(LINEAR_FEATURE_ID))
+    join_by(linear_feature_id))
 
 
 save(fw_sp_ind, file = file.path(paths$fw, "fw_stream_indicators_sp.Rds"))
@@ -765,7 +772,7 @@ save(fw_sp_ind, file = file.path(paths$fw, "fw_stream_indicators_sp.Rds"))
 
 
 
-#----------------------Ruzzante statistical low flow projections ------------------------------
+#----------------------5. Ruzzante statistical low flow projections ------------------------------
 
 stations_stats <- read_csv(file.path(paths$climate, "Ruzzante_low_flows", "stations_performance.csv"))
 
