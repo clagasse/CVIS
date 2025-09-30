@@ -31,6 +31,7 @@ cu_i <- params$FULL_CU_IN
 cu_run_i <- cu_run[cu_run$FULL_CU_IN == params$FULL_CU_IN,]
 sp_pick <- cu_run$spp[cu_run$FULL_CU_IN == cu_i] #species abbr
 sp_pick_bcfp <- spp_lookup$spp_abr_bcfp[spp_lookup$spp_abr == sp_pick] 
+sp_pick_ENM  <- str_to_lower(spp_lookup$Species_simple[spp_lookup$spp_abr == sp_pick])[1]
 
 
 ```
@@ -50,22 +51,30 @@ title: `r cu_run_i$CU_NAME` - Climate Vulnerability Indicator Report
 fwR_cu <- fwR_all[[cu_i]] 
 
 stream_cu_sub <- stream_cu_picks[,colnames(stream_cu_picks) == cu_i]
-reaches_ENM_sub <- ENM_cu_picks[,colnames(ENM_cu_picks) == cu_i]
 
 cu_boundary_i <- cu_boundary[cu_boundary$FULL_CU_IN == cu_i,]
 
 #subset nuseds observations
 nuseds_cu <- nuseds_Fr[nuseds_Fr$FULL_CU_IN == cu_i,]
 
-fwModels_cu <- fwModels[stream_cu_sub,] %>%
-  rename(keep_model_spawning = contains(paste0("model_spawning_", sp_pick_bcfp)),
-         keep_model_rearing  = contains(paste0("model_rearing_", sp_pick_bcfp))) %>%
-  mutate(model_rs = if_any(starts_with("keep_model"), ~ . == TRUE)) %>%#get boolean for model spawning and rearing 
+fw_sp_cu <- fw_sp_ind[stream_cu_sub,] %>%
+  rename(keep_habitat = contains(paste0("model_habitat_", sp_pick_bcfp)),
+         #keep_model_rearing  = contains(paste0("model_rearing_", sp_pick_bcfp)),
+         favchange_45   = contains(paste0("favchange_", sp_pick_ENM, "_45")),
+         favchange_85   = contains(paste0("favchange_", sp_pick_ENM, "_85")),
+         fav_45   = contains(paste0("fav_", sp_pick_ENM, "_45")),
+         fav_85   = contains(paste0("fav_", sp_pick_ENM, "_85"))) %>%
+  mutate(model_rs = if_any(starts_with("keep_habitat"), ~ . == TRUE))%>%#get boolean for model spawning and rearing
+  mutate(model_rs = if_else(is.na(model_rs), FALSE, model_rs)) %>%
   mutate(model_rs = factor(model_rs, levels = c(TRUE, FALSE), 
-                           labels = c("1-SPAWNING/REARING", "2-ACCESSIBLE"))) %>%
+                           labels = c("1-SPAWNING/REARING", "2-NOT SPAWNING/REARING"))) %>%
   select(-starts_with(c("model_spawning","model_rearing", "known_rearing", "known_spawning")))
 
-ENM_cu <- reaches_ENM_all[reaches_ENM_sub,]
+#make accessible only version for plotting some indicators
+acc_sp_cu <- fw_sp_cu %>%
+  filter(model_access_salmon %in% c("OBSERVED", "INFERRED"))
+
+#ENM_cu <- reaches_ENM_all[reaches_ENM_sub,]
 
 #read Temperature gauge locations
 Tw_stations <- st_read(file.path(paths$climate, "Tw_stations.gdb"), quiet = TRUE)
@@ -86,6 +95,11 @@ stations_cu <- stations_flow[temp,]
 migr_cu <- migr_list[[cu_i]]
 
 migr_flat_cu <- migr_all_flat[migr_all_flat$FULL_CU_IN == cu_i,]
+
+
+#Lakes within CU boundary (for plotting)
+temp <- unlist(st_intersects(cu_boundary_i, lakes_Fr))
+lakes_cu <- lakes_Fr[temp,]
 
 
 ## Timing data
@@ -151,7 +165,7 @@ pdem
 
 Timing by life history stage is taken from Wilson and Peacock (2025) [https://cdnsciencepub.com/doi/10.1139/cjfas-2024-0213].
 
-Data quality is rated on a scale of 1 to 5 based on number of observations and their recentness, with 1 being the highest quality data.
+Data quality is rated on a scale of 1 to 6 based on number of observations and their recentness, with 1 being the highest quality data.
 ```{r life stage timing}
 
 tp <- cu_timing_plot(cu_timing_long_i)
@@ -170,9 +184,9 @@ tbl_indicators %>%
 
 pfw <- plot_cu_lolli(ind_cu,
               indicators_choose = c("highQpdelta", "lowQpdelta", 
-                                    "Tw8rate", "Tw8proj", 
+                                    "tw8rate", "tw8proj", 
                                     "ct",
-                                    "Favchange",
+                                    "favchange",
                                     "fwres"))
 pfw
 
@@ -185,9 +199,10 @@ pfw
 
 
 
-acc_plot <- stream_accessible_plot(fwModels_cu,
+acc_plot <- stream_accessible_plot(fw_sp_cu,
   nuseds_cu,
-  cu_boundary_i)
+  cu_boundary_i,
+  lakes_cu)
 
 acc_plot
 
@@ -264,7 +279,7 @@ fwR_cu$streams %>%
 regime_plot <- cu_hydrologic_regime(cu_boundary_i,
                                  watershed_flow_cu,
                                  stations_cu,
-                                 fwModels_cu)
+                                 fw_sp_cu)
 
 regime_plot
 
@@ -311,23 +326,27 @@ regime_plot
 
 ### Stream flow indicators
 ```{r flow indicator plots}
-Q8_plot <- stream_indicator_plot(fwModels_cu, 
+Q8_plot <- stream_indicator_plot(acc_sp_cu, 
                                  cu_boundary_i,
-                                variable = "Qpdelta_flow_8_45_3", 
+                                 lakes_cu,
+                                variable = "qpdelta_flow_8_45_3", 
                                 plot_title = "Change in August flow - 2041-2060",
                                 unit_label = "Proportion change",
+                                xlim = c(-1,0),
                                 scico_palette = "lapaz",
                                 palette_direction = -1)
 
 Q8_plot
 
 
-QNDJ_plot <- stream_indicator_plot(fwModels_cu, 
+QNDJ_plot <- stream_indicator_plot(acc_sp_cu, 
                                  cu_boundary_i,
-                                variable = "Qpdelta_flow_18_45_3", 
+                                 lakes_cu,
+                                variable = "qpdelta_flow_18_45_3", 
                                 plot_title = "Change in Nov_Jan flow - 2041-2060",
                                 unit_label = "Proportion change",
                                 scico_palette = "devon",
+                                xlim = c(0,1),
                                 palette_direction = -1)
   
 
@@ -384,10 +403,11 @@ QNDJ_plot
 
 
 #temperature plot
-t_plot <- stream_indicator_plot(fwModels_cu, 
+t_plot <- stream_indicator_plot(acc_sp_cu, 
                                 cu_boundary_i, 
+                                lakes_cu,
                                 Tw_stations,
-                                variable = "Tw8_9_45_3", 
+                                variable = "tw8_9_45_3", 
                                 temp_stations = TRUE,
                                 plot_title = "August Mean Temperature - 2041-2060",
                                 unit_label = "Degrees C",
@@ -395,10 +415,11 @@ t_plot <- stream_indicator_plot(fwModels_cu,
                                 palette_direction = -1)
 
 
-tRate_plot <- stream_indicator_plot(fwModels_cu, 
+tRate_plot <- stream_indicator_plot(acc_sp_cu, 
                                 cu_boundary_i, 
+                                lakes_cu,
                                 Tw_stations,
-                                variable = "delta_Tw8_9_45_3", 
+                                variable = "delta_tw8_9_45_3", 
                                 temp_stations = TRUE,
                                 plot_title = "Rate of Change in August Mean Temperature - 1981-2000 to 2041-2060",
                                 unit_label = "Degrees C",
@@ -498,39 +519,66 @@ tRate_plot
 #   )
 
 
-ENM_col <- names(select(ENM_cu, contains("Fav_f.9_45_3")))
-ENM_col <- ENM_col[str_detect(ENM_col, sp_pick)]
-
-ENM_values <- select(as.tibble(ENM_cu), !!ENM_col)
-
-if(sum(!is.na(ENM_values) > 0)) { 
-ENM_plot <- stream_indicator_plot(ENM_cu, 
-                                  cu_boundary_i,
-                                  variable = ENM_col,
-                                  plot_title = "ENM favourability, 2041-2060",
-                                  histogram_fill = "model_habitat_salmon",
-                                  scico_palette = "berlin",
-                                  palette_direction = -1)
+ENM_plot <- stream_indicator_plot(fw_sp_cu, 
+                                 cu_boundary_i,
+                                 lakes_cu,
+                                variable = "fav_45", 
+                                plot_title = "ENM favourability, 2041-2060",
+                                histogram_fill = "model_access_salmon",
+                                scico_palette = "davos",
+                                xlim = c(0,1),
+                                palette_direction = -1)
 
 ENM_plot
-}
 
-ENM_col <- names(select(ENM_cu, contains("Fav_change_9_45_5")))
-ENM_col <- ENM_col[str_detect(ENM_col, sp_pick)]
 
-ENM_values <- select(as.tibble(ENM_cu), !!ENM_col)
+ENMdiff_plot <- stream_indicator_plot(fw_sp_cu, 
+                                 cu_boundary_i,
+                                 lakes_cu,
+                                variable = "favchange_45", 
+                                plot_title = "ENM favourability change, 1981-2000 to 2041-2060",
+                                histogram_fill = "model_access_salmon",
+                                scico_palette = "berlin",
+                                xlim = c(-1,1),
+                                palette_direction = -1)
+  
 
-if(sum(!is.na(ENM_values) > 0)) { 
-ENM_diff_plot <- stream_indicator_plot(ENM_cu, 
-                                       cu_boundary_i,
-                                  variable = ENM_col,
-                                  plot_title = "ENM favourability change, 2081-2100",
-                                  histogram_fill = "model_habitat_salmon",
-                                  scico_palette = "berlin",
-                                  palette_direction = -1)
+ENMdiff_plot 
 
-ENM_diff_plot
-}
+# 
+# ENM_col <- names(select(ENM_cu, contains("Fav_f.9_45_3")))
+# ENM_col <- ENM_col[str_detect(ENM_col, sp_pick)]
+# 
+# ENM_values <- select(as.tibble(ENM_cu), !!ENM_col)
+# 
+# if(sum(!is.na(ENM_values) > 0)) { 
+# ENM_plot <- stream_indicator_plot(ENM_cu, 
+#                                   cu_boundary_i,
+#                                   variable = ENM_col,
+#                                   plot_title = "ENM favourability, 2041-2060",
+#                                   histogram_fill = "model_habitat_salmon",
+#                                   scico_palette = "berlin",
+#                                   palette_direction = -1)
+# 
+# ENM_plot
+# }
+# 
+# ENM_col <- names(select(ENM_cu, contains("Fav_change_9_45_5")))
+# ENM_col <- ENM_col[str_detect(ENM_col, sp_pick)]
+# 
+# ENM_values <- select(as.tibble(ENM_cu), !!ENM_col)
+# 
+# if(sum(!is.na(ENM_values) > 0)) { 
+# ENM_diff_plot <- stream_indicator_plot(ENM_cu, 
+#                                        cu_boundary_i,
+#                                   variable = ENM_col,
+#                                   plot_title = "ENM favourability change, 2081-2100",
+#                                   histogram_fill = "model_habitat_salmon",
+#                                   scico_palette = "berlin",
+#                                   palette_direction = -1)
+# 
+# ENM_diff_plot
+# }
 
 ```
 
@@ -569,9 +617,10 @@ ENM_diff_plot
 #   )
 
 
-ct_plot <- stream_indicator_plot(fwModels_cu, 
+ct_plot <- stream_indicator_plot(acc_sp_cu, 
                                  cu_boundary_i,
-                                variable = "CT_anad", 
+                                 lakes_cu,
+                                variable = "ct_anad", 
                                 plot_title = "Cumulative stressors",
                                 unit_label = "Cumulative Threat Score",
                                 scico_palette = "lajolla",

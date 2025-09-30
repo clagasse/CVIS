@@ -20,7 +20,7 @@ This report summarizes climate vulnerability indicators for conservation units o
 
 # Methods Overview
 
-For each indicator of environmental change, a historical baseline period beginning in 1980 was compared to projected conditions averaged over 20-year periods, from 2041 to 2060, 2061 to 2080, and 2081 to 2100. Indicators were also compared across two emissions scenarios or representative concentration pathways (RCPs), RCP45 and RCP85, representing moderate and high trajectories for continued greenhouse gas emissions. We focus on the mid-century 2041 to 2060 period for comparison of vulnerability scores due to its relevancy for informing planning and decision-making, and lower uncertainty compared to end-of-century projections.
+For each indicator of environmental change, a historical baseline period beginning in 1980 was compared to projected conditions averaged over 20-year periods, from 2041 to 2060, 2061 to 2080, and 2081 to 2100. Indicators were also compared across two emissions scenarios or representative concentration pathways (rcps), rcp45 and rcp85, representing moderate and high trajectories for continued greenhouse gas emissions. We focus on the mid-century 2041 to 2060 period for comparison of vulnerability scores due to its relevancy for informing planning and decision-making, and lower uncertainty compared to end-of-century projections.
 
 **Indicator Standardization**
 
@@ -50,19 +50,19 @@ The following plots show standardized values of indicators across all conservati
 
 ```{r all indicator plots, results = 'asis'}
 
-for (RCP_pick in unique(all_flat_std$RCP))
+for (rcp_pick in unique(all_flat_std$rcp))
 {
 
-  cat("#### ", RCP_pick, "\n\n", sep = "")
+  cat("#### ", rcp_pick, "\n\n", sep = "")
 
   filter_std <- all_flat_std %>%
-    filter(RCP == RCP_pick,
+    filter(rcp == rcp_pick,
       period_code == 3)
 
   fw_p <- indicator_tile_plot(filter_std,
     # indicators_metadata = tbl_indicators,
-    indicators_choose = c("Tw8proj", "Tw8rate", "highQpdelta", "lowQpdelta",
-                          "Favchange", "ct"))
+    indicators_choose = c("tw8proj", "tw8rate", "highQpdelta", "lowQpdelta",
+                          "favchange", "ct"))
   
   migr_p <- indicator_tile_plot(filter_std,
     # indicators_metadata = tbl_indicators,
@@ -98,13 +98,13 @@ sumavgs - sum of the average score for each life stage/type (freshwater spawning
 
 ```{r combined scores}
 
-for (RCP_pick in unique(combined_scores_std$RCP))
+for (rcp_pick in unique(combined_scores_std$rcp))
 {
   
-  cat("#### ", RCP_pick, "\n\n", sep = "")
+  cat("#### ", rcp_pick, "\n\n", sep = "")
   
   filter_std <- combined_scores_std %>%
-    filter(RCP == RCP_pick,
+    filter(rcp == rcp_pick,
            period_code == 3)
   
   p <- indicator_tile_plot(filter_std,
@@ -158,13 +158,13 @@ One test for the utility of an indicator is the correlation with other indicator
 #include only freshwater indicators in correlation matrix
 #  cor_indicators <- tbl_indicators$abbrev[tbl_indicators$type %in% c("fwR", "migr")]
 
-for (RCP_pick in unique(all_flat_std$RCP))
+for (rcp_pick in unique(all_flat_std$rcp))
 {
 
-  cat("#### ", RCP_pick, "\n\n", sep = "")
+  cat("#### ", rcp_pick, "\n\n", sep = "")
 
   filter_std <- all_flat_std %>%
-    filter(RCP == RCP_pick,
+    filter(rcp == rcp_pick,
       period_code == 3)
   
   cor_data <- get_correlation_matrix(filter_std,
@@ -221,19 +221,17 @@ tbl_indicators %>%
 ```{r projT plots, results = 'asis'}
 #fw_indicators <- tbl_indicators$abbrev[tbl_indicators$type %in% c("fwR")]
 
-ind_pick <- "Tw8proj"
-
-for(RCP_pick in unique(all_flat_std$RCP))
+for(rcp_pick in unique(all_flat_std$rcp))
 {
   
-  cat("#### ", RCP_pick, "\n\n", sep = "")
+  cat("#### ", rcp_pick, "\n\n", sep = "")
   
   filter_std <- all_flat_std %>%
-    filter(RCP == RCP_pick, 
+    filter(rcp == rcp_pick, 
            period_code == 3)
   
   make_indicator_plots(filter_std, 
-                       ind_pick = "Tw8proj")
+                       ind_pick = "tw8proj")
  
   cat("\n\n")
   
@@ -245,17 +243,17 @@ for(RCP_pick in unique(all_flat_std$RCP))
 
 ```{r}
 
-for(RCP_pick in unique(all_flat_std$RCP))
+for(rcp_pick in unique(all_flat_std$rcp))
 {
   
-  cat("#### ", RCP_pick, "\n\n", sep = "")
+  cat("#### ", rcp_pick, "\n\n", sep = "")
   
   filter_std <- all_flat_std %>%
-    filter(RCP == RCP_pick, 
+    filter(rcp == rcp_pick, 
            period_code == 3)
   
   make_indicator_plots(filter_std, 
-                       ind_pick = "Tw8rate")
+                       ind_pick = "tw8rate")
  
   cat("\n\n")
   
@@ -266,13 +264,13 @@ for(RCP_pick in unique(all_flat_std$RCP))
 
 ```{r}
 
-for(RCP_pick in unique(all_flat_std$RCP))
+for(rcp_pick in unique(all_flat_std$rcp))
 {
   
-  cat("#### ", RCP_pick, "\n\n", sep = "")
+  cat("#### ", rcp_pick, "\n\n", sep = "")
   
   filter_std <- all_flat_std %>%
-    filter(RCP == RCP_pick, 
+    filter(rcp == rcp_pick, 
            period_code == 3)
   
   make_indicator_plots(filter_std, 
@@ -288,13 +286,13 @@ for(RCP_pick in unique(all_flat_std$RCP))
 
 ```{r}
 
-for(RCP_pick in unique(all_flat_std$RCP))
+for(rcp_pick in unique(all_flat_std$rcp))
 {
   
-  cat("#### ", RCP_pick, "\n\n", sep = "")
+  cat("#### ", rcp_pick, "\n\n", sep = "")
   
   filter_std <- all_flat_std %>%
-    filter(RCP == RCP_pick, 
+    filter(rcp == rcp_pick, 
            period_code == 3)
  
   make_indicator_plots(filter_std, 
@@ -310,13 +308,13 @@ for(RCP_pick in unique(all_flat_std$RCP))
 
 ```{r}
 
-for(RCP_pick in unique(all_flat_std$RCP))
+for(rcp_pick in unique(all_flat_std$rcp))
 {
   
-  cat("#### ", RCP_pick, "\n\n", sep = "")
+  cat("#### ", rcp_pick, "\n\n", sep = "")
   
   filter_std <- all_flat_std %>%
-    filter(RCP == RCP_pick, 
+    filter(rcp == rcp_pick, 
            period_code == 3)
   
   make_indicator_plots(filter_std, 
@@ -331,17 +329,17 @@ for(RCP_pick in unique(all_flat_std$RCP))
 
 ```{r}
 
-for(RCP_pick in unique(all_flat_std$RCP))
+for(rcp_pick in unique(all_flat_std$rcp))
 {
   
-  cat("#### ", RCP_pick, "\n\n", sep = "")
+  cat("#### ", rcp_pick, "\n\n", sep = "")
   
   filter_std <- all_flat_std %>%
-    filter(RCP == RCP_pick, 
+    filter(rcp == rcp_pick, 
            period_code == 3)
   
   make_indicator_plots(filter_std, 
-                       ind_pick = "ct")
+                       ind_pick = "CT")
  
   cat("\n\n")
   
@@ -352,17 +350,17 @@ for(RCP_pick in unique(all_flat_std$RCP))
 
 ```{r}
 
-for(RCP_pick in unique(all_flat_std$RCP))
+for(rcp_pick in unique(all_flat_std$rcp))
 {
   
-  cat("#### ", RCP_pick, "\n\n", sep = "")
+  cat("#### ", rcp_pick, "\n\n", sep = "")
   
   filter_std <- all_flat_std %>%
-    filter(RCP == RCP_pick, 
+    filter(rcp == rcp_pick, 
            period_code == 3)
   
   make_indicator_plots(filter_std, 
-                       ind_pick = "Favchange",
+                       ind_pick = "favchange",
                        spatial_pal_dir = 1)
  
   cat("\n\n")
@@ -402,13 +400,13 @@ tbl_indicators %>%
 
 ```{r}
 
-for(RCP_pick in unique(all_flat_std$RCP))
+for(rcp_pick in unique(all_flat_std$rcp))
 {
   
-  cat("#### ", RCP_pick, "\n\n", sep = "")
+  cat("#### ", rcp_pick, "\n\n", sep = "")
   
   filter_std <- all_flat_std %>%
-    filter(RCP == RCP_pick, 
+    filter(rcp == rcp_pick, 
            period_code == 3)
   
   make_indicator_plots(filter_std, 
@@ -424,13 +422,13 @@ for(RCP_pick in unique(all_flat_std$RCP))
 
 ```{r}
 
-for(RCP_pick in unique(all_flat_std$RCP))
+for(rcp_pick in unique(all_flat_std$rcp))
 {
   
-  cat("#### ", RCP_pick, "\n\n", sep = "")
+  cat("#### ", rcp_pick, "\n\n", sep = "")
   
   filter_std <- all_flat_std %>%
-    filter(RCP == RCP_pick, 
+    filter(rcp == rcp_pick, 
            period_code == 3)
   
   make_indicator_plots(filter_std, 
@@ -446,13 +444,13 @@ for(RCP_pick in unique(all_flat_std$RCP))
 
 ```{r}
 
-for(RCP_pick in unique(all_flat_std$RCP))
+for(rcp_pick in unique(all_flat_std$rcp))
 {
   
-  cat("#### ", RCP_pick, "\n\n", sep = "")
+  cat("#### ", rcp_pick, "\n\n", sep = "")
   
   filter_std <- all_flat_std %>%
-    filter(RCP == RCP_pick, 
+    filter(rcp == rcp_pick, 
            period_code == 3)
   
   make_indicator_plots(filter_std, 
@@ -468,13 +466,13 @@ for(RCP_pick in unique(all_flat_std$RCP))
 
 ```{r}
 
-for(RCP_pick in unique(all_flat_std$RCP))
+for(rcp_pick in unique(all_flat_std$rcp))
 {
   
-  cat("#### ", RCP_pick, "\n\n", sep = "")
+  cat("#### ", rcp_pick, "\n\n", sep = "")
   
   filter_std <- all_flat_std %>%
-    filter(RCP == RCP_pick, 
+    filter(rcp == rcp_pick, 
            period_code == 3)
   
   make_indicator_plots(filter_std, 
@@ -511,13 +509,13 @@ tbl_indicators %>%
 
 ```{r}
 
-for(RCP_pick in unique(all_flat_std$RCP))
+for(rcp_pick in unique(all_flat_std$rcp))
 {
   
-  cat("#### ", RCP_pick, "\n\n", sep = "")
+  cat("#### ", rcp_pick, "\n\n", sep = "")
   
   filter_std <- all_flat_std %>%
-    filter(RCP == RCP_pick, 
+    filter(rcp == rcp_pick, 
            period_code == 3)
   
   make_indicator_plots(filter_std, 
@@ -534,13 +532,13 @@ for(RCP_pick in unique(all_flat_std$RCP))
 
 ```{r}
 
-for(RCP_pick in unique(all_flat_std$RCP))
+for(rcp_pick in unique(all_flat_std$rcp))
 {
   
-  cat("#### ", RCP_pick, "\n\n", sep = "")
+  cat("#### ", rcp_pick, "\n\n", sep = "")
   
   filter_std <- all_flat_std %>%
-    filter(RCP == RCP_pick, 
+    filter(rcp == rcp_pick, 
            period_code == 3)
   
   make_indicator_plots(filter_std, 
@@ -589,13 +587,13 @@ tbl_indicators %>%
 
 ```{r}
 
-for(RCP_pick in unique(all_flat_std$RCP))
+for(rcp_pick in unique(all_flat_std$rcp))
 {
   
-  cat("#### ", RCP_pick, "\n\n", sep = "")
+  cat("#### ", rcp_pick, "\n\n", sep = "")
   
   filter_std <- all_flat_std %>%
-    filter(RCP == RCP_pick, 
+    filter(rcp == rcp_pick, 
            period_code == 3)
   
   make_indicator_plots(filter_std, 

@@ -28,7 +28,7 @@ get_scico_palette <- function(data, column, palette_name = "berlin") {
   setNames(scico(length(categories), palette = palette_name), categories)
 }
 
-# species_palette <- get_scico_palette(cu_run, "CU_Species", "batlow")
+# species_palette <- get_scico_palette(cu_run, "Species_simple", "batlow")
 
 
 get_brewer_palette <- function(data, column, palette_name = "Set2") {
@@ -38,12 +38,12 @@ get_brewer_palette <- function(data, column, palette_name = "Set2") {
   # brewer.pal(n, palette)
 }
 
-species_palette <- get_brewer_palette(cu_run, "CU_Species", "Set1")
+species_palette <- get_brewer_palette(cu_run, "Species_simple", "Set1")
 
 
-# species_palette <- pal_futurama()(length(unique(cu_run$CU_Species)))
+# species_palette <- pal_futurama()(length(unique(cu_run$Species_simple)))
 #
-# species_palette_lookup <- tibble("sp" = unique(cu_run$CU_Species),
+# species_palette_lookup <- tibble("sp" = unique(cu_run$Species_simple),
 #                                     "col" = species_palette)
 
 # species_colors <- c(
@@ -321,7 +321,7 @@ multi_indicator_plot <- function(data,
 
 spatial_indicator_plot <- function(data,
                                    outline = Fr_basin,
-                                   sp_pick = c("Chinook", "Coho", "Sockeye (Lake Type)"),
+                                   sp_pick = c("Chinook", "Coho", "Sockeye"),
                                    indicator_pick,
                                    indicator_name,
                                    use_standardized = T,
@@ -331,7 +331,7 @@ spatial_indicator_plot <- function(data,
 
   data_sub <- subset_ind_table(data,
     indicators_choose = indicator_pick,
-    sp_col = "CU_Species",
+    sp_col = "Species_simple",
     id_col = "FULL_CU_IN",
     get_raw = !use_standardized,
     get_std = use_standardized,
@@ -341,32 +341,10 @@ spatial_indicator_plot <- function(data,
     indicator_abbrev = indicator_pick,
     single_value_col = T)
 
-  # # Define suffixes
-  # stat_suffix <- if_else(indicator_stat == "value", indicator_pick, indicator_stat)
-  #
-  # # take column names that contain prefix with model type
-  # cols_sub <- names(data)[str_detect(names(data), indicator_pick)]
-  #
-  # if (use_standardized == TRUE) {
-  #   cols_sub <- cols_sub[str_detect(cols_sub, "std")]  # select std columns
-  # }
-  # if (use_standardized == FALSE) {
-  #   cols_sub <- cols_sub[!str_detect(cols_sub, "std")]  # remove std columns if using raw
-  # }
-  #
-  # # cols_sub <- cols_sub[!str_detect(cols_sub, "gcm")]  # remove gcm variation columns
-  #
-  # # take names with prefix that also contain stat suffix
-  # stat_col <- cols_sub[str_detect(cols_sub, stat_suffix)] # must contain mean
-  #
-  # data <- mutate(data, plot_col = .data[[stat_col]],
-  #   sp_col = .data[[sp_col]])
-  #
-  # data_sp <- filter(data, sp_col %in% sp_pick)
-
   cu_boundary_plot <- cu_boundary %>%
     left_join(select(plot_data, id, value), by = join_by(!!sym(id_col) == id)) %>%
-    filter(!is.na(value))
+    filter(!is.na(value),
+      Species_simple %in% sp_pick)
 
   p <- ggplot() +
     geom_sf(data = cu_boundary_plot, aes(fill = value), alpha = 0.3) +
@@ -375,7 +353,7 @@ spatial_indicator_plot <- function(data,
     geom_sf(data = Fr_basin, colour = "black", fill = NA, alpha = 0.3) +
     labs(fill = indicator_pick) +
     coord_sf(datum = NA) +
-    facet_grid(. ~ Species)
+    facet_grid(. ~ Species_simple)
 
 
   return(p)

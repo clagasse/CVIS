@@ -49,12 +49,12 @@ source(here("code", "1a_CU_import.R"))   # CU table
 # source(here("code", "5a_plots_CU.R"))
 # source(here("code", "5b_plots_compare.R"))
 
-
 # Select subset of CUs to run for analysis
 cu_run <- cu_Fr %>%
-  filter(spp %in% c("ck", "co", "cm", "sk", "pk"),  # exclude pink salmon for now
-    FULL_CU_IN %notin% c("SER-02")) %>% # remove widgeon and Harrison river for now (throws error)
+  filter(spp %in% c("ck", "co", "cm", "sk", "pk"),
+    FULL_CU_IN %notin% c("SER-02")) %>% # remove widgeon (throws error)
   arrange(spp)
+
 
 
 cuid    <- cu_run$cuid # Create vector of CUs to analyze, ordered CK, CM, CO, PKO, SEL, SER, SH
@@ -83,16 +83,16 @@ period_lookup <- tribble(
 # table of indicator abbreviations and full names
 tbl_indicators <- tribble(
   ~abbrev,      ~type,    ~stat, ~std_fun, ~name,
-  "Favchange", "fwR",    "mean",     "decay_std",     "ENM Change in Favourability",
-  "ct",         "fwR",    "mean",    "linear_std",        "Cumulative threats to freshwater habitat",
-  "Tw8rate",    "fwR",    "mean",    "exponential_std",        "Rate of change in August Temperature",
-  "Tw8proj",    "fwR",    "mean",    "exponential_std", "Projected August Temperature",
+  "favchange", "fwR",    "mean",     "decay_std",     "ENM Change in Favourability",
+  "CT",         "fwR",    "mean",    "linear_std",        "Cumulative threats to freshwater habitat",
+  "tw8rate",    "fwR",    "mean",    "exponential_std",        "Rate of change in August Temperature",
+  "tw8proj",    "fwR",    "mean",    "exponential_std", "Projected August Temperature",
   "lowQpdelta", "fwR",   "mean",    "decay_std",       "Proportional change in August flow (stream model)",
   "st8pdelta",  "fwR",    "mean",    "decay_std",     "Proportional change in August flow (station model)",
   "highQpdelta",  "fwR",   "mean",    "exponential_std", "Proportional change in Nov-Jan flow (stream model)",
   "fwres",     "fwR",    "value",    "step_std",   "Freshwater residency time",
   "migrT",      "migr",   "mean",    "exponential_std",     "Projected temperature during upstream migration",
-  "migrQ",      "migr",   "mean",      "linear_std",    "Projected discharge during upstream migration",
+  "migrQ",      "migr",   "pdelta",      "decay_std",    "Proportional change in discharge during upstream migration",
   "migrA21",    "migr",   "mean",    "exponential_std", "Average proportion of path above 21 degrees during upstream migration",
   "migrdist",   "migr",  "value",      "linear_std",     "Length of upstream migration",
   "SSTproj",     "mar",   "mean", "linear_std",  "Projected nearshore SST during ocean entry",
@@ -113,7 +113,7 @@ tbl_standardize <- tribble(
   "highQpdelta", "fwR",    "exponential_std",     3,    0,   NA,
   "fwres",     "fwR",      "step_std",            NA,   NA,   NA,
   "migrT",      "migr",    "exponential_std",     3,    15,   NA,
-  "migrQ",      "migr",       "linear_std",      NA,   NA,   NA,
+  "migrQ",      "migr",       "decay_std",        3,   NA,   0,
   "migrA21",    "migr",     "exponential_std",    3,    0,    NA,
   "migrdist",   "migr",      "linear_std",        NA,   NA,   NA,
   "SSTproj",     "mar",   "linear_std",           NA,   NA,   NA,
@@ -130,7 +130,7 @@ tbl_standardize <- tribble(
 cu_boundary <- st_read(file.path(paths$spatial, "CU_boundaries", "fraser_cus.shp")) %>%
   st_make_valid() %>%
   st_transform(crs = 3005)  %>%  # crs 3005 is NAD83/BC Albers
-  left_join(select(cu_Fr, cuid, FULL_CU_IN, spp),
+  left_join(select(cu_Fr, cuid, FULL_CU_IN, spp, Species_simple),
     join_by(CUID == cuid)) %>%
   filter(!is.na(FULL_CU_IN))
 
@@ -162,6 +162,19 @@ nuseds_Fr <- read_csv(file.path(paths$salmon, "NuSEDS_CU_System_sites_202406.csv
 #     n >= 5 & max.count != 0 & last.year >= 1999 ~ "KEEP"
 #   ))
 
+#--------------------- Create CVIS table of demographic factors-----------------
+
+CVIS_dem <- cu_Fr %>%
+  select(cuid, FULL_CU_IN, CU_NAME, CVIS_NAME, Species_simple,
+    WSP_population_status, Most_Recent_Generational_Average,
+    SEP_avg_annual_releases_actual, SEP_primary_prod_objective, Ratio_releases_to_generational_avg) %>%
+  filter(FULL_CU_IN %in% cu_run$FULL_CU_IN) %>%
+  rename(CUstatus = WSP_population_status,
+    CUnmat  = Most_Recent_Generational_Average,
+    enhann = SEP_avg_annual_releases_actual,
+    enhobj = SEP_primary_prod_objective,
+    relrat = Ratio_releases_to_generational_avg) %>%
+  mutate(across(where(is.character), ~ na_if(.x, "")))  # convert blanks to NAs
 
 
 # ggplot custom theme -----------------------------------------------------

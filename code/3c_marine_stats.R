@@ -130,8 +130,7 @@ cu_marine <- cu_timing_Fr %>%
       FULL_CU_IN,
       CU_NAME,
       Species_simple,
-      MAZ,
-      Ocean_Entry_Age
+      MAZ
     ),
     join_by("FULL_CU_IN")
   ) %>%
@@ -295,7 +294,7 @@ for (i in 1:n.CUs) {
 
 
 save(mar_all_flat,
-  file = file.path(paths$marine, paste0(today, "_marine_stats.Rdata")))
+  file = file.path(paths$marine, paste0(today, "_marine_stats.Rds")))
 
 # write.csv(mar_all_flat,
 #   file = file.path(paths$marine, paste0(today, "_marine_stats.csv")),

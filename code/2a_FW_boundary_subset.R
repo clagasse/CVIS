@@ -13,14 +13,14 @@ base_network <- switch(2, "bcfpa", "tscapes")
 
 if (base_network == "tscapes") {
   load(file.path(paths$fw, "fw_models_tscapes.Rds"))
-  stream_base <- fw_models[, 1]
-
+  stream_base <- st_geometry(fw_models)
+  stream_cu_picks <- matrix(ncol = n.CUs, nrow = nrow(fw_models))
 }
 
 if (base_network == "bcfpa") {
   load(file.path(paths$fw, "BCFP_combined_accessible_Fr.Rds"))
-  stream_base <- bcfpa
-
+  stream_base <- st_geometry(bcfpa)
+  stream_cu_picks <- matrix(ncol = n.CUs, nrow = nrow(bcfpa))
 }
 
 cu_boundary <- st_read(file.path(paths$spatial, "CU_boundaries", "fraser_cus.shp")) %>%
@@ -32,11 +32,11 @@ cu_boundary <- st_read(file.path(paths$spatial, "CU_boundaries", "fraser_cus.shp
 
 
 # create matrix choosing streams are contained within each CU boundary
-stream_cu_picks <- matrix(ncol = n.CUs, nrow = nrow(stream_base))
 colnames(stream_cu_picks) <- cu_seq
 
 # ENM_cu_picks <- matrix(ncol = n.CUs, nrow = nrow(reaches_ENM_all))
 # colnames(ENM_cu_picks) <- cu_seq
+
 
 for (i in 1:n.CUs) {
   cu_pick <- cu_boundary[cu_boundary$FULL_CU_IN == cu_seq[i], ]

@@ -82,17 +82,3 @@ cu_timing_long <- cu_timing_Fr %>%
         if_else(life_stage == "sp", "spawning",
           if_else(life_stage == "ar", "arrival", NA)))))) %>%
   arrange(species)
-
-
-#--------------------- Create CVIS table of demographic factors-----------------
-
-CVIS_dem <- cu_Fr %>%
-  select(cuid, FULL_CU_IN, CU_NAME, CVIS_NAME, Species_simple,
-    WSP_population_status, Most_Recent_Generational_Average,
-    SEP_avg_annual_releases_actual, SEP_primary_prod_objective, Ratio_releases_to_generational_avg) %>%
-  rename(CUstatus = WSP_population_status,
-    CUnmat  = Most_Recent_Generational_Average,
-    enhann = SEP_avg_annual_releases_actual,
-    enhobj = SEP_primary_prod_objective,
-    relrat = Ratio_releases_to_generational_avg) %>%
-  mutate(across(where(is.character), ~ na_if(.x, "")))  # convert blanks to NAs

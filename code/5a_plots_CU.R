@@ -66,17 +66,22 @@ cu_timing_plot <- function(data) {
 # input subset of stream network, nuseds data, and CU boundary for a specific CU
 stream_accessible_plot <- function(stream_data,
                                    nuseds_data,
-                                   cu_boundary) {
-  p <- ggplot() +
-    geom_sf(data = st_zm(stream_data), aes(color = model_rs)) +
-    geom_sf(data = cu_boundary_i, color = "black", alpha = 0.3) +
+                                   cu_boundary,
+                                   lakes_cu) {
+  p1 <- ggplot() +
+    geom_sf(data = cu_boundary_i, color = "black", alpha = 0.3)
+
+  if (nrow(lakes_cu) > 0) p1 <- p1 + geom_sf(data = lakes_cu, color = "darkblue", alpha = 0.7)
+
+  p1 <- p1 +
     geom_sf(data = nuseds_cu, aes(fill = SPECIES), alpha = 0.6) +
+    geom_sf(data = st_zm(stream_data), aes(color = model_rs)) +
     coord_sf(xlim = st_bbox(cu_boundary_i)[c(1, 3)],
       ylim = st_bbox(cu_boundary_i)[c(2, 4)]) +
     labs(colour = "BC FishPass",
       fill = "NUSEDS sites")
 
-  return(p)
+  return(p1)
 }
 
 
@@ -84,6 +89,7 @@ stream_accessible_plot <- function(stream_data,
 
 stream_indicator_plot <- function(fwModels,
                                   cu_boundary,
+                                  lakes_cu,
                                   Tw_stations,
                                   variable = "CT_anad",
                                   plot_title = "",
@@ -110,6 +116,8 @@ stream_indicator_plot <- function(fwModels,
       datum = NA) +    # this eliminates axis labels
     labs(subtitle = plot_title,
       color = unit_label)
+
+  if (nrow(lakes_cu) > 0) p1 <- p1 + geom_sf(data = lakes_cu, color = "darkblue", alpha = 0.7)
 
   if (sum(!is.na(xlim)) > 0) {
     p1 <- p1 + scale_color_scico(palette = scico_palette, direction = palette_direction, limits = xlim)

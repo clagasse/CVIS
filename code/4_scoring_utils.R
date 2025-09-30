@@ -216,10 +216,10 @@ average_selected_columns <- function(data, match_strings, new_col_name = "row_pr
 # by default will take the mean and gcm variation of unstandardized columns for the selected indicator
 subset_ind_table <- function(data,
                              indicators_choose,
-                             sp_col = "CU_Species",
+                             sp_col = "Species_simple",
                              stat_suffix = "mean",
                              id_col = "FULL_CU_IN",
-                             rcp_col = "RCP",
+                             rcp_col = "rcp",
                              period_col = "period_code",
                              get_raw = T,  # include unstandardized columns
                              get_std = F,  # include standardized columns
@@ -344,7 +344,7 @@ standardize_indicator <- function(data,
   # some indicators don't have a mean, just the raw value. in that case, use the abbreviation
   if (length(stat_col) == 0) stat_col <- cols_sub
 
-  data <- select(data, c(id_col, stat_col, min_gcmcol, max_gcmcol, RCP, period_code))
+  data <- select(data, c(id_col, stat_col, min_gcmcol, max_gcmcol, rcp, period_code))
 
   if (length(min_gcmcol) == 1 && length(max_gcmcol) == 1 && use_gcm_range == TRUE) {
     # put gcm lows and highs and mean into one column
@@ -354,7 +354,7 @@ standardize_indicator <- function(data,
     )
 
     data_std <- data_long %>%
-      group_by(RCP, period_code) %>%
+      group_by(rcp, period_code) %>%
       reframe(
         FULL_CU_IN = FULL_CU_IN,
         std = do.call(std_fun, c(list(value), std_params)),
@@ -367,7 +367,7 @@ standardize_indicator <- function(data,
       )
   } else {
     data_std <- data %>%
-      group_by(RCP, period_code) %>%
+      group_by(rcp, period_code) %>%
       reframe(
         FULL_CU_IN = FULL_CU_IN,
         !!stat_col := do.call(std_fun, c(list(!!sym(stat_col)), std_params))
@@ -386,13 +386,13 @@ get_CU_indicators <- function(data,
                               cu_i,
                               RCP_pick = "45",
                               period_pick = "3",
+                              sp_col = "Species_simple",
                               indicators_choose = tbl_indicators$abbrev,
                               use_standardized = TRUE) {
   data <- filter(data,
-    RCP == RCP_pick,
+    rcp == RCP_pick,
     period_code == period_pick)
 
-  sp_col <- "CU_Species"
   id_col <- "FULL_CU_IN"
 
   sp_pick <- data %>%
@@ -408,7 +408,7 @@ get_CU_indicators <- function(data,
     select(all_of(c(id_col, sp_col, cols_sub)))
 
   sp_avgs <- data_sub %>%
-    filter(CU_Species == sp_pick) %>%
+    filter(!!sym(sp_col) == sp_pick) %>%
     summarize(across(starts_with("std_"), \(x) mean(x, na.rm = TRUE)), .groups = "drop") %>%
     # mutate(FULL_CU_IN = "Species average", CU_NAME = "Species average") %>%
     # rename columns to indicate species average

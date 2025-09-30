@@ -37,22 +37,28 @@ source(file.path(here(), "code", "0_setup.R"))
 # load results from other scripts
 
 # freshwater stream subsets by CU boundary
-load(file.path(paths$fw, "2025-05-27_fw_streampicks.Rdata"))
+load(file.path(paths$fw, "fw_streampicks_tscapes.Rdata"))
 # freshwater stream indicator statistics
-load(file.path(paths$fw, "2025-09-11_fw_rearing_indicators.Rdata"))
+load(file.path(paths$fw, "2025-09-29_fw_rearing_indicators.Rdata"))
 # migration paths
-load(file.path(paths$fw, "2025-07-25_fw_upstream_paths.Rdata"))
+load(file.path(paths$fw, "2025-09-29_fw_upstream_paths.Rdata"))
 # migration indicators
-load(file.path(paths$fw, "2025-09-11_migr_stats.Rdata"))
+load(file.path(paths$fw, "2025-09-30_migr_stats.Rdata"))
 # marine indicators
-load(file.path(paths$marine, "2025-09-10_marine_stats.Rdata"))
+load(file.path(paths$marine, "2025-09-29_marine_stats.Rdata"))
 
 
 # spatial models
 # stream model outputs for freshwater spawning and rearing indicators
-fwModels <- readRDS(file.path(paths$fw, "2025-09-11_fw_stream_models.Rds"))
+load(file.path(paths$fw, "fw_models_tscapes.Rds"))
+
+# indicator spatial outputs
+load(file.path(paths$fw, "fw_stream_indicators.Rds"))
+
+# fwModels <- readRDS(file.path(paths$fw, "2025-09-11_fw_stream_models.Rds"))
 ### Load ENM - these are lower resolution stream segments than bcfpa
-load(file.path(paths$fw, "ENM_all_sp.Rds"))
+# load(file.path(paths$fw, "ENM_all_sp.Rds"))
+
 # lakes_Fr - freshwater lakes for plotting
 load(file.path(paths$fw, "BC_FWA_LAKES_FR.Rds"))
 
@@ -69,11 +75,12 @@ watershed_flow <- st_read(file.path(paths$climate, "Ruzzante_low_flows", "waters
   mutate(regime = as.factor(regime)) %>%
   st_transform(3005)
 
+
+
 # marine SST grid
 SST_grid <- st_read(file.path(paths$climate,
   "Standardized_Marine_data", "Grid",  "SST_bc_coast.gdb"))
 MAZ     <- st_read(file.path(paths$spatial, "MAZ", "MAZ_Final.shp"))
-
 
 # PCIC ensemble model outputs by period
 PCIC_daily45 <- read_mdim(file.path(paths$climate, "PCIC_averaged", "combined",
@@ -150,7 +157,6 @@ source(file.path(paths$code, "5b_plots_compare.R"))
 for (i in 1:n.CUs) {
 
   CU_IN_i <- cu_run$FULL_CU_IN[i]
-  # CU_IN_i <- "CO-5"
 
   rmarkdown::render(
     file.path(here(), "code", "markdown", "6a_CU_indicator_report.Rmd"),

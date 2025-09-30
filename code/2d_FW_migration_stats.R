@@ -35,14 +35,14 @@ historical <- "0"   # historical climatology period for temperature models
 # 0 = 1981-2000,  1 = 2001-2020
 # for flow models, 0 = 1981-2010
 
-qlgcm <- 0.1    # lower quantile for statistics on GCM variation
-qhgcm <- 0.9   # upper quantile for statistics
+qlgcm <- 0    # lower quantile for statistics on GCM variation
+qhgcm <- 1   # upper quantile for statistics
 qld  <- 0.1    # lower quantile for temporal variation within migration window
 qhd <- 0.9    # upper quantile for temporal variation
 
 #--------- 1. import spatial objects ---------------------
 # load CU paths
-load(file.path(paths$fw, "2025-07-25_fw_upstream_paths.Rdata"))
+load(file.path(paths$fw, "2025-09-29_fw_upstream_paths.Rdata"))
 
 # load PCIC daily outputs
 PCIC_file_loc <- file.path(paths$climate, "PCIC_averaged", "combined")
@@ -66,19 +66,18 @@ gcm_models <- st_get_dimension_values(PCIC_daily, "model")
 summarize_attribute <- function(data,
                                 attr_name = "discharge",
                                 type = "mean",  # mean or sum
+                                indicator_type = "proj",  # proj or change
                                 qlowday = qld,   # lower and upper quantiles to extract
                                 qhighday = qhd,
                                 qlowgcm = qlgcm,
                                 qhighgcm = qhgcm) {
   ## a. SPATIAL DIMENSION -----
   # Get array with average over x and y — keeping period, day of year, and model
-  if (type == "mean") {
-    spatial_avg <- st_apply(
-      data[attr_name],  # variable to calc
-      MARGIN = c("time", "period", "model"),  # dimensions to keep
-      FUN = mean, na.rm = T
-    )[[1]]
-  }
+  spatial_avg <- st_apply(
+    data[attr_name],  # variable to calc
+    MARGIN = c("time", "period", "model"),  # dimensions to keep
+    FUN = mean, na.rm = T
+  )[[1]]
 
   # if(type == "sum") {
   #   spatial_avg <- st_apply(
@@ -116,28 +115,40 @@ summarize_attribute <- function(data,
 
 
   ## c. TIME DIMENSION ------
-  ## Aggregate over time - get average and quantiles across days within migration window
+  ## Aggregate over time - get average (or sum) and quantiles across days within migration window
 
-  # get average across days of year for time periods, models, and rcps
-  gcm_doy_avg <- apply(spatial_avg,
-    MARGIN = c(2, 3),
-    FUN = mean,
-    na.rm = T)
+  # get average (or sum) across days of year for time periods, models, and rcps
+  if (type == "mean") {
+    gcm_doy_avg <- apply(spatial_avg,
+      MARGIN = c(2, 3),
+      FUN = mean,
+      na.rm = T)
+  }
+
+  if (type == "sum") {
+    gcm_doy_avg <- apply(spatial_avg,
+      MARGIN = c(2, 3),
+      FUN = sum,
+      na.rm = T)
+  }
 
   # get average across gcm models
   gcm_stats <- tibble(period = st_get_dimension_values(data, "period"),
     mean    = NA,
     qlowgcm    = NA,
     qhighgcm   = NA)
-  # qmingcm     = NA,
-  # qmaxgcm     = NA)
 
-  # take average, qlow and qhigh across gcms for each time period and rcp
-  gcm_stats$mean <- apply(gcm_doy_avg, 1, mean)
+  # take average, qlow and qhigh, and change from historical across gcms for each time period and rcp
+  gcm_stats$mean     <- apply(gcm_doy_avg, 1, mean)
   gcm_stats$qlowgcm  <- apply(gcm_doy_avg, 1, quantile, probs = qlowgcm)
-  gcm_stats$qhighgcm  <- apply(gcm_doy_avg, 1, quantile, probs = qhighgcm)
-  # gcm_stats$qmingcm  <- apply(gcm_doy_avg, 1, min)
-  # gcm_stats$qmaxgcm  <- apply(gcm_doy_avg, 1, max)
+  gcm_stats$qhighgcm <- apply(gcm_doy_avg, 1, quantile, probs = qhighgcm)
+
+  if (indicator_type == "change") {
+    gcm_stats$hist     <- gcm_stats$mean[1]
+    gcm_stats$mean     <- (gcm_stats$mean - gcm_stats$hist) / gcm_stats$hist
+    gcm_stats$qlowgcm  <- (gcm_stats$qlowgcm - gcm_stats$hist) / gcm_stats$hist
+    gcm_stats$qhighgcm <- (gcm_stats$qhighgcm - gcm_stats$hist) / gcm_stats$hist
+  }
 
   output <- list(doy = doy_stats,
     gcm = gcm_stats)
@@ -322,19 +333,23 @@ for (j in 1:2) {
 
     migrT_stats <- summarize_attribute(PCIC_cu,
       attr_name = "win_T",
-      type = "mean")
+      type = "mean",
+      indicator_type = "proj")
 
     migrQ_stats <- summarize_attribute(PCIC_cu,
       attr_name = "win_Q",
-      type = "mean")
+      type = "mean",
+      indicator_type = "change")
 
     migrA19_stats <- summarize_attribute(PCIC_cu,
       attr_name = "win_Tthr19",
-      type = "mean")
+      type = "mean",
+      indicator_type = "proj")
 
     migrA21_stats <- summarize_attribute(PCIC_cu,
       attr_name = "win_Tthr21",
-      type = "mean")
+      type = "mean",
+      indicator_type = "proj")
 
     cu_migr_stats[[i]]   <- cu_timing_i
     migrT_all[[i]]       <- migrT_stats
@@ -376,10 +391,10 @@ extract_gcm <- function(data_list, attr_label) {
       gcm_tbl <- cu_list[["gcm"]]
       if (!is.data.frame(gcm_tbl)) return(NULL)
       gcm_tbl %>%
-        mutate(RCP = rcp_name,
+        mutate(rcp = rcp_name,
           FULL_CU_IN = cu_name,
           attr = attr_label) %>%
-        relocate(attr, RCP, FULL_CU_IN)
+        relocate(attr, FULL_CU_IN, rcp)
     })
   })
 }
@@ -404,17 +419,16 @@ cleaned_list <- cu_migr_stats %>%
   keep(~ is.data.frame(.x) || is.null(.x))
 df_migr_cu  <- list_rbind(cleaned_list, names_to = "FULL_CU_IN")
 
-
 migr_all_flat <- df_migr_combined %>%
   pivot_wider(
-    id_cols = c(RCP, FULL_CU_IN, period),
+    id_cols = c(rcp, FULL_CU_IN, period),
     names_from = attr,
     values_from = c(mean, qlowgcm, qhighgcm),
     names_glue = "{attr}_{.value}"
   ) %>%
-  left_join(select(cu_run, FULL_CU_IN, CU_NAME, CU_Species, FAZ),
+  left_join(select(cu_run, FULL_CU_IN, CU_NAME, CU_Species),
     by = "FULL_CU_IN") %>%
-  relocate(CU_NAME, CU_Species, FAZ, .after = FULL_CU_IN)
+  relocate(CU_NAME, CU_Species, .after = FULL_CU_IN)
 
 migr_all_flat <- left_join(migr_all_flat, df_migr_cu,
   join_by("FULL_CU_IN"))

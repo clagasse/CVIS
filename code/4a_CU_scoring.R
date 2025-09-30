@@ -23,18 +23,17 @@ source(file.path(here(), "code", "0_setup.R"))
 
 
 # combine indicators into common table
-all_flat <- left_join(
-  fwR_all_flat,
-  migr_all_flat,
-  join_by(FULL_CU_IN, CU_NAME, CU_Species, FAZ, RCP, period)
-) %>%
-  left_join(mar_all_flat, join_by(FULL_CU_IN, CU_NAME, RCP, period_code)) %>%
-  left_join(CVIS_dem, join_by(FULL_CU_IN, CU_NAME, Species_simple))
+all_flat <- CVIS_dem %>%
+  full_join(fwR_all_flat, join_by(FULL_CU_IN, CU_NAME)) %>%
+  left_join(migr_all_flat, join_by(FULL_CU_IN, CU_NAME, CU_Species, rcp, period)) %>%
+  left_join(mar_all_flat, join_by(FULL_CU_IN, CU_NAME, Species_simple, rcp == RCP, period_code)) %>%
+  relocate(rcp, period, period_code, .after = Species_simple)
+
 
 
 #------------- 2. Calculate standardized scores-------------------------------
 
-all_std <- select(all_flat, "FULL_CU_IN", "RCP", "period_code")
+all_std <- select(all_flat, "FULL_CU_IN", "rcp", "period_code")
 
 for (i in 1:nrow(tbl_indicators)) {
 
@@ -49,9 +48,8 @@ for (i in 1:nrow(tbl_indicators)) {
     use_gcm_range = F
   )
 
-
   all_std <- all_std %>%
-    left_join(temp, join_by("FULL_CU_IN", "RCP", "period_code"))
+    left_join(temp, join_by("FULL_CU_IN", "rcp", "period_code"))
 }
 
 
@@ -71,27 +69,28 @@ all_flat_std <- all_std %>%
   )
 
 all_flat_std <- all_flat_std %>%
-  left_join(all_flat, join_by(FULL_CU_IN, RCP, period_code))
+  left_join(all_flat, join_by(FULL_CU_IN, rcp, period_code))
 
 # order categories as factors
-all_flat_std$CU_Species <- factor(all_flat_std$CU_Species, levels = sort(unique(all_flat_std$CU_Species)))
+# all_flat_std$CU_Species <- factor(all_flat_std$CU_Species, levels = sort(unique(all_flat_std$CU_Species)))
+# all_flat_std$Species_simple <- factor(all_flat_std$Species_simple, levels = sort(unique(all_flat_std$Species_simple)))
 
 # 3. Species and all CU averages ------------------------------------------
 
 # calculate species and all CU average for each indicator (for plotting) and put into unique columns
 all_std_sp_avgs <- all_flat_std %>%
-  group_by(CU_Species, RCP, period_code) %>%
+  group_by(Species_simple, rcp, period_code) %>%
   summarize(across(starts_with("std_"), \(x) mean(x, na.rm = TRUE)), .groups = "drop") %>%
   mutate(FULL_CU_IN = "Species average", CU_NAME = "Species average") %>%
   # rename columns to indicate species average
   rename_with(.fn = ~ paste0("spavg_", .x), .cols = starts_with("std_"))  %>%
   # bind new columns back to CU values
-  left_join(all_flat_std, join_by(CU_Species, RCP, period_code))
+  left_join(all_flat_std, join_by(Species_simple, rcp, period_code))
 
 
 # calculate overall average for each indicator (for plotting)
 all_std_avgs <- all_flat_std %>%
-  group_by(RCP, period_code) %>%
+  group_by(rcp, period_code) %>%
   summarize(across(starts_with("std_"), \(x) mean(x, na.rm = TRUE)), .groups = "drop") %>%
   mutate(FULL_CU_IN = "All CUs", CU_NAME = "All CUs", CU_Species = "All CUs")
 
@@ -107,7 +106,7 @@ combined_scores_std <- all_flat_std %>%
     rename_cols = F) %>%
   sum_selected_columns(match_strings = tbl_indicators$abbrev,
     new_col_name = "std_addall") %>%
-  sum_selected_columns(match_strings = c("Tw8rate", "Tw8proj", "lowQpdelta", "highQpdelta", "ct"),
+  sum_selected_columns(match_strings = c("tw8rate", "tw8proj", "lowQpdelta", "highQpdelta", "ct"),
     new_col_name = "std_addfwR") %>%
   sum_selected_columns(match_strings = tbl_indicators$abbrev[tbl_indicators$type == "migr"],
     new_col_name = "std_addmigr") %>%
@@ -115,7 +114,7 @@ combined_scores_std <- all_flat_std %>%
     new_col_name = "std_adddem") %>%
   sum_selected_columns(match_strings = tbl_indicators$abbrev[tbl_indicators$type == "mar"],
     new_col_name = "std_addmar") %>%
-  multiply_selected_columns(match_strings = c("Tw8rate", "Tw8proj", "lowQpdelta", "highQpdelta", "ct"),
+  multiply_selected_columns(match_strings = c("tw8rate", "tw8proj", "lowQpdelta", "highQpdelta", "ct"),
     new_col_name = "std_prodfwR") %>%
   multiply_selected_columns(match_strings = tbl_indicators$abbrev[tbl_indicators$type == "migr"],
     new_col_name = "std_prodmigr") %>%
@@ -125,7 +124,7 @@ combined_scores_std <- all_flat_std %>%
     new_col_name = "std_prodmar") %>%
   average_selected_columns(match_strings = tbl_indicators$abbrev,
     new_col_name = "std_avgall") %>%
-  average_selected_columns(match_strings = c("Tw8rate", "Tw8proj", "lowQpdelta", "highQpdelta", "ct"),
+  average_selected_columns(match_strings = c("tw8rate", "tw8proj", "lowQpdelta", "highQpdelta", "ct"),
     new_col_name = "std_avgfwR") %>%
   average_selected_columns(match_strings = tbl_indicators$abbrev[tbl_indicators$type == "migr"],
     new_col_name = "std_avgmigr") %>%
@@ -141,19 +140,19 @@ combined_scores_std <- all_flat_std %>%
 combined_scores_std <- combined_scores_std %>%
   rank_scores(
     score_col = "std_addall",
-    group_col = c("RCP", "period_code"),
+    group_col = c("rcp", "period_code"),
     rank_col = "std_rankaddall",
     descending = F
   ) %>%
   rank_scores(
     score_col = "std_sumavgs",
-    group_col = c("RCP", "period_code"),
+    group_col = c("rcp", "period_code"),
     rank_col = "std_ranksumavgs",
     descending = F
   ) %>%
   rank_scores(
     score_col = "std_avgall",
-    group_col = c("RCP", "period_code"),
+    group_col = c("rcp", "period_code"),
     rank_col = "std_rankavgall",
     descending = F
   )

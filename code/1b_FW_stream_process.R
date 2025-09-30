@@ -678,13 +678,13 @@ if (base_network == "tscapes") {
     st_join(select(ENM_df, -any_of("shape_length")),
       left = TRUE) %>%
     group_by(linear_feature_id) %>%
+    arrange(fav_sockeye_hist_0, fav_pink_hist_0, fav_chinook_hist_0) %>%
     slice(1) %>%
     ungroup()
 
   save(fw_models, file = file.path(paths$fw, "fw_models_tscapes.Rds"))
 
 }
-
 
 # 4. Calculate indicators for combined model object---------
 
@@ -707,15 +707,15 @@ flow_long <- fw_models_df %>%
   pivot_longer(cols = matches("^flow"),
     names_to = c(".value", "rcp", "gcm", "period", "month"),
     names_pattern = paste0("^(flow)_(rcp\\d{2}|historical)_(", GCM_grep, ")_(\\d+)_(\\d+)$")) %>%
-  mutate(RCP = substr(RCP, start = 4, stop = 5)) # remove rcp from column character
+  mutate(rcp = substr(rcp, start = 4, stop = 5)) # remove rcp from column character
 
 flow_wide <- flow_long %>%
-  filter(GCM == "mean") %>%
+  filter(gcm == "mean") %>%
   pivot_wider(
-    names_from = c(month, RCP, period),
+    names_from = c(month, rcp, period),
     values_from = flow,
     names_prefix = "flow_") %>%
-  arrange(LINEAR_FEATURE_ID)
+  arrange(linear_feature_id)
 
 hist_col_18 <- names(flow_wide)[str_detect(names(flow_wide), "flow_18_to_0")]
 proj_col_18 <- names(flow_wide)[str_detect(names(flow_wide), "45|85")]
@@ -735,20 +735,34 @@ fwQ8_wide <- flow_wide %>%
     across(contains(proj_col_8), ~ (.x - histq) / histq, .names = "qpdelta_{.col}")) %>%
   select(linear_feature_id, contains("qpdelta"))
 
-
 ## Historic flow stats for all months
 # hflow_sub <- hflow %>%
 #   select(segmented_stream_id, contains("flow")) %>%
 #   rename_with(~ str_replace_all(., "mean_flow_m3s", "flow")) %>%
 #   rename_with(~ str_replace_all(.,  "_1$", "_0"))
 
-
 # temp stats by stream
 fwT_indi <- fw_models_df %>%
-  mutate(histt = !!sym(paste(T_model, "0_00", historical, sep = "_"))) %>%  # add historical Tw8
-  select(linear_feature_id, histt,
+  mutate(histT = !!sym(paste(T_model, "0_00", historical, sep = "_"))) %>%  # add historical Tw8
+  select(linear_feature_id, histT,
     all_of(grep(paste0("^", T_model, "_", 9), names(fw_models), value = TRUE))) %>%
   mutate(across(contains(T_model), ~ .x - histT, .names = "delta_{.col}"))
+
+
+# ENM stats by stream
+fw_ENM <- fw_models_df %>%
+  mutate(favchange_coho_45_3 = fav_coho_45_3 - fav_coho_hist_0,
+    favchange_coho_85_3 = fav_coho_85_3 - fav_coho_hist_0,
+    favchange_chinook_45_3 = fav_chinook_45_3 - fav_chinook_hist_0,
+    favchange_chinook_85_3 = fav_chinook_85_3 - fav_chinook_hist_0,
+    favchange_chum_45_3 = fav_chum_45_3 - fav_chum_hist_0,
+    favchange_chum_85_3 = fav_chum_85_3 - fav_chum_hist_0,
+    favchange_sockeye_45_3 = fav_sockeye_45_3 - fav_sockeye_hist_0,
+    favchange_sockeye_85_3 = fav_sockeye_85_3 - fav_sockeye_hist_0,
+    favchange_pink_45_3 = fav_pink_45_3 - fav_pink_hist_0,
+    favchange_pink_85_3 = fav_pink_85_3 - fav_pink_hist_0) %>%
+  select(linear_feature_id, contains("favchange"))
+
 
 
 ## create spatial object with all indicator variables
@@ -764,8 +778,9 @@ fw_sp_ind <- fw_models %>%
   left_join(fwQ8_wide,
     join_by(linear_feature_id)) %>%
   left_join(fwQNDJ_wide,
+    join_by(linear_feature_id)) %>%
+  left_join(fw_ENM,
     join_by(linear_feature_id))
-
 
 save(fw_sp_ind, file = file.path(paths$fw, "fw_stream_indicators_sp.Rds"))
 
