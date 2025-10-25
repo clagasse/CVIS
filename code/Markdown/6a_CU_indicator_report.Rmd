@@ -26,7 +26,7 @@ knitr::opts_chunk$set(message = F, echo = F, warning = F)
 
 ```{r subset CU}
 
-#params$FULL_CU_IN <- "CK-17"
+#params$FULL_CU_IN <- "SEL-05-02"
 cu_i <- params$FULL_CU_IN
 cu_run_i <- cu_run[cu_run$FULL_CU_IN == params$FULL_CU_IN,]
 sp_pick <- cu_run$spp[cu_run$FULL_CU_IN == cu_i] #species abbr
@@ -517,6 +517,19 @@ tRate_plot
 #     label = "Change in Favourability",
 #     columns = c(Fav_change_wmean, Fav_change_wsd_sp, Fav_change_wqlow_sp, Fav_change_wqhigh_sp)
 #   )
+
+ENM_plot <- stream_indicator_plot(fw_sp_cu, 
+                                 cu_boundary_i,
+                                 lakes_cu,
+                                variable = "fav_sockeye_hist_0", 
+                                plot_title = "ENM historic favourability",
+                                histogram_fill = "model_access_salmon",
+                                scico_palette = "davos",
+                                xlim = c(0,1),
+                                palette_direction = -1)
+
+ENM_plot
+
 
 
 ENM_plot <- stream_indicator_plot(fw_sp_cu, 

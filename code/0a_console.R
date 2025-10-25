@@ -39,7 +39,7 @@ source(file.path(here(), "code", "0_setup.R"))
 # freshwater stream subsets by CU boundary
 load(file.path(paths$fw, "fw_streampicks_tscapes.Rdata"))
 # freshwater stream indicator statistics
-load(file.path(paths$fw, "2025-09-29_fw_rearing_indicators.Rdata"))
+load(file.path(paths$fw, "2025-10-03_fw_rearing_indicators.Rdata"))
 # migration paths
 load(file.path(paths$fw, "2025-09-29_fw_upstream_paths.Rdata"))
 # migration indicators
@@ -53,7 +53,7 @@ load(file.path(paths$marine, "2025-09-29_marine_stats.Rdata"))
 load(file.path(paths$fw, "fw_models_tscapes.Rds"))
 
 # indicator spatial outputs
-load(file.path(paths$fw, "fw_stream_indicators.Rds"))
+load(file.path(paths$fw, "fw_stream_indicators_sp.Rds"))
 
 # fwModels <- readRDS(file.path(paths$fw, "2025-09-11_fw_stream_models.Rds"))
 ### Load ENM - these are lower resolution stream segments than bcfpa
@@ -157,6 +157,7 @@ source(file.path(paths$code, "5b_plots_compare.R"))
 for (i in 1:n.CUs) {
 
   CU_IN_i <- cu_run$FULL_CU_IN[i]
+  CU_IN_i <- "SEL-05-02"
 
   rmarkdown::render(
     file.path(here(), "code", "markdown", "6a_CU_indicator_report.Rmd"),

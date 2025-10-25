@@ -38,7 +38,7 @@ get_brewer_palette <- function(data, column, palette_name = "Set2") {
   # brewer.pal(n, palette)
 }
 
-species_palette <- get_brewer_palette(cu_run, "Species_simple", "Set1")
+species_palette <- get_brewer_palette(cu_run, "SPECIES_NAME", "Set1")
 
 
 # species_palette <- pal_futurama()(length(unique(cu_run$Species_simple)))
@@ -279,7 +279,7 @@ multi_indicator_plot <- function(data,
         use_standardized = use_standardized_all
       ) +
         theme(legend.position = "none",
-          axis.text.x = element_text(size = 8, angle = 45, hjust = 1)) +
+          axis.text.x = element_text(size = 8, angle = 45)) +
         labs(title = "",
           y = ind,
           x = NULL)
@@ -292,7 +292,7 @@ multi_indicator_plot <- function(data,
       ) +
         theme(legend.position = "none",
           axis.text.y = element_blank(),
-          axis.text.x = element_text(size = 8, angle = 45, hjust = 1)) +
+          axis.text.x = element_text(size = 8, angle = 45)) +
         labs(title = "",
           y = ind,
           x = NULL)
@@ -304,7 +304,8 @@ multi_indicator_plot <- function(data,
 
   multi_p <- multi_p +
     # plot_layout(ncol = tt)
-    theme(plot.margin = margin(0, 0, 0, 0)) +
+    theme(plot.margin = margin(0, 0, 0, 0),
+      axis.text.x = element_text(size = 8, angle = 45)) +
     plot_layout(guides = "collect") +
     plot_annotation(
       title = title_custom
@@ -322,6 +323,7 @@ multi_indicator_plot <- function(data,
 spatial_indicator_plot <- function(data,
                                    outline = Fr_basin,
                                    sp_pick = c("Chinook", "Coho", "Sockeye"),
+                                   sp_col_name = "SPECIES_NAME",
                                    indicator_pick,
                                    indicator_name,
                                    use_standardized = T,
@@ -331,7 +333,7 @@ spatial_indicator_plot <- function(data,
 
   data_sub <- subset_ind_table(data,
     indicators_choose = indicator_pick,
-    sp_col = "Species_simple",
+    sp_col = sp_col_name,
     id_col = "FULL_CU_IN",
     get_raw = !use_standardized,
     get_std = use_standardized,
@@ -343,8 +345,9 @@ spatial_indicator_plot <- function(data,
 
   cu_boundary_plot <- cu_boundary %>%
     left_join(select(plot_data, id, value), by = join_by(!!sym(id_col) == id)) %>%
+    rename(sp_col = !!sym(sp_col_name)) %>%
     filter(!is.na(value),
-      Species_simple %in% sp_pick)
+      sp_col %in% sp_pick)
 
   p <- ggplot() +
     geom_sf(data = cu_boundary_plot, aes(fill = value), alpha = 0.3) +
@@ -353,14 +356,12 @@ spatial_indicator_plot <- function(data,
     geom_sf(data = Fr_basin, colour = "black", fill = NA, alpha = 0.3) +
     labs(fill = indicator_pick) +
     coord_sf(datum = NA) +
-    facet_grid(. ~ Species_simple)
+    facet_grid(. ~ sp_col)
 
 
   return(p)
 
 }
-
-
 
 
 # 5. Tile plot of standardized indicator values ---------------------------
@@ -400,14 +401,15 @@ indicator_tile_plot <- function(data,
     ))
 
 
-  p <- ggplot(plot_data, aes(y = id_label, x = indicator)) +
+  p <- ggplot(plot_data, aes(x = indicator, y = id_label)) +
     geom_tile(aes(fill = value)) +
     geom_text(aes(label = round(value, 1)), size = 2) + # Add the text labels
     scale_fill_distiller(palette = brewer_palette, direction = palette_direction) +
     theme(
-      axis.text.y = element_markdown(size = 6),
-      axis.text.x = element_text(size = 8, angle = 45, hjust = 1),
-      legend.position = "none"
+      axis.text.y = element_markdown(size = 8, hjust = 1),
+      axis.text.x = element_text(size = 10, angle = 45, hjust = 1),
+      legend.position = "none",
+      panel.grid = element_blank()
     ) +
     labs(y = NULL,
       x = NULL)
@@ -415,6 +417,7 @@ indicator_tile_plot <- function(data,
   p
 
 }
+
 
 
 # 6. Correlation analysis and plots ---------------------------------------
@@ -486,9 +489,61 @@ make_indicator_plots <- function(data,
 }
 
 
+
+
+# x_y indicator comparison ------------------------------------------------
+
+xy_indicator_plot <- function(data,
+                              x_pick = "lowQpdelta",
+                              y_pick = "st8pdelta",
+                              point_col = "Species") {
+
+  plot_data_x <- subset_ind_table(data,
+    indicators_choose = x_pick,
+    id_col = "CVIS_NAME",
+    sp_col = point_col,
+    get_raw = T,
+    get_gcm = T) %>%
+    rename_ind_table(indicator_abbrev = x_pick,
+      name_suffix = "x_")
+
+  plot_data_y <- subset_ind_table(data,
+    indicators_choose = y_pick,
+    id_col = "CVIS_NAME",
+    sp_col = point_col,
+    get_raw = T,
+    get_gcm = T) %>%
+    rename_ind_table(indicator_abbrev = y_pick,
+      name_suffix = "y_")
+
+
+  plot_data <- bind_cols(plot_data_x,
+    select(plot_data_y, contains("y_")))
+
+
+  p <- ggplot(plot_data) +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+    geom_errorbar(aes(x = x_raw, y = y_raw, ymin = y_min_gcm, ymax = y_max_gcm), colour = "blue") +
+    geom_errorbar(aes(x = x_raw, y = y_raw, xmin = x_min_gcm, xmax = x_max_gcm)) +
+    geom_point(aes(x = x_raw, y = y_raw, col = sp), size = 3) +
+    labs(subtitle = "statistical station model (st8) vs PCIC stream model",
+      x = "PCIC stream model change in August flow",
+      y = "Station model change in August flow")
+
+
+
+}
+
 # Test plots --------------------------------------------------------------
 
+filter_std <- all_flat_std %>%
+  mutate(prop_coverage = as.numeric(prop_coverage)) %>%
+  filter(rcp == "85",
+    period_code == 3,
+    prop_coverage > 0.2)
 
+p <- xy_indicator_plot(filter_std,
+  point_col = "prop_coverage")
 
 # flat_std_sub <- filter(
 #   all_flat_std,

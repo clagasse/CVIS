@@ -191,7 +191,7 @@ bcfpmod <- as.data.table(bcfpa) %>%
 #---------------- Ecological Niche Models --------------------------------------
 
 # load(file.path(paths$fw, "BCFP_combined_Fr.Rds")) #load bcfp stream network
-load(file.path(paths$fw, "BCFP_combined_accessible_Fr.Rds"))
+# load(file.path(paths$fw, "BCFP_combined_accessible_Fr.Rds"))
 
 ### importing ENM favourability model layers
 # Provided by Josie Iacarella, Sep 2025
@@ -203,20 +203,32 @@ ENM_hist_list <- lapply(hist_layers, function(layer_name) {
 })
 names(ENM_hist_list) <-  sub("_.*", "", hist_layers)
 # RCP 45
-RCP45_layers <- st_layers(file.path(paths$climate, "Salmon_ENMs", "Future_RCP45_2041to2060_allstreams.gdb"))$name
-ENM_45_list <- lapply(RCP45_layers, function(layer_name) {
+RCP45_mc_layers <- st_layers(file.path(paths$climate, "Salmon_ENMs", "Future_RCP45_2041to2060_allstreams.gdb"))$name
+ENM_45_mc_list <- lapply(RCP45_mc_layers, function(layer_name) {
   st_read(file.path(paths$climate, "Salmon_ENMs", "Future_RCP45_2041to2060_allstreams.gdb"), layer = layer_name)
 })
-names(ENM_45_list) <-  sub("_.*", "", RCP45_layers)
+names(ENM_45_mc_list) <-  sub("_.*", "", RCP45_mc_layers)
+RCP45_ec_layers <- st_layers(file.path(paths$climate, "Salmon_ENMs", "Future_RCP45_2081to2100_allstreams.gdb"))$name
+ENM_45_ec_list <- lapply(RCP45_ec_layers, function(layer_name) {
+  st_read(file.path(paths$climate, "Salmon_ENMs", "Future_RCP45_2081to2100_allstreams.gdb"), layer = layer_name)
+})
+names(ENM_45_ec_list) <-  sub("_.*", "", RCP45_ec_layers)
 # RCP 85
-RCP85_layers <- st_layers(file.path(paths$climate, "Salmon_ENMs", "Future_RCP85_2041to2060_allstreams.gdb"))$name
-ENM_85_list <- lapply(RCP85_layers, function(layer_name) {
+RCP85_mc_layers <- st_layers(file.path(paths$climate, "Salmon_ENMs", "Future_RCP85_2041to2060_allstreams.gdb"))$name
+ENM_85_mc_list <- lapply(RCP85_mc_layers, function(layer_name) {
   st_read(file.path(paths$climate, "Salmon_ENMs", "Future_RCP85_2041to2060_allstreams.gdb"), layer = layer_name)
 })
-names(ENM_85_list) <-  sub("_.*", "", RCP85_layers)
+names(ENM_85_mc_list) <-  sub("_.*", "", RCP85_mc_layers)
+RCP85_ec_layers <- st_layers(file.path(paths$climate, "Salmon_ENMs", "Future_RCP85_2081to2100_allstreams.gdb"))$name
+ENM_85_ec_list <- lapply(RCP85_ec_layers, function(layer_name) {
+  st_read(file.path(paths$climate, "Salmon_ENMs", "Future_RCP85_2081to2100_allstreams.gdb"), layer = layer_name)
+})
+names(ENM_85_ec_list) <-  sub("_.*", "", RCP85_ec_layers)
+
+
 
 # Get the common species names
-species <- intersect(names(ENM_hist_list), intersect(names(ENM_45_list), names(ENM_85_list)))
+species <- intersect(names(ENM_hist_list), intersect(names(ENM_45_ec_list), names(ENM_85_ec_list)))
 
 fix_column_name <- function(df) {
   if ("SDM_accID_" %in% names(df)) {
@@ -229,20 +241,31 @@ fix_column_name <- function(df) {
 
 # Apply to each list
 ENM_hist_list <- lapply(ENM_hist_list, fix_column_name)
-ENM_45_list   <- lapply(ENM_45_list, fix_column_name)
-ENM_85_list   <- lapply(ENM_85_list, fix_column_name)
+ENM_45_mc_list   <- lapply(ENM_45_mc_list, fix_column_name)
+ENM_45_ec_list   <- lapply(ENM_45_ec_list, fix_column_name)
+ENM_85_mc_list   <- lapply(ENM_85_mc_list, fix_column_name)
+ENM_85_ec_list   <- lapply(ENM_85_ec_list, fix_column_name)
 
-### Join ENM 45 and 85 to each other using SDM ID all, then join to BCFPA base
+### Join ENM 45 and 85 to each other using SDM ID all
 
 # Create a list of joined results for each species
 ENM_joined_list <- map(species, function(sp) {
-  rcp45 <- ENM_45_list[[sp]]
-  rcp85 <- ENM_85_list[[sp]]
-  rcp85_df <- st_drop_geometry(rcp85)
+  rcp45_mc <- ENM_45_mc_list[[sp]]
+
+  rcp85_mc <- ENM_85_mc_list[[sp]]
+  rcp45_ec <- ENM_45_ec_list[[sp]]
+  rcp85_ec <- ENM_85_ec_list[[sp]]
+  rcp85_mc_df <- st_drop_geometry(rcp85_mc)
+  rcp85_ec_df <- st_drop_geometry(rcp85_ec)
+  rcp45_ec_df <- st_drop_geometry(rcp45_ec)
   # hist_df <- st_drop_geometry(hist)
 
   # join_rcp <- st_join(rcp45, rcp85, left = FALSE, suffix = c("_45", "_85"))
-  join_rcp <- left_join(rcp45, rcp85_df, join_by(SDM_ID_all), suffix = c("_45_3", "_85_3"))
+  join_rcp <- left_join(rcp45_mc, rcp85_mc_df, join_by(SDM_ID_all), suffix = c("_45_3", "_85_3"))
+  join_rcp <- left_join(join_rcp, rcp45_ec_df, join_by(SDM_ID_all))
+  join_rcp <- left_join(join_rcp, rcp85_ec_df, join_by(SDM_ID_all), suffix = c("_45_5", "_85_5"))
+  # left_join(rcp45_ec_df, join_by(SDM_ID_all), suffix = c("", "_45_5")) %>%
+  # left_join(rcp85_ec_df, join_by(SDM_ID_all), suffix = c("", "_85_5"))
 
   # join_all <- left_join(join_rcp, hist_df, by = join_by(SDM_ID_all == SDM_accID_v3), suffix = c("", "_hist"))
   # join_all <- st_join(join_rcp, hist, left = FALSE, suffix = c("", "_hist"))
@@ -263,6 +286,10 @@ for (i in 2:length(ENM_joined_list)) {
 }
 
 ENM_df <- st_transform(ENM_df, 3005)
+ENM_df <- ENM_df %>%
+  select(-c(contains("Shape_Length")))
+ENM_df$Shape_Length <- ENM_df$Shape_Leng
+ENM_df$Shape_Leng <- NULL
 
 ### Join historic values separately, as each species has a different subset of streams
 
@@ -272,31 +299,38 @@ ENM_hist_list <- map(species, function(sp) {
   names(hist) <- gsub("Fav", paste0("Fav_", sp, "_hist_0"), names(hist))
   return(hist)
 })
+names(ENM_hist_list) <-  sub("_.*", "", hist_layers)
 
-# use SDM_ID to join by key
-for (i in 1:length(ENM_hist_list)) {
-  # temp <- ENM_hist_list[[i]] %>%
-  #   st_transform(3005) %>%
-  #   select(-c(SDM_accID_v3, Shape_Length))
-  # ENM_df_all <- st_join(ENM_df_all, temp, left = TRUE)
-
-  temp <- ENM_hist_list[[i]] %>%
-    st_drop_geometry() %>%
-    select(-c(Shape_Length))
-  ENM_df <- left_join(ENM_df, temp, join_by(SDM_ID_all == SDM_accID_v3))
+# join all tables into one big table using SDM_accID_v3 key join
+ENM_hist_joined <- ENM_hist_list[[1]]
+for (i in 2:length(ENM_hist_list)) {
+  temp <- st_drop_geometry(ENM_hist_list[[i]]) %>%
+    select(SDM_accID_v3, contains("Fav"))
+  ENM_hist_joined <- left_join(ENM_hist_joined, temp,
+    by = c("SDM_accID_v3"))
 }
+ENM_hist_joined <- st_transform(ENM_hist_joined, 3005)
 
-
-# clean up column names, and calculate Fav change
-
-ENM_df$Shape_Length <- ENM_df$Shape_Leng
-
-ENM_df <- ENM_df %>%
-  select(-any_of(c("Shape_Leng", "Shape_Length_45_3", "Shape_Length_85_3")))
-
+# spatial join historic and projected ENM objects
+ENM_df <- st_join(ENM_df, ENM_hist_joined)
 
 save(ENM_df, file = file.path(paths$fw, "ENM_all_species.Rds"))
 rm(ENM_hist_list, ENM_joined_list, ENM_45_list, ENM_85_list)
+
+# ENM_df$shape_diff <- ENM_df$Shape_Length.x - ENM_df$Shape_Length.y
+
+# cu_boundary_i <- cu_boundary[cu_boundary$FULL_CU_IN == "SEL-05-02", ]
+# # cu_pick <- cu_boundary[cu_boundary$FULL_CU_IN == cu_i], ]
+# pick_st <- lengths(st_intersects(ENM_df_keyjoin, cu_boundary_i)) > 0
+# ENM_df_pick <- ENM_df_keyjoin[pick_st, ]
+#
+# pick_hist <- lengths(st_intersects(ENM_hist_joined, cu_boundary_i)) > 0
+# ENM_hist_pick <- ENM_hist_joined[pick_hist, ]
+#
+# pick_joined <- lengths(st_intersects(ENM_df_joined, cu_boundary_i)) > 0
+# ENM_df_pick <- ENM_df_joined[pick_st, ]
+
+
 
 
 #----------------- Stream level flow data -----------------------------------

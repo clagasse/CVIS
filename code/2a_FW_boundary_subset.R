@@ -23,17 +23,9 @@ if (base_network == "bcfpa") {
   stream_cu_picks <- matrix(ncol = n.CUs, nrow = nrow(bcfpa))
 }
 
-cu_boundary <- st_read(file.path(paths$spatial, "CU_boundaries", "fraser_cus.shp")) %>%
-  st_make_valid() %>%
-  st_transform(crs = 3005)  %>%  # crs 3005 is NAD83/BC Albers
-  left_join(select(cu_Fr, cuid, FULL_CU_IN, spp),
-    join_by(CUID == cuid)) %>%
-  filter(!is.na(FULL_CU_IN))
-
 
 # create matrix choosing streams are contained within each CU boundary
 colnames(stream_cu_picks) <- cu_seq
-
 # ENM_cu_picks <- matrix(ncol = n.CUs, nrow = nrow(reaches_ENM_all))
 # colnames(ENM_cu_picks) <- cu_seq
 

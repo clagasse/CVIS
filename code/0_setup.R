@@ -51,18 +51,15 @@ source(here("code", "1a_CU_import.R"))   # CU table
 
 # Select subset of CUs to run for analysis
 cu_run <- cu_Fr %>%
-  filter(spp %in% c("ck", "co", "cm", "sk", "pk"),
+  filter(SPECIES_NAME %in% c("Chinook", "Coho", "Sockeye", "Chum", "Pink"),   # optional species filter
     FULL_CU_IN %notin% c("SER-02")) %>% # remove widgeon (throws error)
-  arrange(spp)
-
+  arrange(SPECIES_NAME)
 
 
 cuid    <- cu_run$cuid # Create vector of CUs to analyze, ordered CK, CM, CO, PKO, SEL, SER, SH
 cu_seq  <- cu_run$FULL_CU_IN # Create vector of CUs to analyze, ordered CK, CM, CO, PKO, SEL, SER, SH
 
 n.CUs   <- nrow(cu_run)
-
-
 
 
 
@@ -83,9 +80,9 @@ period_lookup <- tribble(
 # table of indicator abbreviations and full names
 tbl_indicators <- tribble(
   ~abbrev,      ~type,    ~stat, ~std_fun, ~name,
-  "favchange", "fwR",    "mean",     "decay_std",     "ENM Change in Favourability",
+  "favchange", "fwR",    "mean",     "linear_std",     "ENM Change in Favourability",
   "CT",         "fwR",    "mean",    "linear_std",        "Cumulative threats to freshwater habitat",
-  "tw8rate",    "fwR",    "mean",    "exponential_std",        "Rate of change in August Temperature",
+  "tw8rate",    "fwR",    "mean",    "linear_std",        "Rate of change in August Temperature",
   "tw8proj",    "fwR",    "mean",    "exponential_std", "Projected August Temperature",
   "lowQpdelta", "fwR",   "mean",    "decay_std",       "Proportional change in August flow (stream model)",
   "st8pdelta",  "fwR",    "mean",    "decay_std",     "Proportional change in August flow (station model)",
@@ -104,9 +101,9 @@ tbl_indicators <- tribble(
 
 tbl_standardize <- tribble(
   ~abbrev,      ~type,      ~std_fun,        ~lambda, ~xmin, ~xmax,
-  "Favchange", "fwR",        "decay_std",        3,     NA,   0,
+  "Favchange", "fwR",        "linear_std",        NA,     NA,   0,
   "ct",         "fwR",      "linear_std",        NA,    0,   NA,
-  "Tw8rate",    "fwR",      "exponential_std",    3,    NA,   NA,
+  "Tw8rate",    "fwR",      "linear_std",         NA,    NA,   NA,
   "Tw8proj",    "fwR",       "exponential_std",   3,    15,   NA,
   "lowQpdelta",  "fwR",    "decay_std",           3,    NA,   0,
   "st8pdelta",  "fwR",    "decay_std",            3,    NA,   0,
@@ -122,59 +119,6 @@ tbl_standardize <- tribble(
   "CUnmat",      "dem",     "decay_std",         3,    0, 10000)
 
 
-
-### ----- Load frequently used data sets- ------
-
-
-### Conservation Unit boundaries for Fraser CUs
-cu_boundary <- st_read(file.path(paths$spatial, "CU_boundaries", "fraser_cus.shp")) %>%
-  st_make_valid() %>%
-  st_transform(crs = 3005)  %>%  # crs 3005 is NAD83/BC Albers
-  left_join(select(cu_Fr, cuid, FULL_CU_IN, spp, Species_simple),
-    join_by(CUID == cuid)) %>%
-  filter(!is.na(FULL_CU_IN))
-
-
-### NUSEDS salmon spawner locations
-## version from FIA. Usage column added by Michael Arbeider
-nuseds_Fr <- read_csv(file.path(paths$salmon, "NuSEDS_CU_System_sites_202406.csv")) %>%
-  st_as_sf(coords = c("X_LONGT", "Y_LAT"), crs = 4269) %>%
-  st_transform(3005) %>%
-  filter(USAGE != "REMOVE")
-
-#  field descriptions
-# n = number of surveys that were not “UNKNOWN” or “NOT INSPECTED”, i.e. they were inspected but sometimes only PRESENSE was recorded and not an abundance.
-# last.year = last year when the system was surveyed
-# first.year = first year when the system was surveyed
-# max.count = the largest count of spawners in NuSEDs
-# ave.count = the mean of all non-NA counts in NuSEDs
-# min.count = the minimum
-
-# usage criteria for nuseds file
-# cu.sites <- cu.sites %>%
-#   mutate(USAGE = case_when(
-#     n < 5 & last.year < 2010 ~ "REMOVE",
-#     n < 5 & last.year >= 2010 ~ "CAUTION",
-#     n >= 5 & last.year < 1999 & SPECIES_LOOKUP != "Pink" ~ "CAUTION",
-#     n >= 5 & max.count == 0 & last.year < 1999 & SPECIES_LOOKUP != "Pink" ~ "CAUTION",
-#     n >= 5 & max.count != 0 & last.year < 1999 & SPECIES_LOOKUP == "Pink" ~ "KEEP",
-#     n >= 5 & max.count == 0 & last.year >= 1999 ~ "CAUTION",
-#     n >= 5 & max.count != 0 & last.year >= 1999 ~ "KEEP"
-#   ))
-
-#--------------------- Create CVIS table of demographic factors-----------------
-
-CVIS_dem <- cu_Fr %>%
-  select(cuid, FULL_CU_IN, CU_NAME, CVIS_NAME, Species_simple,
-    WSP_population_status, Most_Recent_Generational_Average,
-    SEP_avg_annual_releases_actual, SEP_primary_prod_objective, Ratio_releases_to_generational_avg) %>%
-  filter(FULL_CU_IN %in% cu_run$FULL_CU_IN) %>%
-  rename(CUstatus = WSP_population_status,
-    CUnmat  = Most_Recent_Generational_Average,
-    enhann = SEP_avg_annual_releases_actual,
-    enhobj = SEP_primary_prod_objective,
-    relrat = Ratio_releases_to_generational_avg) %>%
-  mutate(across(where(is.character), ~ na_if(.x, "")))  # convert blanks to NAs
 
 
 # ggplot custom theme -----------------------------------------------------

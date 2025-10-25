@@ -42,7 +42,7 @@ qhd <- 0.9    # upper quantile for temporal variation
 
 #--------- 1. import spatial objects ---------------------
 # load CU paths
-load(file.path(paths$fw, "2025-09-29_fw_upstream_paths.Rdata"))
+load(file.path(paths$fw, "2025-10-16_fw_upstream_paths.Rdata"))
 
 # load PCIC daily outputs
 PCIC_file_loc <- file.path(paths$climate, "PCIC_averaged", "combined")
@@ -426,9 +426,9 @@ migr_all_flat <- df_migr_combined %>%
     values_from = c(mean, qlowgcm, qhighgcm),
     names_glue = "{attr}_{.value}"
   ) %>%
-  left_join(select(cu_run, FULL_CU_IN, CU_NAME, CU_Species),
+  left_join(select(cu_run, FULL_CU_IN, CU_NAME, SPECIES_NAME),
     by = "FULL_CU_IN") %>%
-  relocate(CU_NAME, CU_Species, .after = FULL_CU_IN)
+  relocate(CU_NAME, SPECIES_NAME, .after = FULL_CU_IN)
 
 migr_all_flat <- left_join(migr_all_flat, df_migr_cu,
   join_by("FULL_CU_IN"))

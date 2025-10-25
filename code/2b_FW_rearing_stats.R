@@ -28,8 +28,8 @@ historical <- "0"   # historical climatology period for temperature models
 # for flow models, 0 = 1981-2010
 T_model <- "tw8"    # temperature model tw8 = thermalscapes August temp
 
-qlowgcm <- 0    # lower quantile for statistics on GCM variation
-qhighgcm <- 1   # upper quantile for statistics
+qlowgcm <- 0.1    # lower quantile for statistics on GCM variation
+qhighgcm <- 0.9   # upper quantile for statistics
 qlowsp  <- 0.1    # lower quantile for spatial variation within CU boundary
 qhighsp <- 0.9    # upper quantile for spatial variation
 
@@ -528,9 +528,9 @@ fwR_all <- list()  # initialize list for storing all results
 for (i in 1:n.CUs) {
   #------- a. subset CU data -----
   cu_i <- cu_run$FULL_CU_IN[i]
-  sp_pick <- cu_run$spp[cu_run$FULL_CU_IN == cu_i] # species abbr
-  sp_pick_bcfp <- spp_lookup$spp_abr_bcfp[spp_lookup$spp_abr == sp_pick]  # BCFP species abbr (different for Chinook)
-  sp_pick_ENM  <- str_to_lower(spp_lookup$Species_simple[spp_lookup$spp_abr == sp_pick])[1]
+  sp_pick <- cu_run$SPECIES_NAME[cu_run$FULL_CU_IN == cu_i] # species abbr
+  sp_pick_bcfp <- spp_lookup$spp_abr_bcfp[spp_lookup$Species_simple == sp_pick]  # BCFP species abbr (different for Chinook)
+  sp_pick_ENM  <- str_to_lower(sp_pick)
   # get model_spawning and model_rearing columns for CU species
   model_h_pick <- paste0("model_habitat_", sp_pick_bcfp)
   model_r_pick <- paste0("model_rearing_", sp_pick_bcfp)
@@ -560,9 +560,8 @@ for (i in 1:n.CUs) {
 
   # get cu FW timing info
   ## ocean entry age missing from Wilson study for some CUs, so use alternative values from Steph
-  fw_timing_i <- cu_run[cu_run$FULL_CU_IN == cu_i, ] %>%
-    select(Ocean_Entry_Age, Peak_Spawn_Julian, Peak_Ocean_Entry_Julian, Peak_Spawn_To_Ocean_Entry_Days)
-
+  fw_timing_i <- cu_timing_Fr[cu_timing_Fr$FULL_CU_IN == cu_i, ] %>%
+    select(oe_age, sp_peak, oe_peak, peak_sp_to_oe)
 
   #-------create subsetted data tables for each model
   fw_models_cu <- fw_models[stream_cu_sub, ] %>%
@@ -653,7 +652,8 @@ for (i in 1:n.CUs) {
   )
 
   wp_i <- station_lowflow_stats(wp_cu_ens,
-    historical = 0)
+    historical = 0) %>%
+    mutate(rcp = str_sub(experiment_id, -2, -1))
 
   # combine all into one table
   all_i <- list(streams =  ss_i,
@@ -679,7 +679,7 @@ names(fwR_all) <- cu_run$FULL_CU_IN
 # Define a function to pull out CU stats
 CVIS_fw_pull <- function(data,
                          RCP_pick = "45",
-                         SSP_pick = "ssp370",
+                         # SSP_pick = "ssp245",
                          period_pick = "3",
                          ct_pick = "ct_anad") {
   # Helper to safely filter and rename a tibble
@@ -713,7 +713,7 @@ CVIS_fw_pull <- function(data,
   ss <- data$streams %>%
     mutate(rcp = RCP_pick,
       period =  period_pick,
-      SSP = SSP_pick,
+      # SSP = SSP_pick,
       .before = 1)
 
   ENM_pull <- safe_process(data$ENM,
@@ -741,8 +741,8 @@ CVIS_fw_pull <- function(data,
     prefix = "high")
 
   wpQlow <- safe_process(data$wpQlow,
-    glue::glue('experiment_id == "{SSP_pick}" & period == "{period_pick}"'),
-    drop_cols = "period",
+    glue::glue('rcp == "{RCP_pick}" & period == "{period_pick}"'),
+    drop_cols = c("period", "rcp"),
     prefix = "")
 
   bind_cols(ss, ct_pull, ENM_pull, fwT, fwQlow, wpQlow, fwQhigh, )
@@ -751,7 +751,7 @@ CVIS_fw_pull <- function(data,
 
 periods <- c("3", "4", "5")  # periods to loop through
 RCPs    <- c("45", "85")  # RCPs to loop through
-SSPs    <- c("ssp370", "ssp585")  # SSPs to include for station low flow model
+# SSPs    <- c("ssp245", "ssp585")  # SSPs to include for station low flow model
 
 for (i in 1:length(periods)) {
   for (f in 1:length(RCPs)) {
@@ -761,14 +761,14 @@ for (i in 1:length(periods)) {
         CVIS_fw_pull(.x,
           RCP_pick = RCPs[f],
           period_pick = periods[i],
-          ct_pick = "ct_anad",
-          SSP_pick = SSPs[f]) %>%
+          # SSP_pick = SSPs[f],
+          ct_pick = "ct_anad") %>%
           mutate(FULL_CU_IN = .y, .before = 1)
       })
     }) %>%
-      left_join(select(cu_run, FULL_CU_IN, CU_NAME, CU_Species, FAZ),
+      left_join(select(cu_run, FULL_CU_IN, CU_NAME, SPECIES_NAME),
         by = "FULL_CU_IN") %>%
-      relocate(CU_NAME, CU_Species, FAZ, .after = FULL_CU_IN)
+      relocate(CU_NAME, SPECIES_NAME, .after = FULL_CU_IN)
 
     if (i == 1 && f == 1) {
       fwR_all_flat <- fwR_i
@@ -785,11 +785,10 @@ fwR_all_flat <- fwR_all_flat %>%
     period = as.numeric(period)) %>%
   rename(
     period_code = period,
-    fwres = Peak_Spawn_To_Ocean_Entry_Days
+    fwres = peak_sp_to_oe
   ) %>%
   left_join(period_lookup, join_by(period_code)) %>%
   relocate(period, .after = period_code)
-
 
 
 

@@ -1,14 +1,19 @@
 ---
-title: "Climate Vulnerability Indicators for Salmon: Methods and Results (draft)"
+title: 'Climate Vulnerability Indicators for Salmon: Methods and Results (draft)'
+author: "Cory Lagasse, Josie Iacarella, Colin Bailey, Michael Arbeider"
 date: "`r format(Sys.Date(), '%d %B %Y')`"
 output:
-  html_document:
-    toc: true
-    number-sections: true
-    toc_float: true
+  html_document:  
+    toc: true  
+    number-sections: true  
+    toc_float: true  
     toc_collapsed: true
     toc_depth: 3
     theme: flatly
+  word_document:
+    toc: true
+    toc_depth: '3'
+bibliography: references.json
 ---
 
 ```{r setup, include=FALSE}
@@ -16,25 +21,21 @@ knitr::opts_chunk$set(echo = F, warning = F, message = F, results = 'asis')
 
 ```
 
-This report summarizes climate vulnerability indicators for conservation units of Pacific salmon in the Fraser basin. Preliminary outputs of indicators are shown for 48 conservation units.
+Climate change is having profound effects on salmon populations in BC, contributing to declines of many stocks while introducing greater variability and uncertainty into assessments and planning [@macdonald2023]. A better understanding of the effects of climate change on salmon and their ecosystems can enable more realistic and effective long-term planning, and contextualize risks and benefits surrounding resource management decisions and mitigation actions.
+
+This report presents a data-informed, indicator-based approach for evaluating climate change vulnerability of Pacific salmon conservation units (CUs). The framework draws upon recently developed models of future climate conditions [@peña2024; @weller2024], cumulative habitat stressors [@csas2024; @murray2024], population status assessments [@csas2024a], and life history timing [@wilson2025] to characterize relative climate vulnerability for 50 CUs throughout the Fraser River watershed.
+
+Results presented in this report are preliminary and subject to change as the framework is further developed. Please do not distribute further without the authors' permission.
 
 # Methods Overview
 
-For each indicator of environmental change, a historical baseline period beginning in 1980 was compared to projected conditions averaged over 20-year periods, from 2041 to 2060, 2061 to 2080, and 2081 to 2100. Indicators were also compared across two emissions scenarios or representative concentration pathways (rcps), rcp45 and rcp85, representing moderate and high trajectories for continued greenhouse gas emissions. We focus on the mid-century 2041 to 2060 period for comparison of vulnerability scores due to its relevancy for informing planning and decision-making, and lower uncertainty compared to end-of-century projections.
-
-**Indicator Standardization**
-
-Raw indicator values were standardized between 0 and 1 to improve comparability, facilitate interpretation, and represent risk using mechanistic relationships and thresholds. A linear function or exponential function was used for most indicators, with the lowest and highest values scaled to the minimum and maximum CU values, using ensemble means across GCMs.  
-
-### Indicators
-
-The following indicators are included in this report:
+The framework is built upon a suite of quantitative indicators that represent mechanisms of climate change vulnerability for Pacific salmon as well as factors commonly included within climate change vulnerability assessments (CCVAs) based upon ecological principles. The framework includes 16 indicators across 5 categories representing environmental changes to salmon life stages and mechanisms of climate change vulnerability[@urban2016]. The categories are: freshwater spawning to rearing, freshwater upstream migration, marine nearshore, demographic, and genetic factors.
 
 ```{r}
 
 tbl_indicators %>%
   gt() %>%
-  tab_header("Vulnerability Indicators") %>%
+  tab_header("Table 1 - Vulnerability Indicators") %>%
   tab_options(
     table.font.size = "small",           # Reduce overall font size
     data_row.padding = px(1),           # Minimize padding between rows
@@ -42,7 +43,17 @@ tbl_indicators %>%
 
 ```
 
-# Preliminary Results (all indicators)
+**Indicator Standardization**\
+All indicators are standardized using response functions to translate raw values to a scale from 0 to 1, where 0 represents lowest risk and 1 is the highest risk relative to other CUs. Standardization facilitates easier interpretation and comparison of indicators, and allows the representation of risk based on stressor-response relationships and thresholds. A linear function or exponential function was used for most indicators, with the lowest and highest values scaled to the 95th percentile of minimum and maximum CU values using ensemble means across GCMs.
+
+**Estimating Overall Vulnerability**
+
+To evaluate vulnerability across indicators, standardized values are combined within and across each category using additive and multiplicative approaches. Various methods are used in CCVAs and risk assessments for determining overall risk, such as additive or multiplicative scores, scaling between 0 and 1 (Boyce 2024; CSAS 2024a), threshold approaches (Fisheries and Oceans Canada 2019), and logic models (Crozier et al. 2019). For the preliminary outputs in this report, a combination of multiplicative and additive approaches are used. Further approaches for summarizing overall vulnerability and sensitivity to the selected method will be explored.
+
+**Emissions scenarios and time period**\
+CCVAs can assess vulnerability for a particular time period or multiple time periods, as well as different emissions scenarios depending upon assessment objectives. Indicators are based primarily on the CMIP5 suite of global climate models and results are presented for the representative concentration pathway (RCP) 4.5, representing moderate emission reductions compared to business as usual. Alternative results under RCP 8.5, representing higher climate forcing from emissions, are also shown where available. Results are currently presented for the mid-century period (2040-2060), but will also be compared to the end-of-century period (2080-2100) to examine the sensitivity of vulnerability indicator values over time.
+
+# Overall Vulnerability
 
 ### Standardized indicator values {.tabset .tabset-pills}
 
@@ -91,10 +102,10 @@ for (rcp_pick in unique(all_flat_std$rcp))
 
 ### Combined indicator scores {.tabset .tabset-pills}
 
-Overall climate vulnerability can be measured as the sum or average of the standardized scores for each indicator.  The following plots show total scores and ranks across most indicators.  Three methods are used for calculating total scores and ranks:  
-addall - sum of all standardized indicator values  
-avgall - average of all standardized indicator values  
-sumavgs - sum of the average score for each life stage/type (freshwater spawning & rearing, upstream migration, demographic, and marine).  
+Overall climate vulnerability can be measured as the sum or average of the standardized scores for each indicator. The following plots show total scores and ranks across most indicators. Three methods are used for calculating total scores and ranks:\
+addall - sum of all standardized indicator values\
+avgall - average of all standardized indicator values\
+sumavgs - sum of the average score for each life stage/type (freshwater spawning & rearing, upstream migration, demographic, and marine).
 
 ```{r combined scores}
 
@@ -147,11 +158,9 @@ for (rcp_pick in unique(combined_scores_std$rcp))
 
 ```
 
-
-
 ### Correlation of indicators {.tabset .tabset-pills}
 
-One test for the utility of an indicator is the correlation with other indicator values. The plot below shows correlation of raw indicator values, subsetted to show indicators of freshwater environmental change only.
+One test for the utility of an indicator is the correlation with other indicator values. The plot below shows correlation of raw indicator values, where higher correlation among indicators indicates potential overlap in the vulnerability mechanism or information being evaluated.
 
 ```{r correlation, results = 'asis'}
 
@@ -192,6 +201,8 @@ for (rcp_pick in unique(all_flat_std$rcp))
 **August flow projections at gauge stations** - Preliminary model outputs of statistically downscaled flow projections for gauge stations in British Columbia. Developed by Sacha Ruzzante et al.
 
 **Environmental Niche Models** - Models of current and future habitat favourability for British Columbia and the Western US [<https://cdnsciencepub.com/doi/10.1139/cjfas-2023-0096>]
+
+**PCIC Variable Infiltration Capacity With Glaciers (VIC-GL) gridded model** - Dynamically downscaled projections of stream temperature and flow from 1980 to 2099 for gauged watersheds within British Columbia [<https://pacificclimate.org/analysis-tools/salmon-climate-impacts-portal>]
 
 **PSF CU-Specific Life History Timing** - timing of life history events for determining freshwater residency time [<https://datadryad.org/dataset/doi:10.5061/dryad.wm37pvmwx>]
 
@@ -284,6 +295,8 @@ for(rcp_pick in unique(all_flat_std$rcp))
 
 ### Change in August flow (station model) {.tabset .tabset-pills}
 
+This is an alternative indicator for low August flows using a statistically downscaled model of flows at gauge stations in BC (Ruzzante in prep.) It is included for comparison to the PCIC VIC-GL stream model. The projections for this model use the CMIP6 suite of global climate models, unlike the other models which are all based on CMIP5 models.
+
 ```{r}
 
 for(rcp_pick in unique(all_flat_std$rcp))
@@ -305,6 +318,8 @@ for(rcp_pick in unique(all_flat_std$rcp))
 ```
 
 ### Change in Nov-Jan flow {.tabset .tabset-pills}
+
+The proportional change in flows from November to January were assessed using model projections from the PCIC VIC-GL model downscaled to the stream network within the Fraser basin. Increases in flows during this period may cause redd scour and lead to higher mortality during egg incubation.
 
 ```{r}
 
@@ -381,9 +396,9 @@ for(rcp_pick in unique(all_flat_std$rcp))
 
 Indicators for the upstream migration life stage represent changes to stream temperatures and flows, and distance to spawning sites. For each CU, a migration path from river mouth to NUSEDS spawning sites was subsetted from the BC Freshwater Atlas stream network. The upstream migration distance was calculated as the length of all stream segments within the migration path, weighted by the proportion of spawning sites that terminated past the segment.
 
-To estimate temperatures and flow during upstream migration, an upstream movement model was applied to stream segments within the migration path and used to subset days of the year and spatial grid cells from the VIC-GL model. The model began with stream segments within 100km of the river mouth at the start of run timing. The front end of this spatial subset was moved upstream at a rate equal to the distance to spawning sites divided by the number of days between spawn timing start and run timing start. This assumes that the spawn timing start coincides with arrival to the spawning sites. The tail end of the migration was modelled to arrive at the spawning grounds at the peak spawn date, and moved upstream at a rate equal to the distance to spawning sites divided by the number of days between spawn timing peak and run timing end.
+To estimate temperatures and flow during upstream migration, an upstream movement model was applied to stream segments within the migration path and used to subset days of the year and spatial grid cells from the VIC-GL model. The model began with stream segments within 100km of the river mouth at the start of run timing. The front end of this spatial subset was moved upstream at a rate equal to the distance to spawning sites divided by the number of days between spawn timing start and run timing start. This assumes that the spawn timing start coincides with arrival to the spawning sites. The tail end of the migration was modelled to arrive at the spawning grounds at the peak spawn date, and moved upstream from the river mouth at a rate equal to the distance to spawning sites divided by the number of days between spawn timing peak and run timing end.
 
-Migration temperatures are represented using two indicators: a) projected temperatures during the migration window, and b) proportion of the migration path above 21 degrees Celsius. The latter indicator is intended to represent thermal barriers to migration that can develop at high temperatures and is calculated as the average of the number of grid cells above 21 degrees Celsius across all days included in the upstream movement model.
+Migration temperatures are represented using three indicators: a) projected temperatures during the migration window, b) proportion of the migration path above 21 degrees Celsius, and c) the proportional change in discharge from the historical period. The proportion above 21 degrees Celsius is intended to represent thermal barriers to migration that can develop at high temperatures and is calculated as the average of the number of grid cells above 21 degrees Celsius across all days included in the upstream movement model.
 
 ```{r migration table}
 tbl_indicators %>%
@@ -492,7 +507,7 @@ for(rcp_pick in unique(all_flat_std$rcp))
 
 ### Methods
 
-Demographic indicators were derived from recent Wild Salmon Policy assessments in the Fraser Basin using the Rapid Status Approximations method. The status indicator represents the categorical status assessments (Red, Red/Amber, Amber, Amber/Green, Green), which is transformed between 0 to 1 using a step transformation. The number of mature individuals is calculated as the arithmetic mean of the number of spawners from the most recent generation for which data was compiled and available.
+Demographic indicators were derived from recent Wild Salmon Policy assessments in the Fraser Basin using the Rapid Status Approximations method. The status indicator represents the categorical status assessments (Red, Red/Amber, Amber, Amber/Green, Green), which is transformed between 0 to 1 using a step transformation, where 0 represents a Green status and 1 is Red status. The number of mature individuals is calculated as the arithmetic mean of the number of spawners from the most recent generation for which data was compiled and available.
 
 ```{r demographics table}
 tbl_indicators %>%
@@ -605,3 +620,13 @@ for(rcp_pick in unique(all_flat_std$rcp))
   
 }
 ```
+
+## Genetic Indicators
+
+Genetic indicators to be added: heterozygosity and genomic offset.
+
+
+# References
+
+
+

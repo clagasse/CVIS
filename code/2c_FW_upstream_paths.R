@@ -36,13 +36,6 @@ source(file.path(here(), "code", "0_setup.R"))
 
 load(file.path(paths$fw, "2025-07-22_fw_bcfp_downstreamdist.Rdata"))
 
-### NUSEDS salmon spawner locations
-## version from FIA. Usage column added by Michael Arbeider
-nuseds_Fr <- read_csv(file.path(paths$salmon, "NuSEDS_CU_System_sites_202406.csv")) %>%
-  st_as_sf(coords = c("X_LONGT", "Y_LAT"), crs = 4269) %>%
-  st_transform(3005) %>%
-  filter(USAGE != "REMOVE")
-
 
 #--------------------- Downstream distance for stream network -------------------
 

@@ -23,10 +23,10 @@ source(file.path(here(), "code", "0_setup.R"))
 
 
 # combine indicators into common table
-all_flat <- CVIS_dem %>%
+all_flat <- cu_run %>%
   full_join(fwR_all_flat, join_by(FULL_CU_IN, CU_NAME)) %>%
-  left_join(migr_all_flat, join_by(FULL_CU_IN, CU_NAME, CU_Species, rcp, period)) %>%
-  left_join(mar_all_flat, join_by(FULL_CU_IN, CU_NAME, Species_simple, rcp == RCP, period_code)) %>%
+  left_join(migr_all_flat, join_by(FULL_CU_IN, CU_NAME, rcp, period)) %>%
+  left_join(mar_all_flat, join_by(FULL_CU_IN, CU_NAME, rcp == RCP, period_code)) %>%
   relocate(rcp, period, period_code, .after = Species_simple)
 
 
@@ -79,13 +79,13 @@ all_flat_std <- all_flat_std %>%
 
 # calculate species and all CU average for each indicator (for plotting) and put into unique columns
 all_std_sp_avgs <- all_flat_std %>%
-  group_by(Species_simple, rcp, period_code) %>%
+  group_by(SPECIES_NAME, rcp, period_code) %>%
   summarize(across(starts_with("std_"), \(x) mean(x, na.rm = TRUE)), .groups = "drop") %>%
   mutate(FULL_CU_IN = "Species average", CU_NAME = "Species average") %>%
   # rename columns to indicate species average
   rename_with(.fn = ~ paste0("spavg_", .x), .cols = starts_with("std_"))  %>%
   # bind new columns back to CU values
-  left_join(all_flat_std, join_by(Species_simple, rcp, period_code))
+  left_join(all_flat_std, join_by(SPECIES_NAME, rcp, period_code))
 
 
 # calculate overall average for each indicator (for plotting)
@@ -102,7 +102,7 @@ combined_scores_std <- all_flat_std %>%
   subset_ind_table(indicators_choose = tbl_indicators$abbrev,
     get_std = T,
     get_raw = F,
-    id_col = "CVIS_NAME",
+    id_col = c("FULL_CU_IN", "CVIS_NAME"),
     rename_cols = F) %>%
   sum_selected_columns(match_strings = tbl_indicators$abbrev,
     new_col_name = "std_addall") %>%

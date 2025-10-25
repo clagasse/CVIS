@@ -129,7 +129,7 @@ step_std <- function(x, ..., x1 = 200, x2 = 300, x3 = NA, x4 = NA) {
 }
 
 
-cat_std <- function(x, ..., x1 = "G", x2 = "A/G", x3 = "A", x4 = "R/A", x5 = "R") {
+cat_std <- function(x, ..., x1 = "Green", x2 = "Amber/Green", x3 = "Amber", x4 = "Red/Amber", x5 = "Red") {
   # Standardize a score between 0 and 1 based on category values
   y <- rep(NA, length(x))
 
@@ -173,7 +173,8 @@ simulate_range <- function(x, n = 100) {
 sum_selected_columns <- function(data, match_strings, new_col_name = "row_sum") {
 
   pattern <- paste(match_strings, collapse = "|")
-  selected_cols <- grep(pattern, names(data), value = TRUE)
+  selected_cols <- names(data)[str_detect(names(data), pattern)]
+  if (sum(selected_cols %in% "SPECIES_NAME") > 0) selected_cols <- selected_cols[str_detect(selected_cols, "SPECIES_NAME", negate = TRUE)]
 
   # Apply row-wise sum across selected columns
   data %>%
@@ -186,7 +187,8 @@ sum_selected_columns <- function(data, match_strings, new_col_name = "row_sum") 
 
 multiply_selected_columns <- function(data, match_strings, new_col_name = "row_product") {
   pattern <- paste(match_strings, collapse = "|")
-  selected_cols <- grep(pattern, names(data), value = TRUE)
+  selected_cols <- names(data)[str_detect(names(data), pattern)]
+  if (sum(selected_cols %in% "SPECIES_NAME") > 0) selected_cols <- selected_cols[str_detect(selected_cols, "SPECIES_NAME", negate = TRUE)]
 
   # Apply row-wise sum across selected columns
   data %>%
@@ -199,7 +201,8 @@ multiply_selected_columns <- function(data, match_strings, new_col_name = "row_p
 
 average_selected_columns <- function(data, match_strings, new_col_name = "row_product") {
   pattern <- paste(match_strings, collapse = "|")
-  selected_cols <- grep(pattern, names(data), value = TRUE)
+  selected_cols <- names(data)[str_detect(names(data), pattern)]
+  if (sum(selected_cols %in% "SPECIES_NAME") > 0) selected_cols <- selected_cols[str_detect(selected_cols, "SPECIES_NAME", negate = TRUE)]
 
   # Apply row-wise sum across selected columns
   data %>%
@@ -216,7 +219,7 @@ average_selected_columns <- function(data, match_strings, new_col_name = "row_pr
 # by default will take the mean and gcm variation of unstandardized columns for the selected indicator
 subset_ind_table <- function(data,
                              indicators_choose,
-                             sp_col = "Species_simple",
+                             sp_col = "SPECIES_NAME",
                              stat_suffix = "mean",
                              id_col = "FULL_CU_IN",
                              rcp_col = "rcp",
@@ -274,53 +277,76 @@ subset_ind_table <- function(data,
 
 }
 
-# utility to function to update indicator column names for plotting
+# utility function to update indicator column names for plotting
+library(dplyr)
+library(stringr)
+
 rename_ind_table <- function(data,
                              indicator_abbrev,
                              gcm_range_suffix = c("qlowgcm", "qhighgcm", "qmingcm", "qmaxgcm"),
                              sp_range_suffix = c("qlowsp", "qhighsp"),
-                             single_value_col = FALSE) ## if true output will be in a single column named "value"
-{
-  # take column names that contain prefix with model type
+                             name_suffix = "",  # optional name suffix
+                             single_value_col = FALSE) {
+  # Identify relevant columns
   cols_sub <- names(data)[str_detect(names(data), indicator_abbrev)]
 
-  # get raw and standardized columns
   stat_col <- cols_sub[!str_detect(cols_sub, "std")]
   stat_col <- stat_col[!str_detect(stat_col, paste0(gcm_range_suffix, collapse = "|"))]
   stat_col <- stat_col[!str_detect(stat_col, paste0(sp_range_suffix, collapse = "|"))]
 
   std_col <- cols_sub[str_detect(cols_sub, "std")]
 
-  # get gcm variation columns
   min_gcmcol <- cols_sub[str_detect(cols_sub, gcm_range_suffix[1])]
   max_gcmcol <- cols_sub[str_detect(cols_sub, gcm_range_suffix[2])]
 
-  # get sp variation columns
   min_spatcol <- cols_sub[str_detect(cols_sub, sp_range_suffix[1])]
   max_spatcol <- cols_sub[str_detect(cols_sub, sp_range_suffix[2])]
 
-  # create output dataframe with consistent names
   out_data <- data
-  if (length(stat_col) > 0) out_data <- rename(out_data, raw = !!stat_col)
-  if (length(std_col) > 0) out_data <- rename(out_data, std = !!std_col)
 
-  if (length(min_gcmcol) > 0 & length(max_gcmcol) > 0) {
-    out_data <- rename(out_data,
-      min_gcm = !!min_gcmcol,
-      max_gcm = !!max_gcmcol)
-  }
-  if (length(min_spatcol) > 0 & length(max_spatcol) > 0) {
-    out_data <- rename(out_data,
-      min_spat = !!min_spatcol,
-      max_spat = !!max_spatcol)
+  # Rename raw and std columns with suffix
+  if (length(stat_col) > 0) {
+    out_data <- out_data %>%
+      rename_with(~ paste0(name_suffix, "raw"), all_of(stat_col))
   }
 
-  if (single_value_col == TRUE & length(stat_col) > 0) out_data  <-  rename(out_data, value = raw)
-  if (single_value_col == TRUE & length(std_col)  > 0) out_data <-  rename(out_data, value = std)
+  if (length(std_col) > 0) {
+    out_data <- out_data %>%
+      rename_with(~ paste0(name_suffix, "std"), all_of(std_col))
+  }
+
+  # Rename GCM range columns
+  if (length(min_gcmcol) > 0) {
+    out_data <- out_data %>%
+      rename_with(~ paste0(name_suffix, "min_gcm"), all_of(min_gcmcol))
+  }
+
+  if (length(max_gcmcol) > 0) {
+    out_data <- out_data %>%
+      rename_with(~ paste0(name_suffix, "max_gcm"), all_of(max_gcmcol))
+  }
+
+  # Rename SP range columns
+  if (length(min_spatcol) > 0) {
+    out_data <- out_data %>%
+      rename_with(~ paste0(name_suffix, "min_spat"), all_of(min_spatcol))
+  }
+
+  if (length(max_spatcol) > 0) {
+    out_data <- out_data %>%
+      rename_with(~ paste0(name_suffix, "max_spat"), all_of(max_spatcol))
+  }
+
+  # Optionally collapse to single value column
+  if (single_value_col) {
+    value_col <- if (length(stat_col) > 0) paste0(name_suffix, "raw") else paste0(name_suffix, "std")
+    out_data <- out_data %>%
+      rename(value = all_of(value_col))
+  }
 
   return(out_data)
-
 }
+
 
 
 standardize_indicator <- function(data,
@@ -386,7 +412,7 @@ get_CU_indicators <- function(data,
                               cu_i,
                               RCP_pick = "45",
                               period_pick = "3",
-                              sp_col = "Species_simple",
+                              sp_col = "SPECIES_NAME",
                               indicators_choose = tbl_indicators$abbrev,
                               use_standardized = TRUE) {
   data <- filter(data,
