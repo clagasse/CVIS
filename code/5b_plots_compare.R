@@ -16,12 +16,6 @@
 
 ###############################################################################
 
-# libraries for plotting
-# library(ggforce)   # for custom facet sizes
-library(ggtext)  # for coloured text in axis labels
-library(RColorBrewer)
-# library(ggsci)   # colour palettes - pal_futurama
-
 ## color palette function
 get_scico_palette <- function(data, column, palette_name = "berlin") {
   categories <- sort(unique(data[[column]]))
@@ -38,7 +32,25 @@ get_brewer_palette <- function(data, column, palette_name = "Set2") {
   # brewer.pal(n, palette)
 }
 
-species_palette <- get_brewer_palette(cu_run, "SPECIES_NAME", "Set1")
+# Define species color palette (adjust as needed)
+# species_palette <- get_brewer_palette(cu_run, "SPECIES_NAME", "Set1")
+species_palette <- c(
+  "Chinook" = "forestgreen",
+  "Coho" = "darkblue",
+  "Sockeye" = "firebrick4",
+  "Pink" = "maroon4",
+  "Chum" = "#E69F00"
+)
+
+
+# Indicator palette used for labelling indicator categories
+indicator_palette <- c(
+  "Demographics" = "purple",
+  "Spawning & Rearing" = "turquoise",
+  "Upstream Migration" = "royalblue",
+  "Nearshore Marine"   = "green4",
+  "Genetics"  = "orange3"
+)
 
 
 # species_palette <- pal_futurama()(length(unique(cu_run$Species_simple)))
@@ -152,61 +164,11 @@ plot_lollipop <- function(data,
   has_spat <- FALSE
   if (sum(str_detect(names(plot_data), "spat")) > 0) has_spat <- TRUE
 
-  #
-  #   sp_suffix <- c("qlowsp", "qhighsp")
-  #   gcm_range_suffix <- c("qlowgcm", "qhighgcm")
-  #
-  #   # Define suffixes
-  #   stat_suffix <- if_else(indicator_stat %in% c("value", "category"), indicator_pick, indicator_stat)
-  #
-  #   # take column names that contain prefix with model type
-  #   cols_sub <- names(data)[str_detect(names(data), indicator_pick)]
-  #
-  #   if (use_standardized == TRUE) {
-  #     cols_sub <- cols_sub[str_detect(cols_sub, "std")]  # select std columns
-  #   }
-  #   if (use_standardized == FALSE) cols_sub <- cols_sub[!str_detect(cols_sub, "std")]
-  #
-  #   # take names with prefix that also contain stat suffix
-  #   stat_col <- cols_sub[str_detect(cols_sub, stat_suffix)] # must contain mean
-  #   min_spcol <- cols_sub[str_detect(cols_sub, sp_suffix[1])]
-  #   max_spcol <- cols_sub[str_detect(cols_sub, sp_suffix[2])]
-  #   min_gcmcol <- cols_sub[str_detect(cols_sub, paste0(gcm_range_suffix[1], collapse = "|"))]
-  #   max_gcmcol <- cols_sub[str_detect(cols_sub, paste0(gcm_range_suffix[2], collapse = "|"))]
-  #
-  #
-  #   # Prepare data for plotting
-  #   plot_data <- data %>%
-  #     select(all_of(c(id_col, stat_col, sp_col))) %>%
-  #     rename(
-  #       mean = !!stat_col,
-  #       id = !!id_col,
-  #       sp = !!sp_col
-  #     )
-
   plot_data <- plot_data %>%
     mutate(id_label = paste0(
       "<span style='color:", plot_colours[plot_data$sp], "'>",
       plot_data$id, "</span>"
     ))
-
-  # # Add min and max if available
-  # if (length(min_spcol) == 1 && length(max_spcol) == 1) {
-  #   plot_data <- plot_data %>%
-  #     mutate(minsp = data[[min_spcol]], maxsp = data[[max_spcol]])
-  #   has_range <- TRUE
-  # } else {
-  #   has_range <- FALSE
-  # }
-  #
-  # # add GCM range if available
-  # if (length(min_gcmcol) == 1 && length(max_gcmcol) == 1) {
-  #   plot_data <- plot_data %>%
-  #     mutate(mingcm = data[[min_gcmcol]], maxgcm = data[[max_gcmcol]])
-  #   has_gcm <- TRUE
-  # } else {
-  #   has_gcm <- FALSE
-  # }
 
   p <- ggplot(plot_data, aes(x = id_label))
 
@@ -536,14 +498,14 @@ xy_indicator_plot <- function(data,
 
 # Test plots --------------------------------------------------------------
 
-filter_std <- all_flat_std %>%
-  mutate(prop_coverage = as.numeric(prop_coverage)) %>%
-  filter(rcp == "85",
-    period_code == 3,
-    prop_coverage > 0.2)
-
-p <- xy_indicator_plot(filter_std,
-  point_col = "prop_coverage")
+# filter_std <- all_flat_std %>%
+#   mutate(prop_coverage = as.numeric(prop_coverage)) %>%
+#   filter(rcp == "85",
+#     period_code == 3,
+#     prop_coverage > 0.2)
+#
+# p <- xy_indicator_plot(filter_std,
+#   point_col = "prop_coverage")
 
 # flat_std_sub <- filter(
 #   all_flat_std,

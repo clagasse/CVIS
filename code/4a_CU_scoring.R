@@ -14,21 +14,12 @@ library(here)
 setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
 
-# # # freshwater stream indicator statistics
-# load(file.path(paths$fw, "2025-09-11_fw_rearing_indicators.Rdata"))
-# # migration indicators
-# load(file.path(paths$fw, "2025-09-11_migr_stats.Rdata"))
-# # marine indicators
-# load(file.path(paths$marine, "2025-09-10_marine_stats.Rdata"))
-
-
 # combine indicators into common table
 all_flat <- cu_run %>%
-  full_join(fwR_all_flat, join_by(FULL_CU_IN, CU_NAME)) %>%
+  left_join(fwR_all_flat, join_by(FULL_CU_IN, CU_NAME, SPECIES_NAME), relationship = "one-to-many") %>%
   left_join(migr_all_flat, join_by(FULL_CU_IN, CU_NAME, rcp, period)) %>%
   left_join(mar_all_flat, join_by(FULL_CU_IN, CU_NAME, rcp == RCP, period_code)) %>%
-  relocate(rcp, period, period_code, .after = Species_simple)
-
+  relocate(rcp, period, period_code, .after = SPECIES_NAME)
 
 
 #------------- 2. Calculate standardized scores-------------------------------
@@ -68,8 +59,8 @@ all_flat_std <- all_std %>%
     .cols = matches(tbl_indicators$abbrev)
   )
 
-all_flat_std <- all_flat_std %>%
-  left_join(all_flat, join_by(FULL_CU_IN, rcp, period_code))
+all_flat_std <- all_flat %>%
+  left_join(all_flat_std, join_by(FULL_CU_IN, rcp, period_code))
 
 # order categories as factors
 # all_flat_std$CU_Species <- factor(all_flat_std$CU_Species, levels = sort(unique(all_flat_std$CU_Species)))

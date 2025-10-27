@@ -407,59 +407,71 @@ standardize_indicator <- function(data,
 }
 
 
-# function to get selected indicator results from a single CU and pivot longer for plotting
+
 get_CU_indicators <- function(data,
                               cu_i,
                               RCP_pick = "45",
                               period_pick = "3",
-                              sp_col = "SPECIES_NAME",
+                              sp_col_name = "SPECIES_NAME",
+                              id_col_name = "FULL_CU_IN",
                               indicators_choose = tbl_indicators$abbrev,
                               use_standardized = TRUE) {
-  data <- filter(data,
+
+  data_sub <- filter(data,
     rcp == RCP_pick,
     period_code == period_pick)
 
-  id_col <- "FULL_CU_IN"
-
-  sp_pick <- data %>%
+  sp_pick <- data_sub %>%
     filter(FULL_CU_IN == cu_i) %>%
-    pull(sp_col) %>%
+    pull(sp_col_name) %>%
     as.character() %>%
     unique()
 
   # subset columns for chosen indicators
-  cols_sub <- names(data)[str_detect(names(data), paste(indicators_choose, collapse = "|"))]
+  cols_sub <- names(data_sub)[str_detect(names(data_sub), paste(indicators_choose, collapse = "|"))]
 
-  data_sub <- data %>%
-    select(all_of(c(id_col, sp_col, cols_sub)))
+  data_sub <- data_sub %>%
+    select(all_of(c(id_col_name, sp_col_name, cols_sub)))
 
+  # Calculate species averages (including GCM ranges)
   sp_avgs <- data_sub %>%
-    filter(!!sym(sp_col) == sp_pick) %>%
+    filter(!!sym(sp_col_name) == sp_pick) %>%
     summarize(across(starts_with("std_"), \(x) mean(x, na.rm = TRUE)), .groups = "drop") %>%
-    # mutate(FULL_CU_IN = "Species average", CU_NAME = "Species average") %>%
-    # rename columns to indicate species average
-    # rename_with(.fn = ~ paste0("spavg_", .x), .cols = starts_with("std_")) %>%
     pivot_longer(cols = contains("std"),
       values_to = "sp_value",
       names_prefix = "std_",
       names_sep = "_",
       names_to = c("indicator", "stat"))
 
+  # Calculate all CU averages (including GCM ranges)
+  all_cu_avgs <- data_sub %>%
+    summarize(across(starts_with("std_"), \(x) mean(x, na.rm = TRUE)), .groups = "drop") %>%
+    pivot_longer(cols = contains("std"),
+      values_to = "allcu_value",
+      names_prefix = "std_",
+      names_sep = "_",
+      names_to = c("indicator", "stat")) %>%
+    mutate(stat = if_else(is.na(stat), "mean", stat))
+
+  # Get CU values (including GCM ranges)
   data_CU <- data_sub %>%
     filter(FULL_CU_IN == cu_i) %>%
-    select(id_col, sp_col, starts_with("std_")) %>%
+    select(id_col_name, sp_col_name, starts_with("std_")) %>%
     pivot_longer(cols = contains("std"),
       values_to = "cu_value",
       names_prefix = "std_",
       names_sep = "_",
       names_to = c("indicator", "stat"))
 
+  # Join all together
   data_CU <- data_CU %>%
     left_join(sp_avgs, join_by(indicator, stat)) %>%
+    left_join(all_cu_avgs, join_by(indicator, stat)) %>%
     mutate(stat = if_else(is.na(stat), "mean", stat))  # fill NAs with mean
 
   return(data_CU)
 }
+
 
 # function to convert a numeric score to a rank based on values across CUs, also can rank within groups
 rank_scores <- function(data, score_col, group_cols, rank_col = "score_rank", descending = TRUE) {

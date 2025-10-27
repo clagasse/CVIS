@@ -8,25 +8,6 @@
 # load packages and set root project directory
 rm(list = ls())
 
-## plotting packages
-# library(rcartocolor) #mapping palettes
-library(scico) # scientific colour palettes
-# library(wesanderson); library(viridis)  #colour palettes
-library(patchwork) # for multi-panel plots
-# library(ggridges)  # for ridgeline plots
-library(corrplot)  # correlation matrix plots
-# library(ggdist)  #ggplot visualizations for distributions
-library(ggspatial)
-
-## reporting and markdown packages
-# library(skimr)  # summary statistics
-# library(ggdist)
-library(gt)   # gg tables for markdown
-# library(Hmisc)   #weighted means and sds
-
-## spatial data packages
-library(pacea)  # bc_coast shapefile
-
 
 # set-up used in every script
 library(here)
@@ -47,17 +28,12 @@ load(file.path(paths$fw, "2025-09-30_migr_stats.Rdata"))
 # marine indicators
 load(file.path(paths$marine, "2025-09-29_marine_stats.Rdata"))
 
-
 # spatial models
 # stream model outputs for freshwater spawning and rearing indicators
 load(file.path(paths$fw, "fw_models_tscapes.Rds"))
 
 # indicator spatial outputs
 load(file.path(paths$fw, "fw_stream_indicators_sp.Rds"))
-
-# fwModels <- readRDS(file.path(paths$fw, "2025-09-11_fw_stream_models.Rds"))
-### Load ENM - these are lower resolution stream segments than bcfpa
-# load(file.path(paths$fw, "ENM_all_sp.Rds"))
 
 # lakes_Fr - freshwater lakes for plotting
 load(file.path(paths$fw, "BC_FWA_LAKES_FR.Rds"))
@@ -74,8 +50,12 @@ watershed_flow <- st_read(file.path(paths$climate, "Ruzzante_low_flows", "waters
   left_join(select(stations_stats, ID, regime), by = c("ID" = "ID")) %>%
   mutate(regime = as.factor(regime)) %>%
   st_transform(3005)
+# flow stations
+stations_flow <- st_read(file.path(paths$climate, "Ruzzante_low_flows", "stations.gpkg"), quiet = TRUE) %>%
+  st_transform(3005)
 
-
+# read Temperature gauge locations
+Tw_stations <- st_read(file.path(paths$climate, "Tw_stations.gdb"), quiet = TRUE)
 
 # marine SST grid
 SST_grid <- st_read(file.path(paths$climate,
@@ -83,8 +63,8 @@ SST_grid <- st_read(file.path(paths$climate,
 MAZ     <- st_read(file.path(paths$spatial, "MAZ", "MAZ_Final.shp"))
 
 # PCIC ensemble model outputs by period
-PCIC_daily45 <- read_mdim(file.path(paths$climate, "PCIC_averaged", "combined",
-  "daily_rcp45_ensemble.nc"))
+# PCIC_daily45 <- read_mdim(file.path(paths$climate, "PCIC_averaged", "combined",
+#   "daily_rcp45_ensemble.nc"))
 
 # 1 - Freshwater data processing ------------------------------------------
 
@@ -111,18 +91,18 @@ PCIC_daily45 <- read_mdim(file.path(paths$climate, "PCIC_averaged", "combined",
 # and indicators for each CU. There are freshwater spawning/rearing indicators
 # and freshwater migration indicators
 
-## script to determine which streams from the main data table are within each cu boundary
-source(file.path("code", "2a_FW_boundary_subset.R"))
-
-## script to calculate spawning statistics for each CU, using subsetted streams from 2a
-source(file.path("code", "2b_FW_rearing_stats.R"))   # rearing stats script
-
-## script to determine migration paths for each CU from river mouth to NUSEDS sites
-# and calculate downstream distance for each stream segment to the ocean
-source(file.path("code", "2c_FW_upstream_paths.R"))  # migration paths script
-
-## script to calculate migration statistics for each CU, using paths from 2c
-source(file.path("code", "2d_FW_migration_stats.R"))  # migration stats script
+# ## script to determine which streams from the main data table are within each cu boundary
+# source(file.path("code", "2a_FW_boundary_subset.R"))
+#
+# ## script to calculate spawning statistics for each CU, using subsetted streams from 2a
+# source(file.path("code", "2b_FW_rearing_stats.R"))   # rearing stats script
+#
+# ## script to determine migration paths for each CU from river mouth to NUSEDS sites
+# # and calculate downstream distance for each stream segment to the ocean
+# source(file.path("code", "2c_FW_upstream_paths.R"))  # migration paths script
+#
+# ## script to calculate migration statistics for each CU, using paths from 2c
+# source(file.path("code", "2d_FW_migration_stats.R"))  # migration stats script
 
 
 # 3 - Marine data processing and statistics -----------------------------------
@@ -131,13 +111,13 @@ source(file.path("code", "2d_FW_migration_stats.R"))  # migration stats script
 # common formats.
 
 ## importing and process of marine data
-source(file.path(paths$code, "3a_marine_data_import.R"))  # marine data import script
-
-## script to calculate marine statistics for each CU
-source(file.path(paths$code, "3c_marine_stats.R"))  # marine stats script
-
-## script to get a standardized grid output for marine data (mostly for plotting)
-source(file.path(paths$code, "3b_marine_grid_standardize.R"))  # marine grid standardize script
+# source(file.path(paths$code, "3a_marine_data_import.R"))  # marine data import script
+#
+# ## script to calculate marine statistics for each CU
+# source(file.path(paths$code, "3c_marine_stats.R"))  # marine stats script
+#
+# ## script to get a standardized grid output for marine data (mostly for plotting)
+# source(file.path(paths$code, "3b_marine_grid_standardize.R"))  # marine grid standardize script
 
 
 # 4 - Combining and standardizing -----------------------------------------
@@ -145,14 +125,8 @@ source(file.path(paths$code, "3b_marine_grid_standardize.R"))  # marine grid sta
 ## Combining all indicators into a common table, and applying standardization functions
 source(file.path(paths$code, "4a_CU_scoring.R"))
 
-# 5. Plotting -------------------------------------------------------------
 
-# plots of maps and other outputs for individual CU
-source(file.path(paths$code, "5a_plots_CU.R"))
-# plots of indicator values across CUs
-source(file.path(paths$code, "5b_plots_compare.R"))
-
-# 6. Reports --------------------------------------------------------------
+# 5. Reports --------------------------------------------------------------
 
 for (i in 1:n.CUs) {
 
@@ -178,7 +152,10 @@ rmarkdown::render(
 
 
 ## Shiny app
-#
-# source(file.path(here(), "code", "shiny", "FW_spawning_app.R"))
-#
+
+shiny::runApp(file.path(here(), "code", "cu_indicator_app_enhanced.R"))
+
+shiny::runApp(file.path(here(), "code", "Oct27_cu_indicator_app.R"))
+
+shiny::runApp(file.path(here(), "code", "app.R"))
 # shinyApp(ui, server)

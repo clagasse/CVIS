@@ -14,10 +14,9 @@
 # 6. Nearshore marine indicator plot
 
 
-#
 ###############################################################################
 
-library(ggspatial)  # base map tiles
+
 
 # 1. CU timing plot -------------------------------------------------------
 
@@ -419,6 +418,309 @@ marine_indicator_plot <- function(SST_cu_sp,
 
 
 }
+
+
+
+# 11. CU Abundance and Status ---------------------------------------------
+
+abundance_status_plot <- function(status_data,
+                                  cu_i) {
+
+  status_palette <- c(
+    "Red" = "firebrick",
+    "Amber" = "orange",
+    "Green" = "green2",
+    "None"  = "grey40"
+  )
+
+  plot_data <- status_data %>%
+    filter(FULL_CU_IN == cu_i) %>%
+    mutate(ConfidenceRating5 = if_else(is.na(ConfidenceRating5), "None", ConfidenceRating5)) %>%
+    mutate(
+      RapidStatus = factor(RapidStatus, levels = c("Red", "Amber", "Green", "None")),
+      ConfidenceRating5 = factor(ConfidenceRating5, levels = c("Low", "Moderate", "High", "None"))
+    )
+
+  latest_entry <- plot_data[which.max(plot_data$Year), ]
+  latest_status <- latest_entry$RapidStatus
+  latest_abundance <- round(latest_entry$SpnForAbd_Wild)
+  latest_abundance <- ifelse(is.na(latest_entry$SpnForAbd_Wild), "NA", latest_entry$SpnForAbd_Wild)
+  status_color <- status_palette[latest_status]
+
+  # Create a one-row data frame for annotation
+  annotation_df <- data.frame(
+    x = max(plot_data$Year),
+    y = max(plot_data$SpnForAbd_Wild, na.rm = TRUE) * 0.96,  # slightly below top
+    label = paste0(
+      "Most Recent Status: <span style='color:", status_color, "'>", latest_status, "</span><br>",
+      "Spawner Abundance: ", latest_abundance
+    )
+  )
+
+  p <-   ggplot(data = plot_data) +
+    geom_line(aes(x = Year, y = SpnForAbd_Wild)) +
+    geom_point(
+      aes(x = Year, y = SpnForAbd_Wild, fill = RapidStatus, shape = ConfidenceRating5),
+      size = 2.5,
+      color = "black",
+      stroke = 0.5
+    ) +
+    scale_fill_manual(
+      values = status_palette,
+      name = "Rapid Status",
+      drop = FALSE
+    ) +
+    scale_shape_manual(
+      values = c("Low" = 24, "Moderate" = 21, "High" = 22, "None" = 10),
+      name = "Confidence Rating",
+      drop = FALSE
+    ) +
+    guides(
+      fill = guide_legend(override.aes = list(
+        shape = c(21, 21, 21, 10),
+        fill = status_palette,
+        color = "black",
+        size = 2.5
+      )),
+      shape = guide_legend(override.aes = list(
+        shape = c(24, 21, 22, 10),
+        fill = "grey",
+        color = "black",
+        stroke = 0.5
+      ))
+    ) +
+    geom_richtext(
+      data = annotation_df,
+      aes(x = x, y = y, label = label),
+      hjust = 1,
+      vjust = 1,
+      size = 4.5,
+      fill = NA,
+      label.color = NA
+    ) +
+    labs(y = "Wild Spawner Abundance")
+
+
+  return(p)
+
+}
+
+
+
+# 12. CU all indicators plot --------------------------------------------------
+
+# Function to create a comprehensive lollipop chart showing all indicators for one CU
+# This is the OPPOSITE of plot_lollipop which shows one indicator across all CUs
+
+plot_cu_indicators_lollipop <- function(data,
+                                        indicators_choose = NULL,  # NULL = all indicators
+                                        group_by_category = TRUE,  # Group indicators by type
+                                        show_species_avg = TRUE,   # Show species average comparison
+                                        show_all_cu_avg = TRUE,    # Show all CU average comparison
+                                        show_gcm_variation = TRUE, # Show GCM uncertainty
+                                        plot_title = NULL,
+                                        y_limit = c(0, 1)) {
+
+  sp_name <- data$SPECIES_NAME[1]
+  cu_name <- data$CVIS_NAME[1]
+
+  # If no indicators specified, use all
+  if (is.null(indicators_choose)) {
+    indicators_choose <- tbl_indicators$abbrev
+  }
+
+  # Prepare data for plotting
+  plot_data <- data %>%
+    left_join(select(tbl_indicators, abbrev, name, type),
+      by = c("indicator" = "abbrev")) %>%
+    mutate(
+      # Calculate difference from species average
+      diff_from_avg = cu_value - sp_value,
+      # Categorize as above or below average
+      comparison = case_when(
+        is.na(sp_value) ~ "No Comparison",
+        cu_value > sp_value ~ "Above Average",
+        cu_value < sp_value ~ "Below Average",
+        TRUE ~ "At Average"
+      ),
+
+      # Category labels for grouping
+      category_label = case_when(
+        type == "fwR" ~ "Spawning & Rearing",
+        type == "migr" ~ "Upstream Migration",
+        type == "dem" ~ "Demographics",
+        type == "mar" ~ "Nearshore Marine",
+        TRUE ~ "Other"
+      )
+    )
+
+  # Define color palettes
+  comparison_colors <- c(
+    "Below Average" = "forestgreen",
+    "Above Average" = "darkred",
+    "At Average" = "grey50",
+    "No Comparison" = "grey70"
+  )
+
+  # Order indicators by category if requested
+  if (group_by_category) {
+    plot_data <- plot_data %>%
+      arrange(type, indicator) %>%
+      mutate(name = factor(name, levels = unique(name)))
+  } else {
+    plot_data <- plot_data %>%
+      arrange(desc(cu_value)) %>%
+      mutate(name = factor(name, levels = unique(name)))
+  }
+
+  # Create the plot
+  p <- ggplot(plot_data, aes(x = name, y = cu_value))
+
+  # Add GCM variation bars if requested and available
+  if (show_gcm_variation && "gcm_qlowgcm" %in% names(plot_data)) {
+    p <- p + geom_segment(
+      aes(xend = name, y = gcm_qlowgcm, yend = gcm_qhighgcm),
+      color = "grey70",
+      linewidth = 3,
+      alpha = 0.5,
+      na.rm = TRUE
+    )
+  }
+
+  # Add species average comparison if requested
+  if (show_species_avg) {
+    p <- p + geom_segment(
+      aes(xend = name, yend = cu_value, y = sp_value, color = comparison),
+      linewidth = 1.5,
+      arrow = arrow(length = unit(0.1, "inches"), type = "closed"),
+      alpha = 0.7,
+      na.rm = TRUE
+    ) +
+      geom_point(aes(y = sp_value, shape = "Species Average"),
+        fill = "grey",
+        color = "black",
+        size = 3,
+        na.rm = TRUE)
+  }
+
+  # Add all CU average if requested
+  if (show_all_cu_avg) {
+    p <- p + geom_point(aes(y = allcu_value, shape = "All Species Average"),
+      fill = "gold",
+      color = "black",
+      size = 3,
+      na.rm = TRUE)
+  }
+
+  # Add main points with continuous color scale (RdYlGn reversed so red = high risk)
+  p <- p + geom_point(aes(fill = cu_value, shape = "CU Value"),
+    color = "black",
+    size = 4,
+    stroke = 1) +
+    scale_fill_distiller(
+      palette = "RdYlGn",
+      direction = -1,  # Reversed: red for high values (high risk)
+      limits = c(0, 1),
+      name = "Risk Score",
+      guide = guide_colorbar(order = 1)
+    )
+
+  # Build shape scale based on what's being shown
+  shape_names <- "CU Value"
+  shape_values <- c(21)
+  shape_fills <- c("green3")
+  shape_sizes <- c(4)
+
+  if (show_species_avg) {
+    shape_names <- c(shape_names, "Species Average")
+    shape_values <- c(shape_values, 22)
+    shape_fills <- c(shape_fills, "grey")
+    shape_sizes <- c(shape_sizes, 3)
+  }
+
+  if (show_all_cu_avg) {
+    shape_names <- c(shape_names, "All Species Average")
+    shape_values <- c(shape_values, 23)
+    shape_fills <- c(shape_fills, "gold")
+    shape_sizes <- c(shape_sizes, 3)
+  }
+
+  shape_df <- tibble(shape_names, shape_values, shape_fills, shape_sizes)
+
+  p <- p +
+    scale_shape_manual(
+      name = "Data Points",
+      values = shape_df$shape_values,
+      guide = guide_legend(
+        order = 3,
+        override.aes = list(
+          fill = shape_df$shape_fills,
+          size = shape_df$shape_sizes
+        )
+      )
+    )
+
+  # Add comparison color scale if showing species average
+  if (show_species_avg) {
+    p <- p + scale_color_manual(
+      values = comparison_colors,
+      name = "vs Species Avg",
+      guide = guide_legend(order = 2)
+    )
+  }
+
+  # Finalize plot
+  caption_text <- "Large circles: CU value"
+  if (show_species_avg) caption_text <- paste0(caption_text, " | Grey circles: Species average")
+  if (show_all_cu_avg) caption_text <- paste0(caption_text, " | Gold diamonds: All CU average")
+  if (show_species_avg) caption_text <- paste0(caption_text, "\nArrow direction: above/below species average")
+  if (show_gcm_variation) caption_text <- paste0(caption_text, " | Grey bars: Climate model uncertainty")
+
+  p <- p +
+    coord_flip() +
+    scale_y_continuous(limits = y_limit, breaks = seq(0, 1, 0.2)) +
+    labs(
+      title = if (is.null(plot_title)) paste0("Climate Vulnerability Indicators: ", cu_name) else plot_title,
+      subtitle = paste0("Species: ", sp_name, " | RCP ", RCP_pick, " | Period: ",
+        filter(period_lookup, period_code == period_pick)$period),
+      x = NULL,
+      y = "Standardized Indicator Value (0 = Low Risk, 1 = High Risk)",
+      caption = caption_text
+    ) +
+    theme(
+      legend.position = "right",
+      plot.title = element_text(face = "bold", size = 14),
+      plot.subtitle = element_text(size = 11, color = "grey40"),
+      plot.caption = element_text(size = 9, color = "grey50", hjust = 0),
+      axis.text.y = element_text(size = 10),
+      panel.grid.major.y = element_line(color = "grey90"),
+      panel.grid.minor = element_blank()
+    )
+
+  # Add faceting by category if requested
+  if (group_by_category) {
+    p <- p + facet_grid(
+      rows = vars(category_label),
+      scales = "free_y",
+      space = "free_y"
+    ) +
+      theme(
+        strip.text.y = element_text(angle = 0, hjust = 0, face = "bold"),
+        strip.background = element_rect(fill = "grey95", color = NA)
+      )
+  }
+
+  return(p)
+}
+
+
+cu_ind <- get_CU_indicators(all_flat_std,
+  cu_i = "CK-06",
+  RCP_pick = "45",
+  period_pick = "3",
+)
+
+plot_cu_indicators_lollipop(cu_ind)
 
 
 

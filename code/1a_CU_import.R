@@ -46,7 +46,7 @@ cu_Fr <- crosswalk %>%
     str_detect(SMU_NAME, "OKANAGAN", negate = TRUE)) %>%
   select(-starts_with("DU")) %>%
   mutate(
-    CVIS_NAME = str_remove_all(CU_NAME, regex("TIMING", ignore_case = TRUE)) %>%
+    CVIS_NAME = str_remove_all(CU_COMMON_NAME, regex("TIMING", ignore_case = TRUE)) %>%
       str_trim()) %>% # remove extra spaces if any
   mutate(CVIS_NAME = paste0(FULL_CU_IN, "_", CVIS_NAME)) %>%
   relocate(CVIS_NAME, contains("CU"))
@@ -59,7 +59,7 @@ spp_lookup <- tibble(
   spp_abrC = c("CK", "CM", "CO", "PKE", "PKO", "SEL", "SER"),
   spp_abr_bcfp = c("ch", "cm", "co", "pk", "pk", "sk", "sk"),
   Species = c("Chinook", "Chum", "Coho", "Pink-Even", "Pink-Odd", "Sockeye (Lake Type)", "Sockeye (River Type)"),
-  Species_simple = c("Chinook", "Chum", "Coho", "Pink", "Pink", "Sockeye", "Sockeye"),
+  SPECIES_NAME = c("Chinook", "Chum", "Coho", "Pink", "Pink", "Sockeye", "Sockeye"),
   PSF_species = c("Chinook", "Chum", "Coho", "Pink", "Pink", "Sockeye-Lake", "Sockeye-River"))
 
 
@@ -96,13 +96,21 @@ for (i in 1:length(status_files))
 }
 status_data <- status_data %>%
   rename(FULL_CU_IN = CU_ID) %>%
-  left_join(select(cu_Fr, FULL_CU_IN, CVIS_NAME), join_by(FULL_CU_IN))
+  mutate(FULL_CU_IN = if_else(FULL_CU_IN == "SEL-06-03/SEL-06-02", "SEL-06-03", FULL_CU_IN)) %>%   # change Chilko ES-S to Chilko S
+  add_row(FULL_CU_IN = "SEL-06-02", RapidStatus = "None", Species = "Sockeye", Year = 2023) %>%
+  left_join(select(cu_Fr, FULL_CU_IN, CU_COMMON_NAME, CVIS_NAME), join_by(FULL_CU_IN)) %>%
+  relocate(CVIS_NAME, .after = FULL_CU_IN) %>%
+  select(-Stock)
 
 status_data$CUstatus <- status_data$RapidStatus
 status_data$CUnmat   <- status_data$SpnForAbd_Wild
 status_data$status_year <- status_data$Year
 
+#get recent status 
+ #only take last 4 years of data. Use most recent year of status, removing any values with no status
 recent_status <- status_data %>%
+  filter(Year >= max(Year) - 4) %>%
+  filter(RapidStatus != "None") %>%
   group_by(FULL_CU_IN) %>%
   slice_max(order_by = Year, n = 1) %>%
   ungroup()

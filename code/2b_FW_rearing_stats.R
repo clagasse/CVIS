@@ -529,7 +529,7 @@ for (i in 1:n.CUs) {
   #------- a. subset CU data -----
   cu_i <- cu_run$FULL_CU_IN[i]
   sp_pick <- cu_run$SPECIES_NAME[cu_run$FULL_CU_IN == cu_i] # species abbr
-  sp_pick_bcfp <- spp_lookup$spp_abr_bcfp[spp_lookup$Species_simple == sp_pick]  # BCFP species abbr (different for Chinook)
+  sp_pick_bcfp <- spp_lookup$spp_abr_bcfp[spp_lookup$SPECIES_NAME == sp_pick]  # BCFP species abbr (different for Chinook)
   sp_pick_ENM  <- str_to_lower(sp_pick)
   # get model_spawning and model_rearing columns for CU species
   model_h_pick <- paste0("model_habitat_", sp_pick_bcfp)

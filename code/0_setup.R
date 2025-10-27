@@ -7,12 +7,26 @@
 
 library(here)
 
+library(janitor)
+
 library(tidyverse)
 library(data.table)  # for faster processing of some operations
 
 # spatial packages
 library(sf)      # spatial feature
 library(stars)   # package for data cubes (multi-dimensional spatial arrays)
+
+## plotting packages
+# library(wesanderson); library(viridis)  #colour palettes
+library(patchwork) # for multi-panel plots
+library(corrplot)  # correlation matrix plots
+library(ggspatial)  # enhanced ggplot maps - base map tiles
+library(gt)        # nice data tables
+# library(ggforce)   # for custom facet sizes
+library(ggtext)  # for coloured text in axis labels
+library(RColorBrewer)
+library(scico)    # scientific colour palettes
+# library(ggsci)   # colour palettes - pal_futurama
 
 `%notin%` <- Negate(`%in%`)
 
@@ -46,8 +60,8 @@ source(here("code", "4_scoring_utils.R"))
 source(here("code", "1a_CU_import.R"))   # CU table
 
 # load plotting functions
-# source(here("code", "5a_plots_CU.R"))
-# source(here("code", "5b_plots_compare.R"))
+source(here("code", "5a_plots_CU.R"))
+source(here("code", "5b_plots_compare.R"))
 
 # Select subset of CUs to run for analysis
 cu_run <- cu_Fr %>%

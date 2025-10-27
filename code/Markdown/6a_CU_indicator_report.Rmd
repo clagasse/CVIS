@@ -8,17 +8,12 @@ output:
     toc_depth: 3
     theme: flatly
 params:
-  FULL_CU_IN: "CK-3"
+  FULL_CU_IN: "CK-03"
 ---
 
 
 ```{r custom theme, echo = FALSE, message = F, warning = F}
-
-library(gt)        # nice tables
-
-
 knitr::opts_chunk$set(message = F, echo = F, warning = F)
-
 
 ```
 
@@ -29,10 +24,9 @@ knitr::opts_chunk$set(message = F, echo = F, warning = F)
 #params$FULL_CU_IN <- "SEL-05-02"
 cu_i <- params$FULL_CU_IN
 cu_run_i <- cu_run[cu_run$FULL_CU_IN == params$FULL_CU_IN,]
-sp_pick <- cu_run$spp[cu_run$FULL_CU_IN == cu_i] #species abbr
-sp_pick_bcfp <- spp_lookup$spp_abr_bcfp[spp_lookup$spp_abr == sp_pick] 
-sp_pick_ENM  <- str_to_lower(spp_lookup$Species_simple[spp_lookup$spp_abr == sp_pick])[1]
-
+sp_pick <- cu_run$SPECIES_NAME[cu_run$FULL_CU_IN == cu_i] #species abbr
+sp_pick_bcfp <- spp_lookup$spp_abr_bcfp[spp_lookup$SPECIES_NAME == sp_pick] 
+sp_pick_ENM  <- str_to_lower(sp_pick)[1]
 
 ```
 
@@ -60,10 +54,10 @@ nuseds_cu <- nuseds_Fr[nuseds_Fr$FULL_CU_IN == cu_i,]
 fw_sp_cu <- fw_sp_ind[stream_cu_sub,] %>%
   rename(keep_habitat = contains(paste0("model_habitat_", sp_pick_bcfp)),
          #keep_model_rearing  = contains(paste0("model_rearing_", sp_pick_bcfp)),
-         favchange_45   = contains(paste0("favchange_", sp_pick_ENM, "_45")),
-         favchange_85   = contains(paste0("favchange_", sp_pick_ENM, "_85")),
-         fav_45   = contains(paste0("fav_", sp_pick_ENM, "_45")),
-         fav_85   = contains(paste0("fav_", sp_pick_ENM, "_85"))) %>%
+         favchange_45   = contains(paste0("favchange_", sp_pick_ENM, "_45_3")),
+         favchange_85   = contains(paste0("favchange_", sp_pick_ENM, "_85_3")),
+         fav_45   = contains(paste0("fav_", sp_pick_ENM, "_45_3")),
+         fav_85   = contains(paste0("fav_", sp_pick_ENM, "_85_3"))) %>%
   mutate(model_rs = if_any(starts_with("keep_habitat"), ~ . == TRUE))%>%#get boolean for model spawning and rearing
   mutate(model_rs = if_else(is.na(model_rs), FALSE, model_rs)) %>%
   mutate(model_rs = factor(model_rs, levels = c(TRUE, FALSE), 
@@ -74,18 +68,10 @@ fw_sp_cu <- fw_sp_ind[stream_cu_sub,] %>%
 acc_sp_cu <- fw_sp_cu %>%
   filter(model_access_salmon %in% c("OBSERVED", "INFERRED"))
 
-#ENM_cu <- reaches_ENM_all[reaches_ENM_sub,]
-
-#read Temperature gauge locations
-Tw_stations <- st_read(file.path(paths$climate, "Tw_stations.gdb"), quiet = TRUE)
-
 #subset in CU boundary
 temp <- unlist(st_intersects(cu_boundary_i, watershed_flow))
 watershed_flow_cu <- watershed_flow[temp,]
 
-#flow stations
-stations_flow <- st_read(file.path(paths$climate, "Ruzzante_low_flows", "stations.gpkg"), quiet = TRUE) %>%
-  st_transform(3005) 
 #subset in cu boundary
 temp <- unlist(st_intersects(cu_boundary_i, stations_flow))
 stations_cu <- stations_flow[temp,]
@@ -136,14 +122,14 @@ p1
 
 dem_details <- cu_run_i %>%
   select(FULL_CU_IN, CU_NAME, 
-         gen_length, 
-         WSP_population_status, Most_Recent_Generational_Average)
+         CUstatus, CUnmat, status_year)
          #SEP_avg_annual_releases_actual, SEP_primary_prod_objective)
 
 dem_details %>%
   gt() %>%
   fmt_number(
-    columns = c(gen_length, Most_Recent_Generational_Average),
+    columns = c(CU_NAME, 
+         CUstatus, CUnmat, status_year),
     decimals = 2
   )
 
@@ -517,20 +503,6 @@ tRate_plot
 #     label = "Change in Favourability",
 #     columns = c(Fav_change_wmean, Fav_change_wsd_sp, Fav_change_wqlow_sp, Fav_change_wqhigh_sp)
 #   )
-
-ENM_plot <- stream_indicator_plot(fw_sp_cu, 
-                                 cu_boundary_i,
-                                 lakes_cu,
-                                variable = "fav_sockeye_hist_0", 
-                                plot_title = "ENM historic favourability",
-                                histogram_fill = "model_access_salmon",
-                                scico_palette = "davos",
-                                xlim = c(0,1),
-                                palette_direction = -1)
-
-ENM_plot
-
-
 
 ENM_plot <- stream_indicator_plot(fw_sp_cu, 
                                  cu_boundary_i,

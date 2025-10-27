@@ -794,7 +794,17 @@ fw_ENM <- fw_models_df %>%
     favchange_sockeye_45_3 = fav_sockeye_45_3 - fav_sockeye_hist_0,
     favchange_sockeye_85_3 = fav_sockeye_85_3 - fav_sockeye_hist_0,
     favchange_pink_45_3 = fav_pink_45_3 - fav_pink_hist_0,
-    favchange_pink_85_3 = fav_pink_85_3 - fav_pink_hist_0) %>%
+    favchange_pink_85_3 = fav_pink_85_3 - fav_pink_hist_0,
+    favchange_coho_45_5 = fav_coho_45_5 - fav_coho_hist_0,
+    favchange_coho_85_5 = fav_coho_85_5 - fav_coho_hist_0,
+    favchange_chinook_45_5 = fav_chinook_45_5 - fav_chinook_hist_0,
+    favchange_chinook_85_5 = fav_chinook_85_5 - fav_chinook_hist_0,
+    favchange_chum_45_5 = fav_chum_45_5 - fav_chum_hist_0,
+    favchange_chum_85_5 = fav_chum_85_5 - fav_chum_hist_0,
+    favchange_sockeye_45_5 = fav_sockeye_45_5 - fav_sockeye_hist_0,
+    favchange_sockeye_85_5 = fav_sockeye_85_5 - fav_sockeye_hist_0,
+    favchange_pink_45_5 = fav_pink_45_5 - fav_pink_hist_0,
+    favchange_pink_85_5 = fav_pink_85_5 - fav_pink_hist_0) %>%
   select(linear_feature_id, contains("favchange"))
 
 
