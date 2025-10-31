@@ -18,21 +18,6 @@ library(here)
 setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
 
-# choose stream base network
-base_network <- switch(2, "bcfpa", "tscapes")
-
-# library(ExPanDaR)  #for data exploration
-
-historical <- "0"   # historical climatology period for temperature models
-# 0 = 1981-2000,  1 = 2001-2020
-# for flow models, 0 = 1981-2010
-T_model <- "tw8"    # temperature model tw8 = thermalscapes August temp
-
-qlowgcm <- 0.1    # lower quantile for statistics on GCM variation
-qhighgcm <- 0.9   # upper quantile for statistics
-qlowsp  <- 0.1    # lower quantile for spatial variation within CU boundary
-qhighsp <- 0.9    # upper quantile for spatial variation
-
 
 #--------- 2. load spatial objects ---------------------
 
@@ -143,7 +128,11 @@ stream_temp_stats <- function(fwT_cu,
                               historical = "0",
                               GCMs = c(1:6),  # GCMs to include in summary
                               models = c("tw8"),  # thermalscapes August temp
-                              model_rs = TRUE
+                              model_rs = TRUE,
+                              qlowsp = qlowsp,
+                              qhighsp = qhighsp,
+                              qlowgcm = qlowgcm,
+                              qhighgcm = qhighgcm
 ) {
 
 
@@ -177,13 +166,11 @@ stream_temp_stats <- function(fwT_cu,
         .cols = c(all_of(models)),
         .fns = list(
           proj_mean = ~ wmean(.x, length_metre, na.rm = TRUE),
-          # proj_sdsp = ~wsd(.x, length_metre, na.rm = TRUE),
           proj_qlowsp = ~ wqt(.x, length_metre, prob = qlowsp, na.rm = TRUE),
           proj_qhighsp = ~ wqt(.x, length_metre, prob = qhighsp, na.rm = TRUE),
           rate_mean = ~ wmean((.x - histT) / decade_interval, length_metre, na.rm = TRUE),
-          # rate_wsdsp   = ~wsd((.x - histT)/decade_interval, length_metre, na.rm = TRUE),
-          rate_qlowsp = ~ wqt((.x - histT) / decade_interval, length_metre, prob = 0.1, na.rm = TRUE),
-          rate_qhighsp = ~ wqt((.x - histT) / decade_interval, length_metre, prob = 0.9, na.rm = TRUE)
+          rate_qlowsp = ~ wqt((.x - histT) / decade_interval, length_metre, prob = qlowsp, na.rm = TRUE),
+          rate_qhighsp = ~ wqt((.x - histT) / decade_interval, length_metre, prob = qhighsp, na.rm = TRUE)
         ),
         .names = "{.col}{.fn}"
       ),
@@ -222,7 +209,12 @@ stream_flow_stats <- function(fwQ_cu,
                               periods = c("0", "3", "4", "5"),
                               RCP = c("45", "85"),
                               months = c("8"),
-                              GCMs = c("access1", "canesm2", "ccsm4", "cnrm", "hadgem2", "mpi")) {
+                              GCMs = c("access1", "canesm2", "ccsm4", "cnrm", "hadgem2", "mpi"),
+                              qlowsp = qlowsp,
+                              qhighsp = qhighsp,
+                              qlowgcm = qlowgcm,
+                              qhighgcm = qhighgcm
+) {
 
   if (model_rs == TRUE) {
     fwQ_cu <- fwQ_cu[fwQ_cu$model_rs == TRUE, ]
@@ -786,9 +778,9 @@ fwR_all_flat <- fwR_all_flat %>%
   rename(
     period_code = period,
     fwres = peak_sp_to_oe
-  ) %>%
-  left_join(period_lookup, join_by(period_code)) %>%
-  relocate(period, .after = period_code)
+  ) # %>%
+# left_join(period_lookup, join_by(period_code)) %>%
+# relocate(period, .after = period_code)
 
 
 

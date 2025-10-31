@@ -17,7 +17,7 @@ source(file.path(here(), "code", "0_setup.R"))
 # combine indicators into common table
 all_flat <- cu_run %>%
   left_join(fwR_all_flat, join_by(FULL_CU_IN, CU_NAME, SPECIES_NAME), relationship = "one-to-many") %>%
-  left_join(migr_all_flat, join_by(FULL_CU_IN, CU_NAME, rcp, period)) %>%
+  left_join(migr_all_flat, join_by(FULL_CU_IN, CU_NAME, SPECIES_NAME, rcp, period)) %>%
   left_join(mar_all_flat, join_by(FULL_CU_IN, CU_NAME, rcp == RCP, period_code)) %>%
   relocate(rcp, period, period_code, .after = SPECIES_NAME)
 

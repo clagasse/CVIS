@@ -8,7 +8,6 @@
 # load packages and set root project directory
 rm(list = ls())
 
-
 # set-up used in every script
 library(here)
 setwd(here())
@@ -20,11 +19,11 @@ source(file.path(here(), "code", "0_setup.R"))
 # freshwater stream subsets by CU boundary
 load(file.path(paths$fw, "fw_streampicks_tscapes.Rdata"))
 # freshwater stream indicator statistics
-load(file.path(paths$fw, "2025-10-03_fw_rearing_indicators.Rdata"))
+load(file.path(paths$fw, "2025-10-27_fw_rearing_indicators.Rdata"))
 # migration paths
-load(file.path(paths$fw, "2025-09-29_fw_upstream_paths.Rdata"))
+load(file.path(paths$fw, "2025-10-16_fw_upstream_paths.Rdata"))
 # migration indicators
-load(file.path(paths$fw, "2025-09-30_migr_stats.Rdata"))
+load(file.path(paths$fw, "2025-10-16_migr_stats.Rdata"))
 # marine indicators
 load(file.path(paths$marine, "2025-09-29_marine_stats.Rdata"))
 
@@ -38,11 +37,6 @@ load(file.path(paths$fw, "fw_stream_indicators_sp.Rds"))
 # lakes_Fr - freshwater lakes for plotting
 load(file.path(paths$fw, "BC_FWA_LAKES_FR.Rds"))
 
-basins <- st_read(file.path(paths$spatial, "BC_Basins", "BC_Basins_GoogleMapPL.shp"), quiet = TRUE) %>%
-  st_cast("POLYGON")
-st_crs(basins) <- 4269
-basins <- st_transform(basins, crs = 3005)
-Fr_basin <- filter(basins, BASIN == "FRASER")
 
 stations_stats <- read.csv(file.path(paths$climate, "Ruzzante_low_flows", "stations_performance.csv"))
 # watershed hydrologic regimes
@@ -60,7 +54,6 @@ Tw_stations <- st_read(file.path(paths$climate, "Tw_stations.gdb"), quiet = TRUE
 # marine SST grid
 SST_grid <- st_read(file.path(paths$climate,
   "Standardized_Marine_data", "Grid",  "SST_bc_coast.gdb"))
-MAZ     <- st_read(file.path(paths$spatial, "MAZ", "MAZ_Final.shp"))
 
 # PCIC ensemble model outputs by period
 # PCIC_daily45 <- read_mdim(file.path(paths$climate, "PCIC_averaged", "combined",
@@ -154,6 +147,9 @@ rmarkdown::render(
 ## Shiny app
 
 shiny::runApp(file.path(here(), "code", "cu_indicator_app_enhanced.R"))
+
+shiny::runApp(file.path(here(), "code", "7_cu_indicator_app_v2.R"))
+
 
 shiny::runApp(file.path(here(), "code", "Oct27_cu_indicator_app.R"))
 

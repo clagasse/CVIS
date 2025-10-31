@@ -441,10 +441,11 @@ abundance_status_plot <- function(status_data,
       ConfidenceRating5 = factor(ConfidenceRating5, levels = c("Low", "Moderate", "High", "None"))
     )
 
-  latest_entry <- plot_data[which.max(plot_data$Year), ]
+  # latest_entry <- plot_data[which.max(plot_data$Year), ]
+  latest_entry <- plot_data[which.max(ifelse(plot_data$RapidStatus != "None", plot_data$Year, -Inf)), ]
   latest_status <- latest_entry$RapidStatus
-  latest_abundance <- round(latest_entry$SpnForAbd_Wild)
-  latest_abundance <- ifelse(is.na(latest_entry$SpnForAbd_Wild), "NA", latest_entry$SpnForAbd_Wild)
+  # latest_abundance <- round(latest_entry$SpnForAbd_Wild)
+  latest_abundance <- ifelse(is.na(latest_entry$SpnForAbd_Wild), "NA", round(latest_entry$SpnForAbd_Wild))
   status_color <- status_palette[latest_status]
 
   # Create a one-row data frame for annotation
@@ -452,6 +453,7 @@ abundance_status_plot <- function(status_data,
     x = max(plot_data$Year),
     y = max(plot_data$SpnForAbd_Wild, na.rm = TRUE) * 0.96,  # slightly below top
     label = paste0(
+      plot_data$CVIS_NAME, "<br>",
       "Most Recent Status: <span style='color:", status_color, "'>", latest_status, "</span><br>",
       "Spawner Abundance: ", latest_abundance
     )
@@ -505,6 +507,8 @@ abundance_status_plot <- function(status_data,
 
 }
 
+abundance_status_plot(status_data,
+  cu_i = "SEL-03-05")
 
 
 # 12. CU all indicators plot --------------------------------------------------
@@ -682,7 +686,7 @@ plot_cu_indicators_lollipop <- function(data,
     labs(
       title = if (is.null(plot_title)) paste0("Climate Vulnerability Indicators: ", cu_name) else plot_title,
       subtitle = paste0("Species: ", sp_name, " | RCP ", RCP_pick, " | Period: ",
-        filter(period_lookup, period_code == period_pick)$period),
+        filter(period_lookup, model == "tscapes", period_code == period_pick)$period),
       x = NULL,
       y = "Standardized Indicator Value (0 = Low Risk, 1 = High Risk)",
       caption = caption_text
@@ -713,18 +717,22 @@ plot_cu_indicators_lollipop <- function(data,
   return(p)
 }
 
-
-cu_ind <- get_CU_indicators(all_flat_std,
-  cu_i = "CK-06",
-  RCP_pick = "45",
-  period_pick = "3",
-)
-
-plot_cu_indicators_lollipop(cu_ind)
+#
+# cu_ind <- get_CU_indicators(all_flat_std,
+#   cu_i = "CK-06",
+#   RCP_pick = "45",
+#   period_pick = "3",
+# )
+#
+# plot_cu_indicators_lollipop(cu_ind)
 
 
 
 # X. Testing plot functions -----------------------------------------------
+
+
+
+
 
 #
 # cu_i <- cu_run$FULL_CU_IN[i]

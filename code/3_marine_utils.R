@@ -6,6 +6,75 @@
 ###############################################################################
 
 
+# get datatable from CMIP6 NCDF file
+
+ncdf_to_dt <- function(file_name = "ensemble-percentiles_mon_QDM+OSTIA_historical+ssp370_1950-2100_BC.nc",
+                       file_path = file.path(paths$climate, "Marine_CMIP6"),
+                       MAZ_obj = MAZ,
+                       start_year = 1980,
+                       end_year = 2020,
+                       keep_all = FALSE  # clip to MAZ or keep all spatial points
+) {
+
+  nc <- nc_open(file.path(file_path, file_name))
+
+  lon <- ncvar_get(nc, "lon")
+  lat <- ncvar_get(nc, "lat")
+  time <- ncvar_get(nc, "time")
+  sst <- ncvar_get(nc, "sst_p50")  # Use sst_p50 for median SST
+  sstp10 <- ncvar_get(nc, "sst_p10")
+  sstp90 <- ncvar_get(nc, "sst_p90")
+
+  dates <- as.Date(time, origin = "1850-01-01")
+
+  time_index <- which(dates >= as.Date(paste0(start_year, "-01-01"))                        &
+    dates <= as.Date(paste0(end_year, "-12-31")))
+
+  # get historic time series of monthly temps
+  dates_subset <- dates[time_index]
+  sst <- sst[, , time_index]
+  sstp10 <- sstp10[, , time_index]
+  sstp90 <- sstp90[, , time_index]
+
+  sst <- sst - 273.15 # convert to celsius
+  sstp10 <- sstp10 - 273.15 # convert to celsius
+  sstp90 <- sstp90 - 273.15 # convert to celsius
+
+  # make into data.table
+  grid <- expand.grid(lon = lon, lat = lat)
+  n_cells <- nrow(grid)
+
+  # Create a data.table with all time slices
+  dt_list <- lapply(1:length(dates_subset), function(i) {
+    data.table(
+      lon = grid$lon,
+      lat = grid$lat,
+      year = format(dates_subset[i], "%Y"),
+      month = format(dates_subset[i], "%m"),
+      SST = as.vector(sst[, , i]),
+      SST_p10 = as.vector(sstp10[, , i]),
+      SST_p90 = as.vector(sstp90[, , i])
+    )
+  })
+
+  # Combine all into one long data.table
+  dt_long <- rbindlist(dt_list)
+
+  # make one column for each month
+  dt_wide <- dcast(
+    dt_long,
+    lon + lat + year ~ month,
+    value.var = c("SST", "SST_p10", "SST_p90")
+  )
+
+  # convert to sf
+  CMIP_sf <- st_as_sf(dt_wide, coords = c("lon", "lat"), crs = 4269) %>%
+    st_transform(crs = "EPSG:3005")
+  # join with MAZ to get MAZ assignments
+  CMIP_sf   <- st_join(CMIP_sf, MAZ_obj["MAZ_Acrony"], left = keep_all)
+
+}
+
 
 # ---------Installing function point2rast from PACEA ------------------
 #- code copied from https://github.com/pbs-assess/pacea/blob/main/R/interpolate.R
@@ -120,10 +189,11 @@ assign_points <- function(x, y, var = "MAZ_Acrony") {
 
 
 summarize_marine_var <- function(model_data,
-                                 months_include,
-                                 MAZ_pick,
-                                 var_pick,
-                                 decades) {
+                                 months = c(3, 4, 5),
+                                 MAZ_pick = "GStr",
+                                 RCP_pick = "45",
+                                 period_pick = 3,
+                                 include_quantiles = TRUE) {
 
   stat_cols <- "value"  # name of column with variable values
 
@@ -169,31 +239,75 @@ summarize_marine_var <- function(model_data,
 
 
 
-# Function to subset and calculate mean across selected columns of a spatial object
-subset_and_mean_sst <- function(sf_data,
-                                timing_df,
-                                RCP_pick = "45") {
-  # Extract start and end month as integers
-  start_month <- unique(timing_df$ns_timing_start)
-  end_month <- unique(timing_df$ns_timing_end)
+subset_and_mean_var <- function(data,
+                                months = c(3, 4, 5),
+                                period_code_0_year = 1995,
+                                period_code_3_year = 2050,
+                                period_code_5_year = 2090,
+                                var_name = "SST",
+                                MAZ_pick = "GStr",
+                                include_quantiles = TRUE) {
 
-  # Build column names dynamically
-  month_range <- sprintf("%02d", start_month:end_month)
-  target_cols <- paste0("SST", "_", RCP_pick, "_", month_range)
+  month_chars <- sprintf("%02d", months)
+  month_cols <- paste0(var_name, "_", month_chars)
 
-  # Check if all columns exist
-  missing_cols <- setdiff(target_cols, names(sf_data))
+  # get number of decades for rate of T change
+  period_3_decades <- (period_code_3_year - period_code_0_year) / 10
+  period_5_decades <- (period_code_5_year - period_code_0_year) / 10
+
+  if (include_quantiles == TRUE) {
+    qlow_cols  <- paste0(var_name, "_", "p10", "_", month_chars)
+    qhigh_cols <- paste0(var_name, "_", "p90", "_", month_chars)
+  }
+
+  missing_cols <- setdiff(month_cols, names(data))
   if (length(missing_cols) > 0) {
     stop("Missing columns in sf_data: ", paste(missing_cols, collapse = ", "))
   }
 
-  # Calculate row-wise mean across selected columns
-  sf_data %>%
-    rowwise() %>%
-    mutate(mean_sst = mean(c_across(all_of(target_cols)), na.rm = TRUE),
-      RCP = RCP_pick) %>%
-    select(mean_sst, RCP)
+  summary_data <- data %>%
+    filter(MAZ_Acrony == MAZ_pick) %>%
+    mutate(
+      monthly_mean = rowMeans(select(., any_of(month_cols)), na.rm = TRUE),
+      monthly_p10  = if (include_quantiles && all(qlow_cols %in% names(.))) rowMeans(select(., all_of(qlow_cols)), na.rm = TRUE) else NA,
+      monthly_p90  = if (include_quantiles && all(qhigh_cols %in% names(.))) rowMeans(select(., all_of(qhigh_cols)), na.rm = TRUE) else NA
+    ) %>%
+    group_by(rcp, period_code) %>%
+    summarize(
+      !!paste0("mean_", var_name, "proj")     := mean(monthly_mean, na.rm = TRUE),
+      !!paste0("qlowsp_", var_name, "proj")   := quantile(monthly_mean, qlowsp, na.rm = TRUE),
+      !!paste0("qhighsp_", var_name, "proj")  := quantile(monthly_mean, qhighsp, na.rm = TRUE),
+      !!paste0("qlowgcm_", var_name, "proj")  := mean(monthly_p10, na.rm = TRUE),
+      !!paste0("qhighgcm_", var_name, "proj") := mean(monthly_p90, na.rm = TRUE),
+      .groups = "drop"
+    )
 
-  # return(select(sf_data, mean_sst))
+  # Separate baseline
+  baseline <- summary_data %>%
+    filter(period_code == 0) %>%
+    rename_with(~ paste0(.x, "_hist"), -c(rcp, period_code))
 
+  # Join and calculate rate of change using number of decades for period
+  rate_data <- summary_data %>%
+    filter(period_code != 0) %>%
+    bind_cols(select(baseline, -c(period_code, rcp))) %>%
+    mutate(
+      decades = case_when(
+        period_code == 3 ~ period_3_decades,
+        period_code == 5 ~ period_5_decades,
+        TRUE ~ NA_real_
+      ),
+
+      !!paste0("mean_", var_name, "rate")     := (get(paste0("mean_", var_name, "proj")) - get(paste0("mean_", var_name, "proj_hist"))) / decades,
+      !!paste0("qlowsp_", var_name, "rate")   := (get(paste0("qlowsp_", var_name, "proj")) - get(paste0("qlowsp_", var_name, "proj_hist"))) / decades,
+      !!paste0("qhighsp_", var_name, "rate")  := (get(paste0("qhighsp_", var_name, "proj")) - get(paste0("qhighsp_", var_name, "proj_hist"))) / decades,
+      !!paste0("qlowgcm_", var_name, "rate")  := (get(paste0("qlowgcm_", var_name, "proj")) - get(paste0("qlowgcm_", var_name, "proj_hist"))) / decades,
+      !!paste0("qhighgcm_", var_name, "rate") := (get(paste0("qhighgcm_", var_name, "proj")) - get(paste0("qhighgcm_", var_name, "proj_hist"))) / decades
+    ) %>%
+    select(rcp, period_code, contains("rate"))
+
+  summary_data <- summary_data %>%
+    left_join(rate_data, by = c("rcp", "period_code"))
+
+  return(summary_data)
 }

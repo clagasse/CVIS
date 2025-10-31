@@ -64,31 +64,68 @@ source(here("code", "5a_plots_CU.R"))
 source(here("code", "5b_plots_compare.R"))
 
 # Select subset of CUs to run for analysis
-cu_run <- cu_Fr %>%
+cu_run <- cu_list %>%
+  filter(DFO_AREA == "FRASER AND INTERIOR",
+    CU_TYPE == "Current",
+    CU_NAME != "BOUNDARY BAY_FA_0.3",
+    str_detect(SMU_NAME, "OKANAGAN", negate = TRUE)) %>%
   filter(SPECIES_NAME %in% c("Chinook", "Coho", "Sockeye", "Chum", "Pink"),   # optional species filter
     FULL_CU_IN %notin% c("SER-02")) %>% # remove widgeon (throws error)
   arrange(SPECIES_NAME)
 
-
-cuid    <- cu_run$cuid # Create vector of CUs to analyze, ordered CK, CM, CO, PKO, SEL, SER, SH
 cu_seq  <- cu_run$FULL_CU_IN # Create vector of CUs to analyze, ordered CK, CM, CO, PKO, SEL, SER, SH
-
 n.CUs   <- nrow(cu_run)
 
 
+# Analysis configurations -------------------------------------------------
+
+# lower and upper quantiles for spatial variation statistics
+qlowsp <- 0.1
+qhighsp <- 0.9
+
+qlowgcm <- 0.1    # lower quantile for statistics on GCM variation
+qhighgcm <- 0.9   # upper quantile for statistics
+
+T_model <- "tw8"    # temperature model tw8 = thermalscapes August temp, alternative of 7DEC (not implemented)
+
+historical <- "0"   # historical climatology period for temperature models
+# 0 = 1981-2000,  1 = 2001-2020.  For flow 0 = 1981-2010
+
+# choose stream base network
+base_network <- switch(1, "tscapes", "bcfpa")  # only tscapes currently implemented, bcfpa has FWA network broken into smaller segments
+
+CI_habitats <- c("All")   # habitat types to include for cumulative impacts (marine)
+
+ns_start_offset <- 3   # amount of months before peak ocean entry month to include when calculating nearshore marine indicators
+ns_end_offset   <- 3   # amount of months after peak ocean entry month for calculating nearshore marine indicators
 
 ##### ------ Lookup and definition tables
 
 # translation table between periods
 ## note that not all periods are exactly the same among data sets, but average year is close
 period_lookup <- tribble(
-  ~period_code, ~period,
-  0, "1981-2000",
-  1, "2011-2020",
-  2, "2021-2040",
-  3, "2041-2060",
-  4, "2061-2080",
-  5, "2081-2099"
+  ~period_code, ~period, ~start_year, ~end_year, ~model,
+  0, "1981-2000", 1981, 2000, "tscapes",
+  1, "2001-2020", 2001, 2020, "tscapes",
+  2, "2021-2040", 2021, 2040, "tscapes",
+  3, "2041-2060", 2041, 2060, "tscapes",
+  4, "2061-2080", 2061, 2080, "tscapes",
+  5, "2081-2099", 2081, 2100, "tscapes",
+  0, "1981-2010", 1981, 2010, "stream_flow",
+  2, "2021-2040", 2021, 2040, "stream_flow",
+  3, "2041-2060", 2041, 2060, "stream_flow",
+  4, "2061-2080", 2061, 2080, "stream_flow",
+  5, "2081-2099", 2081, 2100, "stream_flow",
+  0, "1981-2010", 1981, 2010, "PCIC_migr",
+  3, "2041-2060", 2041, 2060, "PCIC_migr",
+  5, "2081-2099", 2081, 2100, "PCIC_migr",
+  0, "1981-2010", 1981, 2010, "CMIP6_SST",
+  3, "2041-2060", 2041, 2060, "CMIP6_SST",
+  5, "2081-2099", 2081, 2100, "CMIP6_SST",
+  0, "1981-2010", 1981, 2010, "BCCM",
+  3, "2041-2060", 2041, 2070, "BCCM",
+  0, "1981-2010", 1986, 2005, "SSC",
+  3, "2041-2060", 2046, 2065, "SSC",
 )
 
 # table of indicator abbreviations and full names
@@ -106,7 +143,8 @@ tbl_indicators <- tribble(
   "migrQ",      "migr",   "pdelta",      "decay_std",    "Proportional change in discharge during upstream migration",
   "migrA21",    "migr",   "mean",    "exponential_std", "Average proportion of path above 21 degrees during upstream migration",
   "migrdist",   "migr",  "value",      "linear_std",     "Length of upstream migration",
-  "SSTproj",     "mar",   "mean", "linear_std",  "Projected nearshore SST during ocean entry",
+  "SSTproj",     "mar",   "mean", "exponential_std",  "Projected nearshore SST during ocean entry",
+  "SSTrate",     "mar",   "mean", "linear_std",  "Rate of change in nearshore SST",
   "CI",          "mar",   "mean", "linear_std",   "Cumulative impacts to marine nearshore habitat",
   "CUstatus",    "dem",   "category",    "cat_std", "WSP status",
   "CUnmat",      "dem",   "value",  "decay_std", "Number of mature individuals")
@@ -127,11 +165,62 @@ tbl_standardize <- tribble(
   "migrQ",      "migr",       "decay_std",        3,   NA,   0,
   "migrA21",    "migr",     "exponential_std",    3,    0,    NA,
   "migrdist",   "migr",      "linear_std",        NA,   NA,   NA,
-  "SSTproj",     "mar",   "linear_std",           NA,   NA,   NA,
+  "SSTproj",     "mar",   "exponential_std",      NA,   NA,   NA,
+  "SSTrate",     "mar",     "linear_std",            NA,   NA,   NA,
   "CI",          "mar",   "linear_std",           NA,   NA,   NA,
   "CUstatus",    "dem",       "cat_std",        NA,    NA,   NA,
   "CUnmat",      "dem",     "decay_std",         3,    0, 10000)
 
+
+### ----- Load frequently used data sets- ------
+
+## marine adaptive zones shapefile
+MAZ     <- st_read(file.path(paths$spatial, "MAZ", "MAZ_Final.shp"))
+
+# large basins outlines
+basins <- st_read(file.path(paths$spatial, "BC_Basins", "BC_Basins_GoogleMapPL.shp"), quiet = TRUE) %>%
+  st_cast("POLYGON")
+st_crs(basins) <- 4269
+basins <- st_transform(basins, crs = 3005)
+Fr_basin <- filter(basins, BASIN == "FRASER")
+
+### Conservation Unit boundaries for Fraser CUs
+cu_boundary <- st_read(file.path(paths$spatial, "CU_boundaries", "fraser_cus.shp")) %>%
+  st_make_valid() %>%
+  st_transform(crs = 3005)  %>%  # crs 3005 is NAD83/BC Albers
+  left_join(select(cu_list, cuid, FULL_CU_IN, SPECIES_NAME),
+    join_by(CUID == cuid)) %>%
+  filter(!is.na(FULL_CU_IN))
+
+
+### NUSEDS salmon spawner locations
+## version from FIA. Usage column added by Michael Arbeider
+nuseds_Fr <- read_csv(file.path(paths$salmon, "NuSEDS_CU_System_sites_202406.csv")) %>%
+  st_as_sf(coords = c("X_LONGT", "Y_LAT"), crs = 4269) %>%
+  st_transform(3005) %>%
+  filter(USAGE != "REMOVE")
+
+nuseds_Fr$FULL_CU_IN <- adjust_CU_IN(nuseds_Fr$FULL_CU_IN)
+
+#  field descriptions
+# n = number of surveys that were not “UNKNOWN” or “NOT INSPECTED”, i.e. they were inspected but sometimes only PRESENSE was recorded and not an abundance.
+# last.year = last year when the system was surveyed
+# first.year = first year when the system was surveyed
+# max.count = the largest count of spawners in NuSEDs
+# ave.count = the mean of all non-NA counts in NuSEDs
+# min.count = the minimum
+
+# usage criteria for nuseds file
+# cu.sites <- cu.sites %>%
+#   mutate(USAGE = case_when(
+#     n < 5 & last.year < 2010 ~ "REMOVE",
+#     n < 5 & last.year >= 2010 ~ "CAUTION",
+#     n >= 5 & last.year < 1999 & SPECIES_LOOKUP != "Pink" ~ "CAUTION",
+#     n >= 5 & max.count == 0 & last.year < 1999 & SPECIES_LOOKUP != "Pink" ~ "CAUTION",
+#     n >= 5 & max.count != 0 & last.year < 1999 & SPECIES_LOOKUP == "Pink" ~ "KEEP",
+#     n >= 5 & max.count == 0 & last.year >= 1999 ~ "CAUTION",
+#     n >= 5 & max.count != 0 & last.year >= 1999 ~ "KEEP"
+#   ))
 
 
 
@@ -161,3 +250,39 @@ theme_cvis <- function(base_size = 14) {
     )
 }
 theme_set(theme_cvis())
+
+
+
+# Color palettes ----------------------------------------------------------
+
+## color palette function
+get_scico_palette <- function(data, column, palette_name = "berlin") {
+  categories <- sort(unique(data[[column]]))
+  setNames(scico(length(categories), palette = palette_name), categories)
+}
+
+get_brewer_palette <- function(data, column, palette_name = "Set2") {
+  categories <- sort(unique(data[[column]]))
+
+  setNames(brewer.pal(length(categories), name = palette_name), categories)
+  # brewer.pal(n, palette)
+}
+
+# Define species color palette (adjust as needed)
+# species_palette <- get_brewer_palette(cu_run, "SPECIES_NAME", "Set1")
+species_palette <- c(
+  "Chinook" = "#1b9e77",
+  "Coho" = "darkblue",
+  "Sockeye" = "firebrick4",
+  "Pink" = "maroon4",
+  "Chum" = "#E69F00"
+)
+
+# Indicator palette used for labelling indicator categories
+indicator_palette <- c(
+  "Demographics" = "purple",
+  "Spawning & Rearing" = "turquoise",
+  "Upstream Migration" = "royalblue",
+  "Nearshore Marine"   = "green4",
+  "Genetics"  = "orange3"
+)

@@ -16,56 +16,6 @@
 
 ###############################################################################
 
-## color palette function
-get_scico_palette <- function(data, column, palette_name = "berlin") {
-  categories <- sort(unique(data[[column]]))
-  setNames(scico(length(categories), palette = palette_name), categories)
-}
-
-# species_palette <- get_scico_palette(cu_run, "Species_simple", "batlow")
-
-
-get_brewer_palette <- function(data, column, palette_name = "Set2") {
-  categories <- sort(unique(data[[column]]))
-
-  setNames(brewer.pal(length(categories), name = palette_name), categories)
-  # brewer.pal(n, palette)
-}
-
-# Define species color palette (adjust as needed)
-# species_palette <- get_brewer_palette(cu_run, "SPECIES_NAME", "Set1")
-species_palette <- c(
-  "Chinook" = "forestgreen",
-  "Coho" = "darkblue",
-  "Sockeye" = "firebrick4",
-  "Pink" = "maroon4",
-  "Chum" = "#E69F00"
-)
-
-
-# Indicator palette used for labelling indicator categories
-indicator_palette <- c(
-  "Demographics" = "purple",
-  "Spawning & Rearing" = "turquoise",
-  "Upstream Migration" = "royalblue",
-  "Nearshore Marine"   = "green4",
-  "Genetics"  = "orange3"
-)
-
-
-# species_palette <- pal_futurama()(length(unique(cu_run$Species_simple)))
-#
-# species_palette_lookup <- tibble("sp" = unique(cu_run$Species_simple),
-#                                     "col" = species_palette)
-
-# species_colors <- c(
-#   "Chinook" = "#1b9e77",
-#   "Sockeye (Lake Type)" = "#d95f02",
-#   "Coho" = "#7570b3",
-#   "Chum" = "goldenrod",
-#   "Pink" = "darkmagenta"
-# )
-#
 
 # 1. Indicator value comparison, standardized vs raw ----------------------
 

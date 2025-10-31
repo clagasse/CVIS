@@ -44,8 +44,17 @@ library(here)
 here()
 source(here("code", "0_setup.R"))
 
-h_start <- 1981 # start year for historical period using HOTSSEAA
-h_end   <- 2020 # end year for historical period
+# start year for historical period in HOTSSEA and CMIP6
+h_start <- period_lookup$start_year[period_lookup$model == "CMIP6_SST" & period_lookup$period_code == 0]
+h_end   <- period_lookup$end_year[period_lookup$model == "CMIP6_SST" & period_lookup$period_code == 0]
+# start and end year of mid-century period
+p3_start <- period_lookup$start_year[period_lookup$model == "CMIP6_SST" & period_lookup$period_code == 3]
+p3_end <- period_lookup$end_year[period_lookup$model == "CMIP6_SST" & period_lookup$period_code == 3]
+# start and end year of end-of-century period
+p5_start <- period_lookup$start_year[period_lookup$model == "CMIP6_SST" & period_lookup$period_code == 5]
+p5_end <- period_lookup$end_year[period_lookup$model == "CMIP6_SST" & period_lookup$period_code == 5]
+
+
 
 if (!require("pacman")) install.packages("pacman")
 # working with NetCDFs
@@ -54,15 +63,6 @@ pacman::p_load(ncmeta)
 pacman::p_load(abind)
 pacman::p_load(concaveman)
 
-# # working with rasters
-# pacman::p_load(raster)
-# pacman::p_load(terra)
-# pacman::p_load(spdep)
-# pacman::p_load(gtable)
-# pacman::p_load(gridExtra)
-# pacman::p_load(grid)
-
-# other
 pacman::p_load("spgwr")
 pacman::p_load("spatstat")
 pacman::p_load("tmap")
@@ -70,22 +70,6 @@ pacman::p_load("gstat")
 pacman::p_load("maps")
 # install_github("pbs-assess/pacea")
 pacman::p_load(pacea)
-
-
-# paths$climate <- file.path("C:/Users/houtmann/OneDrive - DFO-MPO/0_data_climate")
-# spatial_dat <- file.path("C:/Users/houtmann/OneDrive - DFO-MPO/0_data_spatial")
-
-# This script opens up the original NetCDF files for the 3 climate models (BCCM, NEP36, and SSC),
-# extracts surface data for the variables of interest and recombines the variables
-# of interest into point data. For the Cumulative impacts model, the centroids of
-# the SHP file grid were also extracted.
-# The end product of this script is a series of simple feature objects for each
-# model/variable combination with spatial point data representing the centroids
-# of the original netCDF grids. These simple feature objects are converted to
-# CRS 3005 in this script and feed directly into the next script. If you want to
-# change the CRS, changing it in both this script and the next is important.
-# It is important to run the code in order and run all sections for each model.
-
 
 
 
@@ -306,30 +290,6 @@ sf::st_write(NEP_SSS, file.path(paths$climate, "NEP36_MonthlyData", "NEPmonthly_
 sf::st_write(NEP_SST, file.path(paths$climate, "NEP36_MonthlyData", "NEPmonthly_SST.gdb"), driver = "OpenFileGDB", append = FALSE)
 sf::st_write(NEP_SSPH, file.path(paths$climate, "NEP36_MonthlyData", "NEPmonthly_SSPH.gdb"), driver = "OpenFileGDB",  append = FALSE)
 
-
-#-------------- LOAD CMIP6 data - upscaled to higher resolution
-
-CMIP6 <- nc_open(file.path(paths$climate,  "Marine_CMIP6",  "ensemble-percentiles_mon_QDM+OSTIA_historical+ssp370_1950-2100_BC.nc"))
-
-sst <- ncvar_get(CMIP6, varid = "sst_p50")
-lon <- ncvar_get(CMIP6, "lon")
-lat <- ncvar_get(CMIP6, "lat")
-time <- ncvar_get(CMIP6, "time")
-
-# Create a grid of coordinates
-grid <- expand.grid(lon = lon, lat = lat)
-
-# Loop through time steps
-sst_df <- lapply(1:length(time), function(t) {
-  sst_slice <- sst[, , t]
-  data.frame(grid, sst = as.vector(sst_slice), time = time[t])
-}) %>% bind_rows()
-
-sst_df$time <- as.Date(sst_df$time, origin = "1850-01-01")
-
-sst_df_sub <- sst_df[sst_df$time > "1980-01-01" & sst_df$time < "2021-01-01", ]
-
-sst_sf <- st_as_sf(sst_df_sub, coords = c("lon", "lat"), crs = 4326)
 
 
 #------------ LOAD SSC temperature and salinity data --------
@@ -636,9 +596,9 @@ rm(BCCM_45_SSS, BCCM_45_SST, BCCM_45_SSPH, BCCM_85_SSS, BCCM_85_SST, BCCM_85_SSP
 CI <- read_sf(file.path(paths$spatial, "Cumulative_Impacts_Pacfic_Canada.gdb"))
 CI <- st_transform(CI, crs = "EPSG:3005")
 # calculate centroids of CI polygon grid
-CI_points <- st_centroid(CI)
+CImpact_points <- st_centroid(CI)
 rm(CI)
-sf::st_write(CI_points, file.path(paths$spatial, "CumulativeImpacts", "CI_points.gdb"), driver = "OpenFileGDB", append = FALSE)
+sf::st_write(CImpact_points, file.path(paths$spatial, "CumulativeImpacts", "CI_points.gdb"), driver = "OpenFileGDB", append = FALSE)
 
 
 
@@ -697,28 +657,10 @@ CI_points_sub <- st_join(CI_points, left = FALSE, MAZ["MAZ_Acrony"]) %>%
 
 
 
-# ---------- Make maps ---------
-bc_coast_3005 <- st_transform(bc_coast, crs = "EPSG:3005")
-ggplot(filter(CMIP5_SST, month == 4, year == 2050)) +
-  geom_sf(aes(colour = value), size = 4) +
-  geom_sf(data = bc_coast, fill = NA, colour = "black")
-
-
-# ----------- Remove extra objects -------
-rm(SSC_mask, BCCM_mask, NEP_mask)
-
-ggplot(st_zm(CMIP_SST_join)) +
-  geom_sf(aes(colour = MAZ_Acrony)) +
-  geom_sf(data = bc_coast, fill = NA, colour = "black")
-
-
-#------------- Added workflow for HOTSSea model --------------------------
+#------------- HOTSSea model --------------------------
 
 # use PacEA package to load
 # most processing is already done but need to join to MAZ and summarize across years
-
-qlowsp <- 0.1
-qhighsp <- 0.9
 
 
 # download hotssea data  - use hotssea_all_variables()
@@ -727,334 +669,83 @@ hotssea_SST <- hotssea_surface_temperature_mean() %>%
     names_to = c("year", "month"),
     names_sep = "_",
     values_to = "sst") %>%
-  filter(year >= h_start & year <= h_end)
+  filter(year >= h_start & year <= h_end) %>%
+  mutate(month = sprintf("%02d", as.numeric(month))) %>%
+  pivot_wider(id_cols = c(geometry, year),
+    names_from = month,
+    names_prefix = "SST_",
+    values_from = sst)
 
 hotssea_SST_join <- st_join(x = hotssea_SST, y = MAZ, left = FALSE)
 
-hotssea_SST <- hotssea_SST_join %>%
-  group_by(month, MAZ_Acrony, geometry) %>%
-  summarize(value = mean(sst, na.rm = T)) %>%
-  mutate(month = as.numeric(month),
-    RCP = "H",
-    model = "HOTSSea") %>%
-  ungroup()
-
-sf::st_write(hotssea_SST, file.path(paths$climate, "Standardized_Marine_data", "Points", "HOTSSea_SST.gdb"),
+sf::st_write(hotssea_SST_join, file.path(paths$climate, "Standardized_Marine_data", "Points", "HOTSSea_SST.gdb"),
   driver = "OpenFileGDB", append = FALSE)
 
 
-## compare SSC and hotssea SSTs
+# CMIP6 high resolution SST ------------------------------------------
 
-SSC_SST <- read_sf(file.path(paths$climate, "Standardized_Marine_data/Points/SSC_SST_sub.gdb"))
-
-SSC_SST_long <- SSC_SST %>%
-  pivot_longer(
-    cols = -c("SHAPE", "MAZ_Acrony"),
-    names_to = c("scenario", "month"),
-    names_pattern = "SST_([A-Za-z0-9]+)_([0-9]+)",
-    values_to = "value"
-  ) %>%
-  mutate(model = "SSC",
-    month = as.numeric(month))
-
-SSC_SST_summary <- SSC_SST_long %>%
-  group_by(scenario, month, MAZ_Acrony) %>%
-  summarize(mean    = mean(value, na.rm = T),
-    qlowsp = quantile(value, qlowsp, na.rm = T),
-    qhighsp = quantile(value, qhighsp, na.rm = T),
-    .groups = "drop")
-
-hotssea_summary <- hotssea_SST %>%
-  group_by(RCP, month, MAZ_Acrony) %>%
-  summarize(mean    = mean(value, na.rm = T),
-    qlowsp = quantile(value, qlowsp, na.rm = T),
-    qhighsp = quantile(value, qhighsp, na.rm = T),
-    .groups = "drop")
-
-
-ggplot() +
-  geom_point(data = filter(hotssea_summary, MAZ_Acrony == "GStr", scenario == "H"), aes(x = month, y = mean)) +
-  geom_point(data = filter(SSC_SST_summary, MAZ_Acrony == "GStr", scenario == "H"), aes(x = month, y = mean), color = "blue")
-
-
-
-# Load CMIP6 high resolution SST ------------------------------------------
-
-ncdf_to_dt <- function(file_name = "ensemble-percentiles_mon_QDM+OSTIA_historical+ssp370_1950-2100_BC.nc",
-                       file_path = file.path(paths$climate, "Marine_CMIP6"),
-                       MAZ_obj = MAZ,
-                       start_year = 1980,
-                       end_year = 2020,
-                       keep_all = FALSE  # clip to MAZ or keep all spatial points
-) {
-
-  nc <- nc_open(file.path(file_path, file_name))
-
-  lon <- ncvar_get(nc, "lon")
-  lat <- ncvar_get(nc, "lat")
-  time <- ncvar_get(nc, "time")
-  sst <- ncvar_get(nc, "sst_p50")  # Use sst_p50 for median SST
-  sstp10 <- ncvar_get(nc, "sst_p10")
-  sstp90 <- ncvar_get(nc, "sst_p90")
-
-  dates <- as.Date(time, origin = "1850-01-01")
-
-  time_index <- which(dates >= as.Date(paste0(start_year, "-01-01"))                        &
-    dates <= as.Date(paste0(end_year, "-12-31")))
-
-  # get historic time series of monthly temps
-  dates_subset <- dates[time_index]
-  sst <- sst[, , time_index]
-  sstp10 <- sstp10[, , time_index]
-  sstp90 <- sstp90[, , time_index]
-
-  sst <- sst - 273.15 # convert to celsius
-  sstp10 <- sstp10 - 273.15 # convert to celsius
-  sstp90 <- sstp90 - 273.15 # convert to celsius
-
-  # make into data.table
-  grid <- expand.grid(lon = lon, lat = lat)
-  n_cells <- nrow(grid)
-
-  # Create a data.table with all time slices
-  dt_list <- lapply(1:length(dates_subset), function(i) {
-    data.table(
-      lon = grid$lon,
-      lat = grid$lat,
-      year = format(dates_subset[i], "%Y"),
-      month = format(dates_subset[i], "%m"),
-      SST = as.vector(sst[, , i]),
-      SST_p10 = as.vector(sstp10[, , i]),
-      SST_p90 = as.vector(sstp90[, , i])
-    )
-  })
-
-  # Combine all into one long data.table
-  dt_long <- rbindlist(dt_list)
-
-  # make one column for each month
-  dt_wide <- dcast(
-    dt_long,
-    lon + lat + year ~ month,
-    value.var = c("SST", "SST_p10", "SST_p90")
-  )
-
-  # convert to sf
-  CMIP_sf <- st_as_sf(dt_wide, coords = c("lon", "lat"), crs = 4269) %>%
-    st_transform(crs = "EPSG:3005")
-  # join with MAZ to get MAZ assignments
-  CMIP_sf   <- st_join(CMIP_sf, MAZ_obj["MAZ_Acrony"], left = keep_all)
-
-}
-
+period_CMIP6 <- filter(period_lookup, model == "CMIP6_SST")
 
 # SSP 245 -get historical data and convert to sf
 CMIP_SST <- ncdf_to_dt(file_name = "ensemble-percentiles_mon_QDM+OSTIA_historical+ssp245_1950-2100_BC.nc",
   file_path = file.path(paths$climate, "Marine_CMIP6"),
   MAZ_obj = MAZ,
-  start_year = 1980,
-  end_year = 2020)
-sf::st_write(CMIP_SST, file.path(paths$climate,
-  "Standardized_Marine_data/Points/CMIP6_ssp245_SST_1980-2020.gdb"),
+  start_year = h_start,
+  end_year = h_end)
+sf::st_write(CMIP_SST, file.path(paths$climate, "Standardized_Marine_Data", "Points",
+  paste0("CMIP6_ssp245_SST_", h_start, "-", h_end, ".gdb")),
 driver = "OpenFileGDB", append = FALSE)
 
-# repeat for ssp245 projected time period
+# repeat for ssp245 P3
 CMIP_SST <- ncdf_to_dt(file_name = "ensemble-percentiles_mon_QDM+OSTIA_historical+ssp245_1950-2100_BC.nc",
   file_path = file.path(paths$climate, "Marine_CMIP6"),
   MAZ_obj = MAZ,
-  start_year = 2046,
-  end_year = 2065)
+  start_year = p3_start,
+  end_year = p3_end)
 
-sf::st_write(CMIP_SST, file.path(paths$climate,
-  "Standardized_Marine_data/Points/CMIP6_ssp245_SST_2046-2065.gdb"),
+sf::st_write(CMIP_SST, file.path(paths$climate, "Standardized_Marine_Data", "Points",
+  paste0("CMIP6_ssp245_SST_", p3_start, "-", p3_end, ".gdb")),
 driver = "OpenFileGDB", append = FALSE)
 
+# repeat for ssp245 P5
+CMIP_SST <- ncdf_to_dt(file_name = "ensemble-percentiles_mon_QDM+OSTIA_historical+ssp245_1950-2100_BC.nc",
+  file_path = file.path(paths$climate, "Marine_CMIP6"),
+  MAZ_obj = MAZ,
+  start_year = p5_start,
+  end_year = p5_end)
+
+sf::st_write(CMIP_SST, file.path(paths$climate, "Standardized_Marine_Data", "Points",
+  paste0("CMIP6_ssp245_SST_", p5_start, "-", p5_end, ".gdb")),
+driver = "OpenFileGDB", append = FALSE)
 
 # SSP 585 -get historical data and convert to sf
 CMIP_SST <- ncdf_to_dt(file_name = "ensemble-percentiles_mon_QDM+OSTIA_historical+ssp585_1950-2100_BC.nc",
   file_path = file.path(paths$climate, "Marine_CMIP6"),
   MAZ_obj = MAZ,
-  start_year = 1980,
-  end_year = 2020)
-sf::st_write(CMIP_SST, file.path(paths$climate,
-  "Standardized_Marine_data/Points/CMIP6_ssp585_SST_1980-2020.gdb"),
+  start_year = h_start,
+  end_year = h_end)
+sf::st_write(CMIP_SST, file.path(paths$climate, "Standardized_Marine_Data", "Points",
+  paste0("CMIP6_ssp585_SST_", h_start, "-", h_end, ".gdb")),
 driver = "OpenFileGDB", append = FALSE)
 
-# repeat for ssp585 projected time period
+# repeat for ssp585 P3
 CMIP_SST <- ncdf_to_dt(file_name = "ensemble-percentiles_mon_QDM+OSTIA_historical+ssp585_1950-2100_BC.nc",
   file_path = file.path(paths$climate, "Marine_CMIP6"),
   MAZ_obj = MAZ,
-  start_year = 2046,
-  end_year = 2065)
+  start_year = p3_start,
+  end_year = p3_end)
 
-sf::st_write(CMIP_SST, file.path(paths$climate,
-  "Standardized_Marine_data/Points/CMIP6_ssp585_SST_2046-2065.gdb"),
+sf::st_write(CMIP_SST, file.path(paths$climate, "Standardized_Marine_Data", "Points",
+  paste0("CMIP6_ssp585_SST_", p3_start, "-", p3_end, ".gdb")),
 driver = "OpenFileGDB", append = FALSE)
 
+# repeat for ssp585 P5
+CMIP_SST <- ncdf_to_dt(file_name = "ensemble-percentiles_mon_QDM+OSTIA_historical+ssp585_1950-2100_BC.nc",
+  file_path = file.path(paths$climate, "Marine_CMIP6"),
+  MAZ_obj = MAZ,
+  start_year = p5_start,
+  end_year = p5_end)
 
-
-## get historic monthly average temps
-dates_subset <- dates[time_index_h]
-sst_h <- sst[, , time_index_h]
-
-months <- month(dates_subset)
-monthly_means_h <- lapply(1:12, function(m) {
-  idx <- which(months == m)
-  apply(sst_h[, , idx], c(1, 2), mean, na.rm = TRUE)
-})
-
-names_month_h <- paste0("SST_H_", seq(1:12))
-names(monthly_means_h) <- names_month_h
-
-
-# get projected monthly average SST
-dates_subset <- dates[time_index_p]
-sst_p <- sst[, , time_index_p]
-
-months <- month(dates_subset)
-monthly_means_p <- lapply(1:12, function(m) {
-  idx <- which(months == m)
-  apply(sst_p[, , idx], c(1, 2), mean, na.rm = TRUE)
-})
-
-names_month_p <- paste0("SST_P_", seq(1:12))
-names(monthly_means_p) <- names_month_p
-
-# combine into a data.table
-grid <- expand.grid(lon = lon, lat = lat)
-CMIP_SST_summary <- as.data.table(grid)
-
-for (i in 1:12) {
-  month_matrix_h <- monthly_means_h[[i]]
-  CMIP_SST_summary[[names_month_h[i]]] <- as.vector(month_matrix_h)
-  # month_matrix_p <- monthly_means_p[[i]]
-  # CMIP_SST_summary[[names_month_p[i]]] <- as.vector(month_matrix_p)
-}
-
-# convert to spatial object
-CMIP_SST_summary <- st_as_sf(CMIP_SST_summary, coords = c("lon", "lat"), crs = 4269) %>%
-  st_transform(crs = "EPSG:3005")
-
-CMIP_SST_join <- st_join(CMIP_SST_summary, MAZ["MAZ_Acrony"], left = FALSE)
-
-sf::st_write(CMIP_SST_join, file.path(paths$climate, "Standardized_Marine_data/Points/CMIP6_SST_1980-2010b.gdb"),   driver = "OpenFileGDB", append = FALSE)
-
-
-
-## get historic annual average temps
-dates_subset <- dates[time_index_h]
-sst_h <- sst[, , time_index_h]
-
-years <- year(dates_subset)
-year_seq <- seq(min(years), max(years))
-yearly_means_h <- lapply(year_seq, function(y) {
-  idx <- which(years == y)
-  apply(sst_h[, , idx], c(1, 2), mean, na.rm = TRUE)
-})
-
-names_yearly_h <- paste0("SST_", year_seq)
-names(yearly_means_h) <- names_yearly_h
-
-# combine into a data.table
-grid <- expand.grid(lon = lon, lat = lat)
-CMIP_SST_yearly <- as.data.table(grid)
-
-for (i in 1:length(year_seq)) {
-  year_matrix_h <- yearly_means_h[[i]]
-  CMIP_SST_yearly[[names_yearly_h[i]]] <- as.vector(year_matrix_h)
-}
-
-CMIP_SST_yearly_sf <- st_as_sf(CMIP_SST_yearly, coords = c("lon", "lat"), crs = 4269) %>%
-  st_transform(crs = "EPSG:3005")
-
-CMIP_SST_yearly_sf <- st_join(CMIP_SST_yearly_sf, MAZ["MAZ_Acrony"], left = FALSE)
-
-sf::st_write(CMIP_SST_yearly_sf, file.path(paths$climate, "Standardized_Marine_data/Points/CMIP6_SST_yearly_1980-2010.gdb"),   driver = "OpenFileGDB", append = FALSE)
-
-
-# summary by month and MAZ
-CMIP_SST_long <- CMIP_SST_join %>%
-  pivot_longer(cols = c(SST_H_1:SST_H_12),
-    names_to = c("period", "month"),
-    names_pattern = "SST_(H)_([0-9]+)",
-    values_to = "value")
-
-CMIP_MAZ_summary <- CMIP_SST_long %>%
-  group_by(period, month, MAZ_Acrony) %>%
-  summarize(mean    = mean(value, na.rm = T),
-    qlowsp = quantile(value, qlowsp, na.rm = T),
-    qhighsp = quantile(value, qhighsp, na.rm = T),
-    .groups = "drop") %>%
-  mutate(month = as.numeric(month))
-
-CMIP_SST_yearly_long <- CMIP_SST_yearly_sf %>%
-  pivot_longer(cols = c(SST_1981:SST_2018),
-    names_to = c("year"),
-    names_pattern = "SST_([0-9]+)",
-    values_to = "value")
-
-CMIP_SST_yearly_summary <- CMIP_SST_yearly_long %>%
-  as_tibble() %>%
-  group_by(year, MAZ_Acrony) %>%
-  summarize(sst = mean(value, na.rm = T)) %>%
-  ungroup() %>%
-  mutate(year = as.numeric(year))
-
-
-## hotssea yearly
-hotssea_SST <- hotssea_surface_temperature_mean() %>%
-  pivot_longer(cols = c(`1980_1`:`2018_12`),
-    names_to = c("year", "month"),
-    names_sep = "_",
-    values_to = "sst")
-
-hotssea_SST_join <- st_join(x = hotssea_SST, y = MAZ, left = FALSE)
-
-hotssea_SST_yearly <- hotssea_SST_join %>%
-  as_tibble() %>%
-  group_by(year, MAZ_Acrony) %>%
-  summarize(sst = mean(sst)) %>%
-  ungroup() %>%
-  mutate(year = as.numeric(year))
-
-
-# oisst yearly
-oisst_month$MAZ_Acrony <- NA
-container <- st_contains(MAZ, oisst_month)
-for (i in 1:length(container)) {
-  if (length(container[[i]]) > 0) {
-    oisst_month$MAZ_Acrony[container[[i]]] <- as.character(MAZ$MAZ_Acrony[i])
-  }
-}
-
-oisst_yearly <- oisst_month %>%
-  as_tibble() %>%
-  group_by(year, MAZ_Acrony) %>%
-  summarize(sst = mean(sst)) %>%
-  ungroup() %>%
-  filter(year < 2019)
-
-yearly_compare <- bind_rows(hotssea_SST_yearly, oisst_yearly, CMIP_SST_yearly_summary,
-  .id = "model") %>%
-  mutate(model_name = case_when(
-    model == 1 ~ "HOTSSEA",
-    model == 2 ~ "OISST",
-    model == 3 ~ "CMIP6"))
-
-
-
-
-# compare CMIP to HOTSSEA
-ggplot() +
-  geom_point(data = filter(hotssea_summary, MAZ_Acrony == "GStr", RCP == "H"),
-    aes(x = month, y = mean)) +
-  geom_point(data = filter(CMIP_MAZ_summary, MAZ_Acrony == "GStr", period == "H"),
-    aes(x = month, y = mean), colour = "red") +
-  geom_point(data = filter(SSC_SST_summary, MAZ_Acrony == "GStr", scenario == "H"),
-    aes(x = month, y = mean), color = "blue")
-
-# compare annual time series
-ggplot() +
-  geom_line(data = filter(yearly_compare),
-    aes(x = year, y = sst, colour = model_name)) +
-  facet_wrap(. ~ MAZ_Acrony)
+sf::st_write(CMIP_SST, file.path(paths$climate, "Standardized_Marine_Data", "Points",
+  paste0("CMIP6_ssp585_SST_", p5_start, "-", p5_end, ".gdb")),
+driver = "OpenFileGDB", append = FALSE)
