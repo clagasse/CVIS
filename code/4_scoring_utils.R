@@ -8,6 +8,7 @@
 # raw standardization function between 0 and 1 using min and max values
 # if xmin or xmax are set, a manual min and max range are used for standardizing between 0 and 1
 # if use_95 = TRUE, the min and max are set based on 95% quantile ranges to exclude outliers
+
 linear_std <- function(x, ..., xmin = NA, xmax = NA, use_95 = T) {
   if (is.na(xmax)) {
     xmax <- max(x, na.rm = T)
@@ -25,6 +26,7 @@ linear_std <- function(x, ..., xmin = NA, xmax = NA, use_95 = T) {
     z <- ifelse(x[i] < xmin, xmin,
       ifelse(x[i] > xmax, xmax, x[i]))
     y[i] <- (z - xmin) / (xmax - xmin)
+    if (xmax == xmin) y[i] <- 0.5 # set standardized value to 0.5 if xmin = xmax
   }
 
   return(y)
@@ -47,6 +49,7 @@ invlinear_std <- function(x, ..., xmin = NA, xmax = NA, use_95 = T) {
     if (is.na(x[i])) next
     z <- ifelse(x[i] < xmin, xmin, ifelse(x[i] > xmax, xmax, x[i]))
     y[i] <- 1 - (z - xmin) / (xmax - xmin)
+    if (xmax == xmin) y[i] <- 0.5 # set standardized value to 0.5 if xmin = xmax
   }
   return(y)
 }
@@ -85,6 +88,7 @@ exponential_std <- function(x, ..., lambda = 1, xmin = NA, xmax = NA, use_95 = T
     z <- ifelse(x[i] < xmin, xmin, ifelse(x[i] > xmax, xmax, x[i]))
     z_std <- (z - xmin) / (xmax - xmin)
     y[i] <- exp(lambda * z_std) / exp(lambda) - exp(-lambda) * (1 - z_std)
+    if (xmax == xmin) y[i] <- 0.5 # set standardized value to 0.5 if xmin = xmax
   }
 
   return(y)

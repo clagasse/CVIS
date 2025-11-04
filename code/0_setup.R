@@ -56,12 +56,14 @@ source(here("code", "2_fw_utils.R"))
 source(here("code", "3_marine_utils.R"))
 source(here("code", "4_scoring_utils.R"))
 
-# load CU tables
-source(here("code", "1a_CU_import.R"))   # CU table
-
 # load plotting functions
 source(here("code", "5a_plots_CU.R"))
 source(here("code", "5b_plots_compare.R"))
+
+# load CU tables
+source(here("code", "1a_CU_import.R"))   # CU table
+
+# CU settings -------------------------------------------------------------
 
 # Select subset of CUs to run for analysis
 cu_run <- cu_list %>%
@@ -75,6 +77,8 @@ cu_run <- cu_list %>%
 
 cu_seq  <- cu_run$FULL_CU_IN # Create vector of CUs to analyze, ordered CK, CM, CO, PKO, SEL, SER, SH
 n.CUs   <- nrow(cu_run)
+
+
 
 
 # Analysis configurations -------------------------------------------------
@@ -94,10 +98,22 @@ historical <- "0"   # historical climatology period for temperature models
 # choose stream base network
 base_network <- switch(1, "tscapes", "bcfpa")  # only tscapes currently implemented, bcfpa has FWA network broken into smaller segments
 
-CI_habitats <- c("All")   # habitat types to include for cumulative impacts (marine)
+CI_type <- c("ALL")   # habitat types to use for cumulative impacts (marine)
+# options include:  ALL, dp, bh, eg, sr, kp
 
-ns_start_offset <- 3   # amount of months before peak ocean entry month to include when calculating nearshore marine indicators
-ns_end_offset   <- 3   # amount of months after peak ocean entry month for calculating nearshore marine indicators
+# choose method for determining nearshore residency period for marine indicators
+# static = same months used for all CUs,  peak_offset = offsets from peak ocean entry month used
+ns_time_method <- switch(1, "static", "peak_offset")
+
+ns_start_static <- 4  # for static method, start month
+ns_end_static   <- 7  # for static method, end month included
+ns_start_offset <- 2   # amount of months before peak ocean entry month to include when calculating nearshore marine indicators
+ns_end_offset   <- 2   # amount of months after peak ocean entry month for calculating nearshore marine indicators
+
+
+
+
+
 
 ##### ------ Lookup and definition tables
 
@@ -136,16 +152,16 @@ tbl_indicators <- tribble(
   "tw8rate",    "fwR",    "mean",    "linear_std",        "Rate of change in August Temperature",
   "tw8proj",    "fwR",    "mean",    "exponential_std", "Projected August Temperature",
   "lowQpdelta", "fwR",   "mean",    "decay_std",       "Proportional change in August flow (stream model)",
-  "st8pdelta",  "fwR",    "mean",    "decay_std",     "Proportional change in August flow (station model)",
+  # "st8pdelta",  "fwR",    "mean",    "decay_std",     "Proportional change in August flow (station model)",
   "highQpdelta",  "fwR",   "mean",    "exponential_std", "Proportional change in Nov-Jan flow (stream model)",
   "fwres",     "fwR",    "value",    "step_std",   "Freshwater residency time",
   "migrT",      "migr",   "mean",    "exponential_std",     "Projected temperature during upstream migration",
   "migrQ",      "migr",   "pdelta",      "decay_std",    "Proportional change in discharge during upstream migration",
-  "migrA21",    "migr",   "mean",    "exponential_std", "Average proportion of path above 21 degrees during upstream migration",
+  # "migrA21",    "migr",   "mean",    "exponential_std", "Average proportion of path above 21 degrees during upstream migration",
   "migrdist",   "migr",  "value",      "linear_std",     "Length of upstream migration",
   "SSTproj",     "mar",   "mean", "exponential_std",  "Projected nearshore SST during ocean entry",
   "SSTrate",     "mar",   "mean", "linear_std",  "Rate of change in nearshore SST",
-  "CI",          "mar",   "mean", "linear_std",   "Cumulative impacts to marine nearshore habitat",
+  "CImpact",      "mar",   "mean", "linear_std",   "Cumulative impacts to marine nearshore habitat",
   "CUstatus",    "dem",   "category",    "cat_std", "WSP status",
   "CUnmat",      "dem",   "value",  "decay_std", "Number of mature individuals")
 
@@ -154,22 +170,22 @@ tbl_indicators <- tribble(
 tbl_standardize <- tribble(
   ~abbrev,      ~type,      ~std_fun,        ~lambda, ~xmin, ~xmax,
   "Favchange", "fwR",        "linear_std",        NA,     NA,   0,
-  "ct",         "fwR",      "linear_std",        NA,    0,   NA,
+  "ct",         "fwR",      "linear_std",         NA,    0,   NA,
   "Tw8rate",    "fwR",      "linear_std",         NA,    NA,   NA,
   "Tw8proj",    "fwR",       "exponential_std",   3,    15,   NA,
   "lowQpdelta",  "fwR",    "decay_std",           3,    NA,   0,
-  "st8pdelta",  "fwR",    "decay_std",            3,    NA,   0,
+  # "st8pdelta",  "fwR",    "decay_std",            3,    NA,   0,
   "highQpdelta", "fwR",    "exponential_std",     3,    0,   NA,
   "fwres",     "fwR",      "step_std",            NA,   NA,   NA,
   "migrT",      "migr",    "exponential_std",     3,    15,   NA,
-  "migrQ",      "migr",       "decay_std",        3,   NA,   0,
-  "migrA21",    "migr",     "exponential_std",    3,    0,    NA,
+  "migrQ",      "migr",       "decay_std",        3,     0,   0,
+  # "migrA21",    "migr",     "exponential_std",    3,    0,    NA,
   "migrdist",   "migr",      "linear_std",        NA,   NA,   NA,
-  "SSTproj",     "mar",   "exponential_std",      NA,   NA,   NA,
-  "SSTrate",     "mar",     "linear_std",            NA,   NA,   NA,
-  "CI",          "mar",   "linear_std",           NA,   NA,   NA,
-  "CUstatus",    "dem",       "cat_std",        NA,    NA,   NA,
-  "CUnmat",      "dem",     "decay_std",         3,    0, 10000)
+  "SSTproj",     "mar",   "exponential_std",      3,   NA,   NA,
+  "SSTrate",     "mar",     "linear_std",         NA,   NA,   NA,
+  "CImpact",     "mar",   "linear_std",           NA,   NA,   NA,
+  "CUstatus",    "dem",       "cat_std",          NA,    NA,   NA,
+  "CUnmat",      "dem",     "decay_std",          3,    0, 10000)
 
 
 ### ----- Load frequently used data sets- ------
@@ -274,8 +290,8 @@ species_palette <- c(
   "Chinook" = "#1b9e77",
   "Coho" = "darkblue",
   "Sockeye" = "firebrick4",
-  "Pink" = "maroon4",
-  "Chum" = "#E69F00"
+  "Pink" = "purple3",
+  "Chum" = "goldenrod4"
 )
 
 # Indicator palette used for labelling indicator categories

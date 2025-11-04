@@ -187,58 +187,6 @@ assign_points <- function(x, y, var = "MAZ_Acrony") {
 
 # Data reshaping ----------------------------------------------------------
 
-
-summarize_marine_var <- function(model_data,
-                                 months = c(3, 4, 5),
-                                 MAZ_pick = "GStr",
-                                 RCP_pick = "45",
-                                 period_pick = 3,
-                                 include_quantiles = TRUE) {
-
-  stat_cols <- "value"  # name of column with variable values
-
-  ind_name <- paste0(var_pick, "proj")  # prefix for indicator column name
-  rate_col_name <- paste0(var_pick, "rate", "_mean")  # rate change column
-
-  summary_data <- model_data %>%
-    as_tibble() %>%
-    filter(month %in% months_include, MAZ_Acrony == MAZ_pick) %>%
-    group_by(RCP) %>%
-    summarize(
-      across(
-        .cols = c(all_of(stat_cols)),
-        .fns = list(
-          mean       = ~ mean(.x, na.rm = T),
-          qlowsp     = ~ quantile(.x, qlowsp, na.rm = T),
-          qhighsp    = ~ quantile(.x, qhighsp, na.rm = T)
-        ),
-        .names = paste0(ind_name, "_", "{.fn}")
-      ),
-      .groups = "drop"
-    )
-
-  mean_col <- paste0(ind_name, "_mean")
-
-  # get historic value and calculate rate of change from historic
-  histT <- summary_data[[mean_col]][summary_data$RCP == "H"]
-
-  # make a new column for rate of change
-  summary_data <- summary_data %>%
-    mutate(!!rate_col_name := (.data[[mean_col]] - histT) / decades)
-
-  # summary_wide <- summary_data %>%
-  #   pivot_wider(
-  #     names_from = "RCP",
-  #     values_from = matches("mean|qlowsp|qhighsp|meanrate"),
-  #     names_glue = paste0(var_pick, "_", "{RCP}_{.value}")
-  #   )
-
-  return(summary_data)
-
-}
-
-
-
 subset_and_mean_var <- function(data,
                                 months = c(3, 4, 5),
                                 period_code_0_year = 1995,
@@ -274,11 +222,11 @@ subset_and_mean_var <- function(data,
     ) %>%
     group_by(rcp, period_code) %>%
     summarize(
-      !!paste0("mean_", var_name, "proj")     := mean(monthly_mean, na.rm = TRUE),
-      !!paste0("qlowsp_", var_name, "proj")   := quantile(monthly_mean, qlowsp, na.rm = TRUE),
-      !!paste0("qhighsp_", var_name, "proj")  := quantile(monthly_mean, qhighsp, na.rm = TRUE),
-      !!paste0("qlowgcm_", var_name, "proj")  := mean(monthly_p10, na.rm = TRUE),
-      !!paste0("qhighgcm_", var_name, "proj") := mean(monthly_p90, na.rm = TRUE),
+      !!paste0(var_name, "proj_", "mean")     := mean(monthly_mean, na.rm = TRUE),
+      !!paste0(var_name, "proj_", "qlowsp")   := quantile(monthly_mean, qlowsp, na.rm = TRUE),
+      !!paste0(var_name, "proj_", "qhighsp")  := quantile(monthly_mean, qhighsp, na.rm = TRUE),
+      !!paste0(var_name, "proj_", "qlowgcm")  := mean(monthly_p10, na.rm = TRUE),
+      !!paste0(var_name, "proj_", "qhighgcm") := mean(monthly_p90, na.rm = TRUE),
       .groups = "drop"
     )
 
@@ -298,11 +246,11 @@ subset_and_mean_var <- function(data,
         TRUE ~ NA_real_
       ),
 
-      !!paste0("mean_", var_name, "rate")     := (get(paste0("mean_", var_name, "proj")) - get(paste0("mean_", var_name, "proj_hist"))) / decades,
-      !!paste0("qlowsp_", var_name, "rate")   := (get(paste0("qlowsp_", var_name, "proj")) - get(paste0("qlowsp_", var_name, "proj_hist"))) / decades,
-      !!paste0("qhighsp_", var_name, "rate")  := (get(paste0("qhighsp_", var_name, "proj")) - get(paste0("qhighsp_", var_name, "proj_hist"))) / decades,
-      !!paste0("qlowgcm_", var_name, "rate")  := (get(paste0("qlowgcm_", var_name, "proj")) - get(paste0("qlowgcm_", var_name, "proj_hist"))) / decades,
-      !!paste0("qhighgcm_", var_name, "rate") := (get(paste0("qhighgcm_", var_name, "proj")) - get(paste0("qhighgcm_", var_name, "proj_hist"))) / decades
+      !!paste0(var_name, "rate_", "mean")     := (!!sym(paste0(var_name, "proj_", "mean")) - !!sym(paste0(var_name, "proj_", "mean_hist"))) / decades,
+      !!paste0(var_name, "rate_", "qlowsp")   := (!!sym(paste0(var_name, "proj_", "qlowsp")) - !!sym(paste0(var_name, "proj_", "qlowsp_hist"))) / decades,
+      !!paste0(var_name, "rate_", "qhighsp")  := (!!sym(paste0(var_name, "proj_", "qhighsp")) - !!sym(paste0(var_name, "proj_", "qhighsp_hist"))) / decades,
+      !!paste0(var_name, "rate_", "qlowgcm")  := (!!sym(paste0(var_name, "proj_", "qlowgcm")) - !!sym(paste0(var_name, "proj_", "qlowgcm_hist"))) / decades,
+      !!paste0(var_name, "rate_", "qhighgcm") := (!!sym(paste0(var_name, "proj_", "qhighgcm")) - !!sym(paste0(var_name, "proj_", "qhighgcm_hist"))) / decades
     ) %>%
     select(rcp, period_code, contains("rate"))
 
@@ -310,4 +258,26 @@ subset_and_mean_var <- function(data,
     left_join(rate_data, by = c("rcp", "period_code"))
 
   return(summary_data)
+}
+
+
+
+# Marine nearshore timing -------------------------------------------------
+
+# simple functions to determine start and end dates for the nearshore period when summarizing indicators
+
+ns_timing_start <- function(oe_peak_month,
+                            ns_start_offset,
+                            ns_time_method) {
+
+  if (ns_time_method == "peak_offset") ns_timing_start <- oe_peak_month - ns_start_offset
+  if (ns_time_method == "static") ns_timing_start <- ns_start_static
+}
+
+ns_timing_end <- function(oe_peak_month,
+                          ns_end_offset,
+                          ns_time_method) {
+
+  if (ns_time_method == "peak_offset") ns_timing_end <- oe_peak_month + ns_end_offset
+  if (ns_time_method == "static") ns_timing_end <- ns_end_static
 }

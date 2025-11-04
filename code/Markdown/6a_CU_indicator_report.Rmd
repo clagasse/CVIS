@@ -41,6 +41,9 @@ title: `r cu_run_i$CU_NAME` - Climate Vulnerability Indicator Report
 ```{r spatial subset, echo = FALSE, message = F, warning = F}
 
 
+#indicator dataframe
+cu_std <- all_flat_std[all_flat_std$FULL_CU_IN == cu_i,]
+
 # Stream spatial layers
 fwR_cu <- fwR_all[[cu_i]] 
 
@@ -105,53 +108,20 @@ ind_cu <- get_CU_indicators(all_flat_std,
 ```
 
 
-```{r cu boundary}
-### boundary location
-p1 <- cu_boundary_highlight(cu_boundary, 
-                      cu_pick = cu_i)
+## Overview
 
-p1
+### Standardized Indicator Values
+```{r}
 
-```
-
-## Demographic Overview
- 
-### Status and abundance
-```{r demographics summary}
-
-
-dem_details <- cu_run_i %>%
-  select(FULL_CU_IN, CU_NAME, 
-         CUstatus, CUnmat, status_year)
-         #SEP_avg_annual_releases_actual, SEP_primary_prod_objective)
-
-dem_details %>%
-  gt() %>%
-  fmt_number(
-    columns = c(CU_NAME, 
-         CUstatus, CUnmat, status_year),
-    decimals = 2
-  )
-
-
-tbl_indicators %>% 
-  filter(type == "dem") %>%
-  gt()
-
-pdem <- plot_cu_lolli(ind_cu,
-              indicators_choose = c("CUstatus", "CUnmat"))
-
-pdem
-
+plot_cu_indicators_lollipop(ind_cu)
 
 ```
 
 
-## Life stage timing
-
+### Life History Timing
 Timing by life history stage is taken from Wilson and Peacock (2025) [https://cdnsciencepub.com/doi/10.1139/cjfas-2024-0213].
-
 Data quality is rated on a scale of 1 to 6 based on number of observations and their recentness, with 1 being the highest quality data.
+
 ```{r life stage timing}
 
 tp <- cu_timing_plot(cu_timing_long_i)
@@ -160,29 +130,52 @@ tp
 ```
 
 
+
+## Demographic Indicators
+ 
+### Status and abundance
+```{r demographics summary}
+
+dem_details <- recent_status %>%
+  filter(FULL_CU_IN == cu_i) %>%
+  select(any_of(c("CVIS_NAME", "DataType", "status_year", 
+                  "RapidStatus", "CUnmat", "ConfidenceRating5")))
+
+dem_details %>%
+  gt() 
+
+aplot <- abundance_status_plot(status_data, 
+                      cu_i)
+
+aplot 
+
+lplot <- plot_cu_lolli(ind_cu,
+              indicators_choose = c("CUstatus", "CUnmat"))
+
+lplot
+
+
+```
+
+
+
+
+
 ## Spawning and Rearing
 
-```{r}
+```{r cu boundary}
+### boundary location
+p1 <- cu_boundary_highlight(cu_boundary, 
+                      cu_pick = cu_i)
 
-tbl_indicators %>% 
-  filter(type == "fwR") %>%
-  gt()
+p1
 
-pfw <- plot_cu_lolli(ind_cu,
-              indicators_choose = c("highQpdelta", "lowQpdelta", 
-                                    "tw8rate", "tw8proj", 
-                                    "ct",
-                                    "favchange",
-                                    "fwres"))
-pfw
 
 ```
 
 
 ### Stream accessibility map
 ```{r data tables}
-
-
 
 
 acc_plot <- stream_accessible_plot(fw_sp_cu,
@@ -672,21 +665,22 @@ timeplot
 
 ### subset indicator values
 cu_mar <- mar_all_flat[mar_all_flat$FULL_CU_IN == cu_i, ]
+cu_MAZ <- cu_mar$MAZ[1]
 
 start_month <- month.name[unique(cu_mar$ns_timing_start)]
   end_month <- month.name[unique(cu_mar$ns_timing_end)]
 
 MAZ_pick <- unique(cu_mar$MAZ)
 
-
 tbl_indicators %>% 
   filter(type == "mar") %>%
   gt()
 
-pmar <- plot_cu_lolli(ind_cu,
-              indicators_choose = c("SSTproj",
-                                    "CI"))
-pmar
+MAZ_boundary_highlight(MAZ,
+                          MAZ_pick = cu_MAZ)
+
+
+
 
 ```
 
@@ -695,15 +689,15 @@ pmar
 ```{r SST}
 
 # subset SST time and locations spatial object
-SST_cu_sp <- subset_and_mean_sst(sf_data = filter(SST_grid, MAZ_Acrony == MAZ_pick),
-  timing_df = cu_mar,
-  RCP_pick = "45")
-
-p <- marine_indicator_plot(SST_cu_sp,
-  MAZ = filter(MAZ, MAZ_Acrony == "GStr"),
-  plot_title = paste0("Projected SST, RCP 45, ", start_month, "-", end_month))
-
-p
+# SST_cu_sp <- subset_and_mean_sst(sf_data = filter(SST_grid, MAZ_Acrony == MAZ_pick),
+#   timing_df = cu_mar,
+#   RCP_pick = "45")
+# 
+# p <- marine_indicator_plot(SST_cu_sp,
+#   MAZ = filter(MAZ, MAZ_Acrony == "GStr"),
+#   plot_title = paste0("Projected SST, RCP 45, ", start_month, "-", end_month))
+# 
+# p
 
 
 ```

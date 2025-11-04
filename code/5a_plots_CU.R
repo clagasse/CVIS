@@ -433,12 +433,19 @@ abundance_status_plot <- function(status_data,
     "None"  = "grey40"
   )
 
+  trend_palette <- c(
+    "Annual Abundance" = "blue4",
+    "Geometric Avg" = "darkred"
+  )
+
   plot_data <- status_data %>%
     filter(FULL_CU_IN == cu_i) %>%
     mutate(ConfidenceRating5 = if_else(is.na(ConfidenceRating5), "None", ConfidenceRating5)) %>%
     mutate(
       RapidStatus = factor(RapidStatus, levels = c("Red", "Amber", "Green", "None")),
-      ConfidenceRating5 = factor(ConfidenceRating5, levels = c("Low", "Moderate", "High", "None"))
+      ConfidenceRating5 = factor(ConfidenceRating5, levels = c("Low", "Moderate", "High", "None")),
+      SpawnerAbundance = SpnForAbd_Wild / 1000,
+      GeometricAvgAbundnace = GenAvgUsed / 1000
     )
 
   # latest_entry <- plot_data[which.max(plot_data$Year), ]
@@ -446,26 +453,52 @@ abundance_status_plot <- function(status_data,
   latest_status <- latest_entry$RapidStatus
   # latest_abundance <- round(latest_entry$SpnForAbd_Wild)
   latest_abundance <- ifelse(is.na(latest_entry$SpnForAbd_Wild), "NA", round(latest_entry$SpnForAbd_Wild))
+  latest_genabd   <- ifelse(is.na(latest_entry$GenAvgUsed), "NA", round(latest_entry$GenAvgUsed))
   status_color <- status_palette[latest_status]
+
+  if (latest_entry$DataType == "Abs_Abd") data_type <- "Absolute Abundance"
+  if (latest_entry$DataType == "Rel_Idx") data_type <- "Relative Index"
 
   # Create a one-row data frame for annotation
   annotation_df <- data.frame(
     x = max(plot_data$Year),
-    y = max(plot_data$SpnForAbd_Wild, na.rm = TRUE) * 0.96,  # slightly below top
+    y = max(plot_data$SpawnerAbundance, na.rm = TRUE) * 0.96,  # slightly below top
     label = paste0(
       plot_data$CVIS_NAME, "<br>",
+      "Data Type: ", data_type,  "</span><br>",
       "Most Recent Status: <span style='color:", status_color, "'>", latest_status, "</span><br>",
-      "Spawner Abundance: ", latest_abundance
+      "Recent Spawner Abundance: ", scales::comma(latest_abundance), "</span><br>",
+      "Recent Generational Avg: ", scales::comma(latest_genabd)
     )
   )
 
+  legend_lines <- data.frame(
+    Year = c(2000, 2000),  # any values, won't be plotted
+    Abundance = c(0, 0),
+    LineType = c("Geometric Avg", "Annual Abundance")
+  )
+
   p <-   ggplot(data = plot_data) +
-    geom_line(aes(x = Year, y = SpnForAbd_Wild)) +
+    # geom_hline(aes(yintercept = RelAbd_LBM/1000), linetype = "dashed", color = "red") +
+    # geom_hline(aes(yintercept = RelAbd_UBM/1000), linetype = "dashed", color = "green") +
+    geom_line(aes(x = Year, y = GeometricAvgAbundnace), color = trend_palette[2], size = 2) +
+    geom_line(aes(x = Year, y = SpawnerAbundance), color = trend_palette[1], size = 2) +
     geom_point(
-      aes(x = Year, y = SpnForAbd_Wild, fill = RapidStatus, shape = ConfidenceRating5),
-      size = 2.5,
+      aes(x = Year, y = 0, fill = RapidStatus, shape = ConfidenceRating5),
+      size = 3,
       color = "black",
       stroke = 0.5
+    ) +
+    # Add blank geom to trigger custom legend
+    geom_line(
+      data = legend_lines,
+      aes(x = Year, y = Abundance, color = LineType),
+      size = 2,
+      alpha = 0
+    ) +
+    scale_color_manual(
+      values = trend_palette,
+      name = "Abundance Type"
     ) +
     scale_fill_manual(
       values = status_palette,
@@ -482,13 +515,19 @@ abundance_status_plot <- function(status_data,
         shape = c(21, 21, 21, 10),
         fill = status_palette,
         color = "black",
-        size = 2.5
+        size = 3
       )),
       shape = guide_legend(override.aes = list(
         shape = c(24, 21, 22, 10),
         fill = "grey",
         color = "black",
         stroke = 0.5
+      )),
+      color = guide_legend(override.aes = list(
+        linetype = c("solid", "solid"),
+        color = trend_palette,
+        size = 2,
+        alpha = 1
       ))
     ) +
     geom_richtext(
@@ -496,19 +535,19 @@ abundance_status_plot <- function(status_data,
       aes(x = x, y = y, label = label),
       hjust = 1,
       vjust = 1,
-      size = 4.5,
+      size = 3.5,
       fill = NA,
       label.color = NA
     ) +
-    labs(y = "Wild Spawner Abundance")
+    labs(y = "Wild Spawner Abundance (1000s)")
 
 
   return(p)
 
 }
 
-abundance_status_plot(status_data,
-  cu_i = "SEL-03-05")
+# abundance_status_plot(status_data,
+#   cu_i = "SEL-03-05")
 
 
 # 12. CU all indicators plot --------------------------------------------------
@@ -685,8 +724,6 @@ plot_cu_indicators_lollipop <- function(data,
     scale_y_continuous(limits = y_limit, breaks = seq(0, 1, 0.2)) +
     labs(
       title = if (is.null(plot_title)) paste0("Climate Vulnerability Indicators: ", cu_name) else plot_title,
-      subtitle = paste0("Species: ", sp_name, " | RCP ", RCP_pick, " | Period: ",
-        filter(period_lookup, model == "tscapes", period_code == period_pick)$period),
       x = NULL,
       y = "Standardized Indicator Value (0 = Low Risk, 1 = High Risk)",
       caption = caption_text
@@ -711,13 +748,14 @@ plot_cu_indicators_lollipop <- function(data,
       theme(
         strip.text.y = element_text(angle = 0, hjust = 0, face = "bold"),
         strip.background = element_rect(fill = "grey95", color = NA)
-      )
+      ) +
+      theme_minimal()
   }
 
   return(p)
 }
 
-#
+
 # cu_ind <- get_CU_indicators(all_flat_std,
 #   cu_i = "CK-06",
 #   RCP_pick = "45",
@@ -728,9 +766,23 @@ plot_cu_indicators_lollipop <- function(data,
 
 
 
+
+# 13. MAZ boundary location plot ------------------------------------------
+
+MAZ_boundary_highlight <- function(MAZ,
+                                   MAZ_pick) {
+
+  MAZ_i <-  filter(MAZ, MAZ_Acrony == MAZ_pick)
+
+  p <- ggplot() +
+    annotation_map_tile(type = "cartolight") +
+    geom_sf(data = MAZ, color = "black", alpha = 0.3) +
+    geom_sf(data = MAZ_i, fill = "green")
+
+}
+
+
 # X. Testing plot functions -----------------------------------------------
-
-
 
 
 

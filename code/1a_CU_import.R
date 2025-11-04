@@ -2,6 +2,15 @@
 
 ## import and process CU-level information
 
+# specify cyclic CUs. These are treated differently when getting the number of mature individuals, only taking the maximum year from a cycle
+cyclic_CUs <- c("SEL-06-14", # Takla-Trembleur-Estu
+  "SEL-09-02", # Shuswap-ES
+  "SEL-06-13", # Takla-Trembleur-Stuart-S
+  "SEL-06-10", # Quesnel-S
+  "SEL-03-01", # Chilliwack-ES
+  "SEL-09-03"  # Shuswap-L
+)
+
 # -----  Functions -----------------
 # simple infilling function for NA values, used for peak spawn timing
 infill_average <- function(df, col1, col2, target_col) {
@@ -79,7 +88,9 @@ spp_lookup <- tibble(
 
 # get status file names
 status_files <- list.files(file.path(paths$salmon, "FIA", "Status data"))
+cultus_file <- status_files[str_detect(status_files, "Cultus Lake Sockeye - 2025 10 28.csv")]   # get Cultus file
 status_files <- status_files[str_detect(status_files, "Retro_Synoptic")]
+
 
 for (i in 1:length(status_files))
 {
@@ -88,16 +99,48 @@ for (i in 1:length(status_files))
   if (i == 1) status_data <- temp_data
   if (i > 1) status_data <- bind_rows(status_data, temp_data)
 }
+
+cultus_data <- read_csv(file.path(paths$salmon, "FIA", "Status data", cultus_file)) %>%
+  mutate(SpnForAbd_Wild = eff_fem + males,
+    SpnForTrend_Wild = eff_fem,
+    FULL_CU_IN = "SEL-03-02",
+    RapidStatus = "Red") %>%
+  select(any_of(c("FULL_CU_IN", "Year", "SpnForAbd_Wild", "SpnForTrend_Wild", "RapidStatus"))) %>%
+  filter(Year >= 1995)
+
+# split Chilko and add Cultus, add metadata from cu_list
 status_data <- status_data %>%
-  rename(FULL_CU_IN = CU_ID) %>%
+  rename(FULL_CU_IN = CU_ID,
+    GenAvgUsed = any_of("GenAvgUsed.x")) %>%
   mutate(FULL_CU_IN = if_else(FULL_CU_IN == "SEL-06-03/SEL-06-02", "SEL-06-03", FULL_CU_IN)) %>%   # change Chilko ES-S to Chilko S
-  add_row(FULL_CU_IN = "SEL-06-02", RapidStatus = "None", Species = "Sockeye", Year = 2023) %>%
+  add_row(FULL_CU_IN = "SEL-06-02", RapidStatus = "None", Species = "Sockeye", Year = 2023) %>%  # add data deficient recent entry for Chilko ES
+  bind_rows(cultus_data)  %>%
   left_join(select(cu_list, FULL_CU_IN, CU_COMMON_NAME, CVIS_NAME), join_by(FULL_CU_IN)) %>%
   relocate(CVIS_NAME, .after = FULL_CU_IN) %>%
-  select(-Stock)
+  select(-Stock) # %>%
+#  mutate(Dominant_SpnForAbd_Wild =
+#  mutate(CUnmat = if_else(CyclicCU == TRUE, GenAvgUsed,
+
+
+## get CUnmat - number of mature individuals
+# use geometric average, unless CU is cyclic. If cyclic use dominant year (max of 4 year rolling window)
+status_data <- status_data %>%
+  arrange(FULL_CU_IN, Species, Year) %>%
+  group_by(FULL_CU_IN, Species) %>%
+  mutate(
+    Max4yr_SpnForAbd_Wild = sapply(
+      seq_along(SpnForAbd_Wild),
+      function(i) {
+        start <- max(1, i - 3)  # 4-year window: current year and previous 3
+        max(SpnForAbd_Wild[start:i], na.rm = TRUE)
+      }
+    )
+  ) %>%
+  ungroup() %>%
+  mutate(CyclicCU = if_else(FULL_CU_IN %in% cyclic_CUs, TRUE, FALSE)) %>%
+  mutate(CUnmat = if_else(CyclicCU == TRUE, round(Max4yr_SpnForAbd_Wild), round(GenAvgUsed)))
 
 status_data$CUstatus <- status_data$RapidStatus
-status_data$CUnmat   <- status_data$SpnForAbd_Wild
 status_data$status_year <- status_data$Year
 
 # get recent status

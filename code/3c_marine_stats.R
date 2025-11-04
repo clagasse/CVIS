@@ -8,17 +8,10 @@
 #  cu_timing - ocean entry
 # Optional inputs:  SSC Salinity, BCCM salinity, pH
 
-
-
 ##########
-
 library(here)
 setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
-
-period_val <- 3   # code to assign indicator results timespan (3 = 2040-2060)
-
-decades <- (2055 - 1995) / 10    # decades between historic and projected period
 
 # To use Pacea SSTs, uncomment the next line:
 # BCCM_paceaSST_sub <- bccm_surface_temperature()
@@ -37,8 +30,10 @@ cu_marine <- cu_timing_Fr %>%
       "2000", "01", "01", sep = "-"
     )) + oe_end - 1)
   ) %>%
-  mutate(ns_timing_start = oe_peak_month - ns_start_offset, ns_timing_end = oe_peak_month + ns_end_offset) %>%
-  mutate(MAZ = "GStr")
+  mutate(ns_timing_start = ns_timing_start(oe_peak_month, ns_start_offset, ns_time_method),
+    ns_timing_end   = ns_timing_end(oe_peak_month, ns_end_offset, ns_time_method)) %>%
+  mutate(MAZ = "GStr") %>%
+  select(-any_of(c("oe_age", "oe_peak")))  # remove these columns since they are already in fwR data frame
 
 # load marine model files
 load(file = file.path(paths$marine, "CMIP6_SST_periods.Rds"))
@@ -59,8 +54,10 @@ CMIP_SST_summary <- CMIP6_SST %>%
   summarize(across(contains("SST"), ~ mean(.x, na.rm = T)),
     .groups = "drop")
 
+# filter to select the Cumulative impact habitat types then summarize by MAZ
 CImpact_summary <- CImpact_points %>%
   st_drop_geometry() %>%
+  select(-which(grepl("Cumul_Impact", names(.)) & names(.) != paste0("Cumul_Impact_", CI_type))) %>%
   group_by(MAZ_Acrony) %>%
   summarize(
     across(
@@ -70,7 +67,7 @@ CImpact_summary <- CImpact_points %>%
         qlowsp     = ~ wqt(.x, Shape_Area, prob = qlowsp, na.rm = T),
         qhighsp    = ~ wqt(.x, Shape_Area, prob = qhighsp, na.rm = T)
       ),
-      .names = paste0("{.col}", "_", "{.fn}")
+      .names = paste0("CImpact", "_", "{.fn}")
     ),
     .groups = "drop"
   )

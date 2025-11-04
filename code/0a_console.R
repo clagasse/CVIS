@@ -25,7 +25,7 @@ load(file.path(paths$fw, "2025-10-16_fw_upstream_paths.Rdata"))
 # migration indicators
 load(file.path(paths$fw, "2025-10-16_migr_stats.Rdata"))
 # marine indicators
-load(file.path(paths$marine, "2025-09-29_marine_stats.Rdata"))
+load(file.path(paths$marine, "2025-11-03_marine_stats.Rds"))
 
 # spatial models
 # stream model outputs for freshwater spawning and rearing indicators

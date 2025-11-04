@@ -621,6 +621,29 @@ for(rcp_pick in unique(all_flat_std$rcp))
 }
 ```
 
+### Rate of change in sea surface temperature near ocean entry {.tabset .tabset-pills}
+
+```{r}
+
+for(rcp_pick in unique(all_flat_std$rcp))
+{
+  
+  cat("#### ", rcp_pick, "\n\n", sep = "")
+  
+  filter_std <- all_flat_std %>%
+    filter(rcp == rcp_pick, 
+           period_code == 3)
+  
+  make_indicator_plots(filter_std, 
+                       ind_pick = "SSTrate",
+                       standardized_plots = F,
+                       make_spatial = F)
+ 
+  cat("\n\n")
+  
+}
+```
+
 ## Genetic Indicators
 
 Genetic indicators to be added: heterozygosity and genomic offset.
