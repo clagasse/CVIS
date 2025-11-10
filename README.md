@@ -217,8 +217,7 @@ See individual data sources for specific attribution requirements.
 
 For questions or collaboration inquiries, please contact:
 
-Cory Lagasse - Fisheries and Oceans Canada\
-[Contact information]
+Cory Lagasse - Fisheries and Oceans Canada
 
 ------------------------------------------------------------------------
 
