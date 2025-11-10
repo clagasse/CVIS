@@ -196,22 +196,17 @@ If you use this framework or code, please cite:
 
 This work builds upon climate projections and models developed by:
 
-\- Pacific Climate Impacts Consortium (PCIC)
+-   Pacific Climate Impacts Consortium (PCIC)
 
-\- Pacific Salmon Foundation (PSF)
+-   Pacific Salmon Foundation (PSF)
 
-\- BC Fishpass project
+-   BC Fishpass
 
-\- Multiple academic and government research teams
+-   DFO Freshwater Spatial Ecology Program
+
+-   ECCC high resolution SST projections
 
 See individual data sources for specific attribution requirements.
-
-## References
-
--   Holtby, L.B., and K.A. Ciruna. 2007. Conservation Units for Pacific Salmon under the Wild Salmon Policy. DFO Can. Sci. Advis. Sec. Res. Doc. 2007/070.
--   Wilson, S.M., and S.J. Peacock. 2025. Database of life-stage timing for Pacific salmon in British Columbia. Can. J. Fish. Aquat. Sci.
--   Weller, D. et al. 2024. Statistically downscaled projections of August stream temperature. Dryad Dataset.
--   Additional references in manuscript documentation
 
 ## Contact
 
