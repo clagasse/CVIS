@@ -23,6 +23,7 @@ infill_average <- function(df, col1, col2, target_col) {
   return(df)
 }
 
+## adjust format of CU abbreviations to include leading zeroes (eg. CK-9 becomes CK-09)
 adjust_CU_IN <- function(CU_IN_vector) {
   str_replace_all(CU_IN_vector, "-(\\d)(?!\\d)", "-0\\1")
 }
@@ -192,3 +193,30 @@ cu_timing_long <- cu_timing_Fr %>%
         if_else(life_stage == "sp", "spawning",
           if_else(life_stage == "ar", "arrival", NA)))))) %>%
   arrange(species, oe_age)
+
+
+# Import preliminary genetics data ----------------------------------------
+
+## Data provided by Tim Healey, not for further distribution at this time
+genetics_sk <- read_csv(file.path(paths$salmon, "Genetics", "sockeye_genomicoffsets_heterozygosity.csv"))
+genetics_ck <- read_csv(file.path(paths$salmon, "Genetics", "chinook_genomicoffsets_heterozygosity.csv"))
+
+# combine and make CU abbreviation field consistent, at population level
+genetics_pop <- bind_rows(genetics_sk, genetics_ck) %>%
+  rename(FULL_CU_IN = cu) %>%
+  mutate(FULL_CU_IN = adjust_CU_IN(FULL_CU_IN))
+
+# aggregate populations at the cu level by taking the average
+genetics_cu <- genetics_pop %>%
+  group_by(FULL_CU_IN) %>%
+  summarize(n_pop_genetics = n(),
+    go85_mean = mean(go85, na.rm = T),
+    go85_min = min(go85, na.rm = T),
+    go85_max = max(go85, na.rm = T),
+    het_mean = mean(het, na.rm = T),
+    het_min = min(het, na.rm = T),
+    het_max = max(het, na.rm = T))
+
+# join to cu_list
+cu_list <- cu_list %>%
+  left_join(genetics_cu, join_by(FULL_CU_IN))

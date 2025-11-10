@@ -291,19 +291,26 @@ cu_boundary_highlight <- function(cu_boundary,
 
 # 8. Hydrologic Regime ----------------------------------------------------
 cu_hydrologic_regime <- function(cu_boundary_i,
+                                 stream_data,
                                  watershed_flow_cu,
                                  stations_cu,
                                  fwModels_cu) {
+  # Wrap the legend text before plotting
+  stations_cu$Station.Wrapped <- str_wrap(stations_cu$Station.Name, width = 15) # Adjust width as needed
+
 
   p <- ggplot() +
-    geom_sf(data = cu_boundary_i, color = "black", fill = "grey") +
-    geom_sf(data = watershed_flow_cu, aes(fill = regime), alpha = 0.3) +
-    geom_sf(data = stations_cu, colour = "darkred", size = 2) +
+    geom_sf(data = cu_boundary_i, color = "black", fill = "grey", alpha = 0.5) +
+    geom_sf(data = st_zm(stream_data)) +
+    geom_sf(data = watershed_flow_cu, aes(fill = regime), alpha = 0.7) +
+    geom_sf(data = stations_cu, aes(colour = Station.Wrapped), size = 2) +
+    scale_colour_brewer(palette = "Set1") +
+    # geom_sf_text(data = stations_cu, aes(label = Station.Wrapped), size = 2) +
     # geom_sf(data = st_zm(fwModels_cu), alpha = 0.4) +
     coord_sf(xlim = st_bbox(cu_boundary_i)[c(1, 3)],
       ylim = st_bbox(cu_boundary_i)[c(2, 4)]) +
     labs(fill = "Hydrologic regime",
-      color = "Flow gauge")
+      color = "Flow Gauge")
 
 }
 

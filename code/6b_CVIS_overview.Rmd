@@ -648,8 +648,4 @@ for(rcp_pick in unique(all_flat_std$rcp))
 
 Genetic indicators to be added: heterozygosity and genomic offset.
 
-
 # References
-
-
-

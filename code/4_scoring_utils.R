@@ -440,7 +440,7 @@ get_CU_indicators <- function(data,
   # Calculate species averages (including GCM ranges)
   sp_avgs <- data_sub %>%
     filter(!!sym(sp_col_name) == sp_pick) %>%
-    summarize(across(starts_with("std_"), \(x) mean(x, na.rm = TRUE)), .groups = "drop") %>%
+    dplyr::summarize(across(starts_with("std_"), \(x) mean(x, na.rm = TRUE)), .groups = "drop") %>%
     pivot_longer(cols = contains("std"),
       values_to = "sp_value",
       names_prefix = "std_",
@@ -449,14 +449,13 @@ get_CU_indicators <- function(data,
 
   # Calculate all CU averages (including GCM ranges)
   all_cu_avgs <- data_sub %>%
-    summarize(across(starts_with("std_"), \(x) mean(x, na.rm = TRUE)), .groups = "drop") %>%
+    dplyr::summarize(across(starts_with("std_"), \(x) mean(x, na.rm = TRUE)), .groups = "drop") %>%
     pivot_longer(cols = contains("std"),
       values_to = "allcu_value",
       names_prefix = "std_",
       names_sep = "_",
       names_to = c("indicator", "stat")) %>%
     mutate(stat = if_else(is.na(stat), "mean", stat))
-
   # Get CU values (including GCM ranges)
   data_CU <- data_sub %>%
     filter(FULL_CU_IN == cu_i) %>%

@@ -71,7 +71,7 @@ all_flat_std <- all_flat %>%
 # calculate species and all CU average for each indicator (for plotting) and put into unique columns
 all_std_sp_avgs <- all_flat_std %>%
   group_by(SPECIES_NAME, rcp, period_code) %>%
-  summarize(across(starts_with("std_"), \(x) mean(x, na.rm = TRUE)), .groups = "drop") %>%
+  dplyr::summarize(across(starts_with("std_"), \(x) mean(x, na.rm = TRUE)), .groups = "drop") %>%
   mutate(FULL_CU_IN = "Species average", CU_NAME = "Species average") %>%
   # rename columns to indicate species average
   rename_with(.fn = ~ paste0("spavg_", .x), .cols = starts_with("std_"))  %>%
@@ -82,7 +82,7 @@ all_std_sp_avgs <- all_flat_std %>%
 # calculate overall average for each indicator (for plotting)
 all_std_avgs <- all_flat_std %>%
   group_by(rcp, period_code) %>%
-  summarize(across(starts_with("std_"), \(x) mean(x, na.rm = TRUE)), .groups = "drop") %>%
+  dplyr::summarize(across(starts_with("std_"), \(x) mean(x, na.rm = TRUE)), .groups = "drop") %>%
   mutate(FULL_CU_IN = "All CUs", CU_NAME = "All CUs", CU_Species = "All CUs")
 
 
@@ -283,7 +283,7 @@ cat("  Cross-species rank range: 1 to", max(summary_data$std_rank_addall_cross, 
 # Species-specific summaries
 species_summary <- summary_data %>%
   group_by(SPECIES_NAME) %>%
-  summarize(
+  dplyr::summarize(
     n_CUs = n(),
     mean_score = mean(std_addall, na.rm = TRUE),
     mean_rank_cross = mean(std_rank_addall_cross, na.rm = TRUE),
@@ -299,8 +299,8 @@ print(species_summary)
 # Identify CUs with largest rank differences
 cat("\nCUs with largest rank differences (cross-species vs within-species):\n")
 large_diffs <- summary_data %>%
-  select(FULL_CU_IN, CVIS_NAME, SPECIES_NAME, 
-         std_rank_addall_cross, std_rank_addall_within, rank_diff_addall) %>%
+  select(FULL_CU_IN, CVIS_NAME, SPECIES_NAME,
+    std_rank_addall_cross, std_rank_addall_within, rank_diff_addall) %>%
   arrange(desc(abs(rank_diff_addall))) %>%
   head(10)
 print(large_diffs)
