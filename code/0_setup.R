@@ -36,7 +36,6 @@ library(scico)    # scientific colour palettes
 today <- Sys.Date()
 
 # Set file paths
-
 paths <- list(
   climate = file.path(here(".."), "0_data_climate"),
   spatial = file.path(here(".."), "0_data_spatial"),
@@ -114,10 +113,7 @@ ns_end_offset   <- 2   # amount of months after peak ocean entry month for calcu
 
 
 
-
-
-
-##### ------ Lookup and definition tables
+# Lookup and definition tables --------------------------------------------
 
 # translation table between periods
 ## note that not all periods are exactly the same among data sets, but average year is close
@@ -201,54 +197,14 @@ tbl_standardize <- tribble(
 
 ### ----- Load frequently used data sets- ------
 
-## marine adaptive zones shapefile
-MAZ     <- st_read(file.path(paths$spatial, "MAZ", "MAZ_Final.shp"))
+# load marine adaptive zone spatial object
+load(file.path(paths$marine, "MAZ.Rds"))
 
-# large basins outlines
-basins <- st_read(file.path(paths$spatial, "BC_Basins", "BC_Basins_GoogleMapPL.shp"), quiet = TRUE) %>%
-  st_cast("POLYGON")
-st_crs(basins) <- 4269
-basins <- st_transform(basins, crs = 3005)
-Fr_basin <- filter(basins, BASIN == "FRASER")
+# load watershed basins R object
+load(file.path(paths$fw, "basins_shp.Rds"))
 
-### Conservation Unit boundaries for Fraser CUs
-cu_boundary <- st_read(file.path(paths$spatial, "CU_boundaries", "fraser_cus.shp")) %>%
-  st_make_valid() %>%
-  st_transform(crs = 3005)  %>%  # crs 3005 is NAD83/BC Albers
-  left_join(select(cu_list, cuid, FULL_CU_IN, SPECIES_NAME),
-    join_by(CUID == cuid)) %>%
-  filter(!is.na(FULL_CU_IN))
-
-
-### NUSEDS salmon spawner locations
-## version from FIA. Usage column added by Michael Arbeider
-nuseds_Fr <- read_csv(file.path(paths$salmon, "NuSEDS_CU_System_sites_202406.csv")) %>%
-  st_as_sf(coords = c("X_LONGT", "Y_LAT"), crs = 4269) %>%
-  st_transform(3005) %>%
-  filter(USAGE != "REMOVE")
-
-nuseds_Fr$FULL_CU_IN <- adjust_CU_IN(nuseds_Fr$FULL_CU_IN)
-
-#  field descriptions
-# n = number of surveys that were not “UNKNOWN” or “NOT INSPECTED”, i.e. they were inspected but sometimes only PRESENSE was recorded and not an abundance.
-# last.year = last year when the system was surveyed
-# first.year = first year when the system was surveyed
-# max.count = the largest count of spawners in NuSEDs
-# ave.count = the mean of all non-NA counts in NuSEDs
-# min.count = the minimum
-
-# usage criteria for nuseds file
-# cu.sites <- cu.sites %>%
-#   mutate(USAGE = case_when(
-#     n < 5 & last.year < 2010 ~ "REMOVE",
-#     n < 5 & last.year >= 2010 ~ "CAUTION",
-#     n >= 5 & last.year < 1999 & SPECIES_LOOKUP != "Pink" ~ "CAUTION",
-#     n >= 5 & max.count == 0 & last.year < 1999 & SPECIES_LOOKUP != "Pink" ~ "CAUTION",
-#     n >= 5 & max.count != 0 & last.year < 1999 & SPECIES_LOOKUP == "Pink" ~ "KEEP",
-#     n >= 5 & max.count == 0 & last.year >= 1999 ~ "CAUTION",
-#     n >= 5 & max.count != 0 & last.year >= 1999 ~ "KEEP"
-#   ))
-
+# load CU boundaries
+load(file.path(paths$fw, "cu_boundary.Rds"))
 
 
 # ggplot custom theme -----------------------------------------------------

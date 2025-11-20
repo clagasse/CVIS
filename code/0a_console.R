@@ -43,9 +43,6 @@ load(file.path(paths$fw, "flow_gauge_data.Rdata"))
 # read Temperature gauge locations
 load(file.path(paths$fw, "Tw_stations.Rds"))
 
-# load marine adaptive zone spatial object
-load(file.path(paths$marine, "MAZ.Rds"))
-
 
 # PCIC ensemble model outputs by period
 # PCIC_daily45 <- read_mdim(file.path(paths$climate, "PCIC_averaged", "combined",

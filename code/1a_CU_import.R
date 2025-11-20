@@ -158,6 +158,40 @@ cu_list <- cu_list %>%
   left_join(select(recent_status, FULL_CU_IN, CUstatus, CUnmat, status_year), join_by(FULL_CU_IN))
 
 
+
+# Import NuSEDS data ------------------------------------------------------
+
+### NUSEDS salmon spawner locations
+## version from FIA. Usage column added by Michael Arbeider
+nuseds_Fr <- read_csv(file.path(paths$salmon, "NuSEDS_CU_System_sites_202406.csv")) %>%
+  st_as_sf(coords = c("X_LONGT", "Y_LAT"), crs = 4269) %>%
+  st_transform(3005) %>%
+  filter(USAGE != "REMOVE")
+
+nuseds_Fr$FULL_CU_IN <- adjust_CU_IN(nuseds_Fr$FULL_CU_IN)
+
+#  field descriptions
+# n = number of surveys that were not “UNKNOWN” or “NOT INSPECTED”, i.e. they were inspected but sometimes only PRESENSE was recorded and not an abundance.
+# last.year = last year when the system was surveyed
+# first.year = first year when the system was surveyed
+# max.count = the largest count of spawners in NuSEDs
+# ave.count = the mean of all non-NA counts in NuSEDs
+# min.count = the minimum
+
+# usage criteria for nuseds file
+# cu.sites <- cu.sites %>%
+#   mutate(USAGE = case_when(
+#     n < 5 & last.year < 2010 ~ "REMOVE",
+#     n < 5 & last.year >= 2010 ~ "CAUTION",
+#     n >= 5 & last.year < 1999 & SPECIES_LOOKUP != "Pink" ~ "CAUTION",
+#     n >= 5 & max.count == 0 & last.year < 1999 & SPECIES_LOOKUP != "Pink" ~ "CAUTION",
+#     n >= 5 & max.count != 0 & last.year < 1999 & SPECIES_LOOKUP == "Pink" ~ "KEEP",
+#     n >= 5 & max.count == 0 & last.year >= 1999 ~ "CAUTION",
+#     n >= 5 & max.count != 0 & last.year >= 1999 ~ "KEEP"
+#   ))
+
+
+
 # ====================Import timing data compiled by PSF========================
 
 # note oe_age added for some CUs from original file

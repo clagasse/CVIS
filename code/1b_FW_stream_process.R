@@ -33,12 +33,17 @@ st_crs(basins) <- 4269
 basins <- st_transform(basins, crs = 3005)
 Fr_basin <- filter(basins, BASIN == "FRASER")   # fraser basin only
 
+
+save(basins, file = file.path(paths$fw, "basins_shp.Rds"))
+
 cu_boundary <- st_read(file.path(paths$spatial, "CU_boundaries", "fraser_cus.shp")) %>%
   st_make_valid() %>%
   st_transform(crs = 3005)  %>%  # crs 3005 is NAD83/BC Albers
   left_join(select(cu_Fr, cuid, FULL_CU_IN, spp),
     join_by(CUID == cuid)) %>%
   filter(!is.na(FULL_CU_IN))
+
+save(cu_boundary, file = file.path(paths$fw, "cu_boundary.Rds"))
 
 
 # # determine basin where cu boundaries intersect and add to cu_boundary object
@@ -569,7 +574,11 @@ if (length(month_pick) > 1) {
 
 # Temperature -------------------------------------------------------------
 
+# get temperature stations and save to R object
+# note that some gauge locations have been adjusted to preserve privacy
+Tw_stations <- st_read(file.path(paths$climate, "Tw_stations.gdb"), quiet = TRUE)
 
+save(Tw_stations, file = file.path(paths$fw, "Tw_stations.Rds"))
 
 ## 7 Day Equivalent Model (7DECM) stream temperature
 # not currently available online
@@ -877,7 +886,8 @@ wp_vm <- watershed_proj %>%
 # save averaged flow projections
 save(wp_vm, file = file.path(paths$fw, "Statistical_flow_projections.Rds"))
 
-
+# save spatial objects to R file
+save(watershed_flow, stations_flow, stations_stats, file = file.path(paths$fw, "flow_gauge_data.Rdata"))
 
 # #get average across all GCMs for each year
 # wp_stats <- wp_vm %>%
