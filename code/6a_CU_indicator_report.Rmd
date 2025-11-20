@@ -17,7 +17,6 @@ knitr::opts_chunk$set(message = F, echo = F, warning = F)
 ```
 
 ```{r subset CU}
-++++++++++++++++++++++++
 #params$FULL_CU_IN <- "SEL-05-02"
 cu_i <- params$FULL_CU_IN
 cu_run_i <- cu_run[cu_run$FULL_CU_IN == params$FULL_CU_IN,]
@@ -106,7 +105,28 @@ ind_cu <- get_CU_indicators(all_flat_std,
 
 ```{r}
 
-plot_cu_indicators_lollipop(ind_cu)
+#plot_cu_indicators_lollipop(ind_cu)
+
+cu_all_raw <- get_CU_indicators(all_flat_std,
+  cu_i = cu_i,
+  use_standardized = FALSE,
+  period_pick = "3",
+  RCP_pick = "45")
+
+cu_all_std <- get_CU_indicators(all_flat_std,
+  cu_i = cu_i,
+  use_standardized = TRUE,
+  period_pick = "3",
+  RCP_pick = "45")
+
+cu_all <- cu_all_raw %>%
+  left_join(cu_all_std, join_by(FULL_CU_IN, rcp, period_code, indicator))
+
+
+cu_all %>%
+  gt() 
+
+
 
 ```
 

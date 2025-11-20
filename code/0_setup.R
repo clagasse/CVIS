@@ -174,7 +174,7 @@ tbl_ind_report <- tbl_indicators %>%
 
 tbl_standardize <- tribble(
   ~abbrev,      ~type,      ~std_fun,          ~range_type,  ~lambda, ~xmin, ~xmax,
-  "Favchange", "fwR",        "invlinear_std",  "all",      NA,     NA,   0,
+  "Favchange", "fwR",        "invlinear_std",  "all",      NA,     0,   NA,
   "ct",         "fwR",      "linear_std",      "all",    NA,    0,   NA,
   "Tw8rate",    "fwR",      "linear_std",      "all",    NA,    NA,   NA,
   "Tw8proj",    "fwR",       "exponential_std", "all",    3,    15,   NA,
@@ -186,7 +186,7 @@ tbl_standardize <- tribble(
   "migrQ",      "migr",       "decay_std",     "all",    3,     0,   0,
   # "migrA21",    "migr",     "exponential_std","all",     3,    0,    NA,
   "migrdist",   "migr",      "linear_std",     "all",    NA,   NA,   NA,
-  "SSTproj",     "mar",   "exponential_std",   "all",    3,   NA,   NA,
+  "SSTproj",     "mar",   "exponential_std",   "all",    3,   12,   NA,
   "SSTrate",     "mar",     "linear_std",      "all",    NA,   NA,   NA,
   "CImpact",     "mar",   "linear_std",        "all",    NA,   NA,   NA,
   "CUstatus",    "dem",       "cat_std",       "all",    NA,    NA,   NA,

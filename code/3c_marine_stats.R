@@ -99,7 +99,7 @@ for (i in 1:n.CUs) {
     MAZ_pick = cu_marine_i$MAZ,
     include_quantiles = FALSE) %>%
     rename_with(
-      ~ gsub("(SST)(proj|rate)", "\\1ddown\\2", .x),
+      ~ gsub("(SST)(proj|rate)", "\\1ROM\\2", .x),
       .cols = contains("SST")
     )
 
@@ -109,7 +109,7 @@ for (i in 1:n.CUs) {
     var_name = "SSS",
     include_quantiles = FALSE) %>%
     rename_with(
-      ~ gsub("(SSS)(proj|rate)", "\\1ddown\\2", .x),
+      ~ gsub("(SSS)(proj|rate)", "\\1ROM\\2", .x),
       .cols = contains("SSS")
     )
 

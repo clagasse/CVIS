@@ -26,7 +26,7 @@ all_flat <- cu_run %>%
 
 #------------- 2. Calculate standardized scores-------------------------------
 
-all_std <- select(all_flat, "FULL_CU_IN", "rcp", "period_code")
+all_std <- select(all_flat, all_of(c("FULL_CU_IN", "SPECIES_NAME", "rcp", "period_code")))
 
 for (i in 1:nrow(tbl_indicators)) {
 
@@ -40,7 +40,7 @@ for (i in 1:nrow(tbl_indicators)) {
   )
 
   all_std <- all_std %>%
-    left_join(temp, join_by("FULL_CU_IN", "rcp", "period_code"))
+    left_join(temp, join_by(FULL_CU_IN, SPECIES_NAME, rcp, period_code))
 }
 
 ## merge standardized and original indicator values for plotting and comparisons
@@ -53,7 +53,7 @@ all_flat_std <- all_std %>%
   )
 
 all_flat_std <- all_flat %>%
-  left_join(all_flat_std, join_by(FULL_CU_IN, rcp, period_code))
+  left_join(all_flat_std, join_by(FULL_CU_IN, SPECIES_NAME, rcp, period_code))
 
 
 # 3. Species and all CU averages ------------------------------------------
@@ -218,28 +218,8 @@ combined_scores_std <- combined_scores_std %>%
   )
 
 
-# 7. Calculate species-level percentiles for each CU -----------------------
 
-cat("Calculating percentile ranks within species...\n")
-
-# For each CU, calculate what percentile they fall in within their species
-combined_scores_std <- combined_scores_std %>%
-  group_by(SPECIES_NAME, rcp, period_code) %>%
-  mutate(
-    # Overall percentiles
-    pct_addall_within = percent_rank(std_addall) * 100,
-    pct_avgall_within = percent_rank(std_avgall) * 100,
-    pct_sumavgs_within = percent_rank(std_sumavgs) * 100,
-    # Category percentiles
-    pct_addfwR_within = percent_rank(std_addfwR) * 100,
-    pct_addmigr_within = percent_rank(std_addmigr) * 100,
-    pct_adddem_within = percent_rank(std_adddem) * 100,
-    pct_addmar_within = percent_rank(std_addmar) * 100
-  ) %>%
-  ungroup()
-
-
-# 8. Calculate rank differences (cross-species vs within-species) ---------
+# 7. Calculate rank differences (cross-species vs within-species) ---------
 
 cat("Calculating rank differences between cross-species and within-species...\n")
 
@@ -256,19 +236,12 @@ combined_scores_std <- combined_scores_std %>%
   )
 
 
-# 9. Summary statistics ----------------------------------------------------
-
-cat("\n========================================\n")
-cat("Ranking Summary Statistics\n")
-cat("========================================\n\n")
+# 8. Summary statistics ----------------------------------------------------
 
 # Filter to one scenario for summary
 summary_data <- combined_scores_std %>%
   filter(rcp == "45", period_code == 3)
 
-# Overall summary
-cat("Overall vulnerability (addall method):\n")
-cat("  Cross-species rank range: 1 to", max(summary_data$std_rank_addall_cross, na.rm = TRUE), "\n")
 
 # Species-specific summaries
 species_summary <- summary_data %>%
@@ -283,17 +256,15 @@ species_summary <- summary_data %>%
   ) %>%
   arrange(desc(mean_score))
 
-cat("\nBy species:\n")
-print(species_summary)
 
 # Identify CUs with largest rank differences
-cat("\nCUs with largest rank differences (cross-species vs within-species):\n")
 large_diffs <- summary_data %>%
   select(FULL_CU_IN, CVIS_NAME, SPECIES_NAME,
     std_rank_addall_cross, std_rank_addall_within, rank_diff_addall) %>%
   arrange(desc(abs(rank_diff_addall))) %>%
   head(10)
-print(large_diffs)
+
+
 
 
 # 10. Export results -------------------------------------------------------
