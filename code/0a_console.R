@@ -37,23 +37,15 @@ load(file.path(paths$fw, "fw_stream_indicators_sp.Rds"))
 # lakes_Fr - freshwater lakes for plotting
 load(file.path(paths$fw, "BC_FWA_LAKES_FR.Rds"))
 
-
-stations_stats <- read.csv(file.path(paths$climate, "Ruzzante_low_flows", "stations_performance.csv"))
-# watershed hydrologic regimes
-watershed_flow <- st_read(file.path(paths$climate, "Ruzzante_low_flows", "watersheds.gpkg"), quiet = TRUE) %>%
-  left_join(select(stations_stats, ID, regime), by = c("ID" = "ID")) %>%
-  mutate(regime = as.factor(regime)) %>%
-  st_transform(3005)
-# flow stations
-stations_flow <- st_read(file.path(paths$climate, "Ruzzante_low_flows", "stations.gpkg"), quiet = TRUE) %>%
-  st_transform(3005)
+# load flow gauge and watershed hydrology data
+load(file.path(paths$fw, "flow_gauge_data.Rdata"))
 
 # read Temperature gauge locations
-Tw_stations <- st_read(file.path(paths$climate, "Tw_stations.gdb"), quiet = TRUE)
+load(file.path(paths$fw, "Tw_stations.Rds"))
 
-# marine SST grid
-SST_grid <- st_read(file.path(paths$climate,
-  "Standardized_Marine_data", "Grid",  "SST_bc_coast.gdb"))
+# load marine adaptive zone spatial object
+load(file.path(paths$marine, "MAZ.Rds"))
+
 
 # PCIC ensemble model outputs by period
 # PCIC_daily45 <- read_mdim(file.path(paths$climate, "PCIC_averaged", "combined",
@@ -127,7 +119,7 @@ for (i in 1:n.CUs) {
   CU_IN_i <- "SEL-05-02"
 
   rmarkdown::render(
-    file.path(here(), "code", "markdown", "6a_CU_indicator_report.Rmd"),
+    file.path(here(), "code", "6a_CU_indicator_report.Rmd"),
     output_file = paste(today, CU_IN_i, "CVIS_report.html", sep = "_"),
     output_dir = file.path(paths$reports, "CU_reports"),
     output_format = "html_document",
@@ -137,7 +129,7 @@ for (i in 1:n.CUs) {
 
 ## comparison of all indicators across CUs
 rmarkdown::render(
-  file.path(here("code", "markdown", "6b_CVIS_overview.Rmd")),
+  file.path(here("code", "6b_CVIS_overview.Rmd")),
   output_file = paste(today, "CVIS_overview.html", sep = "_"),
   output_dir = file.path(paths$reports),
   output_format = "html_document")

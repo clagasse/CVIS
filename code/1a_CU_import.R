@@ -203,19 +203,21 @@ genetics_ck <- read_csv(file.path(paths$salmon, "Genetics", "chinook_genomicoffs
 
 # combine and make CU abbreviation field consistent, at population level
 genetics_pop <- bind_rows(genetics_sk, genetics_ck) %>%
-  rename(FULL_CU_IN = cu) %>%
+  rename(FULL_CU_IN = cu,
+    genoff = go85,
+    hetzyg = het) %>%
   mutate(FULL_CU_IN = adjust_CU_IN(FULL_CU_IN))
 
 # aggregate populations at the cu level by taking the average
 genetics_cu <- genetics_pop %>%
   group_by(FULL_CU_IN) %>%
   summarize(n_pop_genetics = n(),
-    go85_mean = mean(go85, na.rm = T),
-    go85_min = min(go85, na.rm = T),
-    go85_max = max(go85, na.rm = T),
-    het_mean = mean(het, na.rm = T),
-    het_min = min(het, na.rm = T),
-    het_max = max(het, na.rm = T))
+    genoff_mean = mean(genoff, na.rm = T),
+    genoff_min =  min(genoff, na.rm = T),
+    genoff_max =  max(genoff, na.rm = T),
+    hetzyg_mean =   mean(hetzyg, na.rm = T),
+    hetzyg_min =    min(hetzyg, na.rm = T),
+    hetzyg_max =    max(hetzyg, na.rm = T))
 
 # join to cu_list
 cu_list <- cu_list %>%

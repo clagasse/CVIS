@@ -88,6 +88,12 @@ reshape_ROM <- function(data,
 
 
 
+# MAZ ---------------------------------------------------------------------
+
+# save MAZ object to Rds file
+save(MAZ, file = file.path(paths$marine, "MAZ.Rds"))
+
+
 # CMIP6 -------------------------------------------------------------------
 
 

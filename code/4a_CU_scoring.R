@@ -19,7 +19,9 @@ all_flat <- cu_run %>%
   left_join(fwR_all_flat, join_by(FULL_CU_IN, CU_NAME, SPECIES_NAME), relationship = "one-to-many") %>%
   left_join(migr_all_flat, join_by(FULL_CU_IN, CU_NAME, SPECIES_NAME, rcp, period, sp_peak)) %>%
   left_join(mar_all_flat, join_by(FULL_CU_IN, CVIS_NAME, SPECIES_NAME, rcp, period_code)) %>%
-  relocate(rcp, period, period_code, .after = SPECIES_NAME)
+  relocate(rcp, period, period_code, .after = SPECIES_NAME) %>%
+  filter(period_code %in% periods_use)
+
 
 
 #------------- 2. Calculate standardized scores-------------------------------
@@ -29,8 +31,6 @@ all_std <- select(all_flat, "FULL_CU_IN", "rcp", "period_code")
 for (i in 1:nrow(tbl_indicators)) {
 
   std_params_i <- as.list(tbl_standardize[i, ])
-
-  # args <- list(std_params_i)
 
   temp <- standardize_indicator(all_flat,
     indicator_pick = tbl_indicators$abbrev[i],
@@ -42,13 +42,6 @@ for (i in 1:nrow(tbl_indicators)) {
   all_std <- all_std %>%
     left_join(temp, join_by("FULL_CU_IN", "rcp", "period_code"))
 }
-
-
-#### calculate average standardized vulnerability scores across categories
-# fwR_all_std <- fwR_all_std %>%
-#   mutate(std_avg_wmean = rowMeans(across(starts_with("std") & ends_with("wmean")), na.rm =T),
-#          std_avg_wmean_qlow_gcm = rowMeans(across(starts_with("std") & ends_with("min_gcm")), na.rm =T),
-#          std_avg_wmean_qhigh_gcm = rowMeans(across(starts_with("std") & ends_with("max_gcm")), na.rm =T))
 
 ## merge standardized and original indicator values for plotting and comparisons
 
@@ -62,9 +55,6 @@ all_flat_std <- all_std %>%
 all_flat_std <- all_flat %>%
   left_join(all_flat_std, join_by(FULL_CU_IN, rcp, period_code))
 
-# order categories as factors
-# all_flat_std$CU_Species <- factor(all_flat_std$CU_Species, levels = sort(unique(all_flat_std$CU_Species)))
-# all_flat_std$SPECIES_NAME <- factor(all_flat_std$SPECIES_NAME, levels = sort(unique(all_flat_std$SPECIES_NAME)))
 
 # 3. Species and all CU averages ------------------------------------------
 

@@ -83,6 +83,8 @@ n.CUs   <- nrow(cu_run)
 
 # Analysis configurations -------------------------------------------------
 
+periods_use <- c(0, 3, 5)  # period codes to keep (see period_lookup for corresponding years)
+
 # lower and upper quantiles for spatial variation statistics
 qlowsp <- 0.1
 qhighsp <- 0.9
@@ -147,14 +149,14 @@ period_lookup <- tribble(
 # table of indicator abbreviations and full names
 tbl_indicators <- tribble(
   ~abbrev,      ~type,  ~long_type,   ~stat, ~std_fun, ~name,
-  "favchange", "fwR",   "Freshwater Rearing and Spawning",  "mean",     "linear_std",     "ENM Change in Favourability",
-  "CT",         "fwR",  "Freshwater Rearing and Spawning",   "mean",    "linear_std",        "Cumulative threats to freshwater habitat",
-  "tw8rate",    "fwR",  "Freshwater Rearing and Spawning",   "mean",    "linear_std",        "Rate of change in August Temperature",
-  "tw8proj",    "fwR",  "Freshwater Rearing and Spawning",   "mean",    "exponential_std", "Projected August Temperature",
-  "lowQpdelta", "fwR",  "Freshwater Rearing and Spawning",  "mean",    "decay_std",       "Proportional change in August flow (stream model)",
-  # "st8pdelta",  "fwR",  "Freshwater Rearing and Spawning",   "mean",    "decay_std",     "Proportional change in August flow (station model)",
-  "highQpdelta",  "fwR", "Freshwater Rearing and Spawning",  "mean",    "exponential_std", "Proportional change in Nov-Jan flow (stream model)",
-  "fwres",     "fwR",    "Freshwater Rearing and Spawning", "value",    "step_std",   "Freshwater residency time",
+  "favchange", "fwR",   "Freshwater Spawning and Rearing",  "mean",     "linear_std",     "ENM Change in Favourability",
+  "CT",         "fwR",  "Freshwater Spawning and Rearing",   "mean",    "linear_std",        "Cumulative threats to freshwater habitat",
+  "tw8rate",    "fwR",  "Freshwater Spawning and Rearing",   "mean",    "linear_std",        "Rate of change in August Temperature",
+  "tw8proj",    "fwR",  "Freshwater Spawning and Rearing",   "mean",    "exponential_std", "Projected August Temperature",
+  "lowQpdelta", "fwR",  "Freshwater Spawning and Rearing",  "mean",    "decay_std",       "Proportional change in August flow (stream model)",
+  # "st8pdelta",  "fwR",  "Freshwater Spawning and Rearing",   "mean",    "decay_std",     "Proportional change in August flow (station model)",
+  "highQpdelta",  "fwR", "Freshwater Spawning and Rearing",  "mean",    "exponential_std", "Proportional change in Nov-Jan flow (stream model)",
+  "fwres",     "fwR",    "Freshwater Spawning and Rearing", "value",    "step_std",   "Freshwater residency time",
   "migrT",      "migr",  "Upstream Migration",  "mean",    "exponential_std",     "Projected temperature during upstream migration",
   "migrQ",      "migr",  "Upstream Migration", "pdelta",      "decay_std",    "Proportional change in discharge during upstream migration",
   # "migrA21",    "migr",   "mean",    "exponential_std", "Average proportion of path above 21 degrees during upstream migration",
@@ -163,29 +165,38 @@ tbl_indicators <- tribble(
   "SSTrate",     "mar",  "Nearshore Marine", "mean", "linear_std",  "Rate of change in nearshore SST",
   "CImpact",      "mar", "Nearshore Marine",  "mean", "linear_std",   "Cumulative impacts to marine nearshore habitat",
   "CUstatus",    "dem",  "Demographics",  "category",    "cat_std", "WSP status",
-  "CUnmat",      "dem",  "Demographics",  "value",  "decay_std", "Number of mature individuals")
+  "CUnmat",      "dem",  "Demographics",  "value",  "decay_std", "Number of mature individuals",
+  "hetzyg",        "gen",  "Genetics",      "mean",    "linear_std", "Genetic heterozygosity",
+  "genoff",     "gen",    "Genetics",      "mean",    "linear_std",  "Genomic offset"
+)
 
-
+tbl_ind_report <- tbl_indicators %>%
+  select(abbrev, long_type, name) %>%
+  rename(Abbreviation = abbrev,
+    Category = long_type,
+    Description = name)
 
 tbl_standardize <- tribble(
-  ~abbrev,      ~type,      ~std_fun,        ~lambda, ~xmin, ~xmax,
-  "Favchange", "fwR",        "invlinear_std",        NA,     NA,   0,
-  "ct",         "fwR",      "linear_std",         NA,    0,   NA,
-  "Tw8rate",    "fwR",      "linear_std",         NA,    NA,   NA,
-  "Tw8proj",    "fwR",       "exponential_std",   3,    15,   NA,
-  "lowQpdelta",  "fwR",    "decay_std",           3,    NA,   0,
-  # "st8pdelta",  "fwR",    "decay_std",            3,    NA,   0,
-  "highQpdelta", "fwR",    "exponential_std",     3,    0,   NA,
-  "fwres",     "fwR",      "step_std",            NA,   NA,   NA,
-  "migrT",      "migr",    "exponential_std",     3,    15,   NA,
-  "migrQ",      "migr",       "decay_std",        3,     0,   0,
-  # "migrA21",    "migr",     "exponential_std",    3,    0,    NA,
-  "migrdist",   "migr",      "linear_std",        NA,   NA,   NA,
-  "SSTproj",     "mar",   "exponential_std",      3,   NA,   NA,
-  "SSTrate",     "mar",     "linear_std",         NA,   NA,   NA,
-  "CImpact",     "mar",   "linear_std",           NA,   NA,   NA,
-  "CUstatus",    "dem",       "cat_std",          NA,    NA,   NA,
-  "CUnmat",      "dem",     "decay_std",          3,    0, 10000)
+  ~abbrev,      ~type,      ~std_fun,          ~range_type,  ~lambda, ~xmin, ~xmax,
+  "Favchange", "fwR",        "invlinear_std",  "all",      NA,     NA,   0,
+  "ct",         "fwR",      "linear_std",      "all",    NA,    0,   NA,
+  "Tw8rate",    "fwR",      "linear_std",      "all",    NA,    NA,   NA,
+  "Tw8proj",    "fwR",       "exponential_std", "all",    3,    15,   NA,
+  "lowQpdelta",  "fwR",    "decay_std",        "all",    3,    NA,   0,
+  # "st8pdelta",  "fwR",    "decay_std",       "all",      3,    NA,   0,
+  "highQpdelta", "fwR",    "exponential_std",  "all",    3,    0,   NA,
+  "fwres",     "fwR",      "step_std",         "all",    NA,   NA,   NA,
+  "migrT",      "migr",    "exponential_std",  "all",    3,    15,   NA,
+  "migrQ",      "migr",       "decay_std",     "all",    3,     0,   0,
+  # "migrA21",    "migr",     "exponential_std","all",     3,    0,    NA,
+  "migrdist",   "migr",      "linear_std",     "all",    NA,   NA,   NA,
+  "SSTproj",     "mar",   "exponential_std",   "all",    3,   NA,   NA,
+  "SSTrate",     "mar",     "linear_std",      "all",    NA,   NA,   NA,
+  "CImpact",     "mar",   "linear_std",        "all",    NA,   NA,   NA,
+  "CUstatus",    "dem",       "cat_std",       "all",    NA,    NA,   NA,
+  "CUnmat",      "dem",     "decay_std",       "all",    3,    0, 10000,
+  "hetzyg",      "gen",     "linear_std",      "species",     NA,    NA, NA,
+  "genoff",      "gen",     "linear_std",      "species",    NA,    NA, NA)
 
 
 ### ----- Load frequently used data sets- ------
