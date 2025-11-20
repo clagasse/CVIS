@@ -21,6 +21,8 @@ knitr::opts_chunk$set(echo = F, warning = F, message = F, results = 'asis')
 
 ```
 
+# Introduction
+
 Climate change is having profound effects on salmon populations in BC, contributing to declines of many stocks while introducing greater variability and uncertainty into assessments and planning [@macdonald2023]. A better understanding of the effects of climate change on salmon and their ecosystems can enable more realistic and effective long-term planning, and contextualize risks and benefits surrounding resource management decisions and mitigation actions.
 
 This report presents a data-informed, indicator-based approach for evaluating climate change vulnerability of Pacific salmon conservation units (CUs). The framework draws upon recently developed models of future climate conditions [@peña2024; @weller2024], cumulative habitat stressors [@csas2024; @murray2024], population status assessments [@csas2024a], and life history timing [@wilson2025] to characterize relative climate vulnerability for 50 CUs throughout the Fraser River watershed.
@@ -29,11 +31,12 @@ Results presented in this report are preliminary and subject to change as the fr
 
 # Methods Overview
 
-The framework is built upon a suite of quantitative indicators that represent mechanisms of climate change vulnerability for Pacific salmon as well as factors commonly included within climate change vulnerability assessments (CCVAs) based upon ecological principles. The framework includes 16 indicators across 5 categories representing environmental changes to salmon life stages and mechanisms of climate change vulnerability[@urban2016]. The categories are: freshwater spawning to rearing, freshwater upstream migration, marine nearshore, demographic, and genetic factors.
+The CVIS framework consists of 17 quantitative indicators (Table 1) categorized into five types based on mechanism and life-stage: freshwater spawning and rearing, upstream migration, nearshore marine, demographics, and genetics. Each indicator uses a quantitative metric, such as the mean stream temperature or percent change in flow, to represent risk for each CU. The indicator approach allows for flexibility in inputs and statistical metrics of risk, with various downscaled climate models being used to assess environmental change across life stages and indicators. Variation and uncertainty is represented using 80% quantile ranges of indicator values across global climate models where available.
 
 ```{r}
 
 tbl_indicators %>%
+  select(abbrev, long_type, name) %>%
   gt() %>%
   tab_header("Table 1 - Vulnerability Indicators") %>%
   tab_options(
@@ -44,14 +47,14 @@ tbl_indicators %>%
 ```
 
 **Indicator Standardization**\
-All indicators are standardized using response functions to translate raw values to a scale from 0 to 1, where 0 represents lowest risk and 1 is the highest risk relative to other CUs. Standardization facilitates easier interpretation and comparison of indicators, and allows the representation of risk based on stressor-response relationships and thresholds. A linear function or exponential function was used for most indicators, with the lowest and highest values scaled to the 95th percentile of minimum and maximum CU values using ensemble means across GCMs.
+All indicators are standardized using response functions to translate raw values to a scale from 0 to 1, where 0 represents lowest risk and 1 is the highest risk relative to other CUs. Standardization facilitates easier interpretation and comparison of indicators, and allows the representation of risk based on stressor-response relationships and thresholds. A linear function or exponential function was used for most indicators, with the lowest and highest values scaled to the 95th percentile of minimum and maximum CU values using ensemble means across GCMs. The 95th percentile range was used to limit the influence of outliers in CU values.
 
 **Estimating Overall Vulnerability**
 
 To evaluate vulnerability across indicators, standardized values are combined within and across each category using additive and multiplicative approaches. Various methods are used in CCVAs and risk assessments for determining overall risk, such as additive or multiplicative scores, scaling between 0 and 1 (Boyce 2024; CSAS 2024a), threshold approaches (Fisheries and Oceans Canada 2019), and logic models (Crozier et al. 2019). For the preliminary outputs in this report, a combination of multiplicative and additive approaches are used. Further approaches for summarizing overall vulnerability and sensitivity to the selected method will be explored.
 
 **Emissions scenarios and time period**\
-CCVAs can assess vulnerability for a particular time period or multiple time periods, as well as different emissions scenarios depending upon assessment objectives. Indicators are based primarily on the CMIP5 suite of global climate models and results are presented for the representative concentration pathway (RCP) 4.5, representing moderate emission reductions compared to business as usual. Alternative results under RCP 8.5, representing higher climate forcing from emissions, are also shown where available. Results are currently presented for the mid-century period (2040-2060), but will also be compared to the end-of-century period (2080-2100) to examine the sensitivity of vulnerability indicator values over time.
+CCVAs can assess vulnerability for a particular time period or multiple time periods, as well as different emissions scenarios depending upon assessment objectives. Indicators are based primarily on the CMIP5 suite of global climate models and results are presented for the representative concentration pathway (RCP) 4.5, representing moderate emission reductions compared to business as usual. Alternative results under RCP 8.5, representing higher emissions and climate forcing, are also shown where relevant. Results are presented for the mid-century period (2040-2060), but are compared with the end-of-century period (2080-2100) to examine the sensitivity of vulnerability indicators over time.
 
 # Overall Vulnerability
 
@@ -156,38 +159,6 @@ for (rcp_pick in unique(combined_scores_std$rcp))
 }
 
 
-```
-
-### Correlation of indicators {.tabset .tabset-pills}
-
-One test for the utility of an indicator is the correlation with other indicator values. The plot below shows correlation of raw indicator values, where higher correlation among indicators indicates potential overlap in the vulnerability mechanism or information being evaluated.
-
-```{r correlation, results = 'asis'}
-
-#include only freshwater indicators in correlation matrix
-#  cor_indicators <- tbl_indicators$abbrev[tbl_indicators$type %in% c("fwR", "migr")]
-
-for (rcp_pick in unique(all_flat_std$rcp))
-{
-
-  cat("#### ", rcp_pick, "\n\n", sep = "")
-
-  filter_std <- all_flat_std %>%
-    filter(rcp == rcp_pick,
-      period_code == 3)
-  
-  cor_data <- get_correlation_matrix(filter_std,
-  #indicators_choose = cor_indicators,
-  use_standardized = F)
-  
-  corrplot(cor_data,  method = 'pie', tl.col = "black")
-  
-  #print(p)
-  
-  cat("\n\n")
-  
-}
-  
 ```
 
 # Freshwater spawning to rearing
@@ -644,8 +615,35 @@ for(rcp_pick in unique(all_flat_std$rcp))
 }
 ```
 
-## Genetic Indicators
+# Genetic Indicators
 
 Genetic indicators to be added: heterozygosity and genomic offset.
+
+# Sensitivity Analysis
+
+### Correlation of indicators {.tabset .tabset-pills}
+
+One test for the utility of an indicator is the correlation with other indicator values. The plot below shows correlation of raw indicator values, where higher correlation among indicators indicates potential overlap in the vulnerability mechanism or information being evaluated.
+
+```{r correlation, results = 'asis'}
+#include only freshwater indicators in correlation matrix 
+cor_indicators <- tbl_indicators$abbrev[tbl_indicators$type %in% c("fwR", "migr")]  
+
+for (rcp_pick in unique(all_flat_std$rcp)) {    cat("#### ", rcp_pick, "\n\n", sep = "")    
+  
+  filter_std <- all_flat_std %>%     
+    filter(rcp == rcp_pick,       
+           period_code == 3)     
+  cor_data <- get_correlation_matrix(filter_std,   
+                                     indicators_choose = cor_indicators,   
+                                     use_standardized = F)      
+  
+  corrplot(cor_data,  method = 'pie', tl.col = "black")
+  #print(p)      
+  
+  cat("\n\n")    }
+
+
+```
 
 # References

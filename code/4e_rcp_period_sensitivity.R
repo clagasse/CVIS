@@ -715,7 +715,7 @@ run_scenario_temporal_analysis <- function(data,
   # 6. Indicator sensitivity
   cat("\n--- Indicator Scenario Sensitivity ---\n")
   indicator_sensitivity <- analyze_indicator_scenario_sensitivity(
-    scenario_data,
+    scenario_data = scenario_data,
     indicators_choose = indicators_choose,
     use_standardized = use_standardized
   )
@@ -981,22 +981,24 @@ print(head(chinook_trends, 10))
 # Example Usage
 #------------------------------------------------------------------------------
 
-# Load data
-library(here)
-library(tidyverse)
-setwd(here())
-source(file.path(here(), "code", "0_setup.R"))
-
-# Load all_flat_std (with all scenarios and time periods)
-load(file.path(paths$indicators, "standardized_indicators.Rdata"))
-
 # Run comprehensive scenario analysis
 scenario_results <- run_scenario_temporal_analysis(
   data = all_flat_std,
-  indicators_choose = tbl_indicators$abbrev,
+  indicators_choose = c("favchange", "tw8proj", "tw8rate",
+    "migrT", "migrQ", "SSTproj", "SSTrate"),
   aggregation_method = "additive",
+  use_standardized = FALSE,
   output_dir = "outputs/scenario_analysis"
 )
+
+# Use all indicators (including demographic/sensitivity)
+scenario_results_all <- run_scenario_temporal_analysis(
+  data = all_flat_std,
+  indicators_choose = tbl_indicators$abbrev,  # All indicators
+  use_standardized = TRUE,
+  output_dir = "outputs/scenario_analysis/all_indicators"
+)
+
 
 # View key findings
 cat("\n=== Rank Correlations ===\n")

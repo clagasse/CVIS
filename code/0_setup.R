@@ -146,30 +146,30 @@ period_lookup <- tribble(
 
 # table of indicator abbreviations and full names
 tbl_indicators <- tribble(
-  ~abbrev,      ~type,    ~stat, ~std_fun, ~name,
-  "favchange", "fwR",    "mean",     "linear_std",     "ENM Change in Favourability",
-  "CT",         "fwR",    "mean",    "linear_std",        "Cumulative threats to freshwater habitat",
-  "tw8rate",    "fwR",    "mean",    "linear_std",        "Rate of change in August Temperature",
-  "tw8proj",    "fwR",    "mean",    "exponential_std", "Projected August Temperature",
-  "lowQpdelta", "fwR",   "mean",    "decay_std",       "Proportional change in August flow (stream model)",
-  # "st8pdelta",  "fwR",    "mean",    "decay_std",     "Proportional change in August flow (station model)",
-  "highQpdelta",  "fwR",   "mean",    "exponential_std", "Proportional change in Nov-Jan flow (stream model)",
-  "fwres",     "fwR",    "value",    "step_std",   "Freshwater residency time",
-  "migrT",      "migr",   "mean",    "exponential_std",     "Projected temperature during upstream migration",
-  "migrQ",      "migr",   "pdelta",      "decay_std",    "Proportional change in discharge during upstream migration",
+  ~abbrev,      ~type,  ~long_type,   ~stat, ~std_fun, ~name,
+  "favchange", "fwR",   "Freshwater Rearing and Spawning",  "mean",     "linear_std",     "ENM Change in Favourability",
+  "CT",         "fwR",  "Freshwater Rearing and Spawning",   "mean",    "linear_std",        "Cumulative threats to freshwater habitat",
+  "tw8rate",    "fwR",  "Freshwater Rearing and Spawning",   "mean",    "linear_std",        "Rate of change in August Temperature",
+  "tw8proj",    "fwR",  "Freshwater Rearing and Spawning",   "mean",    "exponential_std", "Projected August Temperature",
+  "lowQpdelta", "fwR",  "Freshwater Rearing and Spawning",  "mean",    "decay_std",       "Proportional change in August flow (stream model)",
+  # "st8pdelta",  "fwR",  "Freshwater Rearing and Spawning",   "mean",    "decay_std",     "Proportional change in August flow (station model)",
+  "highQpdelta",  "fwR", "Freshwater Rearing and Spawning",  "mean",    "exponential_std", "Proportional change in Nov-Jan flow (stream model)",
+  "fwres",     "fwR",    "Freshwater Rearing and Spawning", "value",    "step_std",   "Freshwater residency time",
+  "migrT",      "migr",  "Upstream Migration",  "mean",    "exponential_std",     "Projected temperature during upstream migration",
+  "migrQ",      "migr",  "Upstream Migration", "pdelta",      "decay_std",    "Proportional change in discharge during upstream migration",
   # "migrA21",    "migr",   "mean",    "exponential_std", "Average proportion of path above 21 degrees during upstream migration",
-  "migrdist",   "migr",  "value",      "linear_std",     "Length of upstream migration",
-  "SSTproj",     "mar",   "mean", "exponential_std",  "Projected nearshore SST during ocean entry",
-  "SSTrate",     "mar",   "mean", "linear_std",  "Rate of change in nearshore SST",
-  "CImpact",      "mar",   "mean", "linear_std",   "Cumulative impacts to marine nearshore habitat",
-  "CUstatus",    "dem",   "category",    "cat_std", "WSP status",
-  "CUnmat",      "dem",   "value",  "decay_std", "Number of mature individuals")
+  "migrdist",   "migr",  "Upstream Migration", "value",      "linear_std",     "Length of upstream migration",
+  "SSTproj",     "mar",  "Nearshore Marine",  "mean", "exponential_std",  "Projected nearshore SST during ocean entry",
+  "SSTrate",     "mar",  "Nearshore Marine", "mean", "linear_std",  "Rate of change in nearshore SST",
+  "CImpact",      "mar", "Nearshore Marine",  "mean", "linear_std",   "Cumulative impacts to marine nearshore habitat",
+  "CUstatus",    "dem",  "Demographics",  "category",    "cat_std", "WSP status",
+  "CUnmat",      "dem",  "Demographics",  "value",  "decay_std", "Number of mature individuals")
 
 
 
 tbl_standardize <- tribble(
   ~abbrev,      ~type,      ~std_fun,        ~lambda, ~xmin, ~xmax,
-  "Favchange", "fwR",        "linear_std",        NA,     NA,   0,
+  "Favchange", "fwR",        "invlinear_std",        NA,     NA,   0,
   "ct",         "fwR",      "linear_std",         NA,    0,   NA,
   "Tw8rate",    "fwR",      "linear_std",         NA,    NA,   NA,
   "Tw8proj",    "fwR",       "exponential_std",   3,    15,   NA,
