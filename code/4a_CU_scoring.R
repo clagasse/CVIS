@@ -85,27 +85,20 @@ combined_scores_std <- all_flat_std %>%
     get_raw = F,
     id_col = c("FULL_CU_IN", "CVIS_NAME"),
     rename_cols = F) %>%
-  sum_selected_columns(match_strings = tbl_indicators$abbrev,
-    new_col_name = "std_addall") %>%
-  sum_selected_columns(match_strings = c("tw8rate", "tw8proj", "lowQpdelta", "highQpdelta", "ct"),
-    new_col_name = "std_addfwR") %>%
-  sum_selected_columns(match_strings = tbl_indicators$abbrev[tbl_indicators$type == "migr"],
-    new_col_name = "std_addmigr") %>%
-  sum_selected_columns(match_strings = tbl_indicators$abbrev[tbl_indicators$type == "dem"],
-    new_col_name = "std_adddem") %>%
-  sum_selected_columns(match_strings = tbl_indicators$abbrev[tbl_indicators$type == "mar"],
-    new_col_name = "std_addmar") %>%
-  multiply_selected_columns(match_strings = c("tw8rate", "tw8proj", "lowQpdelta", "highQpdelta", "ct"),
-    new_col_name = "std_prodfwR") %>%
-  multiply_selected_columns(match_strings = tbl_indicators$abbrev[tbl_indicators$type == "migr"],
-    new_col_name = "std_prodmigr") %>%
-  multiply_selected_columns(match_strings = tbl_indicators$abbrev[tbl_indicators$type == "dem"],
-    new_col_name = "std_proddem") %>%
-  multiply_selected_columns(match_strings = tbl_indicators$abbrev[tbl_indicators$type == "mar"],
-    new_col_name = "std_prodmar") %>%
-  average_selected_columns(match_strings = tbl_indicators$abbrev,
-    new_col_name = "std_avgall") %>%
-  average_selected_columns(match_strings = c("tw8rate", "tw8proj", "lowQpdelta", "highQpdelta", "ct"),
+  # category scores
+  # power mean scores (default = cubed)
+  power_selected_columns(match_strings = tbl_indicators$abbrev[tbl_indicators$type == "fwR"],
+    new_col_name = "std_cubefwR") %>%
+  power_selected_columns(match_strings = tbl_indicators$abbrev[tbl_indicators$type == "migr"],
+    new_col_name = "std_cubemigr") %>%
+  power_selected_columns(match_strings = tbl_indicators$abbrev[tbl_indicators$type == "dem"],
+    new_col_name = "std_cubedem") %>%
+  power_selected_columns(match_strings = tbl_indicators$abbrev[tbl_indicators$type == "gen"],
+    new_col_name = "std_cubegen") %>%
+  power_selected_columns(match_strings = tbl_indicators$abbrev[tbl_indicators$type == "mar"],
+    new_col_name = "std_cubemar") %>%
+  # average scores
+  average_selected_columns(match_strings = tbl_indicators$abbrev[tbl_indicators$type == "fwR"],
     new_col_name = "std_avgfwR") %>%
   average_selected_columns(match_strings = tbl_indicators$abbrev[tbl_indicators$type == "migr"],
     new_col_name = "std_avgmigr") %>%
@@ -113,8 +106,20 @@ combined_scores_std <- all_flat_std %>%
     new_col_name = "std_avgdem") %>%
   average_selected_columns(match_strings = tbl_indicators$abbrev[tbl_indicators$type == "mar"],
     new_col_name = "std_avgmar") %>%
-  sum_selected_columns(match_strings = c("std_avgfwR", "std_avgmigr", "std_avgdem", "std_avgmar"),
-    new_col_name = "std_sumavgs")
+  average_selected_columns(match_strings = tbl_indicators$abbrev[tbl_indicators$type == "gen"],
+    new_col_name = "std_avggen") %>%
+  # total scores
+  # sum of averages for each category
+  sum_selected_columns(match_strings = c("std_avgfwR", "std_avgmigr", "std_avgdem", "std_avgmar", "std_avggen"),
+    new_col_name = "std_sumavgs") %>%
+  # add all indicators individually
+  average_selected_columns(match_strings = tbl_indicators$abbrev,
+    new_col_name = "std_avgall") %>%
+  # sum of quadratic (cubed) values
+  sum_selected_columns(match_strings = c("std_cubefwR", "std_cubemigr", "std_cubedem", "std_cubemar", "std_cubegen"),
+    new_col_name = "std_sumcube")
+
+
 
 # 5. Calculate CROSS-SPECIES ranks (all CUs ranked together) --------------
 
@@ -123,9 +128,9 @@ cat("\nCalculating cross-species ranks (all CUs ranked together)...\n")
 combined_scores_std <- combined_scores_std %>%
   # Cross-species ranks for overall scores
   rank_scores(
-    score_col = "std_addall",
+    score_col = "std_avgall",
     group_col = c("rcp", "period_code"),
-    rank_col = "std_rank_addall_cross",
+    rank_col = "std_rank_avgall_cross",
     descending = FALSE
   ) %>%
   rank_scores(
@@ -135,34 +140,40 @@ combined_scores_std <- combined_scores_std %>%
     descending = FALSE
   ) %>%
   rank_scores(
-    score_col = "std_avgall",
+    score_col = "std_sumcube",
     group_col = c("rcp", "period_code"),
-    rank_col = "std_rank_avgall_cross",
+    rank_col = "std_rank_sumcube_cross",
     descending = FALSE
   ) %>%
   # Cross-species ranks for category-specific scores
   rank_scores(
-    score_col = "std_addfwR",
+    score_col = "std_avgfwR",
     group_col = c("rcp", "period_code"),
-    rank_col = "std_rank_addfwR_cross",
+    rank_col = "std_rank_avgfwR_cross",
     descending = FALSE
   ) %>%
   rank_scores(
-    score_col = "std_addmigr",
+    score_col = "std_avgmigr",
     group_col = c("rcp", "period_code"),
-    rank_col = "std_rank_addmigr_cross",
+    rank_col = "std_rank_avgmigr_cross",
     descending = FALSE
   ) %>%
   rank_scores(
-    score_col = "std_adddem",
+    score_col = "std_avgdem",
     group_col = c("rcp", "period_code"),
-    rank_col = "std_rank_adddem_cross",
+    rank_col = "std_rank_avgdem_cross",
     descending = FALSE
   ) %>%
   rank_scores(
-    score_col = "std_addmar",
+    score_col = "std_avgmar",
     group_col = c("rcp", "period_code"),
-    rank_col = "std_rank_addmar_cross",
+    rank_col = "std_rank_avgmar_cross",
+    descending = FALSE
+  ) %>%
+  rank_scores(
+    score_col = "std_avggen",
+    group_col = c("rcp", "period_code"),
+    rank_col = "std_rank_avggen_cross",
     descending = FALSE
   )
 
@@ -174,9 +185,9 @@ cat("Calculating within-species ranks (CUs ranked within their species)...\n")
 combined_scores_std <- combined_scores_std %>%
   # Within-species ranks for overall scores
   rank_scores(
-    score_col = "std_addall",
+    score_col = "std_avgall",
     group_col = c("SPECIES_NAME", "rcp", "period_code"),
-    rank_col = "std_rank_addall_within",
+    rank_col = "std_rank_avgall_within",
     descending = FALSE
   ) %>%
   rank_scores(
@@ -186,34 +197,40 @@ combined_scores_std <- combined_scores_std %>%
     descending = FALSE
   ) %>%
   rank_scores(
-    score_col = "std_avgall",
+    score_col = "std_sumcube",
     group_col = c("SPECIES_NAME", "rcp", "period_code"),
-    rank_col = "std_rank_avgall_within",
+    rank_col = "std_rank_sumcube_within",
     descending = FALSE
   ) %>%
   # Within-species ranks for category-specific scores
   rank_scores(
-    score_col = "std_addfwR",
+    score_col = "std_avgfwR",
     group_col = c("SPECIES_NAME", "rcp", "period_code"),
-    rank_col = "std_rank_addfwR_within",
+    rank_col = "std_rank_avgfwR_within",
     descending = FALSE
   ) %>%
   rank_scores(
-    score_col = "std_addmigr",
+    score_col = "std_avgmigr",
     group_col = c("SPECIES_NAME", "rcp", "period_code"),
-    rank_col = "std_rank_addmigr_within",
+    rank_col = "std_rank_avgmigr_within",
     descending = FALSE
   ) %>%
   rank_scores(
-    score_col = "std_adddem",
+    score_col = "std_avgdem",
     group_col = c("SPECIES_NAME", "rcp", "period_code"),
-    rank_col = "std_rank_adddem_within",
+    rank_col = "std_rank_avgdem_within",
     descending = FALSE
   ) %>%
   rank_scores(
-    score_col = "std_addmar",
+    score_col = "std_avgmar",
     group_col = c("SPECIES_NAME", "rcp", "period_code"),
-    rank_col = "std_rank_addmar_within",
+    rank_col = "std_rank_avgmar_within",
+    descending = FALSE
+  ) %>%
+  rank_scores(
+    score_col = "std_avggen",
+    group_col = c("SPECIES_NAME", "rcp", "period_code"),
+    rank_col = "std_rank_avggen_within",
     descending = FALSE
   )
 
@@ -221,19 +238,19 @@ combined_scores_std <- combined_scores_std %>%
 
 # 7. Calculate rank differences (cross-species vs within-species) ---------
 
-cat("Calculating rank differences between cross-species and within-species...\n")
-
+# cat("Calculating rank differences between cross-species and within-species...\n")
+# 
 combined_scores_std <- combined_scores_std %>%
   mutate(
     # Difference in ranks (positive = ranked higher cross-species than within-species)
-    rank_diff_addall = std_rank_addall_cross - std_rank_addall_within,
     rank_diff_avgall = std_rank_avgall_cross - std_rank_avgall_within,
     rank_diff_sumavgs = std_rank_sumavgs_cross - std_rank_sumavgs_within,
-    rank_diff_addfwR = std_rank_addfwR_cross - std_rank_addfwR_within,
-    rank_diff_addmigr = std_rank_addmigr_cross - std_rank_addmigr_within,
-    rank_diff_adddem = std_rank_adddem_cross - std_rank_adddem_within,
-    rank_diff_addmar = std_rank_addmar_cross - std_rank_addmar_within
-  )
+    rank_diff_sumcube = std_rank_sumcube_cross - std_rank_sumcube_within,
+    rank_diff_avgfwR = std_rank_avgfwR_cross - std_rank_avgfwR_within,
+    rank_diff_avgmigr = std_rank_avgmigr_cross - std_rank_avgmigr_within,
+    rank_diff_avgdem = std_rank_avgdem_cross - std_rank_avgdem_within,
+    rank_diff_avgmar = std_rank_avgmar_cross - std_rank_avgmar_within
+ )
 
 
 # 8. Summary statistics ----------------------------------------------------
@@ -242,16 +259,15 @@ combined_scores_std <- combined_scores_std %>%
 summary_data <- combined_scores_std %>%
   filter(rcp == "45", period_code == 3)
 
-
 # Species-specific summaries
 species_summary <- summary_data %>%
   group_by(SPECIES_NAME) %>%
   dplyr::summarize(
     n_CUs = n(),
-    mean_score = mean(std_addall, na.rm = TRUE),
-    mean_rank_cross = mean(std_rank_addall_cross, na.rm = TRUE),
-    mean_rank_within = mean(std_rank_addall_within, na.rm = TRUE),
-    max_rank_diff = max(abs(rank_diff_addall), na.rm = TRUE),
+    mean_score = mean(std_avgall, na.rm = TRUE),
+    mean_rank_cross = mean(std_rank_sumavgs_cross, na.rm = TRUE),
+    mean_rank_within = mean(std_rank_sumavgs_within, na.rm = TRUE),
+    max_rank_diff = max(abs(rank_diff_sumavgs), na.rm = TRUE),
     .groups = "drop"
   ) %>%
   arrange(desc(mean_score))
@@ -260,8 +276,8 @@ species_summary <- summary_data %>%
 # Identify CUs with largest rank differences
 large_diffs <- summary_data %>%
   select(FULL_CU_IN, CVIS_NAME, SPECIES_NAME,
-    std_rank_addall_cross, std_rank_addall_within, rank_diff_addall) %>%
-  arrange(desc(abs(rank_diff_addall))) %>%
+    std_rank_sumavgs_cross, std_rank_sumavgs_within, rank_diff_sumavgs) %>%
+  arrange(desc(abs(rank_diff_sumavgs))) %>%
   head(10)
 
 

@@ -247,11 +247,11 @@ genetics_cu <- genetics_pop %>%
   group_by(FULL_CU_IN) %>%
   summarize(n_pop_genetics = n(),
     genoff_mean = mean(genoff, na.rm = T),
-    genoff_min =  min(genoff, na.rm = T),
-    genoff_max =  max(genoff, na.rm = T),
+    genoff_popmin =  min(genoff, na.rm = T),
+    genoff_popmax =  max(genoff, na.rm = T),
     hetzyg_mean =   mean(hetzyg, na.rm = T),
-    hetzyg_min =    min(hetzyg, na.rm = T),
-    hetzyg_max =    max(hetzyg, na.rm = T))
+    hetzyg_popmin =    min(hetzyg, na.rm = T),
+    hetzyg_popmax =    max(hetzyg, na.rm = T))
 
 # join to cu_list
 cu_list <- cu_list %>%

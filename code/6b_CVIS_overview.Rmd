@@ -1,7 +1,7 @@
 ---
 title: 'Climate Vulnerability Indicators for Salmon: A Quantitative Framework for Evaluating the Relative Vulnerability of Pacific Salmon Conservation Units'
 subtitle: 'DRAFT - not for further distribution without permission of the authors'
-author: "Cory Lagasse, Josie Iacarella, Colin Bailey, Michael Arbeider"
+author: "Cory Lagasse, Josie Iacarella, Colin Bailey, Michael Arbeider, Timothy Healy"
 date: "`r format(Sys.Date(), '%d %B %Y')`"
 output:
   html_document:  
@@ -16,7 +16,7 @@ output:
   word_document:
     toc: true
     toc_depth: '3'
-
+bibliography: references.json
 ---
 
 ```{r setup, include=FALSE}
@@ -30,7 +30,7 @@ Climate change is having profound effects on Pacific salmon populations througho
 
 A wealth of scientific research informs our understanding of future changes to freshwater and marine ecosystems, and how Pacific salmon are likely to respond to those changes [@crozier2023]. While many of the mechanisms of climate change vulnerability are understood, at least a conceptual level, there are few broad-scale assessments that evaluate the relative or absolute climate vulnerability of Pacific salmon across multiple species and wide geographic areas (e.g. Crozier et al. 2019). This gap is particularly notable across the Canadian distribution of Pacific salmon, which spans from the southern to the northern half of their range and includes a great diversity of life history types and ecosystems.
 
-Vulnerability assessments can help bridge the gap between our scientific understanding and application towards resource management decisions and planning. Pacific salmon are a vitally important species, resource, and symbol within Canada, and in recent years have been the target of hundreds of millions of dollars in investments to support stock rebuilding, habitat restoration, fisheries monitoring, and hatchery enhancement. The success of these activities will be influenced by climate changes, which may lead to further declines in productivity for some stocks or outweigh the positive influences of rebuilding work. While there are many factors to be considered in prioritizing investments and making resource management decisions for Pacific salmon, assessment frameworks that are scientifically robust, transparent, and reproducible are more likely to be trusted and facilitate the incorporation of climate change considerations into decision-making [@boyce2022; @rangwala2021].
+Climate change vulnerability assessments (CCVAs) can help bridge the gap between our scientific understanding and application towards resource management decisions and planning. Pacific salmon are a vitally important species, resource, and symbol within Canada, and in recent years have been the target of hundreds of millions of dollars in investments to support stock rebuilding, habitat restoration, fisheries monitoring, and hatchery enhancement. The success of these activities will be influenced by climate changes, which may lead to further declines in productivity for some stocks or outweigh the positive influences of rebuilding work. While there are many factors to be considered in prioritizing investments and making resource management decisions for Pacific salmon, assessment frameworks that are scientifically robust, transparent, and reproducible are more likely to be trusted and facilitate the incorporation of climate change considerations into decision-making [@boyce2022; @rangwala2021].
 
 In this report, we present an indicator-based approach for assessing climate change risk factors across the Pacific salmon life-cycle. The framework incorporates recently developed, downscaled climate models in marine and freshwater domains [@weller2024; @peña2024], cumulative habitat stressors models [@csas2024; @murray2024], population status assessments [@csas2024a], life history timing [@wilson2025], and environmental niche models [@iacarella2023] into 17 quantitative indicators. The indicators are grounded in ecological theory and represent biological mechanisms of climate change responses, including demographics, physiology, and genetic adaptation [@urban2016; @pacifici2015; @boyce2022].
 
@@ -351,19 +351,16 @@ for(rcp_pick in unique(all_flat_std$rcp))
 
 Demographic indicators are derived from spawner abundance data and recent Wild Salmon Policy assessments of CU status in the Fraser Basin. The CU status indicator represents the categorical status designation (Red, Amber, Green) using the Rapid Status Assessment Approach in 2022/23 [@pestal2023]. The recent generational average of spawners is derived from the same data set used to assess status and determined based on the geometric average of the number of spawners over the most recent generation with available estimates.
 
-### i. Conservation Status {.tabset .tabset-pills}
+### i. Conservation Status
 
 **Metric:** Recent Wild Salmon Policy (WSP) conservation status of a CU categorized as either Red, Amber, or Green. Status was assessed using the Rapid Status Assessment Approach that uses a Yes/No decision tree considering the number of recent spawners, trends in abundance, data type (absolute or relative abundance), and biological benchmarks (Pestal et al. 2023; CSAS 2024). The input data, thresholds and appropriate metrics, and final status of Fraser CUs in 2022/2023 were evaluated and agreed upon by expert judgement throughout the Rapid Status process.
 
 ```{r}
 
-for(rcp_pick in unique(all_flat_std$rcp))
-{
-  
-  cat("#### ", rcp_pick, "\n\n", sep = "")
+
   
   filter_std <- all_flat_std %>%
-    filter(rcp == rcp_pick, 
+    filter(rcp == "45", 
            period_code == 3)
   
   make_indicator_plots(filter_std, 
@@ -373,22 +370,16 @@ for(rcp_pick in unique(all_flat_std$rcp))
  
   cat("\n\n")
   
-}
 ```
 
-### ii. Recent generational average of spawners (CUnmat) {.tabset .tabset-pills}
+### ii. Recent generational average of spawners (CUnmat)
 
 **Metric:** The geometric average of the number of spawners (male and female) over the most recent generation with available estimates. Sockeye spawners are further refined to only include effective female spawners and not total male and female. For cyclic sockeye CUs where abundance is dominated by a single-year on the cycle line, the number of spawners from the most recent dominant year is used instead of the average over all years of a generation.
 
 ```{r}
 
-for(rcp_pick in unique(all_flat_std$rcp))
-{
-  
-  cat("#### ", rcp_pick, "\n\n", sep = "")
-  
   filter_std <- all_flat_std %>%
-    filter(rcp == rcp_pick, 
+    filter(rcp == "45", 
            period_code == 3)
   
   make_indicator_plots(filter_std, 
@@ -398,7 +389,7 @@ for(rcp_pick in unique(all_flat_std$rcp))
  
   cat("\n\n")
   
-}
+
 ```
 
 # Nearshore Marine
@@ -407,35 +398,25 @@ for(rcp_pick in unique(all_flat_std$rcp))
 
 **PSF CU-Specific Life History Timing** - ocean entry timing used to determine projected SST [<https://datadryad.org/dataset/doi:10.5061/dryad.wm37pvmwx>]
 
-**HOTSSea -** hindcast of the Salish Sea used for the historical climatology of SST [<https://gmd.copernicus.org/articles/18/211/2025/>]
-
-**SalishSeaCast** - Regional oceanographic model of the Salish Sea used for projected SST between 2046-2065
-
-**SST using Quantile Delta Mapping** -
+**SST using Quantile Delta Mapping** - CMIP6 earth system model SST values upscaled to a higher resolution using a quantile delta mapping bias correction method. Data set currently in prep for publication by ECCC (Dosser pers comm.).
 
 **Marine Adaptive Zones** - Developed as part of CU definitions by Holtby and Ciruna (2007), adjusted to cover the marine regions.
+
+**HOTSSea -** hindcast of the Salish Sea used for the historical climatology of SST [<https://gmd.copernicus.org/articles/18/211/2025/>]. Currently used for sensitivity analysis.
+
+**SalishSeaCast** - Regional oceanographic model of the Salish Sea used for projected SST between 2046-2065. Currently used for sensitivity analysis.
 
 **Cumulative Impacts -** Marine habitat cumulative impacts [<https://www.dfo-mpo.gc.ca/csas-sccs/Publications/ResDocs-DocRech/2024/2024_024-eng.html>]
 
 #### Methods
 
-Marine indicators represent changes to sea surface temperature within marine adaptive zones surrounding the period of marine entry for each conservation unit. Sea surface temperature projections from the Salish Sea Cast model were averaged for the month prior to the start of ocean entry to the month following the end of ocean entry. Historical climatologies were estimated using the same method but averaged from the HOTSSea model for better representation of historic SSTs.
+Marine indicators represent changes to sea surface temperature and cumulative habitat impacts within marine adaptive zones surrounding the period of marine entry for each conservation unit. Sea surface temperature projections from CMIP6 models were averaged for the two months prior peak ocean entry to 2 months following peak ocean entry. Historical climatologies were estimated using the same method but averaged from the HOTSSea model for better representation of historic SSTs.
 
 The spatial domain over which SSTs were averaged was the Strait of Georgia marine adaptive zone. The same spatial domain was applied to all CUs from the Fraser basin as they all share a common ocean entry point.
 
-```{r}
-
-tbl_indicators %>%
-  filter(type %in% c("mar")) %>%
-  gt() %>%
-  tab_header("Nearshore marine indicators") %>%
-    tab_options(
-    table.font.size = "small",           # Reduce overall font size
-    data_row.padding = px(1),           # Minimize padding between rows
-  )
-```
-
 ### i. Projected sea surface temperature near ocean entry {.tabset .tabset-pills}
+
+**Metric:** The projected sea surface temperature (SST) across all years of the projection period (2041-2060 or 2081-2100) throughout the marine adaptive zone (MAZ) for the CU over a 6-month period beginning with the month prior to ocean entry. Projections from RCP 4.5 and 8.5 are included with an ensemble mean calculated from 28 global climate models.
 
 ```{r}
 
@@ -460,6 +441,8 @@ for(rcp_pick in unique(all_flat_std$rcp))
 
 ### ii. Rate of change in sea surface temperature near ocean entry {.tabset .tabset-pills}
 
+**Metric:** The decadal rate of increase in SST from a baseline period to the projection period (2041-2060 or 2081-2100) throughout the marine adaptive zone (MAZ) for the CU over a 6-month period beginning with the month prior to ocean entry. Projections from RCP 4.5 and 8.5 are included with an ensemble mean calculated from 28 global climate models.
+
 ```{r}
 
 for(rcp_pick in unique(all_flat_std$rcp))
@@ -481,15 +464,76 @@ for(rcp_pick in unique(all_flat_std$rcp))
 }
 ```
 
+### iii. Cumulative impacts to nearshore marine habitat (CImpact)
+
+**Metric:** The average cumulative impact score of nearshore habitats averaged throughout the MAZ for a CU. Cumulative impact scores are calculated for multiple habitat categories within the Pacific region including pelagic, benthic, eelgrass, and kelp forests.  Stressors included as part of the additive cumulative impact model include aquaculture, fishing, invasive species, nutrient inputs, pollution inputs, and shipping [@murray2024].
+
+```{r}
+
+  filter_std <- all_flat_std %>%
+    filter(rcp == "45", 
+           period_code == 3)
+  
+  make_indicator_plots(filter_std, 
+                       ind_pick = "CImpact",
+                       standardized_plots = F,
+                       make_spatial = F)
+
+```
+
 # Genetics
 
-Genetic indicators represent species
+#### Data Sources
+
+**MGL Adaptive Genetic Variation Analysis** - All genetic indicator data was provided by the PBS Molecular Genetics Lab as part of a study on adaptive genetic variation of Pacific salmon (Healy et al, in prep)
+
+#### Methods
+
+Genetic indicators assess the genetic differences among populations to evaluate the raw material for future selection (heterozygosity) and the differences between current genetic composition and optimal genetic composition under future conditions (genomic offset). The genetic indicators described here come from a genetic analysis of Pacific salmon populations across their North American range (Healy et al, in prep), however, only populations within the Fraser basin are currently included. The analysis uses low-coverage sequencing to evaluate genome-wide variation of individuals within populations. For each population, 7-8 individuals were sequenced using samples from the DNA archive of the Pacific Biological Station Genetic Stock Identification program.
+
+Measures of genetic diversity and genomic offset are not comparable across species, therefore, each indicator was standardized based on the range of values within a species, rather than variation across all species used for the other indicators. Genetic indicators are currently available for sockeye and Chinook salmon CUs. Coho salmon will also be added in the future.
+
+### i. Heterozygosity
+
+**Metric:** Heterozygosity is a common metric of genetic diversity within populations that quantifies the proportion of loci that have different alleles. Higher heterozygosity is considered indicative of greater adaptive potential to changing environmental conditions because there is more raw material upon which selection can act. Heterozygosity is measured at the individual level as the proportion of heterozygous sites, which are then averaged among all samples to get a population average value. Where multiple populations have been measured, the average across populations is taken to determine CU heterozygosity.
+
+```{r}
+  filter_std <- all_flat_std %>%
+    filter(rcp == "45", 
+           period_code == 3)
+  
+  make_indicator_plots(filter_std, 
+                       ind_pick = "hetzyg",
+                       standardized_plots = F,
+                       make_spatial = F)
+```
+
+### ii. Genomic offset
+
+**Metric:** The genomic offset is calculated as the Euclidean distance between a population's current genetic composition and the genetic composition predicted to be optimal under future climate conditions. This distance represents the expected allele frequency change required for the population to track projected climate change, in this case based on 19 bioclim variables [<https://www.worldclim.org/data/bioclim.html>] within CU boundaries under the RCP 8.5 scenario. Where multiple populations have been genotyped within a CU, the average genomic offset of populations was used to provide the indicator value for the CU.
+
+```{r}
+  filter_std <- all_flat_std %>%
+    filter(rcp == "45", 
+           period_code == 3)
+  
+  make_indicator_plots(filter_std, 
+                       ind_pick = "genoff",
+                       standardized_plots = F,
+                       make_spatial = F)
+```
 
 # Overall Vulnerability
 
-### Indicators by category {.tabset .tabset-pills}
+#### Methods
 
-The following plots show standardized values of indicators across all conservation units. The values are standardized to a 0-1 scale, where 0 is the lowest value and 1 is the highest value for each indicator for each projected time period and emissions scenario.
+Individual indicators represent one type of mechanism or trait related to climate vulnerability, however, to better understand overall vulnerability to climate change we combine standardized scores within and across indicator categories. Various methods are used in CCVAs and risk assessments for determining overall risk, such as additive or multiplicative scores, threshold approaches (Fisheries and Oceans Canada 2019), and logic models (Crozier et al. 2019), with the selection of method depending on the analytic framework and the putative mechanisms through which individual risk factors combine to determine overall risk.
+
+For the CVIS framework, we use a sum-of-averages approach that averages the values of all indicators within a category and then sums the category scores to obtain an overall vulnerabity score. This approach gives equal weight to each category regardless of how many indicators it contains, while still combining categories additively. This approach balances the influence of the different life stage groupings as well as the influence of the genetics and demographic categories.
+
+Sensitivity analysis is an important component of CCVAs to understand the influence of scoring method on vulnerability scores. We include two alternative methods for representing overall risk: 1) a simple averaging method across all indicators, and 2) a sum-of-cubic means method that takes the cubic mean of values within each category, then adds them to get an overall score. The average method gives all indicators an equal weighting, while the sum-of-cubic method places greater weighting on high indicator values when determining category scores.
+
+## Vulnerability by category
 
 ```{r all indicator plots, results = 'asis'}
 
@@ -501,17 +545,24 @@ for (rcp_pick in unique(all_flat_std$rcp))
   filter_std <- all_flat_std %>%
     filter(rcp == rcp_pick,
       period_code == 3)
+  
+  tbl_ind_report %>%
+  filter(Category == "Freshwater Spawning and Rearing") %>%
+    select(Abbreviation, Description) %>%
+  gt() %>%
+  tab_header("Spawning and rearing indicators") %>%
+    tab_options(
+    table.font.size = "small",           # Reduce overall font size
+    data_row.padding = px(1),           # Minimize padding between rows
+    )
 
   fw_p <- indicator_tile_plot(filter_std,
     # indicators_metadata = tbl_indicators,
-    indicators_choose = c("tw8proj", "tw8rate", "highQpdelta", "lowQpdelta",
-                          "favchange", "ct"))
+    indicators_choose = tbl_indicators$abbrev[tbl_indicators$type == "fwR"])
   
   migr_p <- indicator_tile_plot(filter_std,
     # indicators_metadata = tbl_indicators,
     indicators_choose = tbl_indicators$abbrev[tbl_indicators$type == "migr"])
-
-
 
   dem_p <- indicator_tile_plot(filter_std,
     # indicators_metadata = tbl_indicators,
@@ -534,10 +585,11 @@ for (rcp_pick in unique(all_flat_std$rcp))
 
 ### Combined indicator scores {.tabset .tabset-pills}
 
-Overall climate vulnerability can be measured as the sum or average of the standardized scores for each indicator. The following plots show total scores and ranks across most indicators. Three methods are used for calculating total scores and ranks:\
-addall - sum of all standardized indicator values\
-avgall - average of all standardized indicator values\
-sumavgs - sum of the average score for each life stage/type (freshwater spawning & rearing, upstream migration, demographic, and marine).
+The following plots show total scores and ranks across indicators. The three methods used for calculating total scores and ranks are:\
+sumavgs - sum of the average score for each category/life stage \
+avgall - average of all standardized indicator values
+
+sumcube - sum of the cubic mean score for each life stage and category
 
 ```{r combined scores}
 # 
@@ -597,8 +649,9 @@ sumavgs - sum of the average score for each life stage/type (freshwater spawning
 One test for the utility of an indicator is the correlation with other indicator values. The plot below shows correlation of raw indicator values, where higher correlation among indicators indicates potential overlap in the vulnerability mechanism or information being evaluated.
 
 ```{r correlation, results = 'asis'}
-#include only freshwater indicators in correlation matrix 
-cor_indicators <- tbl_indicators$abbrev[tbl_indicators$type %in% c("fwR", "migr")]  
+
+#exclude marine indicators
+cor_indicators <- tbl_indicators$abbrev[tbl_indicators$type %in% c("fwR", "migr", "dem", "gen")]  
 
 for (rcp_pick in unique(all_flat_std$rcp)) {    cat("#### ", rcp_pick, "\n\n", sep = "")    
   

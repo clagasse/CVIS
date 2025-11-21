@@ -203,6 +203,22 @@ multiply_selected_columns <- function(data, match_strings, new_col_name = "row_p
     ungroup()
 }
 
+power_selected_columns <- function(data, match_strings, new_col_name = "power_mean", p = 3) {
+  pattern <- paste(match_strings, collapse = "|")
+  selected_cols <- names(data)[str_detect(names(data), pattern)]
+  if (sum(selected_cols %in% "SPECIES_NAME") > 0) {
+    selected_cols <- selected_cols[str_detect(selected_cols, "SPECIES_NAME", negate = TRUE)]
+  }
+
+  data %>%
+    rowwise() %>%
+    mutate(
+      !!new_col_name := (mean(c_across(all_of(selected_cols))^p, na.rm = TRUE))^(1 / p)
+    ) %>%
+    ungroup()
+}
+
+
 average_selected_columns <- function(data, match_strings, new_col_name = "row_product") {
   pattern <- paste(match_strings, collapse = "|")
   selected_cols <- names(data)[str_detect(names(data), pattern)]
@@ -232,9 +248,11 @@ subset_ind_table <- function(data,
                              get_std = F,  # include standardized columns
                              get_gcm = T,  # include gcm variation
                              get_spat = F, # include spatial variation,
+                             get_pop  = F, # include population variation (genetic indicators)
                              rename_cols = T,  # rename id and sp cols
                              gcm_range_suffix = c("qlowgcm", "qhighgcm", "qmingcm", "qmaxgcm"),
-                             sp_range_suffix = c("qlowsp", "qhighsp")
+                             sp_range_suffix = c("qlowsp", "qhighsp"),
+                             pop_suffix = c("popmin", "popmax")
 ) {
   # take column names that contain prefix with model type
   cols_sub <- names(data)[str_detect(names(data), paste0(indicators_choose, collapse = "|"))]
@@ -271,6 +289,12 @@ subset_ind_table <- function(data,
     cols_out <- c(cols_out, spat_cols)
   }
 
+  # get spatial min and max cols
+  if (get_pop == T) {
+    pop_cols <- cols_sub[str_detect(cols_sub, paste0(pop_suffix, collapse = "|"))]
+    cols_out <- c(cols_out, pop_cols)
+  }
+
   data_sub <- data %>%
     select(cols_out)
 
@@ -289,6 +313,7 @@ rename_ind_table <- function(data,
                              indicator_abbrev,
                              gcm_range_suffix = c("qlowgcm", "qhighgcm", "qmingcm", "qmaxgcm"),
                              sp_range_suffix = c("qlowsp", "qhighsp"),
+                             pop_suffix = c("popmin", "popmax"),
                              name_suffix = "",  # optional name suffix
                              single_value_col = FALSE) {
   # Identify relevant columns
@@ -297,6 +322,7 @@ rename_ind_table <- function(data,
   stat_col <- cols_sub[!str_detect(cols_sub, "std")]
   stat_col <- stat_col[!str_detect(stat_col, paste0(gcm_range_suffix, collapse = "|"))]
   stat_col <- stat_col[!str_detect(stat_col, paste0(sp_range_suffix, collapse = "|"))]
+  stat_col <- stat_col[!str_detect(stat_col, paste0(pop_suffix, collapse = "|"))]
 
   std_col <- cols_sub[str_detect(cols_sub, "std")]
 
@@ -306,6 +332,9 @@ rename_ind_table <- function(data,
   min_spatcol <- cols_sub[str_detect(cols_sub, sp_range_suffix[1])]
   max_spatcol <- cols_sub[str_detect(cols_sub, sp_range_suffix[2])]
 
+  min_popcol <- cols_sub[str_detect(cols_sub, pop_suffix[1])]
+  max_popcol <- cols_sub[str_detect(cols_sub, pop_suffix[2])]
+
   out_data <- data
 
   # Rename raw and std columns with suffix
@@ -313,7 +342,6 @@ rename_ind_table <- function(data,
     out_data <- out_data %>%
       rename_with(~ paste0(name_suffix, "raw"), all_of(stat_col))
   }
-
   if (length(std_col) > 0) {
     out_data <- out_data %>%
       rename_with(~ paste0(name_suffix, "std"), all_of(std_col))
@@ -324,7 +352,6 @@ rename_ind_table <- function(data,
     out_data <- out_data %>%
       rename_with(~ paste0(name_suffix, "min_gcm"), all_of(min_gcmcol))
   }
-
   if (length(max_gcmcol) > 0) {
     out_data <- out_data %>%
       rename_with(~ paste0(name_suffix, "max_gcm"), all_of(max_gcmcol))
@@ -335,10 +362,19 @@ rename_ind_table <- function(data,
     out_data <- out_data %>%
       rename_with(~ paste0(name_suffix, "min_spat"), all_of(min_spatcol))
   }
-
   if (length(max_spatcol) > 0) {
     out_data <- out_data %>%
       rename_with(~ paste0(name_suffix, "max_spat"), all_of(max_spatcol))
+  }
+
+  # Rename pop range columns
+  if (length(min_popcol) > 0) {
+    out_data <- out_data %>%
+      rename_with(~ paste0(name_suffix, "min_pop"), all_of(min_popcol))
+  }
+  if (length(max_popcol) > 0) {
+    out_data <- out_data %>%
+      rename_with(~ paste0(name_suffix, "max_pop"), all_of(max_popcol))
   }
 
   # Optionally collapse to single value column

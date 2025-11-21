@@ -272,6 +272,8 @@ ns_timing_start <- function(oe_peak_month,
 
   if (ns_time_method == "peak_offset") ns_timing_start <- oe_peak_month - ns_start_offset
   if (ns_time_method == "static") ns_timing_start <- ns_start_static
+  
+  return(ns_timing_start)
 }
 
 ns_timing_end <- function(oe_peak_month,
@@ -280,4 +282,6 @@ ns_timing_end <- function(oe_peak_month,
 
   if (ns_time_method == "peak_offset") ns_timing_end <- oe_peak_month + ns_end_offset
   if (ns_time_method == "static") ns_timing_end <- ns_end_static
+  
+  return(ns_timing_end)
 }

@@ -104,7 +104,7 @@ CI_type <- c("ALL")   # habitat types to use for cumulative impacts (marine)
 
 # choose method for determining nearshore residency period for marine indicators
 # static = same months used for all CUs,  peak_offset = offsets from peak ocean entry month used
-ns_time_method <- switch(1, "static", "peak_offset")
+ns_time_method <- switch(2, "static", "peak_offset")
 
 ns_start_static <- 4  # for static method, start month
 ns_end_static   <- 7  # for static method, end month included
@@ -145,7 +145,7 @@ period_lookup <- tribble(
 # table of indicator abbreviations and full names
 tbl_indicators <- tribble(
   ~abbrev,      ~type,  ~long_type,   ~stat, ~std_fun, ~name,
-  "favchange", "fwR",   "Freshwater Spawning and Rearing",  "mean",     "linear_std",     "ENM Change in Favourability",
+  "favchange", "fwR",   "Freshwater Spawning and Rearing",  "mean",     "invlinear_std",     "ENM Change in Favourability",
   "CT",         "fwR",  "Freshwater Spawning and Rearing",   "mean",    "linear_std",        "Cumulative threats to freshwater habitat",
   "tw8rate",    "fwR",  "Freshwater Spawning and Rearing",   "mean",    "linear_std",        "Rate of change in August Temperature",
   "tw8proj",    "fwR",  "Freshwater Spawning and Rearing",   "mean",    "exponential_std", "Projected August Temperature",
@@ -154,7 +154,7 @@ tbl_indicators <- tribble(
   "highQpdelta",  "fwR", "Freshwater Spawning and Rearing",  "mean",    "exponential_std", "Proportional change in Nov-Jan flow (stream model)",
   "fwres",     "fwR",    "Freshwater Spawning and Rearing", "value",    "step_std",   "Freshwater residency time",
   "migrT",      "migr",  "Upstream Migration",  "mean",    "exponential_std",     "Projected temperature during upstream migration",
-  "migrQ",      "migr",  "Upstream Migration", "pdelta",      "decay_std",    "Proportional change in discharge during upstream migration",
+  "migrQ",      "migr",  "Upstream Migration", "mean",      "decay_std",    "Proportional change in discharge during upstream migration",
   # "migrA21",    "migr",   "mean",    "exponential_std", "Average proportion of path above 21 degrees during upstream migration",
   "migrdist",   "migr",  "Upstream Migration", "value",      "linear_std",     "Length of upstream migration",
   "SSTproj",     "mar",  "Nearshore Marine",  "mean", "exponential_std",  "Projected nearshore SST during ocean entry",
@@ -174,7 +174,7 @@ tbl_ind_report <- tbl_indicators %>%
 
 tbl_standardize <- tribble(
   ~abbrev,      ~type,      ~std_fun,          ~range_type,  ~lambda, ~xmin, ~xmax,
-  "Favchange", "fwR",        "invlinear_std",  "all",      NA,     0,   NA,
+  "Favchange", "fwR",        "invlinear_std",  "all",      NA,     NA,   0,
   "ct",         "fwR",      "linear_std",      "all",    NA,    0,   NA,
   "Tw8rate",    "fwR",      "linear_std",      "all",    NA,    NA,   NA,
   "Tw8proj",    "fwR",       "exponential_std", "all",    3,    15,   NA,
@@ -186,7 +186,7 @@ tbl_standardize <- tribble(
   "migrQ",      "migr",       "decay_std",     "all",    3,     0,   0,
   # "migrA21",    "migr",     "exponential_std","all",     3,    0,    NA,
   "migrdist",   "migr",      "linear_std",     "all",    NA,   NA,   NA,
-  "SSTproj",     "mar",   "exponential_std",   "all",    3,   12,   NA,
+  "SSTproj",     "mar",   "exponential_std",   "all",    3,   10,   NA,
   "SSTrate",     "mar",     "linear_std",      "all",    NA,   NA,   NA,
   "CImpact",     "mar",   "linear_std",        "all",    NA,   NA,   NA,
   "CUstatus",    "dem",       "cat_std",       "all",    NA,    NA,   NA,

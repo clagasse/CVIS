@@ -107,6 +107,8 @@ ind_cu <- get_CU_indicators(all_flat_std,
 
 #plot_cu_indicators_lollipop(ind_cu)
 
+cu_i <- "CK-09"
+
 cu_all_raw <- get_CU_indicators(all_flat_std,
   cu_i = cu_i,
   use_standardized = FALSE,

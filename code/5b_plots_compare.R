@@ -101,7 +101,8 @@ plot_lollipop <- function(data,
     get_raw = T,
     get_std = T,
     get_gcm = T,
-    get_spat = T)
+    get_spat = T,
+    get_pop = T)
 
   plot_data <- rename_ind_table(data_sub,
     indicator_abbrev = indicator_pick)
@@ -110,9 +111,13 @@ plot_lollipop <- function(data,
   has_gcm <- FALSE
   if (sum(str_detect(names(plot_data), "gcm")) > 0) has_gcm <- TRUE
 
-  # boolean for whether gcm ranges are in the data
+  # boolean for whether spatial ranges are in the data
   has_spat <- FALSE
   if (sum(str_detect(names(plot_data), "spat")) > 0) has_spat <- TRUE
+
+  # boolean for whether pop ranges are in the data
+  has_pop <- FALSE
+  if (sum(str_detect(names(plot_data), "pop")) > 0) has_pop <- TRUE
 
   plot_data <- plot_data %>%
     mutate(id_label = paste0(
@@ -131,6 +136,10 @@ plot_lollipop <- function(data,
     p <- p + geom_segment(aes(xend = id_label, y = min_gcm, yend = max_gcm),
       color = "darkred", linewidth = 1)
   }
+  if (has_pop) {
+    p <- p + geom_segment(aes(xend = id_label, y = min_pop, yend = max_pop),
+      color = "darkgreen", linewidth = 1)
+  }
 
   # Point layer with dynamic fill
   if (use_standardized == F) {
@@ -140,19 +149,22 @@ plot_lollipop <- function(data,
   if (use_standardized == T) {
     p <- p + geom_point(aes(y = std, fill = std), shape = 21, color = "black", size = 2.5) +
       scale_fill_gradient(name = "Std score", low = "lightblue", high = "darkblue")
-
   }
 
   # Dummy layers for line segment legend
-  p <- p + geom_segment(aes(x = Inf, xend = Inf, y = Inf, yend = Inf, color = "Spatial range"),
+  p <- p + geom_segment(aes(x = Inf, xend = Inf, y = Inf, yend = Inf, color = "Spatial Q10-Q90"),
     linewidth = 2.5, inherit.aes = FALSE) +
-    geom_segment(aes(x = Inf, xend = Inf, y = Inf, yend = Inf, color = "GCM range"),
+    geom_segment(aes(x = Inf, xend = Inf, y = Inf, yend = Inf, color = "GCM Q10-Q90"),
+      linewidth = 1, inherit.aes = FALSE) +
+    geom_segment(aes(x = Inf, xend = Inf, y = Inf, yend = Inf, color = "Population min-max"),
       linewidth = 1, inherit.aes = FALSE) +
 
     # Manual legend styling for segments
     scale_color_manual(
-      values = c("Spatial range" = "darkgrey",
-        "GCM range" = "darkred")
+      values = c("GCM Q10-Q90" = "darkred",
+        if (has_spat) "Spatial Q10-Q90" <- "darkgrey",
+        if (has_pop) "Population min-max" <- "darkgreen"),
+      name = "Variation"
     ) +
 
     labs(
@@ -169,6 +181,14 @@ plot_lollipop <- function(data,
 
   return(p)
 }
+
+
+filter_std <- all_flat_std %>%
+  filter(rcp == rcp_pick,
+    period_code == 3)
+
+plot_lollipop(filter_std,
+  indicator_pick = "hetzyg")
 
 
 # 3. Multiple indicator plot ----------------------------------------------
@@ -318,18 +338,27 @@ indicator_tile_plot <- function(data,
     geom_text(aes(label = round(value, 1)), size = 2) + # Add the text labels
     scale_fill_distiller(palette = brewer_palette, direction = palette_direction) +
     theme(
-      axis.text.y = element_markdown(size = 8, hjust = 1),
+      axis.text.y = element_markdown(size = 6, hjust = 1),
       axis.text.x = element_text(size = 10, angle = 45, hjust = 1),
       legend.position = "none",
       panel.grid = element_blank()
     ) +
     labs(y = NULL,
-      x = NULL)
+      x = NULL) +
+    facet_wrap(~sp, scales = "free")
 
   p
 
 }
 
+filter_std <- combined_scores_std %>%
+  filter(rcp == rcp_pick,
+    period_code == 3)
+
+indicator_tile_plot(filter_std,
+  # indicators_metadata = tbl_indicators,
+  indicators_choose = c(tbl_indicators$abbrev[tbl_indicators$type == "fwR"],
+    "std_sumavgs"))
 
 
 # 6. Correlation analysis and plots ---------------------------------------
