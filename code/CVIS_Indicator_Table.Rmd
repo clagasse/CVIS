@@ -1,0 +1,708 @@
+---
+title: "Climate Vulnerability Indicator System - CU Explorer"
+author: "CVIS Project"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    theme: flatly
+    toc: false
+    self_contained: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+```{r load-packages, include=FALSE}
+library(tidyverse)
+library(reactable)
+library(htmltools)
+library(here)
+```
+
+```{r load-data, include=FALSE}
+################################################################################
+# LOAD DATA
+################################################################################
+
+# Find most recent standardized indicators CSV
+csv_files <- list.files(
+  here("processed_data"),
+  pattern = "\\d{4}-\\d{2}-\\d{2}_standardized_indicators\\.csv$",
+  full.names = TRUE
+)
+
+if (length(csv_files) == 0) {
+  stop("No standardized indicators CSV found in processed_data/")
+}
+
+# Get most recent by date in filename
+csv_dates <- basename(csv_files) %>%
+  str_extract("^\\d{4}-\\d{2}-\\d{2}") %>%
+  as.Date()
+
+most_recent_csv <- csv_files[which.max(csv_dates)]
+cat("Loading:", basename(most_recent_csv), "\n")
+
+all_flat_std <- read_csv(most_recent_csv, show_col_types = FALSE)
+```
+
+```{r prepare-data, include=FALSE}
+################################################################################
+# PREPARE DATA
+################################################################################
+
+# Get unique species and CUs (avoid duplicates)
+species_list <- sort(unique(all_flat_std$SPECIES_NAME))
+
+cu_list <- all_flat_std %>%
+  filter(rcp == "45", period_code == 3) %>%  # Filter first
+  distinct(FULL_CU_IN, CVIS_NAME, SPECIES_NAME) %>%  # Then get unique
+  arrange(SPECIES_NAME, CVIS_NAME)
+
+# Identify indicator columns
+raw_indicators <- c("favchange_mean", "CT_mean", "tw8rate_mean", "tw8proj_mean",
+                    "lowQpdelta_mean", "highQpdelta_mean", "fwres",
+                    "migrT_mean", "migrQ_mean", "migrdist",
+                    "SSTproj_mean", "SSTrate_mean", "CImpact_mean",
+                    "CUstatus", "CUnmat", "hetzyg_mean", "genoff_mean")
+
+std_indicators <- paste0("std_", raw_indicators)
+
+# Filter to available indicators
+raw_indicators <- raw_indicators[raw_indicators %in% names(all_flat_std)]
+std_indicators <- std_indicators[std_indicators %in% names(all_flat_std)]
+
+# Create indicator names
+indicator_names <- c(
+  "favchange_mean" = "ENM Favourability Change",
+  "CT_mean" = "Cumulative Threats (FW)",
+  "tw8rate_mean" = "Aug Temperature Rate",
+  "tw8proj_mean" = "Aug Temperature Projection",
+  "lowQpdelta_mean" = "Aug Flow Change",
+  "highQpdelta_mean" = "Nov-Jan Flow Change",
+  "fwres" = "FW Residency Time",
+  "migrT_mean" = "Migration Temperature",
+  "migrQ_mean" = "Migration Discharge Change",
+  "migrdist" = "Migration Distance",
+  "SSTproj_mean" = "SST Projection",
+  "SSTrate_mean" = "SST Rate",
+  "CImpact_mean" = "Cumulative Impacts (Marine)",
+  "CUstatus" = "WSP Status",
+  "CUnmat" = "Mature Individuals",
+  "hetzyg_mean" = "Heterozygosity",
+  "genoff_mean" = "Genomic Offset"
+)
+
+cat("✓ Data prepared for", nrow(cu_list), "unique CUs\n")
+```
+
+## Conservation Unit Explorer
+
+Select a Conservation Unit to view its climate vulnerability indicators compared to species-wide and all-CU averages.
+
+**Table Structure:**
+- **CU Values**: Raw indicator values for the selected CU (mean and GCM range)
+- **Species Average**: Average across all CUs of the same species (mean and GCM range)
+- **All-CU Average**: Average across all Conservation Units (mean and GCM range)
+- **Standardized (0-1)**: Vulnerability scores for CU, species, and all-CU comparisons
+
+**Color coding:** <span style="color: #28a745; font-weight: bold;">● Green (0.0-0.33)</span> = Low vulnerability | <span style="color: #ffc107; font-weight: bold;">● Yellow (0.33-0.67)</span> = Medium | <span style="color: #dc3545; font-weight: bold;">● Red (0.67-1.0)</span> = High
+
+```{r filter-controls, echo=FALSE}
+################################################################################
+# SPECIES FILTER BUTTONS AND CU DROPDOWN
+################################################################################
+
+tags$div(
+  style = "margin: 20px 0; padding: 20px; background-color: #f8f9fa; border-radius: 5px;",
+  
+  # Species buttons
+  tags$div(
+    style = "margin-bottom: 20px;",
+    tags$strong("Filter by Species:", style = "display: block; margin-bottom: 10px; font-size: 16px;"),
+    tags$div(
+      id = "species-buttons",
+      style = "display: flex; flex-wrap: wrap; gap: 10px;",
+      
+      tags$button(
+        "All Species",
+        class = "species-btn active-btn",
+        onclick = "filterBySpecies(''); return false;",
+        style = "padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 600;"
+      ),
+      
+      lapply(species_list, function(sp) {
+        tags$button(
+          sp,
+          class = "species-btn",
+          `data-species` = sp,
+          onclick = sprintf("filterBySpecies('%s'); return false;", sp),
+          style = "padding: 10px 20px; background-color: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 500;"
+        )
+      })
+    )
+  ),
+  
+  # CU dropdown
+  tags$div(
+    tags$label(
+      "Select Conservation Unit:",
+      `for` = "cu-selector",
+      style = "display: block; margin-bottom: 8px; font-weight: 600; font-size: 16px;"
+    ),
+    tags$select(
+      id = "cu-selector",
+      onchange = "updateIndicatorTable(); return false;",
+      style = "width: 100%; max-width: 600px; padding: 10px; border: 1px solid #ced4da; border-radius: 4px; font-size: 15px; cursor: pointer;",
+      tags$option("-- Select a Conservation Unit --", value = "", selected = "selected"),
+      lapply(seq_len(nrow(cu_list)), function(i) {
+        tags$option(
+          sprintf("%s - %s", cu_list$FULL_CU_IN[i], cu_list$CVIS_NAME[i]),
+          value = cu_list$FULL_CU_IN[i],
+          `data-species` = cu_list$SPECIES_NAME[i],
+          `data-cvis` = cu_list$CVIS_NAME[i]
+        )
+      })
+    )
+  )
+)
+```
+
+```{r prepare-indicator-table, include=FALSE}
+################################################################################
+# PREPARE INDICATOR TABLE DATA (ONE ROW PER INDICATOR PER CU)
+################################################################################
+
+# STEP 1: Aggressively filter and deduplicate - ONE row per CU only
+base_data <- all_flat_std %>%
+  filter(rcp == "45", period_code == 3) %>%
+  group_by(FULL_CU_IN) %>%
+  slice(1) %>%  # Take only first row per CU
+  ungroup()
+
+cat("✓ Base data:", nrow(base_data), "unique CUs (RCP 45, Period 3)\n")
+
+# Verify no duplicates in base data
+dup_check <- base_data %>% 
+  group_by(FULL_CU_IN) %>% 
+  filter(n() > 1)
+
+if (nrow(dup_check) > 0) {
+  stop("Still have duplicates in base data!")
+} else {
+  cat("✓ Confirmed: No duplicate CUs in base data\n")
+}
+
+# STEP 2: Calculate species-wide stats (one row per species)
+species_stats <- base_data %>%
+  group_by(SPECIES_NAME) %>%
+  summarise(
+    across(
+      c(all_of(raw_indicators), 
+        matches("_qlowgcm$"), 
+        matches("_qhighgcm$"),
+        all_of(std_indicators)),
+      ~mean(.x, na.rm = TRUE),
+      .names = "sp_{.col}"
+    ),
+    .groups = "drop"
+  )
+
+# STEP 3: Calculate all-CU stats (one row total)
+allcu_stats <- base_data %>%
+  summarise(
+    across(
+      c(all_of(raw_indicators), 
+        matches("_qlowgcm$"), 
+        matches("_qhighgcm$"),
+        all_of(std_indicators)),
+      ~mean(.x, na.rm = TRUE),
+      .names = "allcu_{.col}"
+    )
+  )
+
+# STEP 4: Join CU data with species and all-CU stats
+joined_data <- base_data %>%
+  left_join(species_stats, by = "SPECIES_NAME") %>%
+  bind_cols(allcu_stats)
+
+cat("✓ Joined species and all-CU statistics\n")
+
+# STEP 5: Pivot to long format - one row per CU per indicator
+indicator_rows <- list()
+
+for (i in seq_along(raw_indicators)) {
+  raw_col <- raw_indicators[i]
+  std_col <- std_indicators[i]
+  indicator_name <- indicator_names[[raw_col]] %||% raw_col
+  
+  # Column names for this indicator
+  cu_low_col <- paste0(raw_col, "_qlowgcm")
+  cu_high_col <- paste0(raw_col, "_qhighgcm")
+  sp_mean_col <- paste0("sp_", raw_col)
+  sp_low_col <- paste0("sp_", raw_col, "_qlowgcm")
+  sp_high_col <- paste0("sp_", raw_col, "_qhighgcm")
+  allcu_mean_col <- paste0("allcu_", raw_col)
+  allcu_low_col <- paste0("allcu_", raw_col, "_qlowgcm")
+  allcu_high_col <- paste0("allcu_", raw_col, "_qhighgcm")
+  sp_std_col <- paste0("sp_", std_col)
+  allcu_std_col <- paste0("allcu_", std_col)
+  
+  # Extract this indicator for all CUs - convert everything to character for consistency
+  indicator_df <- joined_data %>%
+    transmute(
+      FULL_CU_IN = FULL_CU_IN,
+      indicator = indicator_name,
+      cu_mean = as.character(.data[[raw_col]]),
+      cu_qlowgcm = if (cu_low_col %in% names(joined_data)) as.character(.data[[cu_low_col]]) else NA_character_,
+      cu_qhighgcm = if (cu_high_col %in% names(joined_data)) as.character(.data[[cu_high_col]]) else NA_character_,
+      sp_mean = if (sp_mean_col %in% names(joined_data)) as.character(.data[[sp_mean_col]]) else NA_character_,
+      sp_qlowgcm = if (sp_low_col %in% names(joined_data)) as.character(.data[[sp_low_col]]) else NA_character_,
+      sp_qhighgcm = if (sp_high_col %in% names(joined_data)) as.character(.data[[sp_high_col]]) else NA_character_,
+      allcu_mean = if (allcu_mean_col %in% names(joined_data)) as.character(.data[[allcu_mean_col]]) else NA_character_,
+      allcu_qlowgcm = if (allcu_low_col %in% names(joined_data)) as.character(.data[[allcu_low_col]]) else NA_character_,
+      allcu_qhighgcm = if (allcu_high_col %in% names(joined_data)) as.character(.data[[allcu_high_col]]) else NA_character_,
+      std_cu_mean = as.numeric(.data[[std_col]]),
+      std_sp_mean = if (sp_std_col %in% names(joined_data)) as.numeric(.data[[sp_std_col]]) else NA_real_,
+      std_allcu_mean = if (allcu_std_col %in% names(joined_data)) as.numeric(.data[[allcu_std_col]]) else NA_real_
+    )
+  
+  indicator_rows[[i]] <- indicator_df
+}
+
+# Combine all indicators - now all have consistent types
+indicator_table_data <- bind_rows(indicator_rows)
+
+# Final deduplication check
+indicator_table_data <- indicator_table_data %>%
+  group_by(FULL_CU_IN, indicator) %>%
+  slice(1) %>%
+  ungroup()
+
+cat("✓ Final table:", nrow(indicator_table_data), "total rows\n")
+cat("  (", length(unique(indicator_table_data$FULL_CU_IN)), "CUs ×", 
+    length(unique(indicator_table_data$indicator)), "indicators)\n")
+
+# Verify exactly one row per CU-indicator combination
+duplicates <- indicator_table_data %>%
+  group_by(FULL_CU_IN, indicator) %>%
+  filter(n() > 1)
+
+if (nrow(duplicates) > 0) {
+  stop("ERROR: Found ", nrow(duplicates), " duplicate CU-indicator combinations!")
+} else {
+  cat("✓ SUCCESS: Each CU has exactly one row per indicator\n")
+}
+
+# For testing: show sample for one CU
+sample_cu <- indicator_table_data %>% 
+  filter(FULL_CU_IN == "CK-09") %>% 
+  nrow()
+if (sample_cu > 0) {
+  cat("  Example: CK-09 has", sample_cu, "indicator rows\n")
+}
+```
+
+```{r indicator-display, echo=FALSE}
+################################################################################
+# CU INFO AND INDICATOR TABLE
+################################################################################
+
+tags$div(
+  id = "cu-display-container",
+  style = "margin-top: 30px; display: none;",
+  
+  # CU header info
+  tags$div(
+    style = "background-color: #e3f2fd; padding: 20px; border-left: 4px solid #2196F3; border-radius: 4px; margin-bottom: 25px;",
+    tags$h3(id = "cu-title", style = "margin: 0 0 10px 0; color: #1976D2;"),
+    tags$p(id = "cu-subtitle", style = "margin: 0; font-size: 15px; color: #555;")
+  ),
+  
+  # Indicator table - pre-rendered with all data
+  reactable(
+    indicator_table_data,
+    elementId = "indicator-table",
+    
+    columns = list(
+      FULL_CU_IN = colDef(show = FALSE),  # Hidden filter column
+      
+      indicator = colDef(
+        name = "Indicator",
+        minWidth = 220,
+        sticky = "left",
+        style = list(fontWeight = 600, backgroundColor = "#f8f9fa")
+      ),
+      
+      # CU values group
+      cu_mean = colDef(
+        name = "Mean",
+        minWidth = 120,
+        cell = function(value) {
+          if (is.na(value) || value == "NA") return("—")
+          # Try to format as number, otherwise show as-is (for CUstatus)
+          num_val <- suppressWarnings(as.numeric(value))
+          if (!is.na(num_val)) {
+            sprintf("%.3f", num_val)
+          } else {
+            value
+          }
+        }
+      ),
+      cu_qlowgcm = colDef(
+        name = "Low GCM",
+        minWidth = 100,
+        cell = function(value) {
+          if (is.na(value) || value == "NA") return("—")
+          num_val <- suppressWarnings(as.numeric(value))
+          if (!is.na(num_val)) sprintf("%.3f", num_val) else "—"
+        },
+        style = list(color = "#666", fontSize = "13px")
+      ),
+      cu_qhighgcm = colDef(
+        name = "High GCM",
+        minWidth = 100,
+        cell = function(value) {
+          if (is.na(value) || value == "NA") return("—")
+          num_val <- suppressWarnings(as.numeric(value))
+          if (!is.na(num_val)) sprintf("%.3f", num_val) else "—"
+        },
+        style = list(color = "#666", fontSize = "13px")
+      ),
+      
+      # Species average group
+      sp_mean = colDef(
+        name = "Mean",
+        minWidth = 120,
+        cell = function(value) {
+          if (is.na(value) || value == "NA") return("—")
+          num_val <- suppressWarnings(as.numeric(value))
+          if (!is.na(num_val)) sprintf("%.3f", num_val) else "—"
+        }
+      ),
+      sp_qlowgcm = colDef(
+        name = "Low GCM",
+        minWidth = 100,
+        cell = function(value) {
+          if (is.na(value) || value == "NA") return("—")
+          num_val <- suppressWarnings(as.numeric(value))
+          if (!is.na(num_val)) sprintf("%.3f", num_val) else "—"
+        },
+        style = list(color = "#666", fontSize = "13px")
+      ),
+      sp_qhighgcm = colDef(
+        name = "High GCM",
+        minWidth = 100,
+        cell = function(value) {
+          if (is.na(value) || value == "NA") return("—")
+          num_val <- suppressWarnings(as.numeric(value))
+          if (!is.na(num_val)) sprintf("%.3f", num_val) else "—"
+        },
+        style = list(color = "#666", fontSize = "13px")
+      ),
+      
+      # All-CU average group
+      allcu_mean = colDef(
+        name = "Mean",
+        minWidth = 120,
+        cell = function(value) {
+          if (is.na(value) || value == "NA") return("—")
+          num_val <- suppressWarnings(as.numeric(value))
+          if (!is.na(num_val)) sprintf("%.3f", num_val) else "—"
+        }
+      ),
+      allcu_qlowgcm = colDef(
+        name = "Low GCM",
+        minWidth = 100,
+        cell = function(value) {
+          if (is.na(value) || value == "NA") return("—")
+          num_val <- suppressWarnings(as.numeric(value))
+          if (!is.na(num_val)) sprintf("%.3f", num_val) else "—"
+        },
+        style = list(color = "#666", fontSize = "13px")
+      ),
+      allcu_qhighgcm = colDef(
+        name = "High GCM",
+        minWidth = 100,
+        cell = function(value) {
+          if (is.na(value) || value == "NA") return("—")
+          num_val <- suppressWarnings(as.numeric(value))
+          if (!is.na(num_val)) sprintf("%.3f", num_val) else "—"
+        },
+        style = list(color = "#666", fontSize = "13px")
+      ),
+      
+      # Standardized values
+      std_cu_mean = colDef(
+        name = "CU",
+        minWidth = 90,
+        format = colFormat(digits = 3),
+        na = "—",
+        style = function(value) {
+          if (is.na(value)) return(list(color = "#999"))
+          
+          color <- if (value <= 0.33) {
+            "#28a745"  # Green
+          } else if (value <= 0.67) {
+            "#ffc107"  # Yellow
+          } else {
+            "#dc3545"  # Red
+          }
+          
+          list(color = color, fontWeight = "bold")
+        }
+      ),
+      std_sp_mean = colDef(
+        name = "Species",
+        minWidth = 90,
+        format = colFormat(digits = 3),
+        na = "—",
+        style = function(value) {
+          if (is.na(value)) return(list(color = "#999"))
+          
+          color <- if (value <= 0.33) {
+            "#28a745"
+          } else if (value <= 0.67) {
+            "#ffc107"
+          } else {
+            "#dc3545"
+          }
+          
+          list(color = color, fontWeight = "bold")
+        }
+      ),
+      std_allcu_mean = colDef(
+        name = "All CUs",
+        minWidth = 90,
+        format = colFormat(digits = 3),
+        na = "—",
+        style = function(value) {
+          if (is.na(value)) return(list(color = "#999"))
+          
+          color <- if (value <= 0.33) {
+            "#28a745"
+          } else if (value <= 0.67) {
+            "#ffc107"
+          } else {
+            "#dc3545"
+          }
+          
+          list(color = color, fontWeight = "bold")
+        }
+      )
+    ),
+    
+    # Column groups
+    columnGroups = list(
+      colGroup(name = "CU Values", columns = c("cu_mean", "cu_qlowgcm", "cu_qhighgcm")),
+      colGroup(name = "Species Average", columns = c("sp_mean", "sp_qlowgcm", "sp_qhighgcm")),
+      colGroup(name = "All-CU Average", columns = c("allcu_mean", "allcu_qlowgcm", "allcu_qhighgcm")),
+      colGroup(name = "Standardized (0-1)", columns = c("std_cu_mean", "std_sp_mean", "std_allcu_mean"))
+    ),
+    
+    defaultPageSize = 20,
+    showPageSizeOptions = TRUE,
+    pageSizeOptions = c(10, 20, 50),
+    
+    striped = TRUE,
+    bordered = TRUE,
+    highlight = TRUE,
+    searchable = TRUE,
+    
+    theme = reactableTheme(
+      borderColor = "#dfe2e5",
+      stripedColor = "#f6f8fa",
+      highlightColor = "#e3f2fd",
+      cellPadding = "8px 12px",
+      style = list(
+        fontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif",
+        fontSize = "14px"
+      ),
+      headerStyle = list(
+        backgroundColor = "#f8f9fa",
+        fontWeight = 600
+      )
+    )
+  )
+)
+```
+
+```{js filter-script}
+// Initialize when DOM loads
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('CU Explorer initialized');
+});
+
+/**
+ * Filter CU dropdown by species
+ */
+function filterBySpecies(species) {
+  var dropdown = document.getElementById('cu-selector');
+  if (!dropdown) return;
+  
+  // Update button styling
+  document.querySelectorAll('.species-btn').forEach(function(btn) {
+    btn.classList.remove('active-btn');
+    if ((species === '' && btn.textContent === 'All Species') ||
+        (species !== '' && btn.getAttribute('data-species') === species)) {
+      btn.classList.add('active-btn');
+    }
+  });
+  
+  // Filter dropdown options
+  Array.from(dropdown.options).forEach(function(opt) {
+    if (opt.value === '') {
+      opt.style.display = '';  // Always show placeholder
+    } else {
+      var optSpecies = opt.getAttribute('data-species');
+      var isVisible = (species === '' || optSpecies === species);
+      opt.style.display = isVisible ? '' : 'none';
+    }
+  });
+  
+  // Reset dropdown selection
+  dropdown.value = '';
+  
+  // Hide table when filtering
+  document.getElementById('cu-display-container').style.display = 'none';
+}
+
+/**
+ * Update indicator table when CU is selected
+ */
+function updateIndicatorTable() {
+  var dropdown = document.getElementById('cu-selector');
+  var cuId = dropdown.value;
+  
+  var container = document.getElementById('cu-display-container');
+  var title = document.getElementById('cu-title');
+  var subtitle = document.getElementById('cu-subtitle');
+  
+  // Hide if no CU selected
+  if (!cuId) {
+    container.style.display = 'none';
+    return;
+  }
+  
+  // Get selected option details
+  var selectedOption = dropdown.options[dropdown.selectedIndex];
+  var cvisName = selectedOption.getAttribute('data-cvis');
+  var species = selectedOption.getAttribute('data-species');
+  
+  // Update header
+  title.textContent = cvisName;
+  subtitle.innerHTML = '<strong>CU ID:</strong> ' + cuId + ' | <strong>Species:</strong> ' + species + 
+                       ' | <strong>Scenario:</strong> RCP 4.5, Period 2041-2060';
+  
+  // Filter the reactable by CU ID
+  var table = document.getElementById('indicator-table');
+  if (table) {
+    var widget = HTMLWidgets.find('#indicator-table');
+    if (widget && widget.setFilter) {
+      widget.setFilter('FULL_CU_IN', cuId);
+    }
+  }
+  
+  // Show container
+  container.style.display = 'block';
+  
+  // Smooth scroll
+  setTimeout(function() {
+    container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 100);
+}
+```
+
+```{css custom-styles}
+/* Button styles */
+.species-btn {
+  transition: all 0.2s ease;
+}
+
+.species-btn:hover {
+  opacity: 0.85;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.species-btn:active {
+  transform: translateY(0);
+}
+
+.active-btn {
+  background-color: #007bff !important;
+  font-weight: 600 !important;
+}
+
+/* Dropdown styles */
+#cu-selector {
+  transition: border-color 0.2s;
+}
+
+#cu-selector:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.25);
+}
+
+#cu-selector option {
+  padding: 10px;
+}
+
+/* Display container */
+#cu-display-container {
+  background: white;
+  border-radius: 4px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* Reactable styles */
+.reactable {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  font-size: 14px;
+}
+
+.reactable .rt-thead {
+  background-color: #f8f9fa;
+  font-weight: 600;
+}
+
+.reactable .rt-th {
+  padding: 12px 8px;
+  border-bottom: 2px solid #dee2e6;
+}
+```
+
+---
+
+<div style="margin-top: 40px; padding: 20px; background-color: #f8f9fa; border-radius: 5px;">
+
+### About This Tool
+
+This interactive tool displays climate vulnerability indicators for individual Conservation Units (CUs).
+
+**Data Summary:**
+- **Total CUs**: `r nrow(cu_list)`
+- **Species**: `r paste(species_list, collapse = ", ")`
+- **Indicators**: `r length(raw_indicators)`
+- **Scenario**: RCP 4.5, Period 2041-2060 (period code 3)
+
+**Column Group Descriptions:**
+- **CU Values**: Raw measurements for the selected Conservation Unit
+  - Mean: Average value across GCM models
+  - Low/High GCM: Range of values from different climate models
+- **Species Average**: Mean values across all CUs of this species
+- **All-CU Average**: Mean values across all Conservation Units (baseline for comparison)
+- **Standardized (0-1)**: Normalized vulnerability scores where 0 = low vulnerability, 1 = high vulnerability
+
+**Note:** GCM ranges represent uncertainty from different Global Climate Models. NA values indicate data not available for that indicator.
+
+**Data Source:** `r basename(most_recent_csv)`
+
+</div>
+
+---
+
+**Report generated**: `r Sys.time()`
