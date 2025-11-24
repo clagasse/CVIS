@@ -16,7 +16,7 @@ The analysis currently covers 50 conservation units throughout the Fraser River 
 
 ## Technical Report
 
-For a full description of methods and preliminary results see [the draft technical report](CVIS_report.html)
+A full description of methods and results are detailed in a technical report currently in development. Please contact the authors for further information. 
 
 ## Project Structure
 
@@ -47,27 +47,6 @@ For a full description of methods and preliminary results see [the draft technic
 ├── output/
 │   └── figures/                     # Generated figures and plots
 └── reports/                         # Generated HTML/PDF reports
-```
-
-## Installation
-
-### Prerequisites
-
--   R (≥ 4.0.0)
--   RStudio (recommended)
-
-### Required R Packages
-
-``` r
-# Core packages
-install.packages(c("tidyverse", "data.table", "here", "janitor"))
-
-# Spatial analysis
-install.packages(c("sf", "stars"))
-
-# Visualization
-install.packages(c("patchwork", "corrplot", "ggspatial", "gt", 
-                   "ggtext", "RColorBrewer", "scico"))
 ```
 
 ## Data Requirements
