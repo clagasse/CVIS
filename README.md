@@ -14,15 +14,6 @@ This project presents an analytical framework that integrates climate projection
 
 The analysis currently covers 50 conservation units throughout the Fraser River watershed, with results for mid-century (2040-2060) and end-of-century (2080-2100) time periods under RCP 4.5 and RCP 8.5 emissions scenarios.
 
-## Key Features
-
--   **Multi-indicator framework**: Integrates \>15 vulnerability indicators across salmon life stages
--   **Spatial analysis**: Stream-level environmental projections linked to conservation unit boundaries
--   **Climate projections**: Incorporates recently developed, downscaled climate models in freshwater and marine realms
--   **Standardized scoring**: Transforms raw values to 0-1 risk scale using response functions
--   **Reproducible workflow**: Modular R scripts for data processing, analysis, and visualization
--   **Automated reporting**: R Markdown templates for conservation unit-specific reports
-
 ## Project Structure
 
 ```         
@@ -42,9 +33,6 @@ The analysis currently covers 50 conservation units throughout the Fraser River 
 │   ├── 3c_marine_stats.R            # Marine indicator statistics
 │   ├── 3d_marine_grid_standardize.R # Marine grid standardization
 │   ├── 4a_CU_scoring.R              # Vulnerability indicator scoring
-│   ├── 4b_species_rank_comparison.R # Cross-species vulnerability comparison
-│   ├── 4c_jackknife_analysis.R      # Sensitivity analysis
-│   ├── 4d_clustering_PCA_analysis.R # Multivariate pattern analysis
 │   ├── 5a_plots_CU.R                # CU-specific plotting functions
 │   ├── 5b_plots_compare.R           # Comparative plotting functions
 │   ├── 6a_CU_indicator_report.Rmd   # CU-specific report template
@@ -119,37 +107,6 @@ The analysis workflow is demonstrated in `code/0a_console.R`. The typical sequen
 
 5.  **Visualization and reporting** (scripts 5a-6b)
 
-    ## Indicators
-
-### Freshwater Spawning & Rearing
-
--   Projected August stream temperature
--   Rate of change in August stream temperature\
--   Percent change in August flows
--   Percent change in November-January flows
--   Change in environmental niche model habitat suitability
--   Cumulative threats to habitat
--   Freshwater residence time
-
-### Freshwater Upstream Migration
-
--   Projected migration period stream temperature
--   Percent change in migration period flows
--   Migration distance
-
-### Marine Nearshore
-
--   Projected sea surface temperature during ocean entry
--   Rate of change in sea surface temperature
--   Cumulative impacts to marine habitat
-
-### Demographics & Genetics
-
--   WSP status assessment
--   Number of mature individuals
--   Effective population size
--   Adaptive genetic variation
-
 ## Output
 
 The framework produces:
@@ -158,16 +115,7 @@ The framework produces:
 -   **Combined vulnerability scores** using multiple aggregation methods
 -   **Spatial visualizations** of stream-level indicators
 -   **Comparative plots** across CUs, species, and scenarios
--   **Sensitivity analyses** (jackknife, clustering, PCA)
 -   **HTML/PDF reports** for individual CUs and watershed-wide summaries
-
-## Methods
-
-Indicators are calculated using ensemble means across multiple global climate models (typically 6 models). All indicators are standardized to a 0-1 scale where 0 represents lowest risk and 1 represents highest risk relative to other CUs. Standardization uses response functions (linear, exponential, or step functions) that incorporate ecological thresholds where appropriate.
-
-Stream-level indicators are aggregated to conservation units using length-weighted means. Uncertainty is characterized using 80% quantile ranges representing both spatial variation within CUs and variation across climate models.
-
-For detailed methods, see the generated reports or manuscript documentation (in prep).
 
 ## Contributing
 
@@ -179,6 +127,7 @@ This is a research project with preliminary results. Contributions and feedback 
 -   Josie Iacarella
 -   Colin Bailey
 -   Michael Arbeider
+-   Timothy Healy
 
 Fisheries and Oceans Canada
 
@@ -187,10 +136,6 @@ Fisheries and Oceans Canada
 If you use this framework or code, please cite:
 
 [Citation information to be added upon publication]
-
-## License
-
-[License information to be added]
 
 ## Acknowledgments
 
