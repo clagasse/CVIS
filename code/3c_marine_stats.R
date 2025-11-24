@@ -18,20 +18,8 @@ source(file.path(here(), "code", "0_setup.R"))
 
 # get cu timing for ocean entry
 cu_marine <- cu_timing_Fr %>%
-  select(FULL_CU_IN, CVIS_NAME, SPECIES_NAME, oe_age, oe_dat_qual, oe_start, oe_peak, oe_end, n_oe) %>%
-  mutate(
-    oe_peak_month = month(ymd(paste(
-      "2000", "01", "01", sep = "-"
-    )) + oe_peak - 1),
-    oe_start_month = month(ymd(paste(
-      "2000", "01", "01", sep = "-"
-    )) + oe_start - 1),
-    oe_end_month = month(ymd(paste(
-      "2000", "01", "01", sep = "-"
-    )) + oe_end - 1)
-  ) %>%
-  mutate(ns_timing_start = ns_timing_start(oe_peak_month, ns_start_offset, ns_time_method),
-    ns_timing_end   = ns_timing_end(oe_peak_month, ns_end_offset, ns_time_method)) %>%
+  select(FULL_CU_IN, CVIS_NAME, SPECIES_NAME, oe_age, oe_dat_qual,
+    oe_start, oe_peak, oe_end, n_oe, ns_start, ns_end) %>%
   mutate(MAZ = "GStr") %>%
   select(-any_of(c("oe_age", "oe_peak")))  # remove these columns since they are already in fwR data frame
 
@@ -81,8 +69,8 @@ for (i in 1:n.CUs) {
   cu_marine_i <- cu_marine[cu_marine$FULL_CU_IN == cu_i, ]
 
   months_include <- seq(
-    from = cu_marine_i$ns_timing_start,
-    to = cu_marine_i$ns_timing_end,
+    from = cu_marine_i$ns_start_month,
+    to = cu_marine_i$ns_end_month,
     by = 1
   )
 

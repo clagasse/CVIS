@@ -312,3 +312,21 @@ cat("\nScoring complete! Files saved to:", paths$indicators, "\n\n")
 
 # Return the results for further analysis
 # combined_scores_std
+
+
+cu_all_raw <- get_CU_indicators(all_flat_std,
+                                cu_i = cu_i,
+                                use_standardized = FALSE,
+                                period_pick = "3",
+                                RCP_pick = "45")
+
+cu_all_std <- get_CU_indicators(all_flat_std,
+                                cu_i = cu_i,
+                                use_standardized = TRUE,
+                                period_pick = "3",
+                                RCP_pick = "45")
+
+cu_all <- cu_all_raw %>%
+  left_join(cu_all_std, join_by(FULL_CU_IN, rcp, period_code, indicator))
+
+write.csv(cu_all, file = "CK-09_indicators.csv")

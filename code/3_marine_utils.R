@@ -187,6 +187,7 @@ assign_points <- function(x, y, var = "MAZ_Acrony") {
 
 # Data reshaping ----------------------------------------------------------
 
+# get mean and statistics for a range of chosen months
 subset_and_mean_var <- function(data,
                                 months = c(3, 4, 5),
                                 period_code_0_year = 1995,
@@ -261,6 +262,33 @@ subset_and_mean_var <- function(data,
 }
 
 
+# get a SST for a range of months for mapping
+get_spatial_var <- function(data,
+                            months = c(3, 4, 5),
+                            period_pick = 3,
+                            rcp_pick = "45",
+                            var_name = "SST",
+                            MAZ_pick = "GStr") {
+  month_chars <- sprintf("%02d", months)
+  month_cols <- paste0(var_name, "_", month_chars)
+
+  missing_cols <- setdiff(month_cols, names(data))
+  if (length(missing_cols) > 0) {
+    stop("Missing columns in sf_data: ", paste(missing_cols, collapse = ", "))
+  }
+
+  # Compute row-wise average across the selected month columns
+  out_data <- data %>%
+    filter(MAZ_Acrony == MAZ_pick,
+      period_code == period_pick,
+      rcp == rcp_pick) %>%
+    mutate(
+      SST_oe := rowMeans(across(all_of(month_cols)), na.rm = TRUE)
+    ) %>%
+    select(MAZ_Acrony, period_code, rcp, SST_oe)
+
+}
+
 
 # Marine nearshore timing -------------------------------------------------
 
@@ -272,7 +300,7 @@ ns_timing_start <- function(oe_peak_month,
 
   if (ns_time_method == "peak_offset") ns_timing_start <- oe_peak_month - ns_start_offset
   if (ns_time_method == "static") ns_timing_start <- ns_start_static
-  
+
   return(ns_timing_start)
 }
 
@@ -282,6 +310,6 @@ ns_timing_end <- function(oe_peak_month,
 
   if (ns_time_method == "peak_offset") ns_timing_end <- oe_peak_month + ns_end_offset
   if (ns_time_method == "static") ns_timing_end <- ns_end_static
-  
+
   return(ns_timing_end)
 }

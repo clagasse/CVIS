@@ -26,7 +26,9 @@ library(gt)        # nice data tables
 library(ggtext)  # for coloured text in axis labels
 library(RColorBrewer)
 library(scico)    # scientific colour palettes
+library(gridExtra) # grid-based plots, used for indicator plots
 # library(ggsci)   # colour palettes - pal_futurama
+
 
 `%notin%` <- Negate(`%in%`)
 
@@ -48,36 +50,6 @@ paths <- list(
   reports = here("reports"),
   code    = here("code")
 )
-
-
-# load utility functions
-source(here("code", "2_fw_utils.R"))
-source(here("code", "3_marine_utils.R"))
-source(here("code", "4_scoring_utils.R"))
-
-# load plotting functions
-source(here("code", "5a_plots_CU.R"))
-source(here("code", "5b_plots_compare.R"))
-
-# load CU tables
-source(here("code", "1a_CU_import.R"))   # CU table
-
-# CU settings -------------------------------------------------------------
-
-# Select subset of CUs to run for analysis
-cu_run <- cu_list %>%
-  filter(DFO_AREA == "FRASER AND INTERIOR",
-    CU_TYPE == "Current",
-    CU_NAME != "BOUNDARY BAY_FA_0.3",
-    str_detect(SMU_NAME, "OKANAGAN", negate = TRUE)) %>%
-  filter(SPECIES_NAME %in% c("Chinook", "Coho", "Sockeye", "Chum", "Pink"),   # optional species filter
-    FULL_CU_IN %notin% c("SER-02")) %>% # remove widgeon (throws error)
-  arrange(SPECIES_NAME)
-
-cu_seq  <- cu_run$FULL_CU_IN # Create vector of CUs to analyze, ordered CK, CM, CO, PKO, SEL, SER, SH
-n.CUs   <- nrow(cu_run)
-
-
 
 
 # Analysis configurations -------------------------------------------------
@@ -112,6 +84,36 @@ ns_start_offset <- 2   # amount of months before peak ocean entry month to inclu
 ns_end_offset   <- 2   # amount of months after peak ocean entry month for calculating nearshore marine indicators
 
 
+
+# Run utility and plot scripts --------------------------------------------
+
+# load utility functions
+source(here("code", "2_fw_utils.R"))
+source(here("code", "3_marine_utils.R"))
+source(here("code", "4_scoring_utils.R"))
+
+# load plotting functions
+source(here("code", "5a_plots_CU.R"))
+source(here("code", "5b_plots_compare.R"))
+
+
+# CU settings and import -------------------------------------------------------------
+
+# load CU tables
+source(here("code", "1a_CU_import.R"))   # CU table
+
+# Select subset of CUs to run for analysis
+cu_run <- cu_list %>%
+  filter(DFO_AREA == "FRASER AND INTERIOR",
+    CU_TYPE == "Current",
+    CU_NAME != "BOUNDARY BAY_FA_0.3",
+    str_detect(SMU_NAME, "OKANAGAN", negate = TRUE)) %>%
+  filter(SPECIES_NAME %in% c("Chinook", "Coho", "Sockeye", "Chum", "Pink"),   # optional species filter
+    FULL_CU_IN %notin% c("SER-02")) %>% # remove widgeon (throws error)
+  arrange(SPECIES_NAME)
+
+cu_seq  <- cu_run$FULL_CU_IN # Create vector of CUs to analyze, ordered CK, CM, CO, PKO, SEL, SER, SH
+n.CUs   <- nrow(cu_run)
 
 # Lookup and definition tables --------------------------------------------
 
@@ -149,9 +151,9 @@ tbl_indicators <- tribble(
   "CT",         "fwR",  "Freshwater Spawning and Rearing",   "mean",    "linear_std",        "Cumulative threats to freshwater habitat",
   "tw8rate",    "fwR",  "Freshwater Spawning and Rearing",   "mean",    "linear_std",        "Rate of change in August Temperature",
   "tw8proj",    "fwR",  "Freshwater Spawning and Rearing",   "mean",    "exponential_std", "Projected August Temperature",
-  "lowQpdelta", "fwR",  "Freshwater Spawning and Rearing",  "mean",    "decay_std",       "Proportional change in August flow (stream model)",
+  "lowQpdelta", "fwR",  "Freshwater Spawning and Rearing",  "mean",    "decay_std",       "Proportional change in August flow",
   # "st8pdelta",  "fwR",  "Freshwater Spawning and Rearing",   "mean",    "decay_std",     "Proportional change in August flow (station model)",
-  "highQpdelta",  "fwR", "Freshwater Spawning and Rearing",  "mean",    "exponential_std", "Proportional change in Nov-Jan flow (stream model)",
+  "highQpdelta",  "fwR", "Freshwater Spawning and Rearing",  "mean",    "exponential_std", "Proportional change in Nov-Jan flow",
   "fwres",     "fwR",    "Freshwater Spawning and Rearing", "value",    "step_std",   "Freshwater residency time",
   "migrT",      "migr",  "Upstream Migration",  "mean",    "exponential_std",     "Projected temperature during upstream migration",
   "migrQ",      "migr",  "Upstream Migration", "mean",      "decay_std",    "Proportional change in discharge during upstream migration",
@@ -162,7 +164,7 @@ tbl_indicators <- tribble(
   "CImpact",      "mar", "Nearshore Marine",  "mean", "linear_std",   "Cumulative impacts to marine nearshore habitat",
   "CUstatus",    "dem",  "Demographics",  "category",    "cat_std", "WSP status",
   "CUnmat",      "dem",  "Demographics",  "value",  "decay_std", "Number of mature individuals",
-  "hetzyg",        "gen",  "Genetics",      "mean",    "linear_std", "Genetic heterozygosity",
+  "hetzyg",        "gen",  "Genetics",      "mean",    "invlinear_std", "Genetic heterozygosity",
   "genoff",     "gen",    "Genetics",      "mean",    "linear_std",  "Genomic offset"
 )
 
@@ -186,12 +188,12 @@ tbl_standardize <- tribble(
   "migrQ",      "migr",       "decay_std",     "all",    3,     0,   0,
   # "migrA21",    "migr",     "exponential_std","all",     3,    0,    NA,
   "migrdist",   "migr",      "linear_std",     "all",    NA,   NA,   NA,
-  "SSTproj",     "mar",   "exponential_std",   "all",    3,   10,   NA,
-  "SSTrate",     "mar",     "linear_std",      "all",    NA,   NA,   NA,
+  "SSTproj",     "mar",     "exponential_std",   "all",    3,   8,   18,
+  "SSTrate",     "mar",     "linear_std",      "all",    NA,   0.1,   0.3,
   "CImpact",     "mar",   "linear_std",        "all",    NA,   NA,   NA,
   "CUstatus",    "dem",       "cat_std",       "all",    NA,    NA,   NA,
   "CUnmat",      "dem",     "decay_std",       "all",    3,    0, 10000,
-  "hetzyg",      "gen",     "linear_std",      "species",     NA,    NA, NA,
+  "hetzyg",      "gen",     "invlinear_std",      "species",     NA,    NA, NA,
   "genoff",      "gen",     "linear_std",      "species",    NA,    NA, NA)
 
 
@@ -202,6 +204,8 @@ load(file.path(paths$marine, "MAZ.Rds"))
 
 # load watershed basins R object
 load(file.path(paths$fw, "basins_shp.Rds"))
+# make a Fraser basin version
+Fr_basin <- filter(basins, BASIN == "FRASER")
 
 # load CU boundaries
 load(file.path(paths$fw, "cu_boundary.Rds"))

@@ -19,45 +19,196 @@
 
 
 # 1. CU timing plot -------------------------------------------------------
+# Improved CU timing plot function - Version 2
+# Shows life stage timing with indicator calculation periods
 
-cu_timing_plot <- function(data) {
+# Improved CU timing plot function - Version 2
+# Shows life stage timing with indicator calculation periods
 
-  data <-  data %>%
-    mutate(data, life_stage = factor(life_stage,
-      levels = c("spawning", "run_timing",
-        "ocean_entry",
-        "freshwater_migration")))
+cu_timing_plot <- function(data, show_indicator_periods = TRUE) {
+  # Extract CU name and ocean entry age for labels
+  cu_name <- unique(data$FULL_CU_IN)[1]
+  oe_age <- unique(data$oe_age)[1]
 
-  p <- ggplot(data, aes(x = life_stage, xend = life_stage,
+  # Create cleaner life stage labels
+  data <- data %>%
+    mutate(
+      life_stage_label = case_when(
+        life_stage == "spawning" ~ "Spawning",
+        life_stage == "run_timing" ~ "Upstream Run Timing",
+        life_stage == "ocean_entry" ~ "Ocean Entry",
+        life_stage == "freshwater_migration" ~ "Juvenile FW Migration",
+        TRUE ~ life_stage
+      ),
+      life_stage_label = factor(life_stage_label,
+        levels = c("Spawning", "Upstream Run Timing",
+          "Ocean Entry", "Juvenile FW Migration"))
+    )
+
+  # Calculate freshwater residency period
+  spawn_data <- data %>% filter(life_stage == "spawning")
+  ocean_data <- data %>% filter(life_stage == "ocean_entry")
+
+  # Calculate FW residency accounting for ocean entry age
+  fw_residency_days <- NA
+  if (nrow(spawn_data) > 0 && nrow(ocean_data) > 0 && !is.na(oe_age)) {
+    # Calculate base residency (spawn peak to ocean entry peak)
+    fw_residency_days <- ocean_data$peak[1] - spawn_data$peak[1]
+    if (fw_residency_days < 0) fw_residency_days <- fw_residency_days + 365
+
+    # Add 365 days for each year of ocean entry age = 1 or greater
+    if (oe_age >= 1) {
+      fw_residency_days <- fw_residency_days + (floor(oe_age) * 365)
+    }
+  }
+
+  # Define colors for life stages (colorblind-friendly palette)
+  stage_colors <- c(
+    "Spawning" = "#66C2A5",
+    "Upstream Run Timing" = "#FC8D62",
+    "Ocean Entry" = "#8DA0CB",
+    "Juvenile FW Migration" = "#E78AC3"
+  )
+
+  # Create base plot
+  p <- ggplot(data, aes(x = life_stage_label, xend = life_stage_label,
     y = as.Date("2000-01-01") + start,
-    yend = as.Date("2000-01-01") + end), color = "grey") +
-    geom_segment(aes(y = as.Date("2000-01-01") + start, yend = as.Date("2000-01-01") + end, color = life_stage),
-      size = 6, alpha = 0.6) +
-    geom_point(aes(y = as.Date("2000-01-01") + peak, size = dat_qual, fill = life_stage),
-      shape = 21, color = "gray30") +
-    scale_color_brewer("Stage", palette = "Set2") +
-    scale_fill_brewer("",   palette = "Set2") +
-    scale_size_continuous(name = "Data Quality", limits = c(1, 6)) +
-    # geom_segment(color="grey", linewidth = 4) +
-    # geom_point( aes(y=as.Date("2000-01-01") + start, color="95th perc"), size=3 ) +
-    # geom_point( aes(y=as.Date("2000-01-01") + end, color="95th perc"), size=3 ) +
-    # geom_point( aes(x=life_stage, y=as.Date("2000-01-01") + peak, color="peak"), size=3 ) +
-    # geom_text( aes(x=life_stage, y=as.Date("2000-01-01") + 350, label = paste("Data \n Quality:", dat_qual)), size=3) +
-    scale_y_date(date_breaks = "1 month", date_labels = "%b", limits =   c(as.Date("2000-01-01"), as.Date("2000-12-31"))) +
+    yend = as.Date("2000-01-01") + end)) +
+    # Life stage duration bars (5th-95th percentile)
+    geom_segment(aes(color = life_stage_label),
+      linewidth = 8, alpha = 1) +
+    # Peak timing points
+    geom_point(aes(y = as.Date("2000-01-01") + peak,
+      size = dat_qual, fill = life_stage_label),
+    shape = 21, color = "gray20", stroke = 0.8) +
+    scale_color_manual(values = stage_colors, guide = "none") +
+    scale_fill_manual(values = stage_colors, guide = "none") +
+
+    scale_size_area(
+      name   = "Data Quality",
+      max_size = 3,            # overall max point radius; adjust to taste
+      trans  = "reverse",
+      breaks = c(1, 2, 3, 4, 5),
+      limits = c(6, 1)
+    ) +
+
+    scale_y_date(date_breaks = "1 month",
+      date_labels = "%b",
+      limits = c(as.Date("2000-01-01"), as.Date("2000-12-31")),
+      expand = c(0.02, 0)) +
     coord_flip() +
-    xlab("Life Stage") +
-    ylab("Date") +
-    labs(title = paste("Life-stage timing for ", data$FULL_CU_IN),
-      subtitle = paste("Ocean Entry Age: ", data$oe_age),
-      size = "Data Quality") +
-    guides(
-      color = "none",
-      fill  = "none"
+    theme(
+      panel.grid.major.y = element_blank(),
+      panel.grid.minor = element_blank(),
+      panel.spacing = unit(0.1, "lines"),
+      axis.title.y = element_blank(),
+      axis.text.y = element_text(size = 10, margin = margin(r = 2)),
+      plot.title = element_text(face = "bold", size = 12, margin = margin(b = 2)),
+      plot.subtitle = element_text(size = 10, color = "grey40", margin = margin(b = 3)),
+      plot.caption = element_text(size = 8, color = "grey50", hjust = 0, margin = margin(t = 2)),
+      legend.position = "bottom",
+      legend.margin = margin(t = 2),
+      legend.box.spacing = unit(0.1, "lines"),
+      plot.margin = margin(3, 5, 3, 3),
+      aspect.ratio = 0.4
+    )
+
+  # Add indicator period highlights if requested
+  if (show_indicator_periods) {
+    # Define indicator periods with different colors
+    indicator_rects <- data.frame(
+      period_name = character(),
+      ymin = as.Date(character()),
+      ymax = as.Date(character()),
+      xmin = numeric(),
+      xmax = numeric(),
+      color_fill = character(),
+      stringsAsFactors = FALSE
+    )
+
+    # August period (for temperature and flow indicators) - Light orange
+    august_start <- as.Date("2000-08-01")
+    august_end <- as.Date("2000-08-31")
+    indicator_rects <- rbind(indicator_rects, data.frame(
+      period_name = "Stream T/Flow \n\n",
+      ymin = august_start,
+      ymax = august_end,
+      xmin = 0.5,
+      xmax = 4.1,
+      color_fill = "#FFE0B2"  # Light orange
+    ))
+
+    # Peak ocean entry period (for marine SST) - Light blue
+    if (nrow(ocean_data) > 0) {
+      # Use ±1 month around peak ocean entry
+      oe_peak_date <- as.Date("2000-01-01") + ocean_data$peak[1]
+      ns_start_plot <- as.Date("2000-01-01") + (ocean_data$ns_start_month * 30) - 15
+      ns_end_plot <- as.Date("2000-01-01") + (ocean_data$ns_end_month * 30) - 15
+
+      indicator_rects <- rbind(indicator_rects, data.frame(
+        period_name = "Nearshore marine (SST)",
+        ymin = ns_start_plot,
+        ymax = ns_end_plot,
+        xmin = 0.5,
+        xmax = 4.1,
+        color_fill = "#B3E5FC"  # Light blue
+      ))
+    }
+
+    # Run timing to spawning period (for migration indicators) - Light green
+    run_data <- data %>% filter(life_stage == "run_timing")
+    if (nrow(run_data) > 0 && nrow(spawn_data) > 0) {
+      migr_start <- as.Date("2000-01-01") + run_data$start[1]
+      migr_end <- as.Date("2000-01-01") + spawn_data$peak[1]
+
+      indicator_rects <- rbind(indicator_rects, data.frame(
+        period_name = "Upstream Migration",
+        ymin = migr_start,
+        ymax = migr_end,
+        xmin = 0.5,
+        xmax = 4.1,
+        color_fill = "#C8E6C9"  # Light green
+      ))
+    }
+
+    # Add shaded rectangles for indicator periods with different colors
+    p <- p +
+      geom_rect(data = indicator_rects,
+        aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax,
+          fill = I(color_fill)),
+        alpha = 0.4, inherit.aes = FALSE) +
+      geom_text(data = indicator_rects,
+        aes(x = xmax + 0.1, y = ymin + (ymax - ymin) / 2,
+          label = period_name),
+        hjust = 0, size = 2.8, color = "grey20",
+        lineheight = 0.85, inherit.aes = FALSE)
+  }
+
+  # Add title and subtitle with FW residency
+  subtitle_text <- sprintf("Ocean Entry Age: %s", oe_age)
+  if (!is.na(fw_residency_days)) {
+    subtitle_text <- sprintf("Ocean Entry Age: %s  |  Freshwater Residency: ~%d days",
+      oe_age, round(fw_residency_days))
+  }
+
+  p <- p +
+    labs(
+      title = sprintf("Life Stage Timing: %s", cu_name),
+      subtitle = subtitle_text,
+      x = NULL,
+      y = "Date",
+      caption = "Bars = 5th-95th percentile range | Points = peak timing (size = data quality: 1=best, 6=worst)\nShaded areas = periods used for indicator calculations"
     )
 
   return(p)
 
 }
+
+# # # Load your timing data
+# cu_timing_long_i <- cu_timing_long %>% filter(FULL_CU_IN == "CK-11")
+# # # Create plot
+# p <- cu_timing_plot(cu_timing_long_i, show_indicator_periods = TRUE)
+# print(p)
 
 
 
@@ -73,7 +224,7 @@ stream_accessible_plot <- function(stream_data,
   if (nrow(lakes_cu) > 0) p1 <- p1 + geom_sf(data = lakes_cu, color = "darkblue", alpha = 0.7)
 
   p1 <- p1 +
-    geom_sf(data = nuseds_cu, aes(fill = SPECIES), alpha = 0.6) +
+    geom_sf(data = nuseds_cu, aes(fill = SPECIES), size = 2, alpha = 0.6) +
     geom_sf(data = st_zm(stream_data), aes(color = model_rs)) +
     coord_sf(xlim = st_bbox(cu_boundary_i)[c(1, 3)],
       ylim = st_bbox(cu_boundary_i)[c(2, 4)]) +
@@ -180,17 +331,24 @@ stream_indicator_plot <- function(fwModels,
 
 migration_path_plot <- function(migr_path,
                                 nuseds_data,
-                                cu_boundary) {
+                                cu_boundary,
+                                plot_title = "",
+                                colour_var = "mad_m3s",
+                                colour_label = "Mean Annual Discharge (m3s)") {
 
   p <- ggplot() +
     annotation_map_tile(type = "cartolight") +
     geom_sf(data = cu_boundary,
       fill = "grey",
       alpha = 0.1) +
-    geom_sf(data = migr_path, aes(colour = downstream_distance), linewidth = 2) +
+    geom_sf(data = migr_path, aes(colour = !!sym(colour_var)), linewidth = 2) +
     scale_color_scico(palette = "batlow") +
-    geom_sf(data = nuseds_data, aes(fill = SPECIES)) +
-    labs(color = "Distance (m)", fill = "NUSEDS sites")
+    geom_sf(data = nuseds_data, aes(fill = SPECIES_LOOKUP),
+      color = "black",      # outline color
+      size = 3,             # increase point size
+      shape = 21)  +
+    labs(color = colour_label, fill = "NuSEDS sites",
+      subtitle = plot_title)
 
   return(p)
 
@@ -407,25 +565,32 @@ plot_cu_lolli <- function(data,   # need indicator data for a single CU, use get
 #
 # MAZ_GStr <- filter(MAZ, MAZ_Acrony == "GStr")
 
-marine_indicator_plot <- function(SST_cu_sp,
-                                  MAZ,
-                                  scico_palette = "roma",
+marine_indicator_plot <- function(data,
+                                  MAZ_sp,
+                                  var = "SST_oe",
                                   unit_label = "Degrees C",
+                                  scico_palette = "roma",
                                   plot_title = "",
-                                  palette_direction = -1) {
+                                  palette_direction = -1,
+                                  palette_limits = c(9, 14)) {
 
   p <- ggplot() +
-    geom_sf(data = SST_cu_sp, aes(fill = mean_sst)) +
-    scale_fill_scico(palette = scico_palette, direction = palette_direction) +
+    # annotation_map_tile(type = "cartolight") +
+    geom_sf(data = data, aes(colour = !!sym(var))) +
+    scico::scale_color_scico(
+      palette   = scico_palette,
+      direction = palette_direction,
+      limits    = palette_limits         # <-- set your min/max here
+    ) +
     geom_sf(data = MAZ, fill = NA, color = "black") +
-    coord_sf(xlim = st_bbox(MAZ)[c(1, 3)],
-      ylim = st_bbox(MAZ)[c(2, 4)]) +
-    labs(fill = unit_label,
+    coord_sf(xlim = st_bbox(data)[c(1, 3)],
+      ylim = st_bbox(data)[c(2, 4)]) +
+    labs(color = unit_label,
       title = plot_title)
 
+  return(p)
 
 }
-
 
 
 # 11. CU Abundance and Status ---------------------------------------------
@@ -785,6 +950,8 @@ MAZ_boundary_highlight <- function(MAZ,
     annotation_map_tile(type = "cartolight") +
     geom_sf(data = MAZ, color = "black", alpha = 0.3) +
     geom_sf(data = MAZ_i, fill = "green")
+
+  return(p)
 
 }
 

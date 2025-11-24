@@ -30,7 +30,7 @@ adjust_CU_IN <- function(CU_IN_vector) {
 
 #----------------- CU-SMU crosswalk-------------------------------------------
 
-crosswalk <- read.csv(file.path(paths$salmon, "CrossWalkData_2025-10-10.csv")) %>%
+crosswalk <- read_csv(file.path(paths$salmon, "CrossWalkData_2025-10-10.csv")) %>%
   clean_names(case = "all_caps") %>%
   rename(FULL_CU_IN = CU_FULL_INDEX)
 # crosswalk$FULL_CU_IN <- str_replace_all(crosswalk$FULL_CU_IN, "-0(\\d)(?!\\d)", "-\\1")
@@ -91,7 +91,6 @@ spp_lookup <- tibble(
 status_files <- list.files(file.path(paths$salmon, "FIA", "Status data"))
 cultus_file <- status_files[str_detect(status_files, "Cultus Lake Sockeye - 2025 10 28.csv")]   # get Cultus file
 status_files <- status_files[str_detect(status_files, "Retro_Synoptic")]
-
 
 for (i in 1:length(status_files))
 {
@@ -158,7 +157,6 @@ cu_list <- cu_list %>%
   left_join(select(recent_status, FULL_CU_IN, CUstatus, CUnmat, status_year), join_by(FULL_CU_IN))
 
 
-
 # Import NuSEDS data ------------------------------------------------------
 
 ### NUSEDS salmon spawner locations
@@ -191,7 +189,6 @@ nuseds_Fr$FULL_CU_IN <- adjust_CU_IN(nuseds_Fr$FULL_CU_IN)
 #   ))
 
 
-
 # ====================Import timing data compiled by PSF========================
 
 # note oe_age added for some CUs from original file
@@ -203,10 +200,26 @@ cu_timing <- read.csv(file.path(paths$salmon, "Timing data",
 cu_timing <- infill_average(cu_timing, col1 = "sp_start", col2 = "sp_end",
   target_col = "sp_peak")
 cu_timing <- cu_timing %>%
-  mutate(peak_sp_to_oe = (365 - sp_peak) + oe_peak + (oe_age * 365)) %>%
   left_join(select(cu_list, cuid, FULL_CU_IN, CVIS_NAME, CU_NAME, SPECIES_NAME), join_by(cuid), multiple = "first") %>%
   relocate(FULL_CU_IN, CVIS_NAME, CU_NAME, SPECIES_NAME) %>%
   filter(!is.na(FULL_CU_IN)) %>%
+  # calculate additional timing parameters for CVIS indicators
+  mutate(peak_sp_to_oe = (365 - sp_peak) + oe_peak + (oe_age * 365)) %>%  # peak spawn to ocean entry (fwres)
+  # ocean entry months
+  mutate(
+    oe_peak_month = month(ymd(paste(
+      "2000", "01", "01", sep = "-"
+    )) + oe_peak - 1),
+    oe_start_month = month(ymd(paste(
+      "2000", "01", "01", sep = "-"
+    )) + oe_start - 1),
+    oe_end_month = month(ymd(paste(
+      "2000", "01", "01", sep = "-"
+    )) + oe_end - 1)
+  ) %>%
+  # nearshore start and end timing for marine indicators (see 0_setup for values used)
+  mutate(ns_start_month = ns_timing_start(oe_peak_month, ns_start_offset, ns_time_method),
+    ns_end_month   = ns_timing_end(oe_peak_month, ns_end_offset, ns_time_method)) %>%
   arrange(species, oe_age)
 
 cu_timing_Fr <- filter(cu_timing, region == "fraser", !is.na(cuid))
@@ -231,7 +244,7 @@ cu_timing_long <- cu_timing_Fr %>%
 
 # Import preliminary genetics data ----------------------------------------
 
-## Data provided by Tim Healey, not for further distribution at this time
+## Data provided by Tim Healy, not for further distribution at this time
 genetics_sk <- read_csv(file.path(paths$salmon, "Genetics", "sockeye_genomicoffsets_heterozygosity.csv"))
 genetics_ck <- read_csv(file.path(paths$salmon, "Genetics", "chinook_genomicoffsets_heterozygosity.csv"))
 

@@ -5,14 +5,12 @@
 ######################## SETUP #########################
 # setup and packages
 
-# load packages and set root project directory
-rm(list = ls())
+rm(list = ls()) # clear workspace
 
 # set-up used in every script
 library(here)
 setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
-
 
 # load results from other scripts
 
@@ -30,23 +28,23 @@ load(file.path(paths$marine, "2025-11-20_marine_stats.Rds"))
 # spatial models
 # stream model outputs for freshwater spawning and rearing indicators
 load(file.path(paths$fw, "fw_models_tscapes.Rds"))
-
 # indicator spatial outputs
 load(file.path(paths$fw, "fw_stream_indicators_sp.Rds"))
-
 # lakes_Fr - freshwater lakes for plotting
 load(file.path(paths$fw, "BC_FWA_LAKES_FR.Rds"))
-
 # load flow gauge and watershed hydrology data
 load(file.path(paths$fw, "flow_gauge_data.Rdata"))
-
 # read Temperature gauge locations
 load(file.path(paths$fw, "Tw_stations.Rds"))
-
 
 # PCIC ensemble model outputs by period
 # PCIC_daily45 <- read_mdim(file.path(paths$climate, "PCIC_averaged", "combined",
 #   "daily_rcp45_ensemble.nc"))
+
+## Marine data
+load(file = file.path(paths$marine, "CMIP6_SST_periods.Rds"))
+load(file = file.path(paths$marine, "CImpact_points.Rds"))  # load CImpact_points
+
 
 # 1 - Freshwater data processing ------------------------------------------
 
@@ -135,12 +133,5 @@ rmarkdown::render(
 
 ## Shiny app
 
-shiny::runApp(file.path(here(), "code", "cu_indicator_app_enhanced.R"))
-
-shiny::runApp(file.path(here(), "code", "7_cu_indicator_app_v2.R"))
-
-
-shiny::runApp(file.path(here(), "code", "Oct27_cu_indicator_app.R"))
-
-shiny::runApp(file.path(here(), "code", "app.R"))
+shiny::runApp(file.path(here(), "code", "7_CVIS_explorer_app.R"))
 # shinyApp(ui, server)
