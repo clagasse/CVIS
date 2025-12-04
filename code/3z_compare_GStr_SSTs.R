@@ -77,23 +77,57 @@ hotssea_SST_spring <- hotssea_SST_GStr %>%
   data.table() %>%
   select(-geometry)
 
-CMIP_spring <- CMIP_hist %>%
-  bind_rows(CMIP_proj) %>%
-  bind_rows(CMIP_proj85) %>%
+
+
+# Regex that covers SST_01..12, SST_p10_01..12, SST_p90_01..12
+s_cols <- "^SST(?:_(?:p10|p90))?_\\d{2}$"
+
+CMIP_monthly <- CMIP_hist %>%
+  bind_rows(CMIP_proj, CMIP_proj85) %>%
   mutate(year = as.numeric(year)) %>%
-  select(year, MAZ_Acrony, matches(pattern)) %>%
-  group_by(MAZ_Acrony, year) %>%
-  summarise(
-    mean_sst = rowMeans(across(matches(paste0(pattern, "$"))), na.rm = TRUE) %>% mean(na.rm = TRUE),
-    n = n()
-  ) %>%
-  ungroup() %>%
-  mutate(model = "CMIPQDM") %>%
+  # keep only the needed columns
+  select(year, MAZ_Acrony, scenario, matches(s_cols)) %>%
   filter(!is.na(MAZ_Acrony)) %>%
-  data.table() %>%
-  select(-SHAPE)
+  # 1) SPATIAL AGGREGATION: collapse many rows per MAZ_Acrony-year-(scenario)
+  group_by(MAZ_Acrony, year, scenario) %>%
+  summarise(
+    across(
+      .cols = matches(s_cols),
+      .fns  = ~ mean(.x, na.rm = TRUE)
+    ),
+    n_cells = n(),               # how many spatial rows were averaged
+    .groups = "drop"
+  ) %>%
+  # 2) PIVOT LONGER: turn month and stat into variables
+  pivot_longer(
+    cols = matches(s_cols),
+    names_to = c("stat", "month"),
+    names_pattern = "SST(?:_(p10|p90))?_(\\d{2})",
+    values_to = "value"
+  ) %>%
+  mutate(
+    stat  = if_else(stat == "", "mean", stat),  # plain SST_* are 'mean'
+    month = as.integer(month),
+    model = "CMIPQDM"
+  ) %>%
+  arrange(MAZ_Acrony, year, month, stat)
 
 
+#aggregate over periods for comparing to ROMs
+CMIP_period <- CMIP_monthly %>%
+  group_by(MAZ_Acrony, scenario, stat, month) %>%
+  summarise(value = mean(value, na.rm = TRUE), 
+            n = n(),
+            .groups = "drop")
+
+
+#extract spring means
+CMIP_spring <- CMIP_monthly %>%
+  filter(month %in% months_choose, stat == "mean") %>%
+  group_by(MAZ_Acrony, year) %>%
+  summarise(value = mean(value, na.rm = TRUE), 
+            n = n(),
+            .groups = "drop")
 
 
 # combine SST values
@@ -121,15 +155,30 @@ spring_anoms <- combined_spring %>%
 SSC_SST_long <- SSC_SST_sub %>%
   as_tibble() %>%
   select(-c("SHAPE", "FID")) %>%
+  filter(MAZ_Acrony == "GStr") %>%
   pivot_longer(
     cols = c(contains("H"), contains("45"), contains("85")),
     names_to = c("scenario", "month"),
     names_pattern = "SST_([A-Za-z0-9]+)_([0-9]+)",
     values_to = "value"
   ) %>%
-  mutate(model = "SSC",
-    month = as.numeric(month)) %>%
-  filter(MAZ_Acrony == "GStr")
+  group_by(scenario, month, MAZ_Acrony) %>%
+  summarise(
+    SST_mean    = mean(value, na.rm = TRUE),
+    SST_qlowsp   = as.numeric(quantile(value, probs = qlowsp, na.rm = TRUE)),
+    SST_qhighsp  = as.numeric(quantile(value, probs = qhighsp, na.rm = TRUE)),
+    .groups   = "drop"
+  ) %>%
+  # reshape to long to get a 'stat' column
+  pivot_longer(
+    cols = c(SST_mean, SST_qlowsp, SST_qhighsp),
+    names_to = "stat",
+    values_to = "value"
+  ) %>%
+  mutate(
+    model = "SSC",
+    month = as.numeric(month)
+  )
 
 BCCM_SST_long <- BCCM_SST_sub %>%
   as_tibble() %>%
@@ -140,52 +189,130 @@ BCCM_SST_long <- BCCM_SST_sub %>%
     names_pattern = "SST_([A-Za-z0-9]+)_([0-9]+)",
     values_to = "value"
   ) %>%
-  mutate(model = "BCCM",
-    month = as.numeric(month))
+  group_by(scenario, month, MAZ_Acrony) %>%
+  summarise(
+    SST_mean     = mean(value, na.rm = TRUE),
+    SST_qlowsp   = as.numeric(quantile(value, probs = qlowsp, na.rm = TRUE)),
+    SST_qhighsp  = as.numeric(quantile(value, probs = qhighsp, na.rm = TRUE)),
+    .groups   = "drop"
+  ) %>%
+  # reshape to long to get a 'stat' column
+  pivot_longer(
+    cols = c(SST_mean, SST_qlowsp, SST_qhighsp),
+    names_to = "stat",
+    values_to = "value"
+  ) %>%
+  mutate(
+    model = "BCCM",
+    month = as.numeric(month)
+  )
 
-# Convert to two-digit strings
-target_str <- paste0("SST_", sprintf("%02d", seq(1, 12)))
-# Build regex pattern
-pattern <- paste0(target_str, collapse = "|")
 
+# Regex that covers SST_01..12, SST_p10_01..12, SST_p90_01..12
+s_cols <- "^SST(?:_(?:p10|p90))?_\\d{2}$"
+
+#get mean and gcm variation quantiles
 CMIP_SST_long <- CMIP_hist %>%
   bind_rows(CMIP_proj) %>%
   bind_rows(CMIP_proj85) %>%
   mutate(year = as.numeric(year)) %>%
   as_tibble() %>%
   filter(year < 2011 | year > 2030) %>%
-  group_by(scenario, SHAPE, MAZ_Acrony) %>%
-  summarise(across(contains("SST"), ~ mean(.x, na.rm = TRUE)), .groups = "drop") %>%
-  select(-c("SHAPE")) %>%
-  select(scenario, MAZ_Acrony, matches(pattern)) %>%
+  group_by(scenario, MAZ_Acrony) %>%
+  summarise(
+    across(
+      .cols = matches(s_cols),
+      .fns  = ~ mean(.x, na.rm = TRUE)
+    ),
+    .groups = "drop"
+  ) %>%
+  # 2) PIVOT LONGER: turn month and stat into variables
   pivot_longer(
-    cols = c(contains("SST")),
-    names_to = c("month"),
-    names_pattern = "SST_([0-9]+)",
+    cols = matches(s_cols),
+    names_to = c("stat", "month"),
+    names_pattern = "SST(?:_(p10|p90))?_(\\d{2})",
     values_to = "value"
   ) %>%
-  mutate(model = "CMIPQDM",
-    month = as.numeric(month))
+  mutate(
+    stat  = if_else(stat == "", "SST_mean", stat),
+    stat  = if_else(stat == "p10", "SST_qlowgcm", stat),
+    stat  = if_else(stat == "p90", "SST_qhighgcm", stat),
+    month = as.integer(month),
+    model = "CMIPQDM"
+  ) %>%
+  arrange(MAZ_Acrony,  month, stat)
 
-ROM_SST <- bind_rows(BCCM_SST_long, SSC_SST_long, CMIP_SST_long) %>%
-  filter(MAZ_Acrony != "SFj")
+#get spatial variation quantiles
+CMIP_SST_sp <- CMIP_hist %>%
+  bind_rows(CMIP_proj, CMIP_proj85) %>%
+  mutate(year = as.numeric(year)) %>%
+  as_tibble() %>%
+  filter(year < 2011 | year > 2030) %>%
+  # 1) Summarise across spatial rows: mean + spatial quantiles
+  group_by(scenario, MAZ_Acrony) %>%
+  summarise(
+    across(
+      .cols = matches(s_cols),
+      .fns = list(
+        qlowsp   = ~ as.numeric(quantile(.x, probs = 0.10, na.rm = TRUE)),
+        qhighsp  = ~ as.numeric(quantile(.x, probs = 0.90, na.rm = TRUE))
+      ),
+      .names = "{.fn}_{.col}"
+    ),
+    .groups = "drop"
+  ) %>%
+  # 2) Pivot longer: combine mean, qlowsp, qhighsp for each month
+  pivot_longer(
+    cols = matches("^(mean|qlowsp|qhighsp)_SST"),
+    names_to = c("stat", "month"),
+    names_pattern = "(mean|qlowsp|qhighsp)_SST_(\\d{2})",
+    values_to = "value"
+  ) %>%
+  # 3) Map stat names to final labels
+  mutate(
+    stat = case_when(
+      stat == "mean"    ~ "SST_mean",
+      stat == "qlowsp"  ~ "SST_qlowsp",
+      stat == "qhighsp" ~ "SST_qhighsp"
+    ),
+    month = as.integer(month)
+  ) %>%
+  filter(!is.na(month))
+
+#combine
+CMIP_SST_both <- bind_rows(CMIP_SST_long, CMIP_SST_sp) %>%
+  mutate(model = "CMIPQDM") %>%
+  arrange(MAZ_Acrony, month, stat)
+
+ROM_SST <- bind_rows(BCCM_SST_long, SSC_SST_long, CMIP_SST_both) %>%
+  filter(MAZ_Acrony != "SFj") %>%
+  pivot_wider(
+    id_cols = c(MAZ_Acrony, scenario, month, model),
+    names_from = stat,
+    values_from = value,
+    names_glue = "{stat}"
+  ) 
 
 ROM_SST_spring_summary <- data.table(ROM_SST) %>%
   filter(month %in% months_choose) %>%
   group_by(model, scenario, MAZ_Acrony) %>%
-  summarize(mean_sst = mean(value, na.rm = T),
-    SST_05 = quantile(value, 0.05, na.rm = T),
-    SST_95 = quantile(value, 0.95, na.rm = T),
-    n = n()) %>%
-  ungroup()
+  summarise(
+    across(
+      .cols = contains("SST"),
+      .fns  = ~ mean(.x, na.rm = TRUE)
+    ),
+    .groups = "drop"
+  )
 
 ROM_SST_annual_summary <- data.table(ROM_SST) %>%
   group_by(model, scenario, MAZ_Acrony) %>%
-  summarize(mean_sst = mean(value, na.rm = T),
-    SST_05 = quantile(value, 0.05, na.rm = T),
-    SST_95 = quantile(value, 0.95, na.rm = T),
-    n = n()) %>%
-  ungroup()
+  summarise(
+    across(
+      .cols = contains("SST"),
+      .fns  = ~ mean(.x, na.rm = TRUE)
+    ),
+    .groups = "drop"
+  )
 
 oisst_spring_summary <- oisst_spring %>%
   filter(year < 2010) %>%
@@ -229,7 +356,7 @@ ROM_SST_annual_summary <- bind_rows(ROM_SST_annual_summary, oisst_annual_summary
 rmarkdown::render(
   file.path(paths$code, "markdown", "compare_model_SSTs_wCMIP6.Rmd"),
   output_file = paste(today, "SST_comparisons.html", sep = "_"),
-  output_dir = here("output"),
+  output_dir = here("reports"),
   output_format = "html_document")
 
 

@@ -29,6 +29,7 @@ library(scico)    # scientific colour palettes
 library(gridExtra) # grid-based plots, used for indicator plots
 # library(ggsci)   # colour palettes - pal_futurama
 
+formals(read_csv)$show_col_types <- F  #use read_csv quietly
 
 `%notin%` <- Negate(`%in%`)
 
@@ -45,11 +46,13 @@ paths <- list(
   fw      = here("processed_data", "freshwater"),
   marine  = here("processed_data", "marine"),
   output  = here("output"),
-  indicators = here("processed_data"),
+  CU      = here("processed_data", "CU"),
   figures = here("output", "figures"),
   reports = here("reports"),
-  code    = here("code")
+  code    = here("code"),
+  indicators = here("processed_data", "indicator_params")
 )
+
 
 
 # Analysis configurations -------------------------------------------------
@@ -114,6 +117,8 @@ cu_run <- cu_list %>%
 
 cu_seq  <- cu_run$FULL_CU_IN # Create vector of CUs to analyze, ordered CK, CM, CO, PKO, SEL, SER, SH
 n.CUs   <- nrow(cu_run)
+
+save(cu_run, file = file.path(paths$CU, "cu_run.Rds"))
 
 # Lookup and definition tables --------------------------------------------
 
@@ -197,19 +202,7 @@ tbl_standardize <- tribble(
   "genoff",      "gen",     "linear_std",      "species",    NA,    NA, NA)
 
 
-### ----- Load frequently used data sets- ------
-
-# load marine adaptive zone spatial object
-load(file.path(paths$marine, "MAZ.Rds"))
-
-# load watershed basins R object
-load(file.path(paths$fw, "basins_shp.Rds"))
-# make a Fraser basin version
-Fr_basin <- filter(basins, BASIN == "FRASER")
-
-# load CU boundaries
-load(file.path(paths$fw, "cu_boundary.Rds"))
-
+save(tbl_indicators, tbl_standardize, tbl_ind_report, file = file.path(paths$indicators, "indicator_tables.Rdata"))
 
 # ggplot custom theme -----------------------------------------------------
 

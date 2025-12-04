@@ -115,7 +115,7 @@ status_data <- status_data %>%
   mutate(FULL_CU_IN = if_else(FULL_CU_IN == "SEL-06-03/SEL-06-02", "SEL-06-03", FULL_CU_IN)) %>%   # change Chilko ES-S to Chilko S
   add_row(FULL_CU_IN = "SEL-06-02", RapidStatus = "None", Species = "Sockeye", Year = 2023) %>%  # add data deficient recent entry for Chilko ES
   bind_rows(cultus_data)  %>%
-  left_join(select(cu_list, FULL_CU_IN, CU_COMMON_NAME, CVIS_NAME), join_by(FULL_CU_IN)) %>%
+  left_join(select(cu_list, FULL_CU_IN, CU_COMMON_NAME, CVIS_NAME, SPECIES_NAME), join_by(FULL_CU_IN)) %>%
   relocate(CVIS_NAME, .after = FULL_CU_IN) %>%
   select(-Stock) # %>%
 #  mutate(Dominant_SpnForAbd_Wild =
@@ -269,3 +269,10 @@ genetics_cu <- genetics_pop %>%
 # join to cu_list
 cu_list <- cu_list %>%
   left_join(genetics_cu, join_by(FULL_CU_IN))
+
+
+# Save R objects ----------------------------------------------------------
+
+save(cu_list, file = file.path(paths$CU, "cu_list.Rds"))
+save(status_data, file = file.path(paths$CU, "cu_status_data.Rds"))
+save(cu_timing_Fr, cu_timing_long, file = file.path(paths$CU, "cu_timing_data.Rdata"))

@@ -19,7 +19,7 @@ source(file.path(here(), "code", "0_setup.R"))
 # get cu timing for ocean entry
 cu_marine <- cu_timing_Fr %>%
   select(FULL_CU_IN, CVIS_NAME, SPECIES_NAME, oe_age, oe_dat_qual,
-    oe_start, oe_peak, oe_end, n_oe, ns_start, ns_end) %>%
+    oe_start, oe_peak, oe_end, n_oe, ns_start_month, ns_end_month) %>%
   mutate(MAZ = "GStr") %>%
   select(-any_of(c("oe_age", "oe_peak")))  # remove these columns since they are already in fwR data frame
 

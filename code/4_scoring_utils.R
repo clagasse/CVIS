@@ -116,17 +116,17 @@ decay_std <- function(x, ..., lambda = 0.03, xmin = NA, xmax = NA, use_95 = T) {
   return(y)
 }
 
-step_std <- function(x, ..., x1 = 200, x2 = 300, x3 = NA, x4 = NA) {
+step_std <- function(x, ..., x1 = 200, x2 = 300, x3 = NA) {
   # Standardize a score into 3 categories
   y <- rep(NA, length(x))
 
-  nstep <- sum(!is.na(c(x1, x2, x3, x4))) + 1
+  nstep <- sum(!is.na(c(x1, x2, x3)))
 
   for (i in 1:length(x)) {
     if (is.na(x[i])) next
-    if (x[i] < x1) y[i] <- (1 / nstep)
-    if (x[i] >= x1 && x[i] < x2) y[i] <- (2 / nstep)
-    if (x[i] >= x2) y[i] <- (3 / nstep)
+    if (x[i] < x1) y[i] <- 0
+    if (x[i] >= x1 && x[i] < x2) y[i] <- (1 / nstep)
+    if (x[i] >= x2) y[i] <- (2 / nstep)
   }
 
   return(y)

@@ -1,0 +1,352 @@
+[
+    {
+        "ISBN": "9780660689227",
+        "author": [
+            {
+                "family": "Macdonald",
+                "given": "B."
+            },
+            {
+                "family": "Grant",
+                "given": "S.C.H"
+            }
+        ],
+        "id": "macdonald2023",
+        "issued": {
+            "date-parts": [
+                [
+                    2023
+                ]
+            ]
+        },
+        "key": "4PE4QWRH",
+        "libraryid": "1",
+        "page": "27 p.",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "title": "State of Canadian Pacific salmon: considerations for Pacific salmon management in a changing climate",
+        "type": "article-journal"
+    },
+    {
+        "DOI": "10.1080/07055900.2023.2239186",
+        "ISSN": "0705-5900, 1480-9214",
+        "URL": "https://www.tandfonline.com/doi/full/10.1080/07055900.2023.2239186",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Peña",
+                "given": "M. Angelica"
+            },
+            {
+                "family": "Fine",
+                "given": "Isaac"
+            }
+        ],
+        "container-title": "Atmosphere-Ocean",
+        "container-title-short": "Atmosphere-Ocean",
+        "id": "peña2024",
+        "issue": "1",
+        "issued": {
+            "date-parts": [
+                [
+                    2024,
+                    1
+                ]
+            ]
+        },
+        "key": "IGYWZTJP",
+        "language": "en",
+        "libraryid": "1",
+        "page": "2-23",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "source": "DOI.org (Crossref)",
+        "title": "Future Physical and Biogeochemical Ocean Conditions under Climate Change along the British Columbia Continental Margin",
+        "type": "article-journal",
+        "volume": "62"
+    },
+    {
+        "DOI": "10.1080/07011784.2023.2267028",
+        "ISSN": "07011784",
+        "author": [
+            {
+                "family": "Weller",
+                "given": "J. Daniel"
+            },
+            {
+                "family": "Moore",
+                "given": "R. D."
+            },
+            {
+                "family": "Iacarella",
+                "given": "Josephine C."
+            }
+        ],
+        "container-title": "Canadian Water Resources Journal",
+        "id": "weller2024",
+        "issue": "2",
+        "issued": {
+            "date-parts": [
+                [
+                    2024
+                ]
+            ]
+        },
+        "key": "C8XKJG7P",
+        "libraryid": "1",
+        "page": "233-252",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "publisher": "Taylor",
+        "title": "Stream thermalscape scenarios for British Columbia, Canada",
+        "type": "article-journal",
+        "volume": "49"
+    },
+    {
+        "author": [
+            {
+                "family": "CSAS"
+            }
+        ],
+        "id": "csas2024",
+        "issued": {
+            "date-parts": [
+                [
+                    2024
+                ]
+            ]
+        },
+        "key": "TLNL8XF3",
+        "language": "en",
+        "libraryid": "1",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "source": "Zotero",
+        "title": "Geospatial Indicators and Metrics for Threats to Fish Habitat in the Fraser River Basin with Thompson-Nicola as a Case Study",
+        "type": "article-journal"
+    },
+    {
+        "ISBN": "978-0-660-70844-7",
+        "author": [
+            {
+                "family": "Murray",
+                "given": "Cathryn Clarke"
+            },
+            {
+                "family": "Kelly",
+                "given": "Noreen E"
+            },
+            {
+                "family": "Nelson",
+                "given": "Jocelyn C"
+            },
+            {
+                "family": "Murphy",
+                "given": "Grace E.P."
+            },
+            {
+                "family": "Agbayani",
+                "given": "Selina"
+            }
+        ],
+        "id": "murray2024",
+        "issued": {
+            "date-parts": [
+                [
+                    2024
+                ]
+            ]
+        },
+        "key": "J9BQZFKT",
+        "language": "en",
+        "libraryid": "1",
+        "oclc": "1482035275",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "publisher": "Canadian Science Advisory Secretariat (CSAS)",
+        "publisher-place": "Ottawa ON",
+        "source": "Open WorldCat",
+        "title": "Cumulative impact mapping and vulnerability of Canadian marine ecosystems to anthropogenic activities and stressors",
+        "type": "book"
+    },
+    {
+        "author": [
+            {
+                "family": "CSAS"
+            }
+        ],
+        "id": "csas2024a",
+        "issued": {
+            "date-parts": [
+                [
+                    2024
+                ]
+            ]
+        },
+        "key": "48L6S8WZ",
+        "language": "en",
+        "libraryid": "1",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "source": "Zotero",
+        "title": "Rapid Status Approximations for Pacific Salmon Derived from Integrated Expert Assessments under Fisheries and Oceans Canada Wild Salmon Policy",
+        "type": "article-journal",
+        "volume": "004"
+    },
+    {
+        "DOI": "10.1139/cjfas-2024-0213",
+        "ISSN": "0706-652X, 1205-7533",
+        "URL": "https://cdnsciencepub.com/doi/10.1139/cjfas-2024-0213",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Wilson",
+                "given": "Samantha M."
+            },
+            {
+                "family": "Peacock",
+                "given": "Stephanie J."
+            }
+        ],
+        "container-title": "Canadian Journal of Fisheries and Aquatic Sciences",
+        "container-title-short": "Can. J. Fish. Aquat. Sci.",
+        "id": "wilson2025",
+        "issued": {
+            "date-parts": [
+                [
+                    2025,
+                    1,
+                    1
+                ]
+            ]
+        },
+        "key": "3KXZGEET",
+        "language": "en",
+        "libraryid": "1",
+        "page": "1-17",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "rights": "https://creativecommons.org/licenses/by/4.0/deed.en_GB",
+        "source": "DOI.org (Crossref)",
+        "title": "Freshwater life-cycle timing of Pacific salmon and steelhead ( <i>Oncorhynchus</i> spp.) in Canada",
+        "type": "article-journal",
+        "volume": "82"
+    },
+    {
+        "DOI": "10.1126/science.aad8466",
+        "ISSN": "0036-8075, 1095-9203",
+        "URL": "https://www.science.org/doi/10.1126/science.aad8466",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Urban",
+                "given": "M. C."
+            },
+            {
+                "family": "Bocedi",
+                "given": "G."
+            },
+            {
+                "family": "Hendry",
+                "given": "A. P."
+            },
+            {
+                "family": "Mihoub",
+                "given": "J.-B."
+            },
+            {
+                "family": "Pe’er",
+                "given": "G."
+            },
+            {
+                "family": "Singer",
+                "given": "A."
+            },
+            {
+                "family": "Bridle",
+                "given": "J. R."
+            },
+            {
+                "family": "Crozier",
+                "given": "L. G."
+            },
+            {
+                "family": "De Meester",
+                "given": "L."
+            },
+            {
+                "family": "Godsoe",
+                "given": "W."
+            },
+            {
+                "family": "Gonzalez",
+                "given": "A."
+            },
+            {
+                "family": "Hellmann",
+                "given": "J. J."
+            },
+            {
+                "family": "Holt",
+                "given": "R. D."
+            },
+            {
+                "family": "Huth",
+                "given": "A."
+            },
+            {
+                "family": "Johst",
+                "given": "K."
+            },
+            {
+                "family": "Krug",
+                "given": "C. B."
+            },
+            {
+                "family": "Leadley",
+                "given": "P. W."
+            },
+            {
+                "family": "Palmer",
+                "given": "S. C. F."
+            },
+            {
+                "family": "Pantel",
+                "given": "J. H."
+            },
+            {
+                "family": "Schmitz",
+                "given": "A."
+            },
+            {
+                "family": "Zollner",
+                "given": "P. A."
+            },
+            {
+                "family": "Travis",
+                "given": "J. M. J."
+            }
+        ],
+        "container-title": "Science",
+        "container-title-short": "Science",
+        "id": "urban2016",
+        "issue": "6304",
+        "issued": {
+            "date-parts": [
+                [
+                    2016,
+                    9,
+                    9
+                ]
+            ]
+        },
+        "key": "5PNVTTG4",
+        "language": "en",
+        "libraryid": "1",
+        "page": "aad8466",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "source": "DOI.org (Crossref)",
+        "title": "Improving the forecast for biodiversity under climate change",
+        "type": "article-journal",
+        "volume": "353"
+    }
+]

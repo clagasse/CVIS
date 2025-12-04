@@ -25,7 +25,7 @@
 # Improved CU timing plot function - Version 2
 # Shows life stage timing with indicator calculation periods
 
-cu_timing_plot <- function(data, show_indicator_periods = TRUE) {
+cu_timing_plot <- function(data, show_indicator_periods = FALSE) {
   # Extract CU name and ocean entry age for labels
   cu_name <- unique(data$FULL_CU_IN)[1]
   oe_age <- unique(data$oe_age)[1]
@@ -207,7 +207,7 @@ cu_timing_plot <- function(data, show_indicator_periods = TRUE) {
 # # # Load your timing data
 # cu_timing_long_i <- cu_timing_long %>% filter(FULL_CU_IN == "CK-11")
 # # # Create plot
-# p <- cu_timing_plot(cu_timing_long_i, show_indicator_periods = TRUE)
+# p <- cu_timing_plot(cu_timing_long_i, show_indicator_periods = F)
 # print(p)
 
 
@@ -625,11 +625,14 @@ abundance_status_plot <- function(status_data,
   latest_status <- latest_entry$RapidStatus
   # latest_abundance <- round(latest_entry$SpnForAbd_Wild)
   latest_abundance <- ifelse(is.na(latest_entry$SpnForAbd_Wild), "NA", round(latest_entry$SpnForAbd_Wild))
+  if(is.numeric(latest_abundance)) scales::comma(latest_abundance)
   latest_genabd   <- ifelse(is.na(latest_entry$GenAvgUsed), "NA", round(latest_entry$GenAvgUsed))
+  if(is.numeric(latest_genabd)) scales::comma(latest_genabd)
   status_color <- status_palette[latest_status]
 
-  if (latest_entry$DataType == "Abs_Abd") data_type <- "Absolute Abundance"
-  if (latest_entry$DataType == "Rel_Idx") data_type <- "Relative Index"
+  if (latest_entry$DataType == "Abs_Abd" && !is.na(latest_entry$DataType)) data_type <- "Absolute Abundance"
+  if (latest_entry$DataType == "Rel_Idx" && !is.na(latest_entry$DataType)) data_type <- "Relative Index"
+  if (is.na(latest_entry$DataType)) data_type <- "NA"
 
   # Create a one-row data frame for annotation
   annotation_df <- data.frame(
@@ -639,8 +642,8 @@ abundance_status_plot <- function(status_data,
       plot_data$CVIS_NAME, "<br>",
       "Data Type: ", data_type,  "</span><br>",
       "Most Recent Status: <span style='color:", status_color, "'>", latest_status, "</span><br>",
-      "Recent Spawner Abundance: ", scales::comma(latest_abundance), "</span><br>",
-      "Recent Generational Avg: ", scales::comma(latest_genabd)
+      "Recent Spawner Abundance: ", latest_abundance, "</span><br>",
+      "Recent Generational Avg: ", latest_genabd
     )
   )
 
@@ -719,7 +722,7 @@ abundance_status_plot <- function(status_data,
 }
 
 # abundance_status_plot(status_data,
-#   cu_i = "SEL-03-05")
+#   cu_i = "SEL-03-02")
 
 
 # 12. CU all indicators plot --------------------------------------------------

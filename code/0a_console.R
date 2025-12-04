@@ -12,18 +12,26 @@ library(here)
 setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
 
-# load results from other scripts
+### ----- Load frequently used data sets- ------
+# load marine adaptive zone spatial object
+load(file.path(paths$marine, "MAZ.Rds"))
+# load watershed basins R object
+load(file.path(paths$fw, "basins_shp.Rds"))
+# make a Fraser basin version
+Fr_basin <- filter(basins, BASIN == "FRASER")
+# load CU boundaries
+load(file.path(paths$fw, "cu_boundary.Rds"))
 
 # freshwater stream subsets by CU boundary
 load(file.path(paths$fw, "fw_streampicks_tscapes.Rdata"))
 # freshwater stream indicator statistics
-load(file.path(paths$fw, "2025-10-27_fw_rearing_indicators.Rdata"))
+load(file.path(paths$fw, "fw_rearing_indicators.Rdata"))
 # migration paths
-load(file.path(paths$fw, "2025-10-16_fw_upstream_paths.Rdata"))
+load(file.path(paths$fw, "fw_upstream_paths.Rdata"))
 # migration indicators
-load(file.path(paths$fw, "2025-10-16_migr_stats.Rdata"))
+load(file.path(paths$fw, "migr_stats.Rdata"))
 # marine indicators
-load(file.path(paths$marine, "2025-11-20_marine_stats.Rds"))
+load(file.path(paths$marine, "marine_stats.Rds"))
 
 # spatial models
 # stream model outputs for freshwater spawning and rearing indicators
@@ -44,6 +52,9 @@ load(file.path(paths$fw, "Tw_stations.Rds"))
 ## Marine data
 load(file = file.path(paths$marine, "CMIP6_SST_periods.Rds"))
 load(file = file.path(paths$marine, "CImpact_points.Rds"))  # load CImpact_points
+
+## Combining all indicators into a common table, and applying standardization functions
+source(file.path(paths$code, "4a_CU_scoring.R"))
 
 
 # 1 - Freshwater data processing ------------------------------------------
@@ -100,38 +111,38 @@ load(file = file.path(paths$marine, "CImpact_points.Rds"))  # load CImpact_point
 # source(file.path(paths$code, "3b_marine_grid_standardize.R"))  # marine grid standardize script
 
 
-# 4 - Combining and standardizing -----------------------------------------
-
-## Combining all indicators into a common table, and applying standardization functions
-source(file.path(paths$code, "4a_CU_scoring.R"))
 
 
 # 5. Reports --------------------------------------------------------------
 
-for (i in 1:n.CUs) {
-
-  CU_IN_i <- cu_run$FULL_CU_IN[i]
-  CU_IN_i <- "SEL-05-02"
-
-  rmarkdown::render(
-    file.path(here(), "code", "6a_CU_indicator_report.Rmd"),
-    output_file = paste(today, CU_IN_i, "CVIS_report.html", sep = "_"),
-    output_dir = file.path(paths$reports, "CU_reports"),
-    output_format = "html_document",
-    params = list(FULL_CU_IN = CU_IN_i))
-
-}
-
 ## comparison of all indicators across CUs
 rmarkdown::render(
-  file.path(here("code", "6b_CVIS_overview.Rmd")),
-  output_file = paste(today, "CVIS_overview.html", sep = "_"),
+  file.path(here("code", "6_CVIS_report.Rmd")),
+  output_file = paste(today, "CVIS_report.html", sep = "_"),
   output_dir = file.path(paths$reports),
   output_format = "html_document")
 
 
+#individual CU reports iwth indicator data  SUPERCEDED BY SHINY APP
+for (i in 29:n.CUs) {
+  CU_IN_i <- cu_run$FULL_CU_IN[i]
+  #CU_IN_i <- "SEL-05-02"
+  default_rcp <- "45"
+  default_period <- 3
+  
+  rmarkdown::render(
+    file.path(here(), "code", "6a_CU_indicator_report_tabbed.Rmd"),
+    output_file = paste(CU_IN_i, "CVIS_Data_report.html", sep = "_"),
+    output_dir = file.path(paths$reports, "CU_reports"),
+    output_format = "html_document",
+    params = list(
+      FULL_CU_IN = CU_IN_i,
+      default_rcp = default_rcp,
+      default_period = default_period
+    )
+  )
+}
 
-## Shiny app
 
+## Shiny app to explore individual CU data (replaces 6a)
 shiny::runApp(file.path(here(), "code", "7_CVIS_explorer_app.R"))
-# shinyApp(ui, server)

@@ -24,8 +24,9 @@
 
 plot_std_vs_raw <- function(data,
                             indicator_pick,
-                            indicator_stat,
+                            indicator_stat = "mean",
                             plot_colours = species_palette,
+                            log_scale = FALSE,
                             gcm_range_suffix = c("qlowgcm", "qhighgcm"),
                             include_histogram = TRUE) {
 
@@ -62,6 +63,10 @@ plot_std_vs_raw <- function(data,
 
   p <- p + geom_point(aes(x = raw, y = std, color = sp), size = 2.5) +
     scale_color_manual(values = plot_colours)
+  
+  if (log_scale == TRUE) {
+    p <- p + scale_x_log10()
+  }
 
   if (include_histogram == TRUE) {
     p2 <- ggplot(plot_data) +
@@ -93,6 +98,9 @@ plot_lollipop <- function(data,
                           indicator_name = "",
                           use_standardized = FALSE,  # use raw or transformed (standardized values)
                           plot_colours = species_palette,
+                          log_scale = FALSE, #use log scale for x axis
+                          threshold_value = NA,  #add a vertical line to show a threshold if value exists
+                          multi_rcp = F,
                           ...) {
 
   data_sub <- subset_ind_table(data,
@@ -105,7 +113,7 @@ plot_lollipop <- function(data,
     get_pop = T)
 
   plot_data <- rename_ind_table(data_sub,
-    indicator_abbrev = indicator_pick)
+    indicator_abbrev = indicator_pick) 
 
   # boolean for whether gcm ranges are in the data
   has_gcm <- FALSE
@@ -126,6 +134,10 @@ plot_lollipop <- function(data,
     ))
 
   p <- ggplot(plot_data, aes(x = id_label))
+  
+  if (!is.na(threshold_value)) {
+    p <- p + geom_hline(aes(yintercept = threshold_value), linetype = "dashed")
+  }
 
   # Actual plot layers
   if (has_spat) {
@@ -142,13 +154,22 @@ plot_lollipop <- function(data,
   }
 
   # Point layer with dynamic fill
-  if (use_standardized == F) {
+  if (use_standardized == F & multi_rcp == F) {
     p <- p + geom_point(aes(y = raw, fill = std), shape = 21, color = "black", size = 2.5) +
       scale_fill_gradient(name = "Standardized score", low = "lightblue", high = "darkblue")
   }
-  if (use_standardized == T) {
+  if (use_standardized == T & multi_rcp == F) {
     p <- p + geom_point(aes(y = std, fill = std), shape = 21, color = "black", size = 2.5) +
       scale_fill_gradient(name = "Standardized score", low = "lightblue", high = "darkblue")
+  }
+  
+  if (log_scale == TRUE) {
+    p <- p + scale_y_log10()
+  }
+  
+  if (multi_rcp == T) {
+    p <- p + geom_point(aes(y = raw, fill = rcp), shape = 21, color = "black", size = 2.5) +
+      scale_fill_discrete(name = "RCP")
   }
 
   # Dummy layers for line segment legend
@@ -168,7 +189,7 @@ plot_lollipop <- function(data,
     ) +
 
     labs(
-      subtitle = paste(indicator_name),
+      if(!is.na(indicator_name)) subtitle = paste(indicator_name),
       fill = "Standardized",
       y = NULL,
       x = NULL
@@ -178,6 +199,9 @@ plot_lollipop <- function(data,
       axis.text.y = element_markdown(size = 7),
       legend.position = "right"
     )
+  if (multi_rcp == T) {
+    p <- p + labs(fill = "RCP")
+  }
 
   return(p)
 }
@@ -521,9 +545,9 @@ indicator_tile_plot <- function(data,
     for (score_col in overall_score_cols) {
       if (!(score_col %in% legend_data$Code)) {
         overall_desc <- case_when(
-          score_col == "std_sumavgs" ~ "Sum of Category Averages",
+          score_col == "std_catavgs" ~ "Average Category Averages",
           score_col == "std_avgall" ~ "Average of All Indicators",
-          score_col == "std_sumcube" ~ "Sum of Cubic Means",
+          score_col == "std_avgcube" ~ "Average of Cubic Means in Categories",
           score_col == "std_cubefwR" ~ "Cubic Mean - Freshwater Rearing",
           score_col == "std_avgfwR" ~ "Average - Freshwater Rearing",
           score_col == "std_cubemigr" ~ "Cubic Mean - Migration",
@@ -696,18 +720,19 @@ make_indicator_plots <- function(data,
 
 
 
-# x_y indicator comparison ------------------------------------------------
+# 8. x_y indicator comparison ------------------------------------------------
 
 xy_indicator_plot <- function(data,
                               x_pick = "lowQpdelta",
                               y_pick = "st8pdelta",
-                              point_col = "Species") {
+                              use_raw = T,
+                              point_col = "SPECIES_NAME") {
 
   plot_data_x <- subset_ind_table(data,
     indicators_choose = x_pick,
     id_col = "CVIS_NAME",
     sp_col = point_col,
-    get_raw = T,
+    get_raw = use_raw,
     get_gcm = T) %>%
     rename_ind_table(indicator_abbrev = x_pick,
       name_suffix = "x_")
@@ -716,7 +741,7 @@ xy_indicator_plot <- function(data,
     indicators_choose = y_pick,
     id_col = "CVIS_NAME",
     sp_col = point_col,
-    get_raw = T,
+    get_raw = use_raw,
     get_gcm = T) %>%
     rename_ind_table(indicator_abbrev = y_pick,
       name_suffix = "y_")
@@ -731,7 +756,7 @@ xy_indicator_plot <- function(data,
     geom_errorbar(aes(x = x_raw, y = y_raw, ymin = y_min_gcm, ymax = y_max_gcm), colour = "blue") +
     geom_errorbar(aes(x = x_raw, y = y_raw, xmin = x_min_gcm, xmax = x_max_gcm)) +
     geom_point(aes(x = x_raw, y = y_raw, col = sp), size = 3) +
-    labs(subtitle = "statistical station model (st8) vs PCIC stream model",
+    labs(subtitle = "statistical station model (st8) vs PCIC stream model with GCM Q10-Q90 variation",
       x = "PCIC stream model change in August flow",
       y = "Station model change in August flow")
 
@@ -740,15 +765,208 @@ xy_indicator_plot <- function(data,
 }
 
 
-################################################################################
-#
-# species_category_tile_plot.R
-#
-# Function to visualize indicator scores by category with within-species
-# vulnerability rankings. Creates separate panels for each indicator category
-# plus overall scores, with each panel showing only one species at a time.
-#
-################################################################################
+
+# 9. status_table -------------------------------------------------------------
+
+#' Create a formatted table of CU conservation status
+#'
+#' Generates a table showing Wild Salmon Policy status (color-coded as Red/Amber/Green),
+#' recent generational average of spawners, most recent assessment year, and data type
+#' (relative index or absolute abundance).
+#'
+#' @param status_data Data frame containing CU status assessment information
+#' @param species_filter Optional character vector of species names to include (default: all species)
+#' @param sort_by Column to sort by: "status", "abundance", "year", or "cu_name" (default: "status")
+#' @param include_confidence Logical, whether to include confidence rating column (default: TRUE)
+#' @param show_all_years Logical, whether to show all assessment years or just most recent (default: FALSE)
+#'
+#' @return A gt table object with formatted CU status information
+#'
+#' @examples
+#' # Basic usage - all CUs
+#' cu_status_table(status_data)
+#'
+#' # Filter to specific species
+#' cu_status_table(status_data, species_filter = c("Sockeye", "Chinook"))
+#'
+#' # Sort by abundance
+#' cu_status_table(status_data, sort_by = "abundance")
+#'
+#' # Exclude confidence rating
+#' cu_status_table(status_data, include_confidence = FALSE)
+#'
+cu_status_table <- function(status_data,
+                            species_filter = NULL,
+                            sort_by = "cu_name",
+                            include_confidence = TRUE,
+                            show_all_years = FALSE) {
+  
+  # Filter by species if specified
+  if (!is.null(species_filter)) {
+    status_data <- status_data %>%
+      filter(SPECIES_NAME %in% species_filter)
+  }
+  
+  # Get most recent year for each CU if not showing all years
+  if (!show_all_years) {
+    status_data <- status_data %>%
+      group_by(FULL_CU_IN) %>%
+      # Find most recent year with non-NA status
+      filter(Year == max(Year[!is.na(RapidStatus)], na.rm = TRUE)) %>%
+      ungroup()
+  }
+  
+  # Prepare table data
+  table_data <- status_data %>%
+    mutate(
+      # Handle missing values
+      RapidStatus = if_else(is.na(RapidStatus), "None", RapidStatus),
+      ConfidenceRating5 = if_else(is.na(ConfidenceRating5), "None", ConfidenceRating5),
+      
+      # Format data type
+      DataType_formatted = case_when(
+        DataType == "Abs_Abd" ~ "Absolute Abundance",
+        DataType == "Rel_Idx" ~ "Relative Index",
+        is.na(DataType) ~ "Not Available",
+        TRUE ~ as.character(DataType)
+      ),
+      
+      # Format spawner abundance
+      SpawnerAbundance = if_else(
+        is.na(SpnForAbd_Wild),
+        NA_real_,
+        SpnForAbd_Wild
+      ),
+      
+      # Format generational average
+      GenAverage = if_else(
+        is.na(GenAvgUsed),
+        NA_real_,
+        GenAvgUsed
+      ),
+      
+      # Create status factor for sorting
+      status_order = factor(
+        RapidStatus,
+        levels = c("Red", "Amber", "Green", "None")
+      )
+    ) %>%
+    select(
+      #FULL_CU_IN,
+      CVIS_NAME,
+      SPECIES_NAME,
+      RapidStatus,
+      status_order,
+      ConfidenceRating5,
+      #Year,
+      #SpawnerAbundance,
+      GenAverage,
+      DataType_formatted
+      #CyclicCU
+    )
+  
+  # Sort according to user specification
+  table_data <- switch(
+    sort_by,
+    "status" = arrange(table_data, status_order, SPECIES_NAME, CVIS_NAME),
+    "abundance" = arrange(table_data, desc(GenAverage)),
+    "cu_name" = arrange(table_data, SPECIES_NAME, CVIS_NAME),
+    arrange(table_data, status_order, SPECIES_NAME, CVIS_NAME)  # default
+  )
+  
+  # Define status colors
+  status_colors <- c(
+    "Red" = "#DC2626",    # Tailwind red-600
+    "Amber" = "#F59E0B",  # Tailwind amber-500
+    "Green" = "#10B981",  # Tailwind green-500
+    "None" = "#9CA3AF"    # Tailwind gray-400
+  )
+  
+  # Build base table
+  gt_table <- table_data %>%
+    select(-status_order) %>%  # Remove helper column
+    gt() %>%
+    
+    # Column labels
+    cols_label(
+      #FULL_CU_IN = "CU ID",
+      CVIS_NAME = "CU Name",
+      SPECIES_NAME = "Species",
+      RapidStatus = "Status",
+      ConfidenceRating5 = "Confidence",
+      #Year = "Assessment Year",
+      #SpawnerAbundance = "Recent Spawners",
+      GenAverage = "Number of mature individuals",
+      DataType_formatted = "Data Type"
+      #CyclicCU = "Cyclic CU"
+    ) %>%
+    
+    # Format numbers with commas
+    fmt_number(
+      columns = c(GenAverage),
+      decimals = 0,
+      use_seps = TRUE
+    ) %>%
+    
+    # Color-code the status column
+    data_color(
+      columns = RapidStatus,
+      fn = function(x) {
+        status_colors[x]
+      },
+      apply_to = "fill"
+    ) %>%
+    
+    # Make status text white for visibility
+    tab_style(
+      style = cell_text(color = "white", weight = "bold"),
+      locations = cells_body(columns = RapidStatus)
+    ) %>%
+    
+    # Center align specific columns
+    cols_align(
+      align = "center",
+      columns = c(RapidStatus, ConfidenceRating5)
+    ) %>%
+    
+    # Right align numeric columns
+    cols_align(
+      align = "right",
+      columns = c(GenAverage)
+    ) %>%
+    
+    # Add table header
+    tab_header(
+      title = "Conservation Unit Status Summary"
+    ) %>%
+    
+    # Style the table
+    tab_options(
+      table.font.size = "small",
+      data_row.padding = px(4),
+      column_labels.font.weight = "bold",
+      row_group.font.weight = "bold",
+      heading.title.font.size = px(18),
+      heading.subtitle.font.size = px(14),
+      source_notes.font.size = px(10)
+    ) %>%
+    
+    # Add striping for readability
+    opt_row_striping()
+  
+  # Conditionally hide confidence column if not needed
+  if (!include_confidence) {
+    gt_table <- gt_table %>%
+      cols_hide(columns = ConfidenceRating5)
+  }
+  
+  return(gt_table)
+}
+
+
+
+# 10. Species Category Tile Plot ------------------------------------------
+
 
 #' Create tile plots showing all indicators by category for a single species
 #'
@@ -1060,8 +1278,336 @@ species_category_tile_plot <- function(data,
 # print(chinook_plot)
 
 
+
+# 11. Timing comparison plot --------------------------------------------------
+
+################################################################################
+#
+# cu_timing_comparison_plot.R
+#
+# Function to compare life history timing across conservation units
+#
+################################################################################
+
+
+
+#' Plot life history timing comparison across CUs
+#'
+#' Creates a single comparative visualization showing start-to-end timing ranges
+#' for different life history stages across multiple conservation units. Segments
+#' are colored by life stage, and CU names are colored by species.
+#'
+#' @param cu_timing_long Data frame in long format containing life history timing 
+#'   data with columns: FULL_CU_IN, CVIS_NAME, SPECIES_NAME, life_stage, start, 
+#'   peak, end, dat_qual
+#' @param cu_select Character vector of CU IDs to include. If NULL, includes all CUs
+#' @param species_select Character vector of species names to include. If NULL, includes all species
+#' @param life_stages Character vector of life stages to plot. Options: "spawning",
+#'   "run_timing", "ocean_entry", "freshwater_migration". Default is all stages.
+#' @param sort_by How to sort CUs: "species" (default), "peak_spawn", "peak_oe", or "none"
+#' @param show_peaks Logical, whether to show peak timing points (default TRUE)
+#' @param species_palette Named vector of colors for species
+#' @param life_stage_palette Named vector of colors for life stages
+#' @param date_breaks Character, date breaks for x-axis (e.g., "1 month", "2 weeks")
+#' @param y_text_size Numeric, size of y-axis text (default 8)
+#'
+#' @return A ggplot object
+#'
+#' @examples
+#' # Basic comparison across all CUs
+#' plot_timing_comparison(cu_timing_long)
+#'
+#' # Compare specific species
+#' plot_timing_comparison(cu_timing_long, species_select = c("Chinook", "Sockeye"))
+#'
+#' # Focus on spawning and run timing only
+#' plot_timing_comparison(cu_timing_long, life_stages = c("run_timing", "spawning"))
+#'
+plot_timing_comparison <- function(cu_timing_long,
+                                   cu_select = NULL,
+                                   species_select = NULL,
+                                   life_stages = c("spawning", "run_timing", 
+                                                   "ocean_entry", "freshwater_migration"),
+                                   sort_by = "species",
+                                   show_peaks = TRUE,
+                                   species_palette = NULL,
+                                   life_stage_palette = NULL,
+                                   date_breaks = "1 month",
+                                   y_text_size = 8) {
+  
+  # Default species palette if not provided
+  if (is.null(species_palette)) {
+    species_palette <- c(
+      "Chinook" = "#E69F00",
+      "Chum" = "#56B4E9",
+      "Coho" = "#009E73",
+      "Pink" = "#F0E442",
+      "Sockeye" = "#D55E00"
+    )
+  }
+  
+  # Default life stage palette if not provided
+  if (is.null(life_stage_palette)) {
+    life_stage_palette <- c(
+      "Spawning" = "#66C2A5",
+      "Upstream Run Timing" = "#FC8D62",
+      "Ocean Entry" = "#8DA0CB",
+      "Juvenile FW Migration" = "#E78AC3"
+    )
+  }
+  
+  # Filter data
+  data_plot <- cu_timing_long
+  
+  if (!is.null(cu_select)) {
+    data_plot <- data_plot %>% filter(FULL_CU_IN %in% cu_select)
+  }
+  
+  if (!is.null(species_select)) {
+    data_plot <- data_plot %>% filter(SPECIES_NAME %in% species_select)
+  }
+  
+  if (!is.null(life_stages)) {
+    data_plot <- data_plot %>% filter(life_stage %in% life_stages)
+  }
+  
+  # Check if life_stage_label column exists, if not create it from life_stage
+  if (!"life_stage_label" %in% names(data_plot)) {
+    data_plot <- data_plot %>%
+      mutate(life_stage_label = case_when(
+        life_stage == "spawning" ~ "Spawning",
+        life_stage == "run_timing" ~ "Upstream Run Timing",
+        life_stage == "ocean_entry" ~ "Ocean Entry",
+        life_stage == "freshwater_migration" ~ "Juvenile FW Migration",
+        TRUE ~ life_stage
+      ))
+  }
+  
+  # Ensure life_stage_label is a factor with correct levels
+  data_plot <- data_plot %>%
+    mutate(life_stage_label = factor(life_stage_label,
+                                     levels = c("Spawning", "Upstream Run Timing",
+                                                "Ocean Entry", "Juvenile FW Migration")))
+  
+  # Convert day of year to date for plotting
+  data_plot <- data_plot %>%
+    mutate(
+      date_start = as.Date("2000-01-01") + start,
+      date_peak = as.Date("2000-01-01") + peak,
+      date_end = as.Date("2000-01-01") + end
+    ) %>%
+    filter(!is.na(start), !is.na(end))
+  
+  # Create data quality categories for shape mapping
+  data_plot <- data_plot %>%
+    mutate(dat_qual_category = case_when(
+      dat_qual %in% c(1, 2) ~ "High (1-2)",
+      dat_qual %in% c(3, 4) ~ "Medium (3-4)",
+      dat_qual %in% c(5, 6) ~ "Low (5-6)",
+      TRUE ~ "Unknown"
+    )) %>%
+    mutate(dat_qual_category = factor(dat_qual_category,
+                                      levels = c("High (1-2)", "Medium (3-4)", 
+                                                 "Low (5-6)", "Unknown")))
+  
+  # Create colored CU labels using species colors
+  data_plot <- data_plot %>%
+    mutate(cu_label_colored = paste0(
+      "<span style='color:", species_palette[SPECIES_NAME], "'>",
+      CVIS_NAME, " (", FULL_CU_IN, ")", "</span>"
+    ))
+  
+  # Sort CUs
+  if (sort_by == "species") {
+    data_plot <- data_plot %>%
+      arrange(SPECIES_NAME, FULL_CU_IN) %>%
+      mutate(cu_label_colored = factor(cu_label_colored, levels = unique(cu_label_colored)))
+  } else if (sort_by == "peak_spawn") {
+    sp_peaks <- data_plot %>%
+      filter(life_stage == "spawning") %>%
+      arrange(peak)
+    data_plot <- data_plot %>%
+      mutate(cu_label_colored = factor(cu_label_colored, 
+                                       levels = unique(sp_peaks$cu_label_colored)))
+  } else if (sort_by == "peak_oe") {
+    oe_peaks <- data_plot %>%
+      filter(life_stage == "ocean_entry") %>%
+      arrange(peak)
+    data_plot <- data_plot %>%
+      mutate(cu_label_colored = factor(cu_label_colored, 
+                                       levels = unique(oe_peaks$cu_label_colored)))
+  }
+  
+  # Create plot
+  p <- ggplot(data_plot, aes(y = cu_label_colored))
+  
+  # Add range segments colored by life stage
+  p <- p + geom_segment(
+    aes(x = date_start, xend = date_end,
+        yend = cu_label_colored,
+        color = life_stage_label),
+    linewidth = 4, alpha = 0.7
+  )
+  
+  # Add peaks if requested, with shape mapped to data quality category
+  if (show_peaks) {
+    p <- p + geom_point(
+      aes(x = date_peak, 
+          color = life_stage_label,
+          shape = dat_qual_category),
+      size = 3, fill = "white", stroke = 1.2
+    ) +
+      scale_shape_manual(
+        name = "Data Quality",
+        values = c(
+          "High (1-2)" = 21,    # Circle (filled)
+          "Medium (3-4)" = 24,  # Triangle
+          "Low (5-6)" = 22,     # Square
+          "Unknown" = 4         # X
+        ),
+        guide = guide_legend(
+          override.aes = list(size = 3, fill = "white", stroke = 1.2)
+        )
+      )
+  }
+  
+  # Formatting
+  p <- p +
+    scale_x_date(
+      date_breaks = date_breaks,
+      date_labels = "%b",
+      limits = c(as.Date("2000-01-01"), as.Date("2000-12-31")),
+      expand = c(0.02, 0)
+    ) +
+    scale_color_manual(
+      values = life_stage_palette,
+      name = "Life Stage"
+    ) +
+    labs(
+      title = "Life History Timing Comparison Across Conservation Units",
+      x = "Date",
+      y = "Conservation Unit",
+      caption = "Point shape indicates data quality: ● = High (1-2), ▲ = Medium (3-4), ■ = Low (5-6)"
+    ) +
+    theme_minimal() +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
+      axis.text.y = element_markdown(size = y_text_size, hjust = 1),
+      axis.title = element_text(size = 11, face = "bold"),
+      panel.grid.major.y = element_blank(),
+      panel.grid.minor = element_blank(),
+      legend.position = "right",
+      legend.title = element_text(face = "bold", size = 10),
+      legend.text = element_text(size = 9),
+      plot.title = element_text(face = "bold", size = 14, hjust = 0.5),
+      plot.caption = element_text(size = 8, color = "grey50", hjust = 0),
+      plot.margin = margin(10, 10, 10, 10)
+    )
+  
+  return(p)
+}
+
+
+
+
+# Multi-panel spatial indicator plot --------------------------------------
+
+# 
+# p1 <- spatial_indicator_plot(combined_scores_std, 
+#                             sp_pick = c("Chinook"),
+#                             indicator_pick = "std_avgfwR",
+#                             indicator_name = "Average all")
+# 
+# p2 <- spatial_indicator_plot(combined_scores_std, 
+#                              sp_pick = c("Chinook"),
+#                              indicator_pick = "std_CT",
+#                              indicator_name = "Cumulative Threats")
+# 
+# p3 <- spatial_indicator_plot(combined_scores_std, 
+#                              sp_pick = c("Chinook"),
+#                              indicator_pick = "std_tw8proj",
+#                              indicator_name = "Projected T")
+# 
+# p4 <- spatial_indicator_plot(combined_scores_std, 
+#                              sp_pick = c("Chinook"),
+#                              indicator_pick = "std_tw8rate",
+#                              indicator_name = "Rate of change T")
+# 
+# p5 <- spatial_indicator_plot(combined_scores_std, 
+#                              sp_pick = c("Chinook"),
+#                              indicator_pick = "std_lowQpdelta",
+#                              indicator_name = "Change in August flow")
+# 
+# p6 <- spatial_indicator_plot(combined_scores_std, 
+#                              sp_pick = c("Chinook"),
+#                              indicator_pick = "std_highQpdelta",
+#                              indicator_name = "Change in Nov-Jan flow")
+# p1 + p2 + p3 + p4 + p5 + p6
+
 # Test plots --------------------------------------------------------------
 
+# 
+# # 
+# # 
+# # filter_std <- combined_scores_std %>%
+# #   filter(period_code == "3",
+# #          rcp == "45")
+# # # 
+# #status table
+# p <- cu_status_table(filter(status_data, FULL_CU_IN %in% cu_run$FULL_CU_IN))
+# p
+# 
+# plot_timing_comparison(cu_timing_long, species_palette = species_palette)
+# 
+# plot_timing_multipanel(cu_timing_Fr, species_select = c("Chinook", "Coho"))
+# 
+# plot_timing_heatmap(cu_timing_Fr, species_select = c("Chinook", "Coho"))
+# # 
+# # 
+# p <-xy_indicator_plot(filter_std,
+#   x_pick = "migrdist",
+#   y_pick = "std_avgfwR",
+#   use_raw = F)
+# 
+# 
+# 
+# ggplot(filter_std) +
+#   geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+#   geom_point(aes(x = avg_elevation, y = std_tw8proj_mean, col = SPECIES_NAME), size = 3)
+# # 
+# # 
+
+# plot_lollipop(data = all_flat_std,
+#               indicator_pick = "fwres",
+#               #log_scale = TRUE,
+#               threshold_value = 200)
+# 
+# plot_lollipop(data = filter_std,
+#               indicator_pick = "migrT",
+#               log_scale = F,
+#               threshold_value = 15,
+#               multi_rcp = T)
+# 
+# plot_lollipop(data = filter_std,
+#               indicator_pick = "tw8proj",
+#               log_scale = F,
+#               threshold_value = 15,
+#               multi_rcp = F)
+# 
+# plot_std_vs_raw(data = all_flat_std,
+#                 indicator_pick = "fwres",
+#                 include_histogram = FALSE,
+#                 log_scale = F)
+# 
+# 
+# p <- spatial_indicator_plot(combined_scores_std, 
+#                                    sp_pick = c("Chinook"),
+#                                    indicator_pick = "std_avgfwR",
+#                                    use_standardized = T,
+#                                    id_col = "FULL_CU_IN",
+#                                    brewer_palette = "RdYlGn",
+#                                    palette_direction = -1)
+# p
 # filter_std <- all_flat_std %>%
 #   mutate(prop_coverage = as.numeric(prop_coverage)) %>%
 #   filter(rcp == "85",

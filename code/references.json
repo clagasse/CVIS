@@ -1,0 +1,4731 @@
+[
+    {
+        "DOI": "10.1371/journal.pone.0217711",
+        "ISSN": "19326203",
+        "PMID": "31339895",
+        "author": [
+            {
+                "family": "Crozier",
+                "given": "Lisa G."
+            },
+            {
+                "family": "McClure",
+                "given": "Michelle M."
+            },
+            {
+                "family": "Beechie",
+                "given": "Tim"
+            },
+            {
+                "family": "Bograd",
+                "given": "Steven J."
+            },
+            {
+                "family": "Boughton",
+                "given": "David A."
+            },
+            {
+                "family": "Carr",
+                "given": "Mark"
+            },
+            {
+                "family": "Cooney",
+                "given": "Thomas D."
+            },
+            {
+                "family": "Dunham",
+                "given": "Jason B."
+            },
+            {
+                "family": "Greene",
+                "given": "Correigh M."
+            },
+            {
+                "family": "Haltuch",
+                "given": "Melissa A."
+            },
+            {
+                "family": "Hazen",
+                "given": "Elliott L."
+            },
+            {
+                "family": "Holzer",
+                "given": "Damon M."
+            },
+            {
+                "family": "Huff",
+                "given": "David D."
+            },
+            {
+                "family": "Johnson",
+                "given": "Rachel C."
+            },
+            {
+                "family": "Jordan",
+                "given": "Chris E."
+            },
+            {
+                "family": "Kaplan",
+                "given": "Isaac C."
+            },
+            {
+                "family": "Lindley",
+                "given": "Steven T."
+            },
+            {
+                "family": "Mantua",
+                "given": "Nathan J."
+            },
+            {
+                "family": "Moyle",
+                "given": "Peter B."
+            },
+            {
+                "family": "Myers",
+                "given": "James M."
+            },
+            {
+                "family": "Nelson",
+                "given": "Mark W."
+            },
+            {
+                "family": "Spence",
+                "given": "Brian C."
+            },
+            {
+                "family": "Weitkamp",
+                "given": "Laurie A."
+            },
+            {
+                "family": "Williams",
+                "given": "Thomas H."
+            },
+            {
+                "family": "Willis-Norton",
+                "given": "Ellen"
+            }
+        ],
+        "container-title": "PLoS ONE",
+        "id": "crozier2019",
+        "issue": "7",
+        "issued": {
+            "date-parts": [
+                [
+                    2019
+                ]
+            ]
+        },
+        "key": "GN3SYSPH",
+        "libraryid": "1",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "title": "Climate vulnerability assessment for Pacific salmon and steelhead in the California Current Large Marine Ecosystem",
+        "type": "article-journal",
+        "volume": "14"
+    },
+    {
+        "DOI": "10.3390/fishes8060319",
+        "ISSN": "24103888",
+        "author": [
+            {
+                "family": "Crozier",
+                "given": "Lisa G."
+            },
+            {
+                "family": "Siegel",
+                "given": "Jared E."
+            }
+        ],
+        "container-title": "Fishes",
+        "id": "crozier2023",
+        "issue": "6",
+        "issued": {
+            "date-parts": [
+                [
+                    2023,
+                    6,
+                    1
+                ]
+            ]
+        },
+        "key": "CNYJYBGF",
+        "libraryid": "1",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "publisher": "Multidisciplinary",
+        "title": "A Comprehensive Review of the Impacts of Climate Change on Salmon: Strengths and Weaknesses of the Literature by Life Stage",
+        "type": "article-journal",
+        "volume": "8"
+    },
+    {
+        "DOI": "10.1038/s41558-022-01437-y",
+        "ISBN": "4155802201",
+        "ISSN": "17586798",
+        "author": [
+            {
+                "family": "Boyce",
+                "given": "Daniel G."
+            },
+            {
+                "family": "Tittensor",
+                "given": "Derek P."
+            },
+            {
+                "family": "Garilao",
+                "given": "Cristina"
+            },
+            {
+                "family": "Henson",
+                "given": "Stephanie"
+            },
+            {
+                "family": "Kaschner",
+                "given": "Kristin"
+            },
+            {
+                "family": "Kesner-Reyes",
+                "given": "Kathleen"
+            },
+            {
+                "family": "Pigot",
+                "given": "Alex"
+            },
+            {
+                "family": "Reyes",
+                "given": "Rodolfo B."
+            },
+            {
+                "family": "Reygondeau",
+                "given": "Gabriel"
+            },
+            {
+                "family": "Schleit",
+                "given": "Kathryn E."
+            },
+            {
+                "family": "Shackell",
+                "given": "Nancy L."
+            },
+            {
+                "family": "Sorongon-Yap",
+                "given": "Patricia"
+            },
+            {
+                "family": "Worm",
+                "given": "Boris"
+            }
+        ],
+        "container-title": "Nature Climate Change",
+        "id": "boyce2022",
+        "issue": "9",
+        "issued": {
+            "date-parts": [
+                [
+                    2022
+                ]
+            ]
+        },
+        "key": "IZ9G2PNJ",
+        "libraryid": "1",
+        "page": "854-862",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "publisher": "Springer",
+        "title": "A climate risk index for marine life",
+        "type": "article-journal",
+        "us\nisbn": "4155802201",
+        "volume": "12"
+    },
+    {
+        "DOI": "10.3390/cli9120177",
+        "ISSN": "22251154",
+        "author": [
+            {
+                "family": "Rangwala",
+                "given": "Imtiaz"
+            },
+            {
+                "family": "Moss",
+                "given": "Wynne"
+            },
+            {
+                "family": "Wolken",
+                "given": "Jane"
+            },
+            {
+                "family": "Rondeau",
+                "given": "Renee"
+            },
+            {
+                "family": "Newlon",
+                "given": "Karen"
+            },
+            {
+                "family": "Guinotte",
+                "given": "John"
+            },
+            {
+                "family": "Travis",
+                "given": "William Riebsame"
+            }
+        ],
+        "container-title": "Climate",
+        "id": "rangwala2021",
+        "issue": "12",
+        "issued": {
+            "date-parts": [
+                [
+                    2021
+                ]
+            ]
+        },
+        "key": "JWEDXA99",
+        "libraryid": "1",
+        "page": "1-28",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "title": "Uncertainty, complexity and constraints: How do we robustly assess biological responses under a rapidly changing climate?",
+        "type": "article-journal",
+        "volume": "9"
+    },
+    {
+        "DOI": "10.1080/07011784.2023.2267028",
+        "ISSN": "07011784",
+        "author": [
+            {
+                "family": "Weller",
+                "given": "J. Daniel"
+            },
+            {
+                "family": "Moore",
+                "given": "R. D."
+            },
+            {
+                "family": "Iacarella",
+                "given": "Josephine C."
+            }
+        ],
+        "container-title": "Canadian Water Resources Journal",
+        "id": "weller2024",
+        "issue": "2",
+        "issued": {
+            "date-parts": [
+                [
+                    2024
+                ]
+            ]
+        },
+        "key": "C8XKJG7P",
+        "libraryid": "1",
+        "page": "233-252",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "publisher": "Taylor",
+        "title": "Stream thermalscape scenarios for British Columbia, Canada",
+        "type": "article-journal",
+        "volume": "49"
+    },
+    {
+        "DOI": "10.1080/07055900.2023.2239186",
+        "ISSN": "0705-5900, 1480-9214",
+        "URL": "https://www.tandfonline.com/doi/full/10.1080/07055900.2023.2239186",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Peña",
+                "given": "M. Angelica"
+            },
+            {
+                "family": "Fine",
+                "given": "Isaac"
+            }
+        ],
+        "container-title": "Atmosphere-Ocean",
+        "container-title-short": "Atmosphere-Ocean",
+        "id": "peña2024",
+        "issue": "1",
+        "issued": {
+            "date-parts": [
+                [
+                    2024,
+                    1
+                ]
+            ]
+        },
+        "key": "IGYWZTJP",
+        "language": "en",
+        "libraryid": "1",
+        "page": "2-23",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "source": "DOI.org (Crossref)",
+        "title": "Future Physical and Biogeochemical Ocean Conditions under Climate Change along the British Columbia Continental Margin",
+        "type": "article-journal",
+        "volume": "62"
+    },
+    {
+        "DOI": "10.1126/science.aad8466",
+        "ISSN": "0036-8075, 1095-9203",
+        "URL": "https://www.science.org/doi/10.1126/science.aad8466",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Urban",
+                "given": "M. C."
+            },
+            {
+                "family": "Bocedi",
+                "given": "G."
+            },
+            {
+                "family": "Hendry",
+                "given": "A. P."
+            },
+            {
+                "family": "Mihoub",
+                "given": "J.-B."
+            },
+            {
+                "family": "Pe’er",
+                "given": "G."
+            },
+            {
+                "family": "Singer",
+                "given": "A."
+            },
+            {
+                "family": "Bridle",
+                "given": "J. R."
+            },
+            {
+                "family": "Crozier",
+                "given": "L. G."
+            },
+            {
+                "family": "De Meester",
+                "given": "L."
+            },
+            {
+                "family": "Godsoe",
+                "given": "W."
+            },
+            {
+                "family": "Gonzalez",
+                "given": "A."
+            },
+            {
+                "family": "Hellmann",
+                "given": "J. J."
+            },
+            {
+                "family": "Holt",
+                "given": "R. D."
+            },
+            {
+                "family": "Huth",
+                "given": "A."
+            },
+            {
+                "family": "Johst",
+                "given": "K."
+            },
+            {
+                "family": "Krug",
+                "given": "C. B."
+            },
+            {
+                "family": "Leadley",
+                "given": "P. W."
+            },
+            {
+                "family": "Palmer",
+                "given": "S. C. F."
+            },
+            {
+                "family": "Pantel",
+                "given": "J. H."
+            },
+            {
+                "family": "Schmitz",
+                "given": "A."
+            },
+            {
+                "family": "Zollner",
+                "given": "P. A."
+            },
+            {
+                "family": "Travis",
+                "given": "J. M. J."
+            }
+        ],
+        "container-title": "Science",
+        "container-title-short": "Science",
+        "id": "urban2016",
+        "issue": "6304",
+        "issued": {
+            "date-parts": [
+                [
+                    2016,
+                    9,
+                    9
+                ]
+            ]
+        },
+        "key": "5PNVTTG4",
+        "language": "en",
+        "libraryid": "1",
+        "page": "aad8466",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "source": "DOI.org (Crossref)",
+        "title": "Improving the forecast for biodiversity under climate change",
+        "type": "article-journal",
+        "volume": "353"
+    },
+    {
+        "DOI": "10.1038/nclimate2448",
+        "ISSN": "17586798",
+        "author": [
+            {
+                "family": "Pacifici",
+                "given": "Michela"
+            },
+            {
+                "family": "Foden",
+                "given": "Wendy B."
+            },
+            {
+                "family": "Visconti",
+                "given": "Piero"
+            },
+            {
+                "family": "Watson",
+                "given": "James E.M."
+            },
+            {
+                "family": "Butchart",
+                "given": "Stuart H.M."
+            },
+            {
+                "family": "Kovacs",
+                "given": "Kit M."
+            },
+            {
+                "family": "Scheffers",
+                "given": "Brett R."
+            },
+            {
+                "family": "Hole",
+                "given": "David G."
+            },
+            {
+                "family": "Martin",
+                "given": "Tara G."
+            },
+            {
+                "family": "Akçakaya",
+                "given": "H. Resit"
+            },
+            {
+                "family": "Corlett",
+                "given": "Richard T."
+            },
+            {
+                "family": "Huntley",
+                "given": "Brian"
+            },
+            {
+                "family": "Bickford",
+                "given": "David"
+            },
+            {
+                "family": "Carr",
+                "given": "Jamie A."
+            },
+            {
+                "family": "Hoffmann",
+                "given": "Ary A."
+            },
+            {
+                "family": "Midgley",
+                "given": "Guy F."
+            },
+            {
+                "family": "Pearce-Kelly",
+                "given": "Paul"
+            },
+            {
+                "family": "Pearson",
+                "given": "Richard G."
+            },
+            {
+                "family": "Williams",
+                "given": "Stephen E."
+            },
+            {
+                "family": "Willis",
+                "given": "Stephen G."
+            },
+            {
+                "family": "Young",
+                "given": "Bruce"
+            },
+            {
+                "family": "Rondinini",
+                "given": "Carlo"
+            }
+        ],
+        "container-title": "Nature Climate Change",
+        "id": "pacifici2015",
+        "issue": "3",
+        "issued": {
+            "date-parts": [
+                [
+                    2015
+                ]
+            ]
+        },
+        "key": "5W5AUZIL",
+        "libraryid": "1",
+        "page": "215-225",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "title": "Assessing species vulnerability to climate change",
+        "type": "article-journal",
+        "volume": "5"
+    },
+    {
+        "DOI": "10.1139/cjfas-2024-0213",
+        "ISSN": "0706-652X, 1205-7533",
+        "URL": "https://cdnsciencepub.com/doi/10.1139/cjfas-2024-0213",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Wilson",
+                "given": "Samantha M."
+            },
+            {
+                "family": "Peacock",
+                "given": "Stephanie J."
+            }
+        ],
+        "container-title": "Canadian Journal of Fisheries and Aquatic Sciences",
+        "container-title-short": "Can. J. Fish. Aquat. Sci.",
+        "id": "wilson2025",
+        "issued": {
+            "date-parts": [
+                [
+                    2025,
+                    1,
+                    1
+                ]
+            ]
+        },
+        "key": "3KXZGEET",
+        "language": "en",
+        "libraryid": "1",
+        "page": "1-17",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "rights": "https://creativecommons.org/licenses/by/4.0/deed.en_GB",
+        "source": "DOI.org (Crossref)",
+        "title": "Freshwater life-cycle timing of Pacific salmon and steelhead ( <i>Oncorhynchus</i> spp.) in Canada",
+        "type": "article-journal",
+        "volume": "82"
+    },
+    {
+        "DOI": "10.1139/cjfas-2023-0096",
+        "ISSN": "0706-652X",
+        "author": [
+            {
+                "family": "Iacarella",
+                "given": "Josephine C."
+            },
+            {
+                "family": "Weller",
+                "given": "J. Daniel"
+            }
+        ],
+        "container-title": "Canadian Journal of Fisheries and Aquatic Sciences",
+        "id": "iacarella2023",
+        "issued": {
+            "date-parts": [
+                [
+                    2023
+                ]
+            ]
+        },
+        "key": "WWAMZYNQ",
+        "libraryid": "1",
+        "page": "1-13",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "title": "Predicting favourable streams for anadromous salmon spawning and natal rearing under climate change",
+        "type": "article-journal",
+        "volume": "13"
+    },
+    {
+        "ISBN": "978-0-660-46965-2",
+        "author": [
+            {
+                "family": "Doutaz",
+                "given": "Daniel"
+            },
+            {
+                "family": "Huang",
+                "given": "Ann-marie"
+            },
+            {
+                "family": "Decker",
+                "given": "Scott"
+            },
+            {
+                "family": "Vivian",
+                "given": "Tanya"
+            }
+        ],
+        "id": "doutaz2023",
+        "issue": "March",
+        "issued": {
+            "date-parts": [
+                [
+                    2023
+                ]
+            ]
+        },
+        "key": "TDZ72FBB",
+        "libraryid": "1",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "title": "Recovery Potential Assessment for Fraser River Sockeye Salmon (Oncorhynchus nerka), Nine Designatable Units Part 2: Biology, Habitat, Threats, Mitigations and Allowable Harm - Elements 1-11, 14, 16-18, 22",
+        "type": "book"
+    },
+    {
+        "ISBN": "9780660487618",
+        "author": [
+            {
+                "family": "Dionne",
+                "given": "Kaitlyn"
+            },
+            {
+                "family": "Parken",
+                "given": "Chuck"
+            },
+            {
+                "family": "Weir",
+                "given": "Lauren"
+            },
+            {
+                "family": "Doutaz",
+                "given": "Daniel"
+            },
+            {
+                "family": "Bailey",
+                "given": "Richard"
+            },
+            {
+                "family": "Jenewein",
+                "given": "Brittany"
+            },
+            {
+                "family": "Miller-saunders",
+                "given": "Kristi"
+            },
+            {
+                "family": "Labelle",
+                "given": "Marc"
+            },
+            {
+                "family": "Welch",
+                "given": "Paul"
+            },
+            {
+                "family": "Trouton",
+                "given": "Nicole"
+            },
+            {
+                "family": "Mozin",
+                "given": "Paul"
+            },
+            {
+                "family": "Walsh",
+                "given": "Michelle"
+            }
+        ],
+        "id": "dionne2023",
+        "issue": "2023/042",
+        "issued": {
+            "date-parts": [
+                [
+                    2023
+                ]
+            ]
+        },
+        "key": "3Q885TTK",
+        "libraryid": "1",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "title": "Recovery Potential Assessment for Southern British Columbian Chinook Populations , Fraser and Southern Mainland Chinook",
+        "type": "report"
+    },
+    {
+        "author": [
+            {
+                "family": "Holtby",
+                "given": "L Blair"
+            },
+            {
+                "dropping-particle": "a",
+                "family": "Ciruna",
+                "given": "Kristine"
+            }
+        ],
+        "container-title": "Can. Sci. Advis. Sec. Res. Doc.",
+        "id": "Holtby2007",
+        "issued": {
+            "date-parts": [
+                [
+                    2007
+                ]
+            ]
+        },
+        "key": "87HDF9N7",
+        "libraryid": "1",
+        "note": "Citation Key: Holtby2007",
+        "page": "1-358",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "title": "Conservation units for Pacific Salmon under the Wild Salmon Policy",
+        "type": "article-journal",
+        "volume": "2007/070"
+    },
+    {
+        "author": [
+            {
+                "family": "CSAS"
+            }
+        ],
+        "id": "csas2024",
+        "issued": {
+            "date-parts": [
+                [
+                    2024
+                ]
+            ]
+        },
+        "key": "48L6S8WZ",
+        "language": "en",
+        "libraryid": "1",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "source": "Zotero",
+        "title": "Rapid Status Approximations for Pacific Salmon Derived from Integrated Expert Assessments under Fisheries and Oceans Canada Wild Salmon Policy",
+        "type": "article-journal",
+        "volume": "004"
+    },
+    {
+        "DOI": "10.1371/journal.pone.0065427",
+        "ISSN": "1932-6203",
+        "URL": "https://dx.plos.org/10.1371/journal.pone.0065427",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Foden",
+                "given": "Wendy B."
+            },
+            {
+                "family": "Butchart",
+                "given": "Stuart H. M."
+            },
+            {
+                "family": "Stuart",
+                "given": "Simon N."
+            },
+            {
+                "family": "Vié",
+                "given": "Jean-Christophe"
+            },
+            {
+                "family": "Akçakaya",
+                "given": "H. Resit"
+            },
+            {
+                "family": "Angulo",
+                "given": "Ariadne"
+            },
+            {
+                "family": "DeVantier",
+                "given": "Lyndon M."
+            },
+            {
+                "family": "Gutsche",
+                "given": "Alexander"
+            },
+            {
+                "family": "Turak",
+                "given": "Emre"
+            },
+            {
+                "family": "Cao",
+                "given": "Long"
+            },
+            {
+                "family": "Donner",
+                "given": "Simon D."
+            },
+            {
+                "family": "Katariya",
+                "given": "Vineet"
+            },
+            {
+                "family": "Bernard",
+                "given": "Rodolphe"
+            },
+            {
+                "family": "Holland",
+                "given": "Robert A."
+            },
+            {
+                "family": "Hughes",
+                "given": "Adrian F."
+            },
+            {
+                "family": "O’Hanlon",
+                "given": "Susannah E."
+            },
+            {
+                "family": "Garnett",
+                "given": "Stephen T."
+            },
+            {
+                "family": "Şekercioğlu",
+                "given": "Çagan H."
+            },
+            {
+                "family": "Mace",
+                "given": "Georgina M."
+            }
+        ],
+        "container-title": "PLoS ONE",
+        "container-title-short": "PLoS ONE",
+        "editor": [
+            {
+                "family": "Lavergne",
+                "given": "Sebastien"
+            }
+        ],
+        "id": "foden2013",
+        "issue": "6",
+        "issued": {
+            "date-parts": [
+                [
+                    2013,
+                    6,
+                    12
+                ]
+            ]
+        },
+        "key": "23XE9Z7X",
+        "language": "en",
+        "libraryid": "1",
+        "page": "e65427",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "source": "DOI.org (Crossref)",
+        "title": "Identifying the World’s Most Climate Change Vulnerable Species: A Systematic Trait-Based Assessment of all Birds, Amphibians and Corals",
+        "title-short": "Identifying the World’s Most Climate Change Vulnerable Species",
+        "type": "article-journal",
+        "volume": "8"
+    },
+    {
+        "author": [
+            {
+                "family": "Iacarella",
+                "given": "Josephine C"
+            },
+            {
+                "family": "Paterson",
+                "given": "Keegan"
+            },
+            {
+                "family": "Potapova",
+                "given": "Anna"
+            },
+            {
+                "family": "Weller",
+                "given": "J Daniel"
+            }
+        ],
+        "container-title": "DFO Can. Sci. Advis. Sec. Res. Doc.",
+        "id": "iacarella2025",
+        "issued": {
+            "date-parts": [
+                [
+                    2025
+                ]
+            ]
+        },
+        "key": "W2PSI8NE",
+        "language": "en",
+        "libraryid": "1",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "source": "Zotero",
+        "title": "Geospatial Indicators and Metrics for Threats to Fish Habitat in the Fraser River Basin with Thompson-Nicola as a Case Study",
+        "type": "article-journal",
+        "volume": "2025/013"
+    },
+    {
+        "author": [
+            {
+                "family": "Pestal",
+                "given": "Gottfried"
+            },
+            {
+                "family": "MacDonald",
+                "given": "Bronwyn L"
+            },
+            {
+                "family": "Grant",
+                "given": "Sue"
+            },
+            {
+                "family": "Holt",
+                "given": "C. A."
+            }
+        ],
+        "container-title": "Can. Tech. Rep. Fish. Aquat. Sci.",
+        "id": "pestal2023",
+        "issue": "3570",
+        "issued": {
+            "date-parts": [
+                [
+                    2023
+                ]
+            ]
+        },
+        "key": "DJECTSYJ",
+        "language": "en",
+        "libraryid": "1",
+        "oclc": "1407571946",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "source": "Open WorldCat",
+        "title": "State of the Salmon: Rapid status assessment approach for Pacific salmon under Canada’s wild salmon policy",
+        "type": "article-journal"
+    },
+    {
+        "ISBN": "978-0-660-70844-7",
+        "author": [
+            {
+                "family": "Murray",
+                "given": "Cathryn Clarke"
+            },
+            {
+                "family": "Kelly",
+                "given": "Noreen E"
+            },
+            {
+                "family": "Nelson",
+                "given": "Jocelyn C"
+            },
+            {
+                "family": "Murphy",
+                "given": "Grace E.P."
+            },
+            {
+                "family": "Agbayani",
+                "given": "Selina"
+            }
+        ],
+        "id": "murray2024",
+        "issued": {
+            "date-parts": [
+                [
+                    2024
+                ]
+            ]
+        },
+        "key": "J9BQZFKT",
+        "language": "en",
+        "libraryid": "1",
+        "oclc": "1482035275",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "publisher": "Canadian Science Advisory Secretariat (CSAS)",
+        "publisher-place": "Ottawa ON",
+        "source": "Open WorldCat",
+        "title": "Cumulative impact mapping and vulnerability of Canadian marine ecosystems to anthropogenic activities and stressors",
+        "type": "book"
+    },
+    {
+        "DOI": "10.1002/tafs.10059",
+        "ISSN": "0002-8487, 1548-8659",
+        "URL": "https://academic.oup.com/tafs/article/147/3/566/7819609",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Isaak",
+                "given": "Daniel J."
+            },
+            {
+                "family": "Luce",
+                "given": "Charles H."
+            },
+            {
+                "family": "Horan",
+                "given": "Dona L."
+            },
+            {
+                "family": "Chandler",
+                "given": "Gwynne L."
+            },
+            {
+                "family": "Wollrab",
+                "given": "Sherry P."
+            },
+            {
+                "family": "Nagel",
+                "given": "David E."
+            }
+        ],
+        "container-title": "Transactions of the American Fisheries Society",
+        "container-title-short": "Trans Am Fish Soc",
+        "id": "isaak2018",
+        "issue": "3",
+        "issued": {
+            "date-parts": [
+                [
+                    2018,
+                    5
+                ]
+            ]
+        },
+        "key": "QIA7NUEJ",
+        "language": "en",
+        "libraryid": "1",
+        "page": "566-587",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "source": "DOI.org (Crossref)",
+        "title": "Global Warming of Salmon and Trout Rivers in the Northwestern U.S.: Road to Ruin or Path Through Purgatory?",
+        "title-short": "Global Warming of Salmon and Trout Rivers in the Northwestern U.S.",
+        "type": "article-journal",
+        "volume": "147"
+    },
+    {
+        "DOI": "10.1111/fwb.14300",
+        "ISSN": "13652427",
+        "author": [
+            {
+                "family": "Iacarella",
+                "given": "Josephine C."
+            },
+            {
+                "family": "Chea",
+                "given": "Richard"
+            },
+            {
+                "family": "Patterson",
+                "given": "David A."
+            },
+            {
+                "family": "Weller",
+                "given": "J. Daniel"
+            }
+        ],
+        "container-title": "Freshwater Biology",
+        "id": "iacarella2024",
+        "issue": "9",
+        "issued": {
+            "date-parts": [
+                [
+                    2024,
+                    9,
+                    1
+                ]
+            ]
+        },
+        "key": "3KTB3UAX",
+        "libraryid": "1",
+        "page": "1218-1231",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "publisher": "John",
+        "title": "Projecting exceedance of juvenile salmonid thermal maxima in streams under climate change: A crosswalk from lab experiments to riparian restoration",
+        "type": "article-journal",
+        "volume": "69"
+    },
+    {
+        "ISBN": "9780660689227",
+        "author": [
+            {
+                "family": "Macdonald",
+                "given": "B."
+            },
+            {
+                "family": "Grant",
+                "given": "S.C.H"
+            }
+        ],
+        "id": "macdonald2023",
+        "issued": {
+            "date-parts": [
+                [
+                    2023
+                ]
+            ]
+        },
+        "key": "4PE4QWRH",
+        "libraryid": "1",
+        "page": "27 p.",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "title": "State of Canadian Pacific salmon: considerations for Pacific salmon management in a changing climate",
+        "type": "article-journal"
+    },
+    {
+        "DOI": "10.1038/nclimate1539",
+        "ISSN": "1758-678X, 1758-6798",
+        "URL": "https://www.nature.com/articles/nclimate1539",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Sunday",
+                "given": "Jennifer M."
+            },
+            {
+                "family": "Bates",
+                "given": "Amanda E."
+            },
+            {
+                "family": "Dulvy",
+                "given": "Nicholas K."
+            }
+        ],
+        "container-title": "Nature Climate Change",
+        "container-title-short": "Nature Clim Change",
+        "id": "sunday2012",
+        "issue": "9",
+        "issued": {
+            "date-parts": [
+                [
+                    2012,
+                    9
+                ]
+            ]
+        },
+        "key": "57N7BM49",
+        "language": "en",
+        "libraryid": "1",
+        "page": "686-690",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "rights": "http://www.springer.com/tdm",
+        "source": "DOI.org (Crossref)",
+        "title": "Thermal tolerance and the global redistribution of animals",
+        "type": "article-journal",
+        "volume": "2"
+    },
+    {
+        "DOI": "10.1016/j.tree.2018.03.009",
+        "ISSN": "01695347",
+        "PMID": "29716742",
+        "author": [
+            {
+                "family": "Brito-Morales",
+                "given": "Isaac"
+            },
+            {
+                "family": "García Molinos",
+                "given": "Jorge"
+            },
+            {
+                "family": "Schoeman",
+                "given": "David S."
+            },
+            {
+                "family": "Burrows",
+                "given": "Michael T."
+            },
+            {
+                "family": "Poloczanska",
+                "given": "Elvira S."
+            },
+            {
+                "family": "Brown",
+                "given": "Christopher J."
+            },
+            {
+                "family": "Ferrier",
+                "given": "Simon"
+            },
+            {
+                "family": "Harwood",
+                "given": "Tom D."
+            },
+            {
+                "family": "Klein",
+                "given": "Carissa J."
+            },
+            {
+                "family": "McDonald-Madden",
+                "given": "Eve"
+            },
+            {
+                "family": "Moore",
+                "given": "Pippa J."
+            },
+            {
+                "family": "Pandolfi",
+                "given": "John M."
+            },
+            {
+                "family": "Watson",
+                "given": "James E.M."
+            },
+            {
+                "family": "Wenger",
+                "given": "Amelia S."
+            },
+            {
+                "family": "Richardson",
+                "given": "Anthony J."
+            }
+        ],
+        "container-title": "Trends in Ecology and Evolution",
+        "id": "brito-morales2018",
+        "issue": "6",
+        "issued": {
+            "date-parts": [
+                [
+                    2018
+                ]
+            ]
+        },
+        "key": "C559GAQW",
+        "libraryid": "1",
+        "page": "441-457",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "title": "Climate Velocity Can Inform Conservation in a Warming World",
+        "type": "article-journal",
+        "volume": "33"
+    },
+    {
+        "DOI": "10.1038/nclimate3382",
+        "ISSN": "1758-678X, 1758-6798",
+        "URL": "https://www.nature.com/articles/nclimate3382",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Comte",
+                "given": "Lise"
+            },
+            {
+                "family": "Olden",
+                "given": "Julian D."
+            }
+        ],
+        "container-title": "Nature Climate Change",
+        "container-title-short": "Nature Clim Change",
+        "id": "comte2017",
+        "issue": "10",
+        "issued": {
+            "date-parts": [
+                [
+                    2017,
+                    10
+                ]
+            ]
+        },
+        "key": "4JDUIDXQ",
+        "language": "en",
+        "libraryid": "1",
+        "page": "718-722",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "source": "DOI.org (Crossref)",
+        "title": "Climatic vulnerability of the world’s freshwater and marine fishes",
+        "type": "article-journal",
+        "volume": "7"
+    },
+    {
+        "DOI": "10.1111/geb.12911",
+        "ISSN": "1466-822X, 1466-8238",
+        "URL": "https://onlinelibrary.wiley.com/doi/10.1111/geb.12911",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Morley",
+                "given": "S. A."
+            },
+            {
+                "family": "Peck",
+                "given": "L. S."
+            },
+            {
+                "family": "Sunday",
+                "given": "J. M."
+            },
+            {
+                "family": "Heiser",
+                "given": "S."
+            },
+            {
+                "family": "Bates",
+                "given": "A. E."
+            }
+        ],
+        "container-title": "Global Ecology and Biogeography",
+        "container-title-short": "Global Ecol Biogeogr",
+        "editor": [
+            {
+                "family": "Algar",
+                "given": "Adam"
+            }
+        ],
+        "id": "morley2019",
+        "issue": "7",
+        "issued": {
+            "date-parts": [
+                [
+                    2019,
+                    7
+                ]
+            ]
+        },
+        "key": "ZS8TL8ZG",
+        "language": "en",
+        "libraryid": "1",
+        "page": "1018-1037",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "source": "DOI.org (Crossref)",
+        "title": "Physiological acclimation and persistence of ectothermic species under extreme heat events",
+        "type": "article-journal",
+        "volume": "28"
+    },
+    {
+        "DOI": "10.1139/f2011-010",
+        "ISSN": "0706-652X",
+        "author": [
+            {
+                "family": "Healey",
+                "given": "Michael"
+            }
+        ],
+        "container-title": "Canadian Journal of Fisheries and Aquatic Sciences",
+        "id": "healey2011",
+        "issue": "4",
+        "issued": {
+            "date-parts": [
+                [
+                    2011
+                ]
+            ]
+        },
+        "key": "BNXBUWD2",
+        "libraryid": "1",
+        "page": "718-737",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "title": "The cumulative impacts of climate change on Fraser River sockeye salmon ( Oncorhynchus nerka ) and implications for management",
+        "type": "article-journal",
+        "volume": "68"
+    },
+    {
+        "DOI": "10.1080/00028487.2017.1321580",
+        "ISSN": "0002-8487, 1548-8659",
+        "URL": "https://academic.oup.com/tafs/article/146/5/983/7819794",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Weinheimer",
+                "given": "Joshua"
+            },
+            {
+                "family": "Anderson",
+                "given": "Joseph H."
+            },
+            {
+                "family": "Downen",
+                "given": "Mark"
+            },
+            {
+                "family": "Zimmerman",
+                "given": "Mara"
+            },
+            {
+                "family": "Johnson",
+                "given": "Thom"
+            }
+        ],
+        "container-title": "Transactions of the American Fisheries Society",
+        "container-title-short": "Trans Am Fish Soc",
+        "id": "weinheimer2017",
+        "issue": "5",
+        "issued": {
+            "date-parts": [
+                [
+                    2017,
+                    9
+                ]
+            ]
+        },
+        "key": "MZRG7R39",
+        "language": "en",
+        "libraryid": "1",
+        "page": "983-995",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "rights": "http://onlinelibrary.wiley.com/termsAndConditions#vor",
+        "source": "DOI.org (Crossref)",
+        "title": "Monitoring Climate Impacts: Survival and Migration Timing of Summer Chum Salmon in Salmon Creek, Washington",
+        "title-short": "Monitoring Climate Impacts",
+        "type": "article-journal",
+        "volume": "146"
+    },
+    {
+        "DOI": "10.1890/03-0408",
+        "ISSN": "0012-9658",
+        "URL": "http://doi.wiley.com/10.1890/03-0408",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Schindler",
+                "given": "Daniel E."
+            },
+            {
+                "family": "Rogers",
+                "given": "Donald E."
+            },
+            {
+                "family": "Scheuerell",
+                "given": "Mark D."
+            },
+            {
+                "family": "Abrey",
+                "given": "Caryn A."
+            }
+        ],
+        "container-title": "Ecology",
+        "container-title-short": "Ecology",
+        "id": "schindler2005",
+        "issue": "1",
+        "issued": {
+            "date-parts": [
+                [
+                    2005,
+                    1
+                ]
+            ]
+        },
+        "key": "K99N88UF",
+        "language": "en",
+        "libraryid": "1",
+        "page": "198-209",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "rights": "http://doi.wiley.com/10.1002/tdm_license_1.1",
+        "source": "DOI.org (Crossref)",
+        "title": "EFFECTS OF CHANGING CLIMATE ON ZOOPLANKTON AND JUVENILE SOCKEYE SALMON GROWTH IN SOUTHWESTERN ALASKA",
+        "type": "article-journal",
+        "volume": "86"
+    },
+    {
+        "DOI": "10.1111/gcb.16446",
+        "ISSN": "1354-1013, 1365-2486",
+        "URL": "https://onlinelibrary.wiley.com/doi/10.1111/gcb.16446",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Gallagher",
+                "given": "Brian K."
+            },
+            {
+                "family": "Geargeoura",
+                "given": "Sarah"
+            },
+            {
+                "family": "Fraser",
+                "given": "Dylan J."
+            }
+        ],
+        "container-title": "Global Change Biology",
+        "container-title-short": "Global Change Biology",
+        "id": "gallagher2022",
+        "issue": "24",
+        "issued": {
+            "date-parts": [
+                [
+                    2022,
+                    12
+                ]
+            ]
+        },
+        "key": "ZPS6BDJ4",
+        "language": "en",
+        "libraryid": "1",
+        "page": "7250-7269",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "source": "DOI.org (Crossref)",
+        "title": "Effects of climate on salmonid productivity: A global meta‐analysis across freshwater ecosystems",
+        "title-short": "Effects of climate on salmonid productivity",
+        "type": "article-journal",
+        "volume": "28"
+    },
+    {
+        "DOI": "10.1111/j.1752-4571.2008.00033.x",
+        "ISSN": "1752-4571",
+        "author": [
+            {
+                "family": "Crozier",
+                "given": "L. G."
+            },
+            {
+                "family": "Hendry",
+                "given": "A. P."
+            },
+            {
+                "family": "Lawson",
+                "given": "P. W."
+            },
+            {
+                "family": "Quinn",
+                "given": "T. P."
+            },
+            {
+                "family": "Mantua",
+                "given": "N. J."
+            },
+            {
+                "family": "Battin",
+                "given": "J."
+            },
+            {
+                "family": "Shaw",
+                "given": "R. G."
+            },
+            {
+                "family": "Huey",
+                "given": "R. B."
+            }
+        ],
+        "container-title": "Evolutionary Applications",
+        "id": "crozier2008",
+        "issue": "2",
+        "issued": {
+            "date-parts": [
+                [
+                    2008,
+                    5
+                ]
+            ]
+        },
+        "key": "FDJ6VIPD",
+        "libraryid": "1",
+        "page": "252-270",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "publisher": "Wiley",
+        "title": "Potential responses to climate change in organisms with complex life histories: evolution and plasticity in Pacific salmon",
+        "type": "article-journal",
+        "volume": "1"
+    },
+    {
+        "DOI": "10.1890/13-0753.1",
+        "ISSN": "1051-0761, 1939-5582",
+        "URL": "https://esajournals.onlinelibrary.wiley.com/doi/10.1890/13-0753.1",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Lawrence",
+                "given": "David J."
+            },
+            {
+                "family": "Stewart-Koster",
+                "given": "Ben"
+            },
+            {
+                "family": "Olden",
+                "given": "Julian D."
+            },
+            {
+                "family": "Ruesch",
+                "given": "Aaron S."
+            },
+            {
+                "family": "Torgersen",
+                "given": "Christian E."
+            },
+            {
+                "family": "Lawler",
+                "given": "Joshua J."
+            },
+            {
+                "family": "Butcher",
+                "given": "Don P."
+            },
+            {
+                "family": "Crown",
+                "given": "Julia K."
+            }
+        ],
+        "container-title": "Ecological Applications",
+        "container-title-short": "Ecological Applications",
+        "id": "lawrence2014",
+        "issue": "4",
+        "issued": {
+            "date-parts": [
+                [
+                    2014,
+                    6
+                ]
+            ]
+        },
+        "key": "YDKVY4AQ",
+        "language": "en",
+        "libraryid": "1",
+        "page": "895-912",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "rights": "http://onlinelibrary.wiley.com/termsAndConditions#vor",
+        "source": "DOI.org (Crossref)",
+        "title": "The interactive effects of climate change, riparian management, and a nonnative predator on stream‐rearing salmon",
+        "type": "article-journal",
+        "volume": "24"
+    },
+    {
+        "DOI": "10.1111/j.1365-2656.2006.01130.x",
+        "ISSN": "0021-8790, 1365-2656",
+        "URL": "https://besjournals.onlinelibrary.wiley.com/doi/10.1111/j.1365-2656.2006.01130.x",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Crozier",
+                "given": "Lisa G."
+            },
+            {
+                "family": "Zabel",
+                "given": "Richard W."
+            }
+        ],
+        "container-title": "Journal of Animal Ecology",
+        "container-title-short": "Journal of Animal Ecology",
+        "id": "crozier2006",
+        "issue": "5",
+        "issued": {
+            "date-parts": [
+                [
+                    2006,
+                    9
+                ]
+            ]
+        },
+        "key": "E2CRI47U",
+        "language": "en",
+        "libraryid": "1",
+        "page": "1100-1109",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "rights": "http://onlinelibrary.wiley.com/termsAndConditions#vor",
+        "source": "DOI.org (Crossref)",
+        "title": "Climate impacts at multiple scales: evidence for differential population responses in juvenile Chinook salmon",
+        "title-short": "Climate impacts at multiple scales",
+        "type": "article-journal",
+        "volume": "75"
+    },
+    {
+        "DOI": "10.1002/2688-8319.12124",
+        "ISSN": "26888319",
+        "author": [
+            {
+                "family": "Warkentin",
+                "given": "Luke"
+            },
+            {
+                "family": "Parken",
+                "given": "Charles K."
+            },
+            {
+                "family": "Bailey",
+                "given": "Richard"
+            },
+            {
+                "family": "Moore",
+                "given": "Jonathan W."
+            }
+        ],
+        "container-title": "Ecological Solutions and Evidence",
+        "id": "warkentin2022",
+        "issue": "1",
+        "issued": {
+            "date-parts": [
+                [
+                    2022
+                ]
+            ]
+        },
+        "key": "XAIWIFK5",
+        "libraryid": "1",
+        "page": "1-12",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "title": "Low summer river flows associated with low productivity of Chinook salmon in a watershed with shifting hydrology",
+        "type": "article-journal",
+        "volume": "3"
+    },
+    {
+        "DOI": "10.1577/1548-8675(2003)023<0362:IOFATO>2.0.CO;2",
+        "ISSN": "0275-5947, 1548-8675",
+        "URL": "https://academic.oup.com/najfm/article/23/2/362/7847801",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Connor",
+                "given": "William P."
+            },
+            {
+                "family": "Burge",
+                "given": "Howard L."
+            },
+            {
+                "family": "Yearsley",
+                "given": "John R."
+            },
+            {
+                "family": "Bjornn",
+                "given": "Theodore C."
+            }
+        ],
+        "container-title": "North American Journal of Fisheries Management",
+        "container-title-short": "North American Journal of Fisheries Management",
+        "id": "connor2003",
+        "issue": "2",
+        "issued": {
+            "date-parts": [
+                [
+                    2003,
+                    5
+                ]
+            ]
+        },
+        "key": "MCZS7NYU",
+        "language": "en",
+        "libraryid": "1",
+        "page": "362-375",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "source": "DOI.org (Crossref)",
+        "title": "Influence of Flow and Temperature on Survival of Wild Subyearling Fall Chinook Salmon in the Snake River",
+        "type": "article-journal",
+        "volume": "23"
+    },
+    {
+        "DOI": "10.1139/CJFAS-2022-0302",
+        "ISSN": "0706-652X",
+        "URL": "https://cdnsciencepub.com/doi/10.1139/cjfas-2022-0302",
+        "accessed": {
+            "date-parts": [
+                [
+                    2023,
+                    3,
+                    23
+                ]
+            ]
+        },
+        "author": [
+            {
+                "family": "Isaak",
+                "given": "Dr. Daniel J."
+            },
+            {
+                "family": "Young",
+                "given": "Michael"
+            }
+        ],
+        "container-title": "https://doi.org/10.1139/cjfas-2022-0302",
+        "id": "isaak2023",
+        "issued": {
+            "date-parts": [
+                [
+                    2023,
+                    3,
+                    15
+                ]
+            ]
+        },
+        "key": "DDP63W8R",
+        "libraryid": "1",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "title": "Cold-water habitats, climate refugia, and their utility for conserving salmonid fishes",
+        "type": "article-journal"
+    },
+    {
+        "DOI": "10.1002/2017WR020969",
+        "ISSN": "0043-1397, 1944-7973",
+        "URL": "https://agupubs.onlinelibrary.wiley.com/doi/10.1002/2017WR020969",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Isaak",
+                "given": "Daniel J."
+            },
+            {
+                "family": "Wenger",
+                "given": "Seth J."
+            },
+            {
+                "family": "Peterson",
+                "given": "Erin E."
+            },
+            {
+                "family": "Ver Hoef",
+                "given": "Jay M."
+            },
+            {
+                "family": "Nagel",
+                "given": "David E."
+            },
+            {
+                "family": "Luce",
+                "given": "Charles H."
+            },
+            {
+                "family": "Hostetler",
+                "given": "Steven W."
+            },
+            {
+                "family": "Dunham",
+                "given": "Jason B."
+            },
+            {
+                "family": "Roper",
+                "given": "Brett B."
+            },
+            {
+                "family": "Wollrab",
+                "given": "Sherry P."
+            },
+            {
+                "family": "Chandler",
+                "given": "Gwynne L."
+            },
+            {
+                "family": "Horan",
+                "given": "Dona L."
+            },
+            {
+                "family": "Parkes‐Payne",
+                "given": "Sharon"
+            }
+        ],
+        "container-title": "Water Resources Research",
+        "container-title-short": "Water Resources Research",
+        "id": "isaak2017",
+        "issue": "11",
+        "issued": {
+            "date-parts": [
+                [
+                    2017,
+                    11
+                ]
+            ]
+        },
+        "key": "2SVNMLJD",
+        "language": "en",
+        "libraryid": "1",
+        "page": "9181-9205",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "rights": "http://onlinelibrary.wiley.com/termsAndConditions#am",
+        "source": "DOI.org (Crossref)",
+        "title": "The NorWeST Summer Stream Temperature Model and Scenarios for the Western U.S.: A Crowd‐Sourced Database and New Geospatial Tools Foster a User Community and Predict Broad Climate Warming of Rivers and Streams",
+        "title-short": "The NorWeST Summer Stream Temperature Model and Scenarios for the Western U.S.",
+        "type": "article-journal",
+        "volume": "53"
+    },
+    {
+        "DOI": "10.1002/tafs.10022",
+        "ISSN": "0002-8487, 1548-8659",
+        "URL": "https://academic.oup.com/tafs/article/147/1/31/7819770",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Bowerman",
+                "given": "Tracy"
+            },
+            {
+                "family": "Roumasset",
+                "given": "Adrienne"
+            },
+            {
+                "family": "Keefer",
+                "given": "Matthew L."
+            },
+            {
+                "family": "Sharpe",
+                "given": "Cameron S."
+            },
+            {
+                "family": "Caudill",
+                "given": "Christopher C."
+            }
+        ],
+        "container-title": "Transactions of the American Fisheries Society",
+        "container-title-short": "Trans Am Fish Soc",
+        "id": "bowerman2018",
+        "issue": "1",
+        "issued": {
+            "date-parts": [
+                [
+                    2018,
+                    1
+                ]
+            ]
+        },
+        "key": "7JKJNZW3",
+        "language": "en",
+        "libraryid": "1",
+        "page": "31-42",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "rights": "http://onlinelibrary.wiley.com/termsAndConditions#am",
+        "source": "DOI.org (Crossref)",
+        "title": "Prespawn Mortality of Female Chinook Salmon Increases with Water Temperature and Percent Hatchery Origin",
+        "type": "article-journal",
+        "volume": "147"
+    },
+    {
+        "DOI": "10.1080/10641260590885861",
+        "ISSN": "1064-1262, 1547-6553",
+        "URL": "https://www.tandfonline.com/doi/full/10.1080/10641260590885861",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Richter",
+                "given": "Ann"
+            },
+            {
+                "family": "Kolmes",
+                "given": "Steven A."
+            }
+        ],
+        "container-title": "Reviews in Fisheries Science",
+        "container-title-short": "Reviews in Fisheries Science",
+        "id": "richter2005",
+        "issue": "1",
+        "issued": {
+            "date-parts": [
+                [
+                    2005,
+                    2,
+                    23
+                ]
+            ]
+        },
+        "key": "GDQHEL6B",
+        "language": "en",
+        "libraryid": "1",
+        "page": "23-49",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "source": "DOI.org (Crossref)",
+        "title": "Maximum Temperature Limits for Chinook, Coho, and Chum Salmon, and Steelhead Trout in the Pacific Northwest",
+        "type": "article-journal",
+        "volume": "13"
+    },
+    {
+        "author": [
+            {
+                "family": "McCullough",
+                "given": "Dale"
+            },
+            {
+                "family": "Spalding",
+                "given": "Shelley"
+            },
+            {
+                "family": "Fish",
+                "given": "U S"
+            },
+            {
+                "family": "Sturdevant",
+                "given": "Debra"
+            },
+            {
+                "family": "Hicks",
+                "given": "Mark"
+            }
+        ],
+        "container-title": "EPA Issue Paper",
+        "id": "mccullough2001",
+        "issued": {
+            "date-parts": [
+                [
+                    2001
+                ]
+            ]
+        },
+        "key": "25HVN3LX",
+        "language": "en",
+        "libraryid": "1",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "source": "Zotero",
+        "title": "Summary of Technical Literature Examining the Physiological Effects of Temperature on Salmonids",
+        "type": "article-journal",
+        "volume": "5"
+    },
+    {
+        "accessed": {
+            "date-parts": [
+                [
+                    2023,
+                    5,
+                    17
+                ]
+            ]
+        },
+        "author": [
+            {
+                "family": "Oliver",
+                "given": "G G"
+            },
+            {
+                "family": "Fidler",
+                "given": "L E"
+            }
+        ],
+        "id": "oliver2001",
+        "issued": {
+            "date-parts": [
+                [
+                    2001
+                ]
+            ]
+        },
+        "key": "QVRWZDJV",
+        "libraryid": "1",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "title": "Ministry of Environment Water Protection and Sustainability Branch Environmental Sustainability and Strategic Policy Division Towards a Water Quality Guideline for Temperature in the Province of British Columbia",
+        "type": "article-journal"
+    },
+    {
+        "author": [
+            {
+                "family": "U.S. Environmental Protection Agency"
+            }
+        ],
+        "call-number": "EPA 910-B-03-002",
+        "id": "u.s.environmentalprotectionagency2003",
+        "issued": {
+            "date-parts": [
+                [
+                    2003
+                ]
+            ]
+        },
+        "key": "PUFTW245",
+        "libraryid": "1",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "publisher": "Region 10 Office of Water, Seattle, WA",
+        "title": "EPA (2003) Guidance",
+        "title-short": "EPA Region 10 Guidance for Pacific Northwest State and Tribal Temperature Water Quality Standards",
+        "type": "article"
+    },
+    {
+        "DOI": "10.1029/2022gl098552",
+        "ISSN": "0094-8276, 1944-8007",
+        "URL": "https://agupubs.onlinelibrary.wiley.com/doi/10.1029/2022GL098552",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Tonina",
+                "given": "Daniele"
+            },
+            {
+                "family": "McKean",
+                "given": "James A."
+            },
+            {
+                "family": "Isaak",
+                "given": "Daniel"
+            },
+            {
+                "family": "Benjankar",
+                "given": "Rohan M."
+            },
+            {
+                "family": "Tang",
+                "given": "Chunling"
+            },
+            {
+                "family": "Chen",
+                "given": "Qiuwen"
+            }
+        ],
+        "container-title": "Geophysical Research Letters",
+        "id": "tonina2022",
+        "issue": "12",
+        "issued": {
+            "date-parts": [
+                [
+                    2022,
+                    6,
+                    28
+                ]
+            ]
+        },
+        "key": "N2IJK33X",
+        "language": "en",
+        "libraryid": "1",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "publisher": "American",
+        "rights": "http://onlinelibrary.wiley.com/termsAndConditions#vor",
+        "source": "Crossref",
+        "title": "Climate Change Shrinks and Fragments Salmon Habitats in a Snow‐Dependent Region",
+        "type": "article-journal",
+        "volume": "49"
+    },
+    {
+        "DOI": "10.3390/fishes8070382",
+        "ISSN": "24103888",
+        "author": [
+            {
+                "family": "Vehanen",
+                "given": "Teppo"
+            },
+            {
+                "family": "Sutela",
+                "given": "Tapio"
+            },
+            {
+                "family": "Huusko",
+                "given": "Ari"
+            }
+        ],
+        "container-title": "Fishes",
+        "id": "vehanen2023",
+        "issue": "7",
+        "issued": {
+            "date-parts": [
+                [
+                    2023,
+                    7,
+                    1
+                ]
+            ]
+        },
+        "key": "AEF2SSXC",
+        "libraryid": "1",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "publisher": "Multidisciplinary",
+        "title": "Potential Impact of Climate Change on Salmonid Smolt Ecology",
+        "type": "article-journal",
+        "volume": "8"
+    },
+    {
+        "DOI": "10.1002/tafs.10057",
+        "ISSN": "0002-8487, 1548-8659",
+        "URL": "https://academic.oup.com/tafs/article/147/3/588/7819775",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Obedzinski",
+                "given": "Mariska"
+            },
+            {
+                "family": "Nossaman Pierce",
+                "given": "Sarah"
+            },
+            {
+                "family": "Horton",
+                "given": "Gregg E."
+            },
+            {
+                "family": "Deitch",
+                "given": "Mathew J."
+            }
+        ],
+        "container-title": "Transactions of the American Fisheries Society",
+        "container-title-short": "Trans Am Fish Soc",
+        "id": "obedzinski2018",
+        "issue": "3",
+        "issued": {
+            "date-parts": [
+                [
+                    2018,
+                    5
+                ]
+            ]
+        },
+        "key": "Y2LJ76JD",
+        "language": "en",
+        "libraryid": "1",
+        "page": "588-605",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "source": "DOI.org (Crossref)",
+        "title": "Effects of Flow‐Related Variables on Oversummer Survival of Juvenile Coho Salmon in Intermittent Streams",
+        "type": "article-journal",
+        "volume": "147"
+    },
+    {
+        "DOI": "10.1007/s10641-015-0376-6",
+        "ISSN": "0378-1909, 1573-5133",
+        "URL": "http://link.springer.com/10.1007/s10641-015-0376-6",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Warren",
+                "given": "M."
+            },
+            {
+                "family": "Dunbar",
+                "given": "M. J."
+            },
+            {
+                "family": "Smith",
+                "given": "C."
+            }
+        ],
+        "container-title": "Environmental Biology of Fishes",
+        "container-title-short": "Environ Biol Fish",
+        "id": "warren2015",
+        "issue": "6",
+        "issued": {
+            "date-parts": [
+                [
+                    2015,
+                    6
+                ]
+            ]
+        },
+        "key": "9VZFEWEV",
+        "language": "en",
+        "libraryid": "1",
+        "page": "1695-1717",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "source": "DOI.org (Crossref)",
+        "title": "River flow as a determinant of salmonid distribution and abundance: a review",
+        "title-short": "River flow as a determinant of salmonid distribution and abundance",
+        "type": "article-journal",
+        "volume": "98"
+    },
+    {
+        "DOI": "10.1029/2024WR038057",
+        "ISSN": "0043-1397, 1944-7973",
+        "URL": "https://agupubs.onlinelibrary.wiley.com/doi/10.1029/2024WR038057",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Ruzzante",
+                "given": "S. W."
+            },
+            {
+                "family": "Gleeson",
+                "given": "T."
+            }
+        ],
+        "container-title": "Water Resources Research",
+        "container-title-short": "Water Resources Research",
+        "id": "ruzzante2025",
+        "issue": "2",
+        "issued": {
+            "date-parts": [
+                [
+                    2025,
+                    2
+                ]
+            ]
+        },
+        "key": "UF7AZE75",
+        "language": "en",
+        "libraryid": "1",
+        "page": "e2024WR038057",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "source": "DOI.org (Crossref)",
+        "title": "Rising Temperatures Drive Lower Summer Minimum Flows Across Hydrologically Diverse Catchments in British Columbia",
+        "type": "article-journal",
+        "volume": "61"
+    },
+    {
+        "author": [
+            {
+                "family": "Schnorbus",
+                "given": "Markus"
+            }
+        ],
+        "container-title": "VIC Generation 2 Deployment Report, Volume 1, Pacific Climate Impacts Consortium, University of Victoria",
+        "id": "schnorbus2022",
+        "issued": {
+            "date-parts": [
+                [
+                    2022
+                ]
+            ]
+        },
+        "key": "EN7BZ7KY",
+        "language": "en",
+        "libraryid": "1",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "source": "Zotero",
+        "title": "VIC-Glacier (VIC-GL) Description of VIC Model Changes and Upgrades",
+        "type": "article-journal",
+        "volume": "1"
+    },
+    {
+        "DOI": "10.1029/2009WR008839",
+        "ISSN": "0043-1397, 1944-7973",
+        "URL": "https://agupubs.onlinelibrary.wiley.com/doi/10.1029/2009WR008839",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Wenger",
+                "given": "Seth J."
+            },
+            {
+                "family": "Luce",
+                "given": "Charles H."
+            },
+            {
+                "family": "Hamlet",
+                "given": "Alan F."
+            },
+            {
+                "family": "Isaak",
+                "given": "Daniel J."
+            },
+            {
+                "family": "Neville",
+                "given": "Helen M."
+            }
+        ],
+        "container-title": "Water Resources Research",
+        "container-title-short": "Water Resources Research",
+        "id": "wenger2010",
+        "issue": "9",
+        "issued": {
+            "date-parts": [
+                [
+                    2010,
+                    9
+                ]
+            ]
+        },
+        "key": "8F5YC4XH",
+        "language": "en",
+        "libraryid": "1",
+        "page": "2009WR008839",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "rights": "http://onlinelibrary.wiley.com/termsAndConditions#vor",
+        "source": "DOI.org (Crossref)",
+        "title": "Macroscale hydrologic modeling of ecologically relevant flow metrics",
+        "type": "article-journal",
+        "volume": "46"
+    },
+    {
+        "author": [
+            {
+                "family": "Montgomery",
+                "given": "David R"
+            },
+            {
+                "family": "Buffington",
+                "given": "John M"
+            },
+            {
+                "family": "Peterson",
+                "given": "N Phil"
+            },
+            {
+                "family": "Schuett-Hames",
+                "given": "David"
+            },
+            {
+                "family": "Quinn",
+                "given": "Thomas P"
+            }
+        ],
+        "id": "montgomery1996",
+        "issued": {
+            "date-parts": [
+                [
+                    1996
+                ]
+            ]
+        },
+        "key": "WLBR25D8",
+        "language": "en",
+        "libraryid": "1",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "source": "Zotero",
+        "title": "Stream-bed scour, egg burial depths, and the influence of salmonid spawning on bed surface mobility and embryo survival",
+        "type": "article-journal",
+        "volume": "53"
+    },
+    {
+        "DOI": "10.1002/HYP.9728",
+        "ISSN": "1099-1085",
+        "URL": "https://onlinelibrary.wiley.com/doi/full/10.1002/hyp.9728",
+        "accessed": {
+            "date-parts": [
+                [
+                    2024,
+                    9,
+                    20
+                ]
+            ]
+        },
+        "author": [
+            {
+                "family": "Goode",
+                "given": "Jaime R."
+            },
+            {
+                "family": "Buffington",
+                "given": "John M."
+            },
+            {
+                "family": "Tonina",
+                "given": "Daniele"
+            },
+            {
+                "family": "Isaak",
+                "given": "Daniel J."
+            },
+            {
+                "family": "Thurow",
+                "given": "Russell F."
+            },
+            {
+                "family": "Wenger",
+                "given": "Seth"
+            },
+            {
+                "family": "Nagel",
+                "given": "David"
+            },
+            {
+                "family": "Luce",
+                "given": "Charlie"
+            },
+            {
+                "family": "Tetzlaff",
+                "given": "Doerthe"
+            },
+            {
+                "family": "Soulsby",
+                "given": "Chris"
+            }
+        ],
+        "container-title": "Hydrological Processes",
+        "id": "goode2013",
+        "issue": "5",
+        "issued": {
+            "date-parts": [
+                [
+                    2013,
+                    2,
+                    28
+                ]
+            ]
+        },
+        "key": "5JWL7A82",
+        "libraryid": "1",
+        "page": "750-765",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "publisher": "John",
+        "title": "Potential effects of climate change on streambed scour and risks to salmonid survival in snow-dominated mountain basins",
+        "type": "article-journal",
+        "volume": "27"
+    },
+    {
+        "DOI": "10.1073/pnas.0701685104",
+        "ISSN": "00278424",
+        "PMID": "17412830",
+        "author": [
+            {
+                "family": "Battin",
+                "given": "James"
+            },
+            {
+                "family": "Wiley",
+                "given": "Matthew W."
+            },
+            {
+                "family": "Ruckelshaus",
+                "given": "Mary H."
+            },
+            {
+                "family": "Palmer",
+                "given": "Richard N."
+            },
+            {
+                "family": "Korb",
+                "given": "Elizabeth"
+            },
+            {
+                "family": "Bartz",
+                "given": "Krista K."
+            },
+            {
+                "family": "Imaki",
+                "given": "Hiroo"
+            }
+        ],
+        "container-title": "Proceedings of the National Academy of Sciences of the United States of America",
+        "id": "battin2007",
+        "issue": "16",
+        "issued": {
+            "date-parts": [
+                [
+                    2007
+                ]
+            ]
+        },
+        "key": "WLN6Z5JN",
+        "libraryid": "1",
+        "page": "6720-6725",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "title": "Projected impacts of climate change on salmon habitat restoration",
+        "type": "article-journal",
+        "volume": "104"
+    },
+    {
+        "DOI": "10.1371/journal.pone.0104799",
+        "ISSN": "19326203",
+        "PMID": "25127398",
+        "author": [
+            {
+                "family": "Shanley",
+                "given": "Colin S."
+            },
+            {
+                "family": "Albert",
+                "given": "David M."
+            }
+        ],
+        "container-title": "PLoS ONE",
+        "id": "shanley2014",
+        "issue": "8",
+        "issued": {
+            "date-parts": [
+                [
+                    2014
+                ]
+            ]
+        },
+        "key": "73TN6AEP",
+        "libraryid": "1",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "title": "Climate change sensitivity index for Pacific Salmon habitat in southeast Alaska",
+        "type": "article-journal",
+        "volume": "9"
+    },
+    {
+        "DOI": "10.5194/hess-20-1483-2016",
+        "ISSN": "1607-7938",
+        "URL": "https://hess.copernicus.org/articles/20/1483/2016/",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Werner",
+                "given": "Arelia T."
+            },
+            {
+                "family": "Cannon",
+                "given": "Alex J."
+            }
+        ],
+        "container-title": "Hydrology and Earth System Sciences",
+        "container-title-short": "Hydrol. Earth Syst. Sci.",
+        "id": "werner2016",
+        "issue": "4",
+        "issued": {
+            "date-parts": [
+                [
+                    2016,
+                    4,
+                    19
+                ]
+            ]
+        },
+        "key": "APD2FCCZ",
+        "language": "en",
+        "libraryid": "1",
+        "page": "1483-1508",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "rights": "https://creativecommons.org/licenses/by/3.0/",
+        "source": "DOI.org (Crossref)",
+        "title": "Hydrologic extremes – an intercomparison of multiple gridded statistical downscaling methods",
+        "type": "article-journal",
+        "volume": "20"
+    },
+    {
+        "DOI": "10.1002/wcc.551",
+        "ISSN": "1757-7780, 1757-7799",
+        "URL": "https://wires.onlinelibrary.wiley.com/doi/10.1002/wcc.551",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Foden",
+                "given": "Wendy B."
+            },
+            {
+                "family": "Young",
+                "given": "Bruce E."
+            },
+            {
+                "family": "Akçakaya",
+                "given": "H. Resit"
+            },
+            {
+                "family": "Garcia",
+                "given": "Raquel A."
+            },
+            {
+                "family": "Hoffmann",
+                "given": "Ary A."
+            },
+            {
+                "family": "Stein",
+                "given": "Bruce A."
+            },
+            {
+                "family": "Thomas",
+                "given": "Chris D."
+            },
+            {
+                "family": "Wheatley",
+                "given": "Christopher J."
+            },
+            {
+                "family": "Bickford",
+                "given": "David"
+            },
+            {
+                "family": "Carr",
+                "given": "Jamie A."
+            },
+            {
+                "family": "Hole",
+                "given": "David G."
+            },
+            {
+                "family": "Martin",
+                "given": "Tara G."
+            },
+            {
+                "family": "Pacifici",
+                "given": "Michela"
+            },
+            {
+                "family": "Pearce‐Higgins",
+                "given": "James W."
+            },
+            {
+                "family": "Platts",
+                "given": "Philip J."
+            },
+            {
+                "family": "Visconti",
+                "given": "Piero"
+            },
+            {
+                "family": "Watson",
+                "given": "James E. M."
+            },
+            {
+                "family": "Huntley",
+                "given": "Brian"
+            }
+        ],
+        "container-title": "WIREs Climate Change",
+        "container-title-short": "WIREs Climate Change",
+        "id": "foden2019",
+        "issue": "1",
+        "issued": {
+            "date-parts": [
+                [
+                    2019,
+                    1
+                ]
+            ]
+        },
+        "key": "F7NL29PM",
+        "language": "en",
+        "libraryid": "1",
+        "page": "e551",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "source": "DOI.org (Crossref)",
+        "title": "Climate change vulnerability assessment of species",
+        "type": "article-journal",
+        "volume": "10"
+    },
+    {
+        "DOI": "10.1002/rra.2590",
+        "ISSN": "15351459",
+        "author": [
+            {
+                "family": "Beechie",
+                "given": "T."
+            },
+            {
+                "family": "Imaki",
+                "given": "H."
+            },
+            {
+                "family": "Greene",
+                "given": "J."
+            },
+            {
+                "family": "Wade",
+                "given": "A."
+            },
+            {
+                "family": "Wu",
+                "given": "H."
+            },
+            {
+                "family": "Pess",
+                "given": "G."
+            },
+            {
+                "family": "Roni",
+                "given": "P."
+            },
+            {
+                "family": "Kimball",
+                "given": "J."
+            },
+            {
+                "family": "Stanford",
+                "given": "J."
+            },
+            {
+                "family": "Kiffney",
+                "given": "P."
+            },
+            {
+                "family": "Mantua",
+                "given": "N."
+            }
+        ],
+        "container-title": "River Research and Applications",
+        "id": "beechie2013",
+        "issue": "8",
+        "issued": {
+            "date-parts": [
+                [
+                    2013,
+                    10
+                ]
+            ]
+        },
+        "key": "22NB9TMX",
+        "libraryid": "1",
+        "page": "939-960",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "title": "Restoring salmon habitat for a changing climate",
+        "type": "article-journal",
+        "volume": "29"
+    },
+    {
+        "DOI": "10.1111/1365-2664.12137",
+        "ISSN": "00218901",
+        "author": [
+            {
+                "family": "Wade",
+                "given": "Alisa A."
+            },
+            {
+                "family": "Beechie",
+                "given": "Timothy J."
+            },
+            {
+                "family": "Fleishman",
+                "given": "Erica"
+            },
+            {
+                "family": "Mantua",
+                "given": "Nathan J."
+            },
+            {
+                "family": "Wu",
+                "given": "Huan"
+            },
+            {
+                "family": "Kimball",
+                "given": "John S."
+            },
+            {
+                "family": "Stoms",
+                "given": "David M."
+            },
+            {
+                "family": "Stanford",
+                "given": "Jack A."
+            }
+        ],
+        "container-title": "Journal of Applied Ecology",
+        "id": "wade2013",
+        "issue": "5",
+        "issued": {
+            "date-parts": [
+                [
+                    2013,
+                    10
+                ]
+            ]
+        },
+        "key": "CN7SY8KC",
+        "libraryid": "1",
+        "page": "1093-1104",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "title": "Steelhead vulnerability to climate change in the Pacific Northwest",
+        "type": "article-journal",
+        "volume": "50"
+    },
+    {
+        "DOI": "10.1038/s41559-023-02057-1",
+        "ISSN": "2397-334X",
+        "URL": "https://www.nature.com/articles/s41559-023-02057-1",
+        "accessed": {
+            "date-parts": [
+                [
+                    2023,
+                    5,
+                    11
+                ]
+            ]
+        },
+        "author": [
+            {
+                "family": "Wilson",
+                "given": "Samantha M."
+            },
+            {
+                "family": "Moore",
+                "given": "Jonathan W."
+            },
+            {
+                "family": "Ward",
+                "given": "Eric J."
+            },
+            {
+                "family": "Kinsel",
+                "given": "Clayton W."
+            },
+            {
+                "family": "Anderson",
+                "given": "Joseph H."
+            },
+            {
+                "family": "Buehrens",
+                "given": "Thomas W."
+            },
+            {
+                "family": "Carr-Harris",
+                "given": "Charmaine N."
+            },
+            {
+                "family": "Cochran",
+                "given": "Patrick C."
+            },
+            {
+                "family": "Davies",
+                "given": "Trevor D."
+            },
+            {
+                "family": "Downen",
+                "given": "Mark R."
+            },
+            {
+                "family": "Godbout",
+                "given": "Lyse"
+            },
+            {
+                "family": "Lisi",
+                "given": "Peter J."
+            },
+            {
+                "family": "Litz",
+                "given": "Marisa N.C."
+            },
+            {
+                "family": "Patterson",
+                "given": "David A."
+            },
+            {
+                "family": "Selbie",
+                "given": "Daniel T."
+            },
+            {
+                "family": "Sloat",
+                "given": "Matthew R."
+            },
+            {
+                "family": "Suring",
+                "given": "Erik J."
+            },
+            {
+                "family": "Tattam",
+                "given": "Ian A."
+            },
+            {
+                "family": "Wyatt",
+                "given": "Garth J."
+            }
+        ],
+        "container-title": "Nature Ecology & Evolution 2023",
+        "id": "wilson2023",
+        "issued": {
+            "date-parts": [
+                [
+                    2023,
+                    5,
+                    1
+                ]
+            ]
+        },
+        "key": "D4V3JQMA",
+        "libraryid": "1",
+        "page": "1-10",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "publisher": "Nature",
+        "title": "Phenological shifts and mismatch with marine productivity vary among Pacific salmon species and populations",
+        "type": "article-journal"
+    },
+    {
+        "DOI": "10.1038/s42003-021-01734-w",
+        "ISBN": "4200302101",
+        "ISSN": "23993642",
+        "PMID": "33603119",
+        "URL": "http://dx.doi.org/10.1038/s42003-021-01734-w",
+        "author": [
+            {
+                "family": "Crozier",
+                "given": "Lisa G."
+            },
+            {
+                "family": "Burke",
+                "given": "Brian J."
+            },
+            {
+                "family": "Chasco",
+                "given": "Brandon E."
+            },
+            {
+                "family": "Widener",
+                "given": "Daniel L."
+            },
+            {
+                "family": "Zabel",
+                "given": "Richard W."
+            }
+        ],
+        "container-title": "Communications Biology",
+        "id": "crozier2021",
+        "issue": "1",
+        "issued": {
+            "date-parts": [
+                [
+                    2021
+                ]
+            ]
+        },
+        "key": "QG2WAGB6",
+        "libraryid": "1",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "publisher": "Springer",
+        "title": "Climate change threatens Chinook salmon throughout their life cycle",
+        "type": "article-journal",
+        "us\nisbn": "4200302101",
+        "volume": "4"
+    },
+    {
+        "DOI": "10.1111/j.1365-2486.2010.02241.x",
+        "ISSN": "13541013",
+        "URL": "https://onlinelibrary.wiley.com/doi/10.1111/j.1365-2486.2010.02241.x",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Martins",
+                "given": "Eduardo G."
+            },
+            {
+                "family": "Hinch",
+                "given": "Scott G."
+            },
+            {
+                "family": "Patterson",
+                "given": "David A."
+            },
+            {
+                "family": "Hague",
+                "given": "Merran J."
+            },
+            {
+                "family": "Cooke",
+                "given": "Steven J."
+            },
+            {
+                "family": "Miller",
+                "given": "Kristina M."
+            },
+            {
+                "family": "Lapointe",
+                "given": "Michael F."
+            },
+            {
+                "family": "English",
+                "given": "Karl K."
+            },
+            {
+                "family": "Farrell",
+                "given": "Anthony P."
+            }
+        ],
+        "container-title": "Global Change Biology",
+        "id": "martins2011",
+        "issue": "1",
+        "issued": {
+            "date-parts": [
+                [
+                    2011,
+                    1
+                ]
+            ]
+        },
+        "key": "U2SCDKWQ",
+        "language": "en",
+        "libraryid": "1",
+        "page": "99-114",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "rights": "http://doi.wiley.com/10.1002/tdm_license_1.1",
+        "source": "DOI.org (Crossref)",
+        "title": "Effects of river temperature and climate warming on stock-specific survival of adult migrating Fraser River sockeye salmon (Oncorhynchus nerka): TEMPERATURE EFFECTS ON ADULT SALMON SURVIVAL",
+        "title-short": "Effects of river temperature and climate warming on stock-specific survival of adult migrating Fraser River sockeye salmon (Oncorhynchus nerka)",
+        "type": "article-journal",
+        "volume": "17"
+    },
+    {
+        "DOI": "10.1111/faf.12808",
+        "ISSN": "14672979",
+        "author": [
+            {
+                "family": "Mayer",
+                "given": "Noa B."
+            },
+            {
+                "family": "Hinch",
+                "given": "Scott G."
+            },
+            {
+                "family": "Eliason",
+                "given": "Erika J."
+            }
+        ],
+        "container-title": "Fish and Fisheries",
+        "id": "mayer2023",
+        "issue": "October",
+        "issued": {
+            "date-parts": [
+                [
+                    2023
+                ]
+            ]
+        },
+        "key": "98GUJYAN",
+        "libraryid": "1",
+        "page": "1-20",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "title": "Thermal tolerance in Pacific salmon: A systematic review of species, populations, life stages and methodologies",
+        "type": "article-journal"
+    },
+    {
+        "DOI": "10.1111/j.1095-8649.2004.00486.x",
+        "URL": "https://onlinelibrary.wiley.com/doi/10.1111/j.0022-1112.2004.00486.x",
+        "author": [
+            {
+                "family": "Crossin",
+                "given": "G T"
+            },
+            {
+                "family": "Hinch",
+                "given": "S G"
+            },
+            {
+                "family": "Farrell",
+                "given": "A P"
+            },
+            {
+                "family": "Higgs",
+                "given": "D A"
+            },
+            {
+                "family": "Lotto",
+                "given": "A G"
+            },
+            {
+                "family": "Oakes A N D M C Healey",
+                "given": "J D"
+            }
+        ],
+        "container-title": "Journal of Fish Biology",
+        "id": "crossin2004",
+        "issued": {
+            "date-parts": [
+                [
+                    2004
+                ]
+            ]
+        },
+        "key": "BGCR6J6S",
+        "libraryid": "1",
+        "page": "788-810",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "title": "Energetics and morphology of sockeye salmon: effects of upriver migratory distance and elevation",
+        "type": "article-journal",
+        "volume": "65"
+    },
+    {
+        "DOI": "10.1086/592057",
+        "ISSN": "1522-2152, 1537-5293",
+        "URL": "https://www.journals.uchicago.edu/doi/10.1086/592057",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Farrell",
+                "given": "A. P."
+            },
+            {
+                "family": "Hinch",
+                "given": "S. G."
+            },
+            {
+                "family": "Cooke",
+                "given": "S. J."
+            },
+            {
+                "family": "Patterson",
+                "given": "D. A."
+            },
+            {
+                "family": "Crossin",
+                "given": "G. T."
+            },
+            {
+                "family": "Lapointe",
+                "given": "M."
+            },
+            {
+                "family": "Mathes",
+                "given": "M. T."
+            }
+        ],
+        "container-title": "Physiological and Biochemical Zoology",
+        "container-title-short": "Physiological and Biochemical Zoology",
+        "id": "farrell2008",
+        "issue": "6",
+        "issued": {
+            "date-parts": [
+                [
+                    2008,
+                    11
+                ]
+            ]
+        },
+        "key": "66AP9B3L",
+        "language": "en",
+        "libraryid": "1",
+        "page": "697-709",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "source": "DOI.org (Crossref)",
+        "title": "Pacific Salmon in Hot Water: Applying Aerobic Scope Models and Biotelemetry to Predict the Success of Spawning Migrations",
+        "title-short": "Pacific Salmon in Hot Water",
+        "type": "article-journal",
+        "volume": "81"
+    },
+    {
+        "DOI": "10.1126/science.1199158",
+        "ISSN": "00368075",
+        "PMID": "21454790",
+        "author": [
+            {
+                "family": "Eliason",
+                "given": "Erika J."
+            },
+            {
+                "family": "Clark",
+                "given": "Timothy D."
+            },
+            {
+                "family": "Hague",
+                "given": "Merran J."
+            },
+            {
+                "family": "Hanson",
+                "given": "Linda M."
+            },
+            {
+                "family": "Gallagher",
+                "given": "Zoë S."
+            },
+            {
+                "family": "Jeffries",
+                "given": "Ken M."
+            },
+            {
+                "family": "Gale",
+                "given": "Marika K."
+            },
+            {
+                "family": "Patterson",
+                "given": "David A."
+            },
+            {
+                "family": "Hinch",
+                "given": "Scott G."
+            },
+            {
+                "family": "Farrell",
+                "given": "Anthony P."
+            }
+        ],
+        "container-title": "Science",
+        "id": "eliason2011",
+        "issue": "6025",
+        "issued": {
+            "date-parts": [
+                [
+                    2011
+                ]
+            ]
+        },
+        "key": "EL6U8TED",
+        "libraryid": "1",
+        "page": "109-112",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "title": "Differences in thermal tolerance among sockeye salmon populations",
+        "type": "article-journal",
+        "volume": "332"
+    },
+    {
+        "DOI": "10.1093/conphys/cow026",
+        "author": [
+            {
+                "family": "Patterson",
+                "given": "David A"
+            },
+            {
+                "family": "Cooke",
+                "given": "Steven J"
+            },
+            {
+                "family": "Hinch",
+                "given": "Scott G"
+            },
+            {
+                "family": "Robinson",
+                "given": "Kendra A"
+            },
+            {
+                "family": "Young",
+                "given": "Nathan"
+            },
+            {
+                "family": "Farrell",
+                "given": "Anthony P"
+            },
+            {
+                "family": "Miller",
+                "given": "Kristina M"
+            }
+        ],
+        "container-title": "Conservation Physiology",
+        "id": "patterson2016",
+        "issued": {
+            "date-parts": [
+                [
+                    2016
+                ]
+            ]
+        },
+        "key": "DPMXDUPB",
+        "libraryid": "1",
+        "page": "1-15",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "title": "A perspective on physiological studies supporting the provision of scientific advice for the management of Fraser River sockeye salmon ( Oncorhynchus nerka )",
+        "type": "article-journal",
+        "volume": "4"
+    },
+    {
+        "DOI": "10.1139/cjfas-2020-0385",
+        "ISSN": "0706-652X, 1205-7533",
+        "URL": "https://cdnsciencepub.com/doi/10.1139/cjfas-2020-0385",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Hinch",
+                "given": "Scott G."
+            },
+            {
+                "family": "Bett",
+                "given": "Nolan N."
+            },
+            {
+                "family": "Eliason",
+                "given": "Erika J."
+            },
+            {
+                "family": "Farrell",
+                "given": "Anthony P."
+            },
+            {
+                "family": "Cooke",
+                "given": "Steven J."
+            },
+            {
+                "family": "Patterson",
+                "given": "David A."
+            }
+        ],
+        "container-title": "Canadian Journal of Fisheries and Aquatic Sciences",
+        "container-title-short": "Can. J. Fish. Aquat. Sci.",
+        "id": "hinch2021",
+        "issue": "6",
+        "issued": {
+            "date-parts": [
+                [
+                    2021,
+                    6
+                ]
+            ]
+        },
+        "key": "WXYGVBKL",
+        "language": "en",
+        "libraryid": "1",
+        "page": "639-654",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "source": "DOI.org (Crossref)",
+        "title": "Exceptionally high mortality of adult female salmon: a large-scale pattern and a conservation concern",
+        "title-short": "Exceptionally high mortality of adult female salmon",
+        "type": "article-journal",
+        "volume": "78"
+    },
+    {
+        "DOI": "10.1139/FACETS-2020-0027",
+        "ISSN": "23711671",
+        "author": [
+            {
+                "family": "Atlas",
+                "given": "William I."
+            },
+            {
+                "family": "Seitz",
+                "given": "Karl M."
+            },
+            {
+                "family": "Jorgenson",
+                "given": "Jeremy W.N."
+            },
+            {
+                "family": "Millard-Martin",
+                "given": "Ben"
+            },
+            {
+                "family": "Housty",
+                "given": "William G."
+            },
+            {
+                "family": "Ramos-Espinoza",
+                "given": "Daniel"
+            },
+            {
+                "family": "Burnett",
+                "given": "Nicholas J."
+            },
+            {
+                "family": "Reid",
+                "given": "Mike"
+            },
+            {
+                "family": "Moore",
+                "given": "Jonathan W."
+            }
+        ],
+        "container-title": "Facets",
+        "id": "atlas2021",
+        "issue": "1",
+        "issued": {
+            "date-parts": [
+                [
+                    2021
+                ]
+            ]
+        },
+        "key": "XAA3S8MN",
+        "libraryid": "1",
+        "page": "71-89",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "title": "Thermal sensitivity and flow-mediated migratory delays drive climate risk for coastal sockeye salmon",
+        "type": "article-journal",
+        "volume": "6"
+    },
+    {
+        "DOI": "10.1242/jeb.137166",
+        "ISSN": "1477-9145, 0022-0949",
+        "URL": "https://journals.biologists.com/jeb/article/doi/10.1242/jeb.137166/262239/Aerobic-scope-increases-throughout-an-ecologically",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Raby",
+                "given": "Graham D."
+            },
+            {
+                "family": "Casselman",
+                "given": "Matthew T."
+            },
+            {
+                "family": "Cooke",
+                "given": "Steven J."
+            },
+            {
+                "family": "Hinch",
+                "given": "Scott G."
+            },
+            {
+                "family": "Farrell",
+                "given": "Anthony P."
+            },
+            {
+                "family": "Clark",
+                "given": "Timothy D."
+            }
+        ],
+        "container-title": "Journal of Experimental Biology",
+        "id": "raby2016",
+        "issued": {
+            "date-parts": [
+                [
+                    2016,
+                    1,
+                    1
+                ]
+            ]
+        },
+        "key": "8PNMCWI5",
+        "language": "en",
+        "libraryid": "1",
+        "page": "jeb.137166",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "rights": "http://www.biologists.com/user-licence-1-1",
+        "source": "DOI.org (Crossref)",
+        "title": "Aerobic scope increases throughout an ecologically relevant temperature range in coho salmon",
+        "type": "article-journal"
+    },
+    {
+        "DOI": "10.1002/ECS2.4265",
+        "ISSN": "2150-8925",
+        "URL": "https://onlinelibrary.wiley.com/doi/full/10.1002/ecs2.4265",
+        "accessed": {
+            "date-parts": [
+                [
+                    2022,
+                    11,
+                    18
+                ]
+            ]
+        },
+        "author": [
+            {
+                "family": "Snyder",
+                "given": "Marcía N"
+            },
+            {
+                "family": "Schumaker",
+                "given": "Nathan H"
+            },
+            {
+                "family": "Dunham",
+                "given": "Jason B"
+            },
+            {
+                "family": "Ebersole",
+                "given": "Joseph L"
+            },
+            {
+                "family": "Matthew",
+                "given": "|"
+            },
+            {
+                "family": "Keefer",
+                "given": "L"
+            },
+            {
+                "family": "Halama",
+                "given": "Jonathan"
+            },
+            {
+                "family": "Comeleo",
+                "given": "Randy L"
+            },
+            {
+                "family": "Leinenbach",
+                "given": "| Peter"
+            },
+            {
+                "family": "Brookes",
+                "given": "Allen"
+            },
+            {
+                "family": "Cope",
+                "given": "Ben"
+            },
+            {
+                "family": "Wu",
+                "given": "Jennifer"
+            },
+            {
+                "family": "Palmer",
+                "given": "John"
+            }
+        ],
+        "container-title": "Ecosphere",
+        "id": "snyder2022",
+        "issue": "11",
+        "issued": {
+            "date-parts": [
+                [
+                    2022,
+                    11,
+                    1
+                ]
+            ]
+        },
+        "key": "2D9IQVYL",
+        "libraryid": "1",
+        "page": "e4265",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "publisher": "John",
+        "title": "Tough places and safe spaces: Can refuges save salmon from a warming climate?",
+        "type": "article-journal",
+        "volume": "13"
+    },
+    {
+        "DOI": "10.1098/rspb.2012.1158",
+        "ISSN": "0962-8452, 1471-2954",
+        "URL": "https://royalsocietypublishing.org/doi/10.1098/rspb.2012.1158",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Kovach",
+                "given": "Ryan P."
+            },
+            {
+                "family": "Gharrett",
+                "given": "Anthony J."
+            },
+            {
+                "family": "Tallmon",
+                "given": "David A."
+            }
+        ],
+        "container-title": "Proceedings of the Royal Society B: Biological Sciences",
+        "container-title-short": "Proc. R. Soc. B.",
+        "id": "kovach2012",
+        "issue": "1743",
+        "issued": {
+            "date-parts": [
+                [
+                    2012,
+                    9,
+                    22
+                ]
+            ]
+        },
+        "key": "A3JL7QKE",
+        "language": "en",
+        "libraryid": "1",
+        "page": "3870-3878",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "source": "DOI.org (Crossref)",
+        "title": "Genetic change for earlier migration timing in a pink salmon population",
+        "type": "article-journal",
+        "volume": "279"
+    },
+    {
+        "DOI": "10.1002/ecs2.70054",
+        "ISSN": "2150-8925, 2150-8925",
+        "URL": "https://esajournals.onlinelibrary.wiley.com/doi/10.1002/ecs2.70054",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Crozier",
+                "given": "Lisa G."
+            },
+            {
+                "family": "Siegel",
+                "given": "Jared E."
+            }
+        ],
+        "container-title": "Ecosphere",
+        "container-title-short": "Ecosphere",
+        "id": "crozier2025",
+        "issue": "1",
+        "issued": {
+            "date-parts": [
+                [
+                    2025,
+                    1
+                ]
+            ]
+        },
+        "key": "6Z48BZMN",
+        "language": "en",
+        "libraryid": "1",
+        "page": "e70054",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "source": "DOI.org (Crossref)",
+        "title": "From threats to solutions: A literature review of climate adaptation in anadromous salmon and trout",
+        "title-short": "From threats to solutions",
+        "type": "article-journal",
+        "volume": "16"
+    },
+    {
+        "DOI": "10.1577/T05-023.1",
+        "ISSN": "0002-8487, 1548-8659",
+        "URL": "https://academic.oup.com/tafs/article/135/3/655/7888499",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Rand",
+                "given": "P. S."
+            },
+            {
+                "family": "Hinch",
+                "given": "S. G."
+            },
+            {
+                "family": "Morrison",
+                "given": "J."
+            },
+            {
+                "family": "Foreman",
+                "given": "M. G. G."
+            },
+            {
+                "family": "MacNutt",
+                "given": "M. J."
+            },
+            {
+                "family": "Macdonald",
+                "given": "J. S."
+            },
+            {
+                "family": "Healey",
+                "given": "M. C."
+            },
+            {
+                "family": "Farrell",
+                "given": "A. P."
+            },
+            {
+                "family": "Higgs",
+                "given": "D. A."
+            }
+        ],
+        "container-title": "Transactions of the American Fisheries Society",
+        "container-title-short": "Trans Am Fish Soc",
+        "id": "rand2006",
+        "issue": "3",
+        "issued": {
+            "date-parts": [
+                [
+                    2006,
+                    5
+                ]
+            ]
+        },
+        "key": "L79W2M6W",
+        "language": "en",
+        "libraryid": "1",
+        "page": "655-667",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "rights": "http://onlinelibrary.wiley.com/termsAndConditions#vor",
+        "source": "DOI.org (Crossref)",
+        "title": "Effects of River Discharge, Temperature, and Future Climates on Energetics and Mortality of Adult Migrating Fraser River Sockeye Salmon",
+        "type": "article-journal",
+        "volume": "135"
+    },
+    {
+        "DOI": "10.1016/j.pocean.2007.08.010",
+        "ISSN": "00796611",
+        "URL": "https://linkinghub.elsevier.com/retrieve/pii/S0079661107001449",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Mackas",
+                "given": "David L."
+            },
+            {
+                "family": "Batten",
+                "given": "Sonia"
+            },
+            {
+                "family": "Trudel",
+                "given": "Marc"
+            }
+        ],
+        "container-title": "Progress in Oceanography",
+        "container-title-short": "Progress in Oceanography",
+        "id": "mackas2007",
+        "issue": "2",
+        "issued": {
+            "date-parts": [
+                [
+                    2007,
+                    10
+                ]
+            ]
+        },
+        "key": "JNAREVCK",
+        "language": "en",
+        "libraryid": "1",
+        "page": "223-252",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "rights": "https://www.elsevier.com/tdm/userlicense/1.0/",
+        "source": "DOI.org (Crossref)",
+        "title": "Effects on zooplankton of a warmer ocean: Recent evidence from the Northeast Pacific",
+        "title-short": "Effects on zooplankton of a warmer ocean",
+        "type": "article-journal",
+        "volume": "75"
+    },
+    {
+        "DOI": "10.1016/j.pocean.2020.102378",
+        "ISSN": "00796611",
+        "URL": "https://linkinghub.elsevier.com/retrieve/pii/S0079661120301178",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Fergusson",
+                "given": "Emily"
+            },
+            {
+                "family": "Miller",
+                "given": "Todd"
+            },
+            {
+                "family": "McPhee",
+                "given": "Megan V."
+            },
+            {
+                "family": "Fugate",
+                "given": "Corey"
+            },
+            {
+                "family": "Schultz",
+                "given": "Haila"
+            }
+        ],
+        "container-title": "Progress in Oceanography",
+        "container-title-short": "Progress in Oceanography",
+        "id": "fergusson2020",
+        "issued": {
+            "date-parts": [
+                [
+                    2020,
+                    7
+                ]
+            ]
+        },
+        "key": "JY4663IU",
+        "language": "en",
+        "libraryid": "1",
+        "page": "102378",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "source": "DOI.org (Crossref)",
+        "title": "Trophic responses of juvenile Pacific salmon to warm and cool periods within inside marine waters of Southeast Alaska",
+        "type": "article-journal",
+        "volume": "186"
+    },
+    {
+        "DOI": "10.1002/mcf2.10325",
+        "ISSN": "1942-5120",
+        "URL": "https://academic.oup.com/mcf/article/doi/10.1002/mcf2.10325/7959860",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Daly",
+                "given": "Elizabeth A."
+            },
+            {
+                "family": "Chasco",
+                "given": "Brandon E."
+            },
+            {
+                "family": "Morgan",
+                "given": "Cheryl A."
+            },
+            {
+                "family": "Burke",
+                "given": "Brian J."
+            },
+            {
+                "family": "Osborne",
+                "given": "Kaitlyn E."
+            },
+            {
+                "family": "Draper",
+                "given": "Douglas L."
+            }
+        ],
+        "container-title": "Marine and Coastal Fisheries",
+        "id": "daly2024",
+        "issue": "6",
+        "issued": {
+            "date-parts": [
+                [
+                    2024,
+                    12,
+                    1
+                ]
+            ]
+        },
+        "key": "8X73NK35",
+        "language": "en",
+        "libraryid": "1",
+        "page": "e10325",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "rights": "https://creativecommons.org/licenses/by/4.0/",
+        "source": "DOI.org (Crossref)",
+        "title": "Implications of increased spatial and trophic overlap between juvenile Pacific salmon and Sablefish in the northern California Current",
+        "type": "article-journal",
+        "volume": "16"
+    },
+    {
+        "author": [
+            {
+                "family": "Beauchamp",
+                "given": "David A"
+            },
+            {
+                "family": "Cross",
+                "given": "Alison D"
+            },
+            {
+                "family": "Armstrong",
+                "given": "Janet L"
+            },
+            {
+                "family": "Myers",
+                "given": "Katherine W"
+            },
+            {
+                "family": "Moss",
+                "given": "Jamal H"
+            },
+            {
+                "family": "Boldt",
+                "given": "Jennifer L"
+            },
+            {
+                "family": "Haldorson",
+                "given": "Lewis J"
+            }
+        ],
+        "container-title": "NPAFC Bulletin",
+        "id": "beauchamp2007",
+        "issue": "4",
+        "issued": {
+            "date-parts": [
+                [
+                    2007
+                ]
+            ]
+        },
+        "key": "ZUYVN9DJ",
+        "language": "en",
+        "libraryid": "1",
+        "page": "257-269",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "source": "Zotero",
+        "title": "Bioenergetic Responses by Pacific Salmon to Climate and Ecosystem Variation",
+        "type": "article-journal"
+    },
+    {
+        "DOI": "10.1371/journal.pone.0144066",
+        "ISSN": "1932-6203",
+        "URL": "https://dx.plos.org/10.1371/journal.pone.0144066",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Daly",
+                "given": "Elizabeth A."
+            },
+            {
+                "family": "Brodeur",
+                "given": "Richard D."
+            }
+        ],
+        "container-title": "PLOS ONE",
+        "container-title-short": "PLoS ONE",
+        "editor": [
+            {
+                "family": "Thuesen",
+                "given": "Erik V."
+            }
+        ],
+        "id": "daly2015",
+        "issue": "12",
+        "issued": {
+            "date-parts": [
+                [
+                    2015,
+                    12,
+                    16
+                ]
+            ]
+        },
+        "key": "2RYXHREH",
+        "language": "en",
+        "libraryid": "1",
+        "page": "e0144066",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "source": "DOI.org (Crossref)",
+        "title": "Warming Ocean Conditions Relate to Increased Trophic Requirements of Threatened and Endangered Salmon",
+        "type": "article-journal",
+        "volume": "10"
+    },
+    {
+        "DOI": "10.1139/f92-253",
+        "ISSN": "0706-652X, 1205-7533",
+        "URL": "http://www.nrcresearchpress.com/doi/10.1139/f92-253",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Ueno",
+                "given": "Yasuhiro"
+            }
+        ],
+        "container-title": "Canadian Journal of Fisheries and Aquatic Sciences",
+        "container-title-short": "Can. J. Fish. Aquat. Sci.",
+        "id": "ueno1992",
+        "issue": "11",
+        "issued": {
+            "date-parts": [
+                [
+                    1992,
+                    11,
+                    1
+                ]
+            ]
+        },
+        "key": "KP9TRHKA",
+        "language": "en",
+        "libraryid": "1",
+        "page": "2307-2312",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "rights": "http://www.nrcresearchpress.com/page/about/CorporateTextAndDataMining",
+        "source": "DOI.org (Crossref)",
+        "title": "Deepwater Migrations of Chum Salmon ( <i>Oncorhynchus keta</i> ) along the Pacific Coast of Northern Japan",
+        "type": "article-journal",
+        "volume": "49"
+    },
+    {
+        "DOI": "10.1111/faf.12775",
+        "author": [
+            {
+                "family": "Sabal",
+                "given": "Megan C"
+            },
+            {
+                "family": "Richerson",
+                "given": "Kate"
+            },
+            {
+                "family": "Moran",
+                "given": "Paul"
+            },
+            {
+                "family": "Levi",
+                "given": "Taal"
+            },
+            {
+                "family": "Tuttle",
+                "given": "Vanessa J"
+            },
+            {
+                "family": "Banks",
+                "given": "Michael"
+            }
+        ],
+        "id": "sabal2023",
+        "issue": "April",
+        "issued": {
+            "date-parts": [
+                [
+                    2023
+                ]
+            ]
+        },
+        "key": "XQXUCHZ3",
+        "libraryid": "1",
+        "page": "1-14",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "title": "Warm oceans exacerbate Chinook salmon bycatch in the Pacific hake fishery driven by thermal and diel depth- ­ use behaviours",
+        "type": "article-journal"
+    },
+    {
+        "DOI": "10.1139/f02-020",
+        "ISSN": "0706-652X, 1205-7533",
+        "URL": "http://www.nrcresearchpress.com/doi/10.1139/f02-020",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Mueter",
+                "given": "Franz J"
+            },
+            {
+                "family": "Peterman",
+                "given": "Randall M"
+            },
+            {
+                "family": "Pyper",
+                "given": "Brian J"
+            }
+        ],
+        "container-title": "Canadian Journal of Fisheries and Aquatic Sciences",
+        "container-title-short": "Can. J. Fish. Aquat. Sci.",
+        "id": "mueter2002",
+        "issue": "3",
+        "issued": {
+            "date-parts": [
+                [
+                    2002,
+                    3,
+                    1
+                ]
+            ]
+        },
+        "key": "BQAVNJMR",
+        "language": "en",
+        "libraryid": "1",
+        "page": "456-463",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "publisher": "Canadian",
+        "rights": "http://www.nrcresearchpress.com/page/about/CorporateTextAndDataMining",
+        "source": "Crossref",
+        "title": "Opposite effects of ocean temperature on survival rates of 120 stocks of Pacific salmon (<i>Oncorhynchus</i> spp.) in northern and southern areas",
+        "type": "article-journal",
+        "volume": "59"
+    },
+    {
+        "DOI": "10.1111/fog.12001",
+        "ISSN": "1054-6006, 1365-2419",
+        "URL": "https://onlinelibrary.wiley.com/doi/10.1111/fog.12001",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Sharma",
+                "given": "Rishi"
+            },
+            {
+                "family": "Vélez‐Espino",
+                "given": "Luis A."
+            },
+            {
+                "family": "Wertheimer",
+                "given": "Alex C."
+            },
+            {
+                "family": "Mantua",
+                "given": "Nathan"
+            },
+            {
+                "family": "Francis",
+                "given": "Robert C."
+            }
+        ],
+        "container-title": "Fisheries Oceanography",
+        "container-title-short": "Fisheries Oceanography",
+        "id": "sharma2013",
+        "issue": "1",
+        "issued": {
+            "date-parts": [
+                [
+                    2013,
+                    1
+                ]
+            ]
+        },
+        "key": "II8R286U",
+        "language": "en",
+        "libraryid": "1",
+        "page": "14-31",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "rights": "http://onlinelibrary.wiley.com/termsAndConditions#vor",
+        "source": "DOI.org (Crossref)",
+        "title": "Relating spatial and temporal scales of climate and ocean variability to survival of Pacific Northwest Chinook salmon ( <i>Oncorhynchus tshawytscha</i> )",
+        "type": "article-journal",
+        "volume": "22"
+    },
+    {
+        "DOI": "10.1093/icesjms/fsu031",
+        "ISSN": "1095-9289, 1054-3139",
+        "URL": "https://academic.oup.com/icesjms/article/71/7/1671/671710",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Kilduff",
+                "given": "D. Patrick"
+            },
+            {
+                "family": "Botsford",
+                "given": "Louis W."
+            },
+            {
+                "family": "Teo",
+                "given": "Steven L. H."
+            }
+        ],
+        "container-title": "ICES Journal of Marine Science",
+        "id": "kilduff2014",
+        "issue": "7",
+        "issued": {
+            "date-parts": [
+                [
+                    2014,
+                    10,
+                    1
+                ]
+            ]
+        },
+        "key": "6XBCEMA9",
+        "language": "en",
+        "libraryid": "1",
+        "page": "1671-1682",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "publisher": "Oxford",
+        "source": "Crossref",
+        "title": "Spatial and temporal covariability in early ocean survival of Chinook salmon (Oncorhynchus tshawytscha) along the west coast of North America",
+        "type": "article-journal",
+        "volume": "71"
+    },
+    {
+        "DOI": "10.1139/cjfas-2020-0401",
+        "ISSN": "12057533",
+        "author": [
+            {
+                "family": "Connors",
+                "given": "Brendan"
+            },
+            {
+                "family": "Malick",
+                "given": "Michael J."
+            },
+            {
+                "family": "Ruggerone",
+                "given": "Gregory T."
+            },
+            {
+                "family": "Rand",
+                "given": "Pete"
+            },
+            {
+                "family": "Adkison",
+                "given": "Milo"
+            },
+            {
+                "family": "Irvine",
+                "given": "James R."
+            },
+            {
+                "family": "Campbell",
+                "given": "Robert"
+            },
+            {
+                "family": "Gorman",
+                "given": "Kristen"
+            }
+        ],
+        "container-title": "Canadian Journal of Fisheries and Aquatic Sciences",
+        "id": "connors2020",
+        "issue": "12",
+        "issued": {
+            "date-parts": [
+                [
+                    2020
+                ]
+            ]
+        },
+        "key": "DEKFKZVK",
+        "libraryid": "1",
+        "page": "1977-1978",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "title": "Correction to: Climate and competition influence sockeye salmon population dynamics across the northeast pacific ocean (Can. j. fish. aquat. sci. 77(6): 943–949, 2020, 10.1139/cjfas-2019-0422)",
+        "type": "article-journal",
+        "volume": "77"
+    },
+    {
+        "ISBN": "978-0-660-32265-0",
+        "author": [
+            {
+                "family": "Grant",
+                "given": "Sue C H"
+            },
+            {
+                "family": "MacDonald",
+                "given": "Bronwyn L"
+            },
+            {
+                "family": "Winston",
+                "given": "Mark L"
+            }
+        ],
+        "id": "grant2019",
+        "issued": {
+            "date-parts": [
+                [
+                    2019
+                ]
+            ]
+        },
+        "key": "KRPQFI87",
+        "libraryid": "1",
+        "note": "Publication Title: Canadian Technical Report of Fisheries and Aquatic Sciences\nISSN: 0706-6457",
+        "number-of-pages": "i-ix, 1-50",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "publication title": "Canadian",
+        "technical report of fisheries and aquatic sciences\nissn": "0706-6457",
+        "title": "State of Canadian Pacific Salmon: Responses to Changing Climate and Habitats.",
+        "type": "book",
+        "volume": "3332"
+    },
+    {
+        "DOI": "10.1016/j.rse.2010.10.017",
+        "ISSN": "00344257",
+        "URL": "https://linkinghub.elsevier.com/retrieve/pii/S0034425711002197",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Donlon",
+                "given": "Craig J."
+            },
+            {
+                "family": "Martin",
+                "given": "Matthew"
+            },
+            {
+                "family": "Stark",
+                "given": "John"
+            },
+            {
+                "family": "Roberts-Jones",
+                "given": "Jonah"
+            },
+            {
+                "family": "Fiedler",
+                "given": "Emma"
+            },
+            {
+                "family": "Wimmer",
+                "given": "Werenfrid"
+            }
+        ],
+        "container-title": "Remote Sensing of Environment",
+        "container-title-short": "Remote Sensing of Environment",
+        "id": "donlon2012",
+        "issued": {
+            "date-parts": [
+                [
+                    2012,
+                    1
+                ]
+            ]
+        },
+        "key": "NPU72WDA",
+        "language": "en",
+        "libraryid": "1",
+        "page": "140-158",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "rights": "https://www.elsevier.com/tdm/userlicense/1.0/",
+        "source": "DOI.org (Crossref)",
+        "title": "The Operational Sea Surface Temperature and Sea Ice Analysis (OSTIA) system",
+        "type": "article-journal",
+        "volume": "116"
+    },
+    {
+        "author": [
+            {
+                "family": "DFO"
+            }
+        ],
+        "container-title": "DFO Can. Sci. Advis. Sec. Sci. Advis. Rep",
+        "id": "dfo2009",
+        "issued": {
+            "date-parts": [
+                [
+                    2009
+                ]
+            ]
+        },
+        "key": "PPD5CN7N",
+        "libraryid": "1",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "title": "Development of a Framework and Principles for the Biogeographic Classification of Canadian Marine Areas",
+        "type": "article-journal",
+        "volume": "2009/056"
+    },
+    {
+        "DOI": "10.1016/j.ocecoaman.2007.08.002",
+        "ISSN": "09645691",
+        "URL": "https://linkinghub.elsevier.com/retrieve/pii/S0964569107000798",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Halpern",
+                "given": "Benjamin S."
+            },
+            {
+                "family": "McLeod",
+                "given": "Karen L."
+            },
+            {
+                "family": "Rosenberg",
+                "given": "Andrew A."
+            },
+            {
+                "family": "Crowder",
+                "given": "Larry B."
+            }
+        ],
+        "container-title": "Ocean & Coastal Management",
+        "container-title-short": "Ocean & Coastal Management",
+        "id": "halpern2008",
+        "issue": "3",
+        "issued": {
+            "date-parts": [
+                [
+                    2008
+                ]
+            ]
+        },
+        "key": "CATV6JBC",
+        "language": "en",
+        "libraryid": "1",
+        "page": "203-211",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "source": "DOI.org (Crossref)",
+        "title": "Managing for cumulative impacts in ecosystem-based management through ocean zoning",
+        "type": "article-journal",
+        "volume": "51"
+    },
+    {
+        "DOI": "10.1038/nclimate2113",
+        "ISSN": "17586798",
+        "author": [
+            {
+                "family": "Pearson",
+                "given": "Richard G."
+            },
+            {
+                "family": "Stanton",
+                "given": "Jessica C."
+            },
+            {
+                "family": "Shoemaker",
+                "given": "Kevin T."
+            },
+            {
+                "family": "Aiello-Lammens",
+                "given": "Matthew E."
+            },
+            {
+                "family": "Ersts",
+                "given": "Peter J."
+            },
+            {
+                "family": "Horning",
+                "given": "Ned"
+            },
+            {
+                "family": "Fordham",
+                "given": "Damien A."
+            },
+            {
+                "family": "Raxworthy",
+                "given": "Christopher J."
+            },
+            {
+                "family": "Ryu",
+                "given": "Hae Yeong"
+            },
+            {
+                "family": "Mcnees",
+                "given": "Jason"
+            },
+            {
+                "family": "Akçakaya",
+                "given": "H. Reşit"
+            }
+        ],
+        "container-title": "Nature Climate Change",
+        "id": "pearson2014",
+        "issue": "3",
+        "issued": {
+            "date-parts": [
+                [
+                    2014
+                ]
+            ]
+        },
+        "key": "PQZKD9WP",
+        "libraryid": "1",
+        "page": "217-221",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "title": "Life history and spatial traits predict extinction risk due to climate change",
+        "type": "article-journal",
+        "volume": "4"
+    },
+    {
+        "DOI": "10.1111/eva.13602",
+        "ISSN": "17524571",
+        "author": [
+            {
+                "family": "Tigano",
+                "given": "Anna"
+            },
+            {
+                "family": "Weir",
+                "given": "Tyler"
+            },
+            {
+                "family": "Ward",
+                "given": "Hillary G.M."
+            },
+            {
+                "family": "Gale",
+                "given": "Marika Kirstin"
+            },
+            {
+                "family": "Wong",
+                "given": "Carmen M."
+            },
+            {
+                "family": "Eliason",
+                "given": "Erika J."
+            },
+            {
+                "family": "Miller",
+                "given": "Kristina M."
+            },
+            {
+                "family": "Hinch",
+                "given": "Scott G."
+            },
+            {
+                "family": "Russello",
+                "given": "Michael A."
+            }
+        ],
+        "container-title": "Evolutionary Applications",
+        "id": "tigano2023",
+        "issue": "June",
+        "issued": {
+            "date-parts": [
+                [
+                    2023
+                ]
+            ]
+        },
+        "key": "ENPDW94R",
+        "libraryid": "1",
+        "page": "1-17",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "title": "Genomic vulnerability of a freshwater salmonid under climate change",
+        "type": "article-journal"
+    },
+    {
+        "DOI": "10.1038/s41558-020-00959-7",
+        "ISSN": "17586798",
+        "author": [
+            {
+                "family": "Layton",
+                "given": "K. K.S."
+            },
+            {
+                "family": "Snelgrove",
+                "given": "P. V.R."
+            },
+            {
+                "family": "Dempson",
+                "given": "J. B."
+            },
+            {
+                "family": "Kess",
+                "given": "T."
+            },
+            {
+                "family": "Lehnert",
+                "given": "S. J."
+            },
+            {
+                "family": "Bentzen",
+                "given": "P."
+            },
+            {
+                "family": "Duffy",
+                "given": "S. J."
+            },
+            {
+                "family": "Messmer",
+                "given": "A. M."
+            },
+            {
+                "family": "Stanley",
+                "given": "R. R.E."
+            },
+            {
+                "family": "DiBacco",
+                "given": "C."
+            },
+            {
+                "family": "Salisbury",
+                "given": "S. J."
+            },
+            {
+                "family": "Ruzzante",
+                "given": "D. E."
+            },
+            {
+                "family": "Nugent",
+                "given": "C. M."
+            },
+            {
+                "family": "Ferguson",
+                "given": "M. M."
+            },
+            {
+                "family": "Leong",
+                "given": "J. S."
+            },
+            {
+                "family": "Koop",
+                "given": "B. F."
+            },
+            {
+                "family": "Bradbury",
+                "given": "I. R."
+            }
+        ],
+        "container-title": "Nature Climate Change",
+        "id": "layton2021",
+        "issue": "2",
+        "issued": {
+            "date-parts": [
+                [
+                    2021,
+                    2,
+                    1
+                ]
+            ]
+        },
+        "key": "E5Z88K4H",
+        "libraryid": "1",
+        "page": "158-165",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "publisher": "Nature",
+        "title": "Genomic evidence of past and future climate-linked loss in a migratory Arctic fish",
+        "type": "article-journal",
+        "volume": "11"
+    },
+    {
+        "DOI": "10.1111/2041-210X.13722",
+        "ISSN": "2041-210X, 2041-210X",
+        "URL": "https://besjournals.onlinelibrary.wiley.com/doi/10.1111/2041-210X.13722",
+        "accessed": {
+            "date-parts": []
+        },
+        "author": [
+            {
+                "family": "Capblancq",
+                "given": "Thibaut"
+            },
+            {
+                "family": "Forester",
+                "given": "Brenna R."
+            }
+        ],
+        "container-title": "Methods in Ecology and Evolution",
+        "container-title-short": "Methods Ecol Evol",
+        "id": "capblancq2021",
+        "issue": "12",
+        "issued": {
+            "date-parts": [
+                [
+                    2021,
+                    12
+                ]
+            ]
+        },
+        "key": "5F2PCKYE",
+        "language": "en",
+        "libraryid": "1",
+        "page": "2298-2309",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "source": "DOI.org (Crossref)",
+        "title": "Redundancy analysis: A Swiss Army Knife for landscape genomics",
+        "title-short": "Redundancy analysis",
+        "type": "article-journal",
+        "volume": "12"
+    }
+]
