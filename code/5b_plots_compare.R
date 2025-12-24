@@ -95,7 +95,8 @@ plot_std_vs_raw <- function(data,
 # Function to create a lollipop chart of indicator values across CUs
 plot_lollipop <- function(data,
                           indicator_pick,
-                          indicator_name = "",
+                          indicator_name = NULL,
+                          indicator_unit = NULL, 
                           use_standardized = FALSE,  # use raw or transformed (standardized values)
                           plot_colours = species_palette,
                           log_scale = FALSE, #use log scale for x axis
@@ -189,9 +190,9 @@ plot_lollipop <- function(data,
     ) +
 
     labs(
-      if(!is.na(indicator_name)) subtitle = paste(indicator_name),
+      subtitle = indicator_name,
       fill = "Standardized",
-      y = NULL,
+      y = indicator_unit,
       x = NULL
     ) +
     coord_flip() +
@@ -691,7 +692,7 @@ make_indicator_plots <- function(data,
 
   p <- plot_lollipop(data,
     indicator_pick = ind_row$abbrev,
-    indicator_name = ind_row$name,
+    indicator_unit = ind_row$unit,
     use_standardized = standardized_plots
   )
 

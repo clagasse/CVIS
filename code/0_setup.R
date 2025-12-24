@@ -87,6 +87,8 @@ ns_start_offset <- 2   # amount of months before peak ocean entry month to inclu
 ns_end_offset   <- 2   # amount of months after peak ocean entry month for calculating nearshore marine indicators
 
 
+min_gen_red <- 500  #if generational avg spawners is below this value and RapidStatus is None, status will be adjusted to Red
+
 
 # Run utility and plot scripts --------------------------------------------
 
@@ -151,27 +153,29 @@ period_lookup <- tribble(
 
 # table of indicator abbreviations and full names
 tbl_indicators <- tribble(
-  ~abbrev,      ~type,  ~long_type,   ~stat, ~std_fun, ~name,
-  "favchange", "fwR",   "Freshwater Spawning and Rearing",  "mean",     "invlinear_std",     "ENM Change in Favourability",
-  "CT",         "fwR",  "Freshwater Spawning and Rearing",   "mean",    "linear_std",        "Cumulative threats to freshwater habitat",
-  "tw8rate",    "fwR",  "Freshwater Spawning and Rearing",   "mean",    "linear_std",        "Rate of change in August Temperature",
-  "tw8proj",    "fwR",  "Freshwater Spawning and Rearing",   "mean",    "exponential_std", "Projected August Temperature",
-  "lowQpdelta", "fwR",  "Freshwater Spawning and Rearing",  "mean",    "decay_std",       "Proportional change in August flow",
-  # "st8pdelta",  "fwR",  "Freshwater Spawning and Rearing",   "mean",    "decay_std",     "Proportional change in August flow (station model)",
-  "highQpdelta",  "fwR", "Freshwater Spawning and Rearing",  "mean",    "exponential_std", "Proportional change in Nov-Jan flow",
-  "fwres",     "fwR",    "Freshwater Spawning and Rearing", "value",    "step_std",   "Freshwater residency time",
-  "migrT",      "migr",  "Upstream Migration",  "mean",    "exponential_std",     "Projected temperature during upstream migration",
-  "migrQ",      "migr",  "Upstream Migration", "mean",      "decay_std",    "Proportional change in discharge during upstream migration",
-  # "migrA21",    "migr",   "mean",    "exponential_std", "Average proportion of path above 21 degrees during upstream migration",
-  "migrdist",   "migr",  "Upstream Migration", "value",      "linear_std",     "Length of upstream migration",
-  "SSTproj",     "mar",  "Nearshore Marine",  "mean", "exponential_std",  "Projected nearshore SST during ocean entry",
-  "SSTrate",     "mar",  "Nearshore Marine", "mean", "linear_std",  "Rate of change in nearshore SST",
-  "CImpact",      "mar", "Nearshore Marine",  "mean", "linear_std",   "Cumulative impacts to marine nearshore habitat",
-  "CUstatus",    "dem",  "Demographics",  "category",    "cat_std", "WSP status",
-  "CUnmat",      "dem",  "Demographics",  "value",  "decay_std", "Number of mature individuals",
-  "hetzyg",        "gen",  "Genetics",      "mean",    "invlinear_std", "Genetic heterozygosity",
-  "genoff",     "gen",    "Genetics",      "mean",    "linear_std",  "Genomic offset"
+  ~abbrev,      ~type,  ~long_type,   ~stat, ~std_fun, ~unit, ~name,
+  "favchange", "fwR",   "Freshwater Spawning and Rearing",  "mean",     "invlinear_std",   "Favourability",   "ENM Change in Favourability",
+  "CT",         "fwR",  "Freshwater Spawning and Rearing",   "mean",    "linear_std",     "Threat score",    "Cumulative threats to freshwater habitat",
+  "tw8rate",    "fwR",  "Freshwater Spawning and Rearing",   "mean",    "linear_std",    "Temperature change per decade (°C)",   "Rate of change in August Temperature",
+  "tw8proj",    "fwR",  "Freshwater Spawning and Rearing",   "mean",    "exponential_std", "Temperature (°C)",  "Projected August Temperature",
+  "lowQpdelta", "fwR",  "Freshwater Spawning and Rearing",  "mean",    "decay_std",  "Proportion change from baseline",     "Proportional change in August flow",
+  # "st8pdelta",  "fwR",  "Freshwater Spawning and Rearing",   "mean",    "decay_std",   "Proportion change",  "Proportional change in August flow (station model)",
+  "highQpdelta",  "fwR", "Freshwater Spawning and Rearing",  "mean",    "exponential_std", "Proportion change from baseline", "Proportional change in Nov-Jan flow",
+  "fwres",     "fwR",    "Freshwater Spawning and Rearing", "value",    "step_std",  "Number of days",  "Freshwater residency time",
+  "migrT",      "migr",  "Upstream Migration",  "mean",    "exponential_std",  "Temperature (°C)",   "Projected temperature during upstream migration",
+  "migrQ",      "migr",  "Upstream Migration", "mean",      "decay_std",  "Proportion change",  "Proportional change in discharge during upstream migration",
+  # "migrA21",    "migr",   "mean",    "exponential_std", "Proportion", "Average proportion of path above 21 degrees during upstream migration",
+  "migrdist",   "migr",  "Upstream Migration", "value",      "linear_std",  "Kilometres",   "Length of upstream migration",
+  "SSTproj",     "mar",  "Nearshore Marine",  "mean", "exponential_std", "Temperature (°C)", "Projected nearshore SST during ocean entry",
+  "SSTrate",     "mar",  "Nearshore Marine", "mean", "linear_std",  "Temperature change per decade (°C)", "Rate of change in nearshore SST",
+  "CImpact",      "mar", "Nearshore Marine",  "mean", "linear_std", "Threat score",  "Cumulative impacts to marine nearshore habitat",
+  "CUstatus",    "dem",  "Demographics",  "category",    "cat_std", "Status", "WSP status",
+  "CUnmat",      "dem",  "Demographics",  "value",  "decay_std",  "Number of spawners", "Number of mature individuals",
+  "hetzyg",        "gen",  "Genetics",      "mean",    "invlinear_std", "Heterozygosity", "Genetic heterozygosity",
+  "genoff",     "gen",    "Genetics",      "mean",    "linear_std",  "Genomic offset", "Genomic offset"
 )
+
+
 
 tbl_ind_report <- tbl_indicators %>%
   select(abbrev, long_type, name) %>%

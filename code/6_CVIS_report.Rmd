@@ -44,7 +44,7 @@ By quantifying multiple mechanisms of climate vulnerability across a large basin
 
 # Methods Overview
 
-The CVIS framework consists of 17 quantitative indicators (Table 1) classified into five categories based on mechanism and life-stage: freshwater spawning and rearing, upstream migration, nearshore marine, demographics, and genetics. Every indicator uses a quantitative metric, such as the mean stream temperature or percent change in flow, to summarize the riskrepresent risk. The indicator approach allows for flexibility in inputs and metrics of risk; various model types can be used to derive statistical summaries of risk depending on the mechanism to assess. Variation and uncertainty in indicator values are represented using 80% quantile ranges of global climate models where relevant.
+The CVIS framework consists of 17 quantitative indicators (Table 1) classified into five categories based on mechanism and life-stage: freshwater spawning and rearing, upstream migration, nearshore marine, demographics, and genetics. Every indicator uses a quantitative metric, such as the mean stream temperature or percent change in flow, to represent risk. The indicator approach allows for flexibility in inputs and metrics of risk; various model types can be used to derive statistical summaries of risk depending on the mechanism to assess. Variation and uncertainty in indicator values are represented using 80% quantile ranges of global climate models where relevant.
 
 ```{r}
 
@@ -481,7 +481,7 @@ For additional description of indicator see [A.14 Conservation status (CUstatus)
 
 ### ii. Recent generational average of spawners (CUnmat)
 
-**Metric:** The geometric average of the number of spawners (male and female) over the most recent generation with available estimates. Sockeye spawners are further refined to only include effective female spawners and not total male and female. For cyclic sockeye CUs where abundance is dominated by a single-year on the cycle line, the number of spawners from the most recent dominant year is used instead of the average over all years of a generation.
+**Metric:** The geometric average of natural origin spawners (male and female) over the most recent generation with available estimates. Sockeye spawners are further refined to only include effective female spawners and not total male and female. For cyclic sockeye CUs where abundance is dominated by a single-year on the cycle line, the number of spawners from the most recent dominant year is used instead of the average over all years of a generation.
 
 For additional description of indicator see [A.15 Recent generational average of spawners (Cunmat)](#a.15-recent-generational-average-of-spawners-cunmat)
 
@@ -919,17 +919,19 @@ For Pacific salmon CUs, conservation status reflects the recent and historical i
 
 Data quality and confidence in the assessment score varies across CUs and is represented by a confidence rating assigned to each status assignment. A few CUs were data-deficient and not able to be assessed.
 
-### A.15 Recent generational average of spawners (Cunmat) {#a.15-recent-generational-average-of-spawners-cunmat}
+### A.15 Recent generational average of natural spawners (Cunmat) {#a.15-recent-generational-average-of-spawners-cunmat}
 
-**Metric:** The geometric average of the number of spawners (male and female) over the most recent generation with available estimates. Sockeye spawners are further refined to only include effective female spawners and not total male and female. For cyclic sockeye CUs where abundance is dominated by a single-year on the cycle line, the number of spawners from the most recent dominant year is used instead of the average over all years of a generation.
+**Metric:** The geometric average of the number of natural-origin spawners (male and female) over the most recent generation with available estimates. Natural-origin spawners are those that are born in the wild but whose parents may or may not be of hatchery origin [@dfo2018]. For cyclic sockeye CUs where abundance is dominated by a single-year on the cycle line, the number of spawners from the most recent dominant year is used instead of the average over all years of a generation.
 
-**Explanation:** Ecological theory and empirical evidence shows that larger, healthier populations possess demographic buffers allowing them to better withstand climate and anthropogenic pressures [@pacifici2015; @foden2019]. Smaller populations are more susceptible to stochastic events, are associated with lower genetic diversity, and have lower resilience to stressors and cumulative threats. The recent generational average of spawners represents the higher demographic risk for populations at lower abundances and is an important component of climate change vulnerability [@pearson2014; @wade2013].
+**Explanation:** Ecological theory and empirical evidence shows that larger, healthier populations possess demographic buffers allowing them to better withstand climate and anthropogenic pressures [@pacifici2015; @foden2019]. Smaller populations are more susceptible to stochastic events, are associated with lower genetic diversity, and have lower resilience to stressors and cumulative threats. The recent generational average of natural spawners represents the higher demographic risk for populations at lower abundances and is an important component of climate change vulnerability [@pearson2014; @wade2013].
+
+Only natural-origin spawners were used for the generational average as they are more likely to contribute to population persistence and adaptive capacity compared to hatchery-origin spawners. Natural-origin spawners are also used for status assessments and thresholds for the WSP rapid status assessment method [@pestal2023].
 
 **Information Source:** The generational average of spawners were taken from the WSP rapid status evaluations of Fraser CUs, as described for the conservation status indicator.
 
 **Standardization Method:** The generational average of spawners was converted to a standardized score between 0 and 1 using an exponential decay function that increased inversely with abundance below a maximum threshold of 10,000 spawners. CUs with more than 10,000 spawners were assigned a score of 0, with the risk value increasing to the maximum score of 1 at 0 spawners. This relationship corresponds to the abundance thresholds used for WSP status assessments and the expectation of risk increasing non-linearly as abundance declines.
 
-**Limitations:** This metric shares similarities with the conservation status indicator, but is focused specifically on recent abundances independent of any trends. Not all CUs possess absolute abundance information or absolute abundance that is representative of the entire CU, and a relative index was used where absolute abundance was not available, which may underestimate the number of spawners.
+**Limitations:** This metric shares similarities with the conservation status indicator, but is focused specifically on recent abundances independent of any trends. For many CUs absolute abundance information that is representative of the entire CU is not available, therefore a relative index was used. Relative indices of abundance are adjusted using an expansion factor, but may nonetheless underestimate the absolute abundance due to potential error associated with the expansion method. In addition, some streams are not consistently surveyed and are not included when determining the relative index of abundance for a CU.
 
 ### A.16 Heterozygosity (hetzyg) {#a.16-heterozygosity-hetzyg}
 

@@ -12,6 +12,9 @@
 /*_cache/
 /cache/
 
+# reports in progress and other files
+private_docs
+
 # Temporary files created by R markdown
 *.utf8.md
 *.knit.md
@@ -23,7 +26,6 @@ output
 code/archive
 
 # Shiny token, see https://shiny.rstudio.com/articles/shinyapps.html
-docs
 
 # macOS desktop services store
 .DS_Store

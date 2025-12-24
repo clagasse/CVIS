@@ -4727,5 +4727,29 @@
         "title-short": "Redundancy analysis",
         "type": "article-journal",
         "volume": "12"
+    },
+    {
+        "author": [
+            {
+                "family": "DFO"
+            }
+        ],
+        "container-title-short": "DFO Can. Sci. Advis. Sec. Sci. Advis. Rep.",
+        "id": "dfo2018",
+        "issued": {
+            "date-parts": [
+                [
+                    2018
+                ]
+            ]
+        },
+        "key": "TPK8STFJ",
+        "language": "en",
+        "libraryid": "1",
+        "providerkey": "Zotero",
+        "source": "Zotero",
+        "title": "Review of genetically based targets for enhanced contributions to Canadian pacific Chinook Salmon populations",
+        "type": "article-journal",
+        "volume": "2018/001"
     }
 ]

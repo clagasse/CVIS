@@ -11,19 +11,19 @@
 #
 ################################################################################
 
-library(tidyverse)
-library(patchwork)
-library(corrplot)
-library(here)
-library(gt)
-library(scales)
-
-# Source required scripts
-source("0_setup.R")
-source("2_fw_utils.R")
-source("4_scoring_utils.R")
-source("4a_CU_scoring.R")
-source("4e_rcp_period_sensitivity_v2.R")
+# library(tidyverse)
+# library(patchwork)
+# library(corrplot)
+# library(here)
+# library(gt)
+# library(scales)
+# 
+# # Source required scripts
+# source("0_setup.R")
+# source("2_fw_utils.R")
+# source("4_scoring_utils.R")
+# source("4a_CU_scoring.R")
+# source("4e_rcp_period_sensitivity_v2.R")
 
 #------------------------------------------------------------------------------
 # 1. INDIVIDUAL INDICATOR SENSITIVITY ANALYSIS
@@ -717,6 +717,14 @@ run_complete_sensitivity_analysis <- function(output_dir = "outputs/sensitivity_
 #------------------------------------------------------------------------------
 # 4. EXECUTE ANALYSIS
 #------------------------------------------------------------------------------
+
+indicator_results <- analyze_indicator_sensitivity(
+  data_raw = all_flat,
+  data_std = all_flat_std,
+  indicators = c("tw8rate", "tw8proj", "migrT", "lowQpdelta", "highQpdelta", "favchange"),
+  periods = c(3, 5),
+  rcps = c("45", "85")
+)
 
 # Run the complete analysis
 results <- run_complete_sensitivity_analysis(
