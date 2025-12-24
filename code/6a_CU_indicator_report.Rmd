@@ -1,16 +1,16 @@
 ---
 output:
   html_document:
-    toc: true
-    number-sections: true
+    toc: false
+    number-sections: false
     toc_float: true
-    toc_collapsed: true
+    toc_collapsed: false
     toc_depth: 3
     theme: flatly
 params:
   FULL_CU_IN: "CK-03"
-  rcp: "45"
-  period: "3"
+  default_rcp: "45"
+  default_period: "3"
 ---
 
 ```{r custom theme, echo = FALSE, message = F, warning = F}
@@ -27,13 +27,13 @@ sp_pick_bcfp <- spp_lookup$spp_abr_bcfp[spp_lookup$SPECIES_NAME == sp_pick]
 sp_pick_ENM  <- str_to_lower(sp_pick)[1]
 
 #default RCP and period values
-rcp_pick <- "45"
-period_pick <- "3"
+rcp_pick <- params$default_rcp
+period_pick <- params$default_period
 
 ```
 
 ---
-title: `r cu_run_i$CU_NAME` - Climate Vulnerability Indicator Report 
+title: CVIS Data Report - `r cu_run_i$CU_NAME` 
 ---
 
 ```{r spatial subset, echo = FALSE, message = F, warning = F}
@@ -105,14 +105,107 @@ ind_cu <- get_CU_indicators(all_flat_std,
 
 ```
 
-## Overview
+```{r helper function for subset tables}
+# Function to create a reactable for a single indicator category
+create_indicator_reactable <- function(df, indicator_codes) {
+  # Filter to selected indicators
+  tbl_view <- df %>%
+    filter(`Indicator Code` %in% indicator_codes)
 
-### All Indicators
+  if (nrow(tbl_view) == 0) {
+    return(NULL)
+  }
 
-```{r}
+  # Precompute scaling for coloring
+  diff_max <- tryCatch(
+    {
+      x <- tbl_view[["CU score"]] - tbl_view[["Species score"]]
+      m <- max(abs(x), na.rm = TRUE)
+      if (is.infinite(m) || is.na(m) || m == 0) 1 else m
+    },
+    error = function(e) 1)
 
-#plot_cu_indicators_lollipop(ind_cu)
+  # Color function for CU score vs Species score
+  cu_z_cell <- function(value, index, name) {
+    sp <- tbl_view[["Species score"]][index]
+    if (is.na(value) || is.na(sp)) return("—")
+    diff <- value - sp
+    intensity <- min(1, abs(diff) / diff_max)
+    alpha <- 0.15 + 0.40 * intensity
+    bg <- if (diff < 0) {
+      sprintf("rgba(34, 197, 94, %.3f)", alpha)
+    } else if (diff > 0) {
+      sprintf("rgba(239, 68, 68, %.3f)", alpha)
+    } else {
+      "rgba(148, 163, 184, 0.20)"
+    }
+    div(
+      style = list(
+        backgroundColor = bg,
+        borderRadius = "6px",
+        padding = "1px 6px",
+        display = "inline-block"
+      ),
+      sprintf("%.3f", value)
+    )
+  }
 
+  # Create reactable
+  reactable(
+    tbl_view,
+    filterable = FALSE,
+    searchable = FALSE,
+    highlight = TRUE,
+    bordered = TRUE,
+    striped = FALSE,
+    compact = TRUE,
+    pagination = FALSE,
+
+    defaultColDef = colDef(
+      minWidth = 70,
+      headerVAlign = "center",
+      vAlign = "center"
+    ),
+
+    theme = reactableTheme(
+      borderColor = "#e5e7eb",
+      stripedColor = "#f9fafb",
+      highlightColor = "#eef2ff"
+    ),
+
+    columnGroups = list(
+      colGroup(
+        name = "Standardized Scores",
+        columns = intersect(c("CU score", "Species score", "All Species score"), names(tbl_view))
+      ),
+      colGroup(
+        name = "CU Raw Values",
+        columns = intersect(c("Mean", "Q10", "Q90"), names(tbl_view))
+      ),
+      colGroup(
+        name = "Raw Means",
+        columns = intersect(c("Species Mean", "All Species Mean"), names(tbl_view))
+      )
+    ),
+
+    columns = list(
+      `Indicator Type` = colDef(width = 140),
+      `Indicator Code` = colDef(width = 115),
+      `CU score` = colDef(width = 95, format = colFormat(digits = 3), na = "—", cell = cu_z_cell),
+      `Species score` = colDef(width = 95, format = colFormat(digits = 3), na = "—"),
+      `All Species score` = colDef(width = 115, format = colFormat(digits = 3), na = "—"),
+      `Mean` = colDef(width = 95, format = colFormat(digits = 2, separators = TRUE), na = "—"),
+      `Q10` = colDef(width = 85, format = colFormat(digits = 2, separators = TRUE), na = "—"),
+      `Q90` = colDef(width = 85, format = colFormat(digits = 2, separators = TRUE), na = "—"),
+      `Species Mean` = colDef(width = 95, format = colFormat(digits = 2, separators = TRUE), na = "—"),
+      `All Species Mean` = colDef(width = 95, format = colFormat(digits = 2, separators = TRUE), na = "—")
+    )
+  )
+}
+```
+
+```{r prepare indicator table data}
+# Prepare the indicator table data once for use in multiple tabs
 cu_all_raw <- get_CU_indicators(all_flat_std,
   cu_i = cu_i,
   use_standardized = FALSE,
@@ -133,13 +226,8 @@ cu_all <- cu_all_raw %>%
     across(everything(), ~ ifelse(is.nan(.), NA, .))
   )
 
-df <- cu_all
-
-
-table_id <- "cu_compact"
-
-# 1) Build display-only view with required columns
-tbl_view <- df %>%
+# Build display-only view with required columns
+tbl_view <- cu_all %>%
   mutate(CU_Period = paste0(rcp, " • P", period_code)) %>%
   select(any_of(c(
     # meta
@@ -152,7 +240,7 @@ tbl_view <- df %>%
     "sp_mean", "allcu_mean"
   )))
 
-# 2) Rename columns (short, descriptive)
+# Rename columns (short, descriptive)
 tbl_view <- tbl_view %>%
   rename(
     `Indicator Type`   = long_type,
@@ -167,7 +255,7 @@ tbl_view <- tbl_view %>%
     `All Species Mean` = allcu_mean
   )
 
-# 3) Reorder display so CU block is together, species/all means at the end
+# Reorder display so CU block is together, species/all means at the end
 display_order <- c(
   "Indicator Type",
   "Indicator Code",
@@ -179,8 +267,51 @@ display_order <- c(
   "Species Mean", "All Species Mean"
 )
 tbl_view <- tbl_view[, intersect(display_order, names(tbl_view))]
+```
 
-# 4) Precompute scaling for coloring intensity (avoid division by zero)
+# {.tabset .tabset-fade}
+
+## About
+
+This report explores climate vulnerability indicator data for the selected conservation unit (CU) in the Fraser Basin. The report displays maps and summaries of indicator data for the CU.
+
+### Sections
+
+- **Overview:** Summary of all climate vulnerability indicators for the selected conservation unit. 
+- **Demographics:** Conservation status and recent spawner abundance
+- **Timing:** Life stage timing for the CU and indicator time periods
+- **Spawning and Rearing:** Environmental change to streams, cumulative threats to stream habitats, and freshwater residency times
+- **Migration:** Changes to stream temperatures and flows during upstream migration, and distance to spawning sites
+- **Marine:** Changes to sea surface temperature and cumulative impacts to nearshore marine habitat
+
+
+### Default Parameters
+
+All indicators are displayed using:
+
+- **RCP 4.5:** Representative Concentration Pathway 4.5 (moderate emissions scenario)
+- **Time Period:** Mid-Century (2041-2060)
+
+### Data Quality
+
+::: {style="background-color: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 4px;"}
+#### ⚠️ Draft Data Disclaimer
+
+**DRAFT - Not for further distribution without permission of the authors**
+
+This data and analysis are preliminary and subject to change. The indicators presented here are under active development and have not been peer-reviewed. Results should be interpreted with caution and are intended for exploratory analysis only. Please contact the authors before citing or using this information in any formal capacity.
+:::
+
+## Overview
+
+### All Climate Vulnerability Indicators
+
+Summary of all climate vulnerability indicators for the selected conservation unit. Green shading indicates values below species average (lower risk), while red indicates values above species average (higher risk).
+
+```{r overview table}
+table_id <- "cu_compact"
+
+# Precompute scaling for coloring intensity (avoid division by zero)
 diff_max <- tryCatch({
   x <- tbl_view[["CU score"]] - tbl_view[["Species score"]]
   m <- max(abs(x), na.rm = TRUE)
@@ -338,13 +469,42 @@ reactable(
       #%s .rt-col-group > div { padding: 4px 6px; }
     ", table_id, table_id, table_id, table_id, table_id, table_id, table_id, table_id))
   ))
+```
 
+## Demographics
+
+### Demographic Indicators Summary
+
+Recent conservation status and number of mature individuals indicator values.
+
+```{r demographics summary}
+
+# Create subset table for demographic indicators
+create_indicator_reactable(tbl_view, c("CUstatus", "CUnmat"))
+```
+
+### Spawner Abundance Time Series
+
+Time series of annual spawner abundance (blue line) and generational geometric average (red line). Points at bottom indicate Wild Salmon Policy status assessment (Red/Amber/Green) with shape indicating data quality confidence.
+
+```{r abundance plot}
+
+if(nrow(status_data[status_data$FULL_CU_IN == cu_i,]) > 0)  
+  {
+  aplot <- abundance_status_plot(status_data, 
+                      cu_i)
+  aplot 
+}
 
 ```
+
+## Timing
 
 ### Life History Timing
 
 Timing by life history stage is taken from Wilson and Peacock (2025) [<https://cdnsciencepub.com/doi/10.1139/cjfas-2024-0213>]. Data quality is rated on a scale of 1 to 6 based on number of observations and their recentness, with 1 being the highest quality data.
+
+Life stage timing throughout the year showing spawning, upstream migration, ocean entry, and juvenile freshwater migration periods. Shaded areas indicate periods used for calculating specific vulnerability indicators. Point size represents data quality (larger = LOWER quality).
 
 ```{r life stage timing}
 
@@ -353,29 +513,11 @@ tp <- cu_timing_plot(cu_timing_long_i)
 tp
 ```
 
-## Demographic Indicators
+## Spawning & Rearing {.tabset .tabset-pills}
 
-### Status and abundance
+### CU Location
 
-```{r demographics summary}
-
-dem_details <- recent_status %>%
-  filter(FULL_CU_IN == cu_i) %>%
-  select(any_of(c("CVIS_NAME", "DataType", "status_year", 
-                  "RapidStatus", "CUnmat", "ConfidenceRating5")))
-
-dem_details %>%
-  gt() 
-
-aplot <- abundance_status_plot(status_data, 
-                      cu_i)
-
-aplot 
-
-
-```
-
-## Spawning and Rearing
+Geographic location of the selected conservation unit (green) relative to all Fraser River basin conservation units (grey outlines).
 
 ```{r cu boundary}
 ### boundary location
@@ -383,11 +525,13 @@ p1 <- cu_boundary_highlight(cu_boundary,
                       cu_pick = cu_i)
 
 p1
-
-
 ```
 
-### Stream accessibility map
+### Stream Access
+
+#### BC FishPass Statistics
+
+Summary statistics for accessible stream habitat within the conservation unit boundary based on BC Fishpass habitat potential models.
 
 ```{r data tables}
 
@@ -423,18 +567,26 @@ fwR_cu$streams %>%
     table.font.size = "small",           # Reduce overall font size
     data_row.padding = px(1),           # Minimize padding between rows
   )
+```
 
+#### Accessible Stream Network
+
+Accessible streams only with coloring indicating BC Fishpass modelled habitat potential and NuSEDS spawning site locations within the conservation unit boundary.
+
+```{r accessibility plot}
 acc_plot <- stream_accessible_plot(fw_sp_cu,
   nuseds_cu,
   cu_boundary_i,
   lakes_cu)
 
 acc_plot
-
-
 ```
 
-### Hydrologic Regime
+### Hydrology
+
+#### Hydrologic Regime Coverage
+
+Proportion of CU boundary classified by hydrologic regime type using method described in Ruzzante et al 2025. prop_coverage indicates proportion of CU boundary within gauged watersheds.
 
 ```{r hydrology}
 
@@ -460,8 +612,13 @@ fwR_cu$streams %>%
     table.font.size = "small",           # Reduce overall font size
     data_row.padding = px(1),           # Minimize padding between rows
   )
+```
 
+#### Hydrologic Regime Map
 
+Map of hydrologic regime zones and flow gauge locations within the CU boundary using method described in Ruzzante et al 2025.
+
+```{r regime plot}
 # hydrologic gauge stations and regime plot
 regime_plot <- cu_hydrologic_regime(cu_boundary_i,
                                     stream_data = fw_sp_cu,
@@ -470,48 +627,22 @@ regime_plot <- cu_hydrologic_regime(cu_boundary_i,
                                  fw_sp_cu)
 
 regime_plot
-
-
-# fwR_cu$fwQlow %>%
-#     select(c(GCM, RCP, period), contains("wmean"), contains("wqlow"), 
-#          contains("wqhigh"), -contains("sd"), -contains("CV")) %>%
-#   mutate(
-#     across(where(is.numeric), ~ round(.x, 3))
-#   ) %>%
-#   gt() %>%
-#   tab_header(
-#     title = md("**August Flows – PCIC Stream Model**")
-#   ) %>%
-#   cols_label(
-#     GCM = "GCM",
-#     RCP = "RCP Scenario",
-#     period = "Time Period",
-#     Qproj_wmean = "Projected Flow Mean (m³/s)",
-#     QMADhist_wmean = "Historical MAD Mean",
-#     Qpdelta_wmean = "Δ Flow Mean",
-#     Qproj_wmean_qlow_gcm = "GCM Q1 (Flow)",
-#     Qproj_wmean_qhigh_gcm = "GCM Q3 (Flow)",
-#     Qpdelta_wmean_qlow_gcm = "GCM Q1 (Δ Flow)",
-#     Qpdelta_wmean_qhigh_gcm = "GCM Q3 (Δ Flow)",
-#     Qpdelta_wqlow_sp = "Δ Flow Q1 (Spatial)",
-#     Qpdelta_wqhigh_sp = "Δ Flow Q3 (Spatial)"
-#   ) %>%
-#   tab_spanner(
-#     label = "Projected Flow (m³/s)",
-#     columns = c(Qproj_wmean, Qproj_wmean_qlow_gcm, Qproj_wmean_qhigh_gcm)
-#   ) %>%
-#   tab_spanner(
-#     label = "Change in Flow (Δ)",
-#     columns = c(Qpdelta_wmean, Qpdelta_wmean_qlow_gcm, Qpdelta_wmean_qhigh_gcm, Qpdelta_wqlow_sp, Qpdelta_wqhigh_sp)
-#   ) %>%
-#   fmt_number(
-#     columns = where(is.numeric),
-#     decimals = 3
-#   )
-
 ```
 
-### Stream flow indicators
+### Flow
+
+#### Flow Indicators Summary
+
+Projected changes in stream flow during the month of August (lowQpdelta) and Nov - Jan (highQpdelta) for RCP 4.5, 2041-2060.
+
+```{r flow indicators table}
+# Create subset table for flow indicators
+create_indicator_reactable(tbl_view, c("lowQpdelta", "highQpdelta"))
+```
+
+#### Change in August Flow
+
+Projected proportional change in August stream flows. Negative values indicate flow reductions relative to historic period.
 
 ```{r flow indicator plots}
 Q8_plot <- stream_indicator_plot(acc_sp_cu, 
@@ -525,8 +656,13 @@ Q8_plot <- stream_indicator_plot(acc_sp_cu,
                                 palette_direction = -1)
 
 Q8_plot
+```
 
+#### Change in Nov-Jan Flow
 
+Projected proportional change in winter flows (November-January). Positive values indicate flow increases relative to historic period.
+
+```{r winter flow plot}
 QNDJ_plot <- stream_indicator_plot(acc_sp_cu, 
                                  cu_boundary_i,
                                  lakes_cu,
@@ -539,54 +675,24 @@ QNDJ_plot <- stream_indicator_plot(acc_sp_cu,
   
 
 QNDJ_plot
-
-
-
-
-# fwR_cu$fwQhigh %>%
-#     select(c(GCM, RCP, period), contains("wmean"), contains("wqlow"), 
-#          contains("wqhigh"), -contains("sd"), -contains("CV")) %>%
-#   gt() %>%
-#   tab_header(
-#     title = md("**Nov-Jan Flows – PCIC Stream Model**")
-#   ) %>%
-#   cols_label(
-#     GCM = "GCM",
-#     RCP = "RCP Scenario",
-#     period = "Time Period",
-#     Qproj_wmean = "Projected Flow Mean (m³/s)",
-#     QMADhist_wmean = "Historical MAD Mean",
-#     Qpdelta_wmean = "Δ Flow Mean",
-#     Qproj_wmean_qlow_gcm = "GCM Q1 (Flow)",
-#     Qproj_wmean_qhigh_gcm = "GCM Q3 (Flow)",
-#     Qpdelta_wmean_qlow_gcm = "GCM Q1 (Δ Flow)",
-#     Qpdelta_wmean_qhigh_gcm = "GCM Q3 (Δ Flow)",
-#     Qpdelta_wqlow_sp = "Δ Flow Q1 (Spatial)",
-#     Qpdelta_wqhigh_sp = "Δ Flow Q3 (Spatial)"
-#   ) %>%
-#   tab_spanner(
-#     label = "Projected Flow (m³/s)",
-#     columns = c(Qproj_wmean, Qproj_wmean_qlow_gcm, Qproj_wmean_qhigh_gcm)
-#   ) %>%
-#   tab_spanner(
-#     label = "Change in Flow (Δ)",
-#     columns = c(Qpdelta_wmean, Qpdelta_wmean_qlow_gcm, Qpdelta_wmean_qhigh_gcm, Qpdelta_wqlow_sp, Qpdelta_wqhigh_sp)
-#   ) %>%
-#   fmt_number(
-#     columns = where(is.numeric),
-#     decimals = 3
-#   )
-
-
-
-
 ```
 
-### Stream temperature indicators
+### Temperature
 
-```{r tempreature}
+#### Temperature Indicators Summary
 
+Stream temperature indicators: projected August temperature (tw8proj) and rate of change in August temperature (tw8rate).
 
+```{r temperature table}
+# Create subset table for temperature indicators
+create_indicator_reactable(tbl_view, c("tw8proj", "tw8rate"))
+```
+
+#### Projected August Stream Temperature
+
+Projected mean August stream temperature (2041-2060, RCP 4.5).
+
+```{r temperature}
 #temperature plot
 t_plot <- stream_indicator_plot(acc_sp_cu, 
                                 cu_boundary_i, 
@@ -599,7 +705,14 @@ t_plot <- stream_indicator_plot(acc_sp_cu,
                                 scico_palette = "roma",
                                 palette_direction = -1)
 
+t_plot
+```
 
+#### Rate of Temperature Change
+
+Rate of change in August stream temperature from baseline (1981-2000) to mid-century (2041-2060).
+
+```{r temperature rate plot}
 tRate_plot <- stream_indicator_plot(acc_sp_cu, 
                                 cu_boundary_i, 
                                 lakes_cu,
@@ -611,97 +724,25 @@ tRate_plot <- stream_indicator_plot(acc_sp_cu,
                                 scico_palette = "roma",
                                 palette_direction = -1)
 
-t_plot
 tRate_plot
-
-
-# fwR_cu$fwT %>%
-#   select(c(GCM, RCP, period), contains("wmean"), contains("wqlow"), 
-#          contains("wqhigh"), -contains("sd"), -contains("CV")) %>%
-#   mutate(
-#     across(where(is.numeric), ~ round(.x, 3))
-#   ) %>%
-#   gt() %>%
-#   tab_header(
-#     title = md("**Projected Stream Temperature Statistics**")
-#   ) %>%
-#   cols_label(
-#     GCM = "GCM",
-#     RCP = "RCP Scenario",
-#     period = "Time Period",
-#     Tw8proj_wmean = "Projected Temp Mean (°C)",
-#     Tw8proj_wqlow_sp = "Projected Temp Q1",
-#     Tw8proj_wqhigh_sp = "Projected Temp Q3",
-#     Tw8rate_wmean = "Temp Change Rate Mean (°C/yr)",
-#     Tw8rate_wqlow_sp = "Temp Change Rate Q1",
-#     Tw8rate_wqhigh_sp = "Temp Change Rate Q3",
-#     Tw8proj_wmean_qlow_gcm = "GCM Q1 (Mean Temp)",
-#     Tw8proj_wmean_qhigh_gcm = "GCM Q3 (Mean Temp)",
-#     Tw8rate_wmean_qlow_gcm = "GCM Q1 (Rate)",
-#     Tw8rate_wmean_qhigh_gcm = "GCM Q3 (Rate)",
-#   ) %>%
-#   tab_spanner(
-#     label = "Projected Temperature (°C)",
-#     columns = c(Tw8proj_wmean, Tw8proj_wqlow_sp, Tw8proj_wqhigh_sp)
-#   ) %>%
-#   tab_spanner(
-#     label = "Temperature Change Rate (°C/decade)",
-#     columns = c(Tw8rate_wmean, Tw8rate_wqlow_sp, Tw8rate_wqhigh_sp)
-#   ) %>%
-#   tab_spanner(
-#     label = "GCM Variation - Projected Temp",
-#     columns = c( Tw8proj_wmean_qlow_gcm, Tw8proj_wmean_qhigh_gcm)
-#   ) %>%
-#   tab_spanner(
-#     label = "GCM Variation - Temp Rate",
-#     columns = c(Tw8rate_wmean_qlow_gcm, Tw8rate_wmean_qhigh_gcm)
-#   ) %>%
-#   fmt_number(
-#     columns = where(is.numeric),
-#     decimals = 3
-#   )
-
-
-
-
 ```
 
-### Ecological Niche Model
+### ENM
+
+#### ENM Indicators Summary
+
+Indicator value of changes in habitat favourability (favchange) from Environmental Niche Models.
+
+```{r enm table}
+# Create subset table for ENM indicators
+create_indicator_reactable(tbl_view, c("favchange"))
+```
+
+#### ENM Habitat Favourability
+
+Projected habitat favourability (2041-2060, RCP 4.5). Values range from 0 (unfavourable) to 1 (highly favourable) based on projected environmental conditions.
 
 ```{r ENMs}
-
-# fwR_cu$ENM %>%
-#   mutate(
-#     total_length = round(total_length/1000, 1),
-#     across(starts_with("Fav"), round, 3)
-#   ) %>%
-#   gt() %>%
-#   tab_header(
-#     title = md("**ENM Favourability by RCP Scenario and Period**")
-#   ) %>%
-#   cols_label(
-#     RCP = "RCP Scenario",
-#     period = "Time Period",
-#     n_streams = "Number of Streams",
-#     total_length = "Total Length (km)",
-#     Fav_wmean = "Favourability Mean",
-#     Fav_wsd_sp = "Favourability SD",
-#     Fav_wqlow_sp = "Favourability 10% Q",
-#     Fav_wqhigh_sp = "Favourability 90% Q",
-#     Fav_change_wmean = "Δ Favourability Mean",
-#     Fav_change_wsd_sp = "Δ Favourability SD",
-#     Fav_change_wqlow_sp = "Δ Favourability 10% Q",
-#     Fav_change_wqhigh_sp = "Δ Favourability 90 %Q"
-#   ) %>%
-#   tab_spanner(
-#     label = "Favourability Stats",
-#     columns = c(Fav_wmean, Fav_wsd_sp, Fav_wqlow_sp, Fav_wqhigh_sp)
-#   ) %>%
-#   tab_spanner(
-#     label = "Change in Favourability",
-#     columns = c(Fav_change_wmean, Fav_change_wsd_sp, Fav_change_wqlow_sp, Fav_change_wqhigh_sp)
-#   )
-
 ENM_plot <- stream_indicator_plot(fw_sp_cu, 
                                  cu_boundary_i,
                                  lakes_cu,
@@ -713,8 +754,13 @@ ENM_plot <- stream_indicator_plot(fw_sp_cu,
                                 palette_direction = -1)
 
 ENM_plot
+```
 
+#### Change in Favourability
 
+Change in habitat favourability from baseline to mid-century. Negative values indicate decreased favourability, positive values indicate improving conditions.
+
+```{r enm diff plot}
 ENMdiff_plot <- stream_indicator_plot(fw_sp_cu, 
                                  cu_boundary_i,
                                  lakes_cu,
@@ -727,45 +773,22 @@ ENMdiff_plot <- stream_indicator_plot(fw_sp_cu,
   
 
 ENMdiff_plot 
-
-# 
-# ENM_col <- names(select(ENM_cu, contains("Fav_f.9_45_3")))
-# ENM_col <- ENM_col[str_detect(ENM_col, sp_pick)]
-# 
-# ENM_values <- select(as.tibble(ENM_cu), !!ENM_col)
-# 
-# if(sum(!is.na(ENM_values) > 0)) { 
-# ENM_plot <- stream_indicator_plot(ENM_cu, 
-#                                   cu_boundary_i,
-#                                   variable = ENM_col,
-#                                   plot_title = "ENM favourability, 2041-2060",
-#                                   histogram_fill = "model_habitat_salmon",
-#                                   scico_palette = "berlin",
-#                                   palette_direction = -1)
-# 
-# ENM_plot
-# }
-# 
-# ENM_col <- names(select(ENM_cu, contains("Fav_change_9_45_5")))
-# ENM_col <- ENM_col[str_detect(ENM_col, sp_pick)]
-# 
-# ENM_values <- select(as.tibble(ENM_cu), !!ENM_col)
-# 
-# if(sum(!is.na(ENM_values) > 0)) { 
-# ENM_diff_plot <- stream_indicator_plot(ENM_cu, 
-#                                        cu_boundary_i,
-#                                   variable = ENM_col,
-#                                   plot_title = "ENM favourability change, 2081-2100",
-#                                   histogram_fill = "model_habitat_salmon",
-#                                   scico_palette = "berlin",
-#                                   palette_direction = -1)
-# 
-# ENM_diff_plot
-# }
-
 ```
 
-### Cumulative threats
+### Threats
+
+#### Cumulative Threats Indicator Summary
+
+Indicator of cumulative threat score (CT) representing anthropogenic stressors to stream habitat.
+
+```{r threats table}
+# Create subset table for cumulative threats indicators
+create_indicator_reactable(tbl_view, c("CT"))
+```
+
+#### Cumulative Threats to Stream Habitat
+
+Cumulative threat score combining nine anthropogenic stressor categories. Higher values represent higher threats.
 
 ```{r Cumulative Threats}
 
@@ -783,12 +806,24 @@ ct_plot
 
 ```
 
-## Upstream Migration
+## Migration {.tabset .tabset-pills}
 
-### Migration path
+### Path
+
+#### Migration Indicators Summary
+
+Indicators representing temperature and flow conditions and migration distance from ocean to spawning grounds.
+
+```{r migration table}
+# Create subset table for migration indicators
+create_indicator_reactable(tbl_view, c("migrT", "migrQ", "migrdist"))
+```
+
+#### Migration Route
+
+Migration route from river mouth to NuSEDS spawning sites used to calculate indicators, coloured by channel width.
 
 ```{r MIgration path}
-
 
 mplot <- migration_path_plot(migr_cu,
   nuseds_cu,
@@ -799,14 +834,15 @@ plot_title = paste0("Migration path length = ", cu_std$migrdist[1], "km")
 )
 
 mplot
-  
-
 ```
 
-### Migration timing and temperature
+### Timing - Migration
+
+#### Migration Timing and Temperature
+
+Daily projected stream temperatures during upstream migration period. Vertical dashed lines show run timing start/end (blue) and spawn timing start/peak (red). Shaded areas show 10th-90th percentile range across climate models.
 
 ```{r Migration temp}
-
 
 timeplot <- migr_timing_plot(migrT_rcps,
                              cu_i,
@@ -818,7 +854,11 @@ timeplot
 
 ```
 
-## Nearshore Marine
+## Marine {.tabset .tabset-pills}
+
+### Marine Adaptive Zone
+
+Marine Adaptive Zone (green) representing the nearshore rearing area used for marine indicator calculations.
 
 ```{r Marine}
 
@@ -833,12 +873,23 @@ MAZ_pick <- unique(cu_mar$MAZ)
 
 MAZ_boundary_highlight(MAZ,
                           MAZ_pick = cu_MAZ)
-
-
-
 ```
 
+
 ### SST
+
+#### Sea Surface Temperature Indicators Summary
+
+Nearshore marine indicators related to sea surface temperature, the projected SST during the ocean entry period (SSTproj), and the rate of change in SST (SSTrate) relative to the baseline period.
+
+```{r sst table}
+# Create subset table for SST indicators
+create_indicator_reactable(tbl_view, c("SSTproj", "SSTrate"))
+```
+
+#### Projected Sea Surface Temperature
+
+Projected sea surface temperature during the period surrounding peak ocean entry (2041-2060, RCP 4.5).
 
 ```{r SST}
 
@@ -858,11 +909,6 @@ SST_cu_sp <- get_spatial_var(CMIP6_SST,
                              period_pick = period_pick,
                              rcp_pick = rcp_pick)
 
-# SSTROM_cu_sp <- get_spatial_var(ROM_SST,
-#                              months = months_include,
-#                              period_pick = period_pick,
-#                              rcp_pick = rcp_pick)
-
 p <- marine_indicator_plot(SST_cu_sp,
                            MAZ_sp = MAZ,
                            var = "SST_oe",
@@ -871,12 +917,22 @@ p <- marine_indicator_plot(SST_cu_sp,
                            palette_limits = c(9,16))
                            
 p
-
-
-
 ```
 
-### Cumulative Impacts
+### Impacts
+
+#### Marine Cumulative Impacts Indicator Summary
+
+Indicator for cumulative impact score (CImpact) for nearshore marine habitats within the marine adaptive zone.
+
+```{r impacts table}
+# Create subset table for marine impacts indicators
+create_indicator_reactable(tbl_view, c("CImpact"))
+```
+
+#### Cumulative Impacts on Marine Habitat
+
+Cumulative impact score combining stressors including aquaculture, fishing, invasive species, pollution, and shipping. Higher values indicate a higher impact score.
 
 ```{r Cumulative impacts}
 
@@ -887,9 +943,4 @@ p2 <- marine_indicator_plot(filter(CImpact_points, MAZ_Acrony == cu_mar$MAZ[1]),
                       palette_limits = c(NA,NA))
 
 p2
-
-
 ```
-
-
-

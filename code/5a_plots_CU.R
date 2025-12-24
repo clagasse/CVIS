@@ -438,14 +438,16 @@ cu_boundary_highlight <- function(cu_boundary,
   cu_boundary_i <- filter(cu_boundary, FULL_CU_IN == cu_pick)
 
   p <- ggplot() +
-    annotation_map_tile(type = "cartolight") +
+    #annotation_map_tile(type = "cartolight") +
     geom_sf(data = cu_boundary, color = "black", alpha = 0.3) +
-    geom_sf(data = cu_boundary_i, fill = "green") +
-    labs(title = cu_pick)
+    geom_sf(data = cu_boundary_i, fill = "green") 
+    #labs(title = cu_pick)
+  
+  return(p)
 
 }
 
-
+cu_boundary_highlight(cu_boundary, cu_pick = "CK-09")
 
 # 8. Hydrologic Regime ----------------------------------------------------
 cu_hydrologic_regime <- function(cu_boundary_i,
@@ -575,7 +577,6 @@ marine_indicator_plot <- function(data,
                                   palette_limits = c(9, 14)) {
 
   p <- ggplot() +
-    # annotation_map_tile(type = "cartolight") +
     geom_sf(data = data, aes(colour = !!sym(var))) +
     scico::scale_color_scico(
       palette   = scico_palette,
@@ -950,7 +951,7 @@ MAZ_boundary_highlight <- function(MAZ,
   MAZ_i <-  filter(MAZ, MAZ_Acrony == MAZ_pick)
 
   p <- ggplot() +
-    annotation_map_tile(type = "cartolight") +
+    #annotation_map_tile(type = "cartolight") +
     geom_sf(data = MAZ, color = "black", alpha = 0.3) +
     geom_sf(data = MAZ_i, fill = "green")
 

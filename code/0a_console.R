@@ -22,6 +22,7 @@ Fr_basin <- filter(basins, BASIN == "FRASER")
 # load CU boundaries
 load(file.path(paths$fw, "cu_boundary.Rds"))
 
+
 # freshwater stream subsets by CU boundary
 load(file.path(paths$fw, "fw_streampicks_tscapes.Rdata"))
 # freshwater stream indicator statistics
