@@ -132,7 +132,7 @@ loadPCIC_ind <- function(
 
 
 ##########################################################################
-### FWA functions
+## ----  FWA functions-----
 ###################################################################
 
 
@@ -162,27 +162,86 @@ downstream_path <- function(stream_pick, stream_network, code_type = "FWA") {
       filter(stream_order >= max(stream_pick$stream_order), 
              stream_magnitude >= max(stream_pick$stream_magnitude))
     
-    #get streams with lower FWA code that intersect with migration reaches
+    #get streams with matching FWA code that intersect with migration reaches
     FWA_int <- st_intersects(candidates, stream_pick, sparse = FALSE)
     FWA_int <- candidates[which(apply(FWA_int, 1, sum) > 0),]
     
-    #get downstream_route_measure range from lowest intersecting reach
-    if(code_type == "bcfp") {
-      dd <- min(FWA_int$downstream_route_measure)
-      #take candidate streams with lower downstream_route_measure range
-      low_stream <- filter(candidates, downstream_route_measure <= dd)
-    }
-    
-    if(code_type == "FWA") {
-      dd <- min(FWA_int$downstream_route_measure)
-      low_stream <- filter(candidates, downstream_route_measure <= dd)
-}
+    #get downstream_route_measure from lowest intersecting reach
+    dd <- min(FWA_int$downstream_route_measure)
+    low_stream <- filter(candidates, downstream_route_measure <= dd)
     
     #take all streams with downstream_route_measure distance below intersect
     stream_pick <- bind_rows(stream_pick, low_stream)
   }
   return(stream_pick)
 }
+
+
+downstream_path_AI <- function(stream_pick, stream_network, code_type = "FWA") {
+  
+  FWA_code <- stream_pick$localcode
+  st <- str_length(FWA_code)
+  if(code_type == "FWA") {
+    FWA_code <- stream_pick$FWA_WATERSHED_CODE
+    st <- str_locate(FWA_code, "000000")[1] - 2   #get stream code last position
+  }
+  
+  st_level <- (st + 4) / 7
+  
+  for (n in 1:st_level) {
+    
+    c_cut <- (n - 1) * 7
+    s_pick <- stringr::str_sub(FWA_code, 1, st - c_cut)
+    
+    if (code_type == "FWA") s_pick <- stringr::str_c(s_pick, "-000000")
+    
+    # candidates at this level
+    if (code_type == "FWA") {
+      ind <- stringr::str_starts(stream_network$FWA_WATERSHED_CODE, s_pick)
+    } else {
+      ind <- (stream_network$localcode == s_pick)
+    }
+    
+    candidates <- stream_network[ind, ] %>%
+      dplyr::filter(
+        stream_order >= max(stream_pick$stream_order, na.rm = TRUE),
+        stream_magnitude >= max(stream_pick$stream_magnitude, na.rm = TRUE)
+      )
+    
+    if (nrow(candidates) == 0) next
+    
+    # intersecting reaches (confluences will include tributaries)
+    int_mat <- sf::st_intersects(candidates, stream_pick, sparse = FALSE)
+    FWA_int <- candidates[which(rowSums(int_mat) > 0), ]
+    
+    if (nrow(FWA_int) == 0) next
+    
+    FWA_int <- FWA_int %>% dplyr::filter(!is.na(downstream_route_measure))
+    
+    #  pick ONE "downstream continuation" route, then only take downstream on that route
+    # Heuristic: prefer the largest river (order/magnitude), then the most-downstream DRM among those
+    next_reach <- FWA_int %>%
+      dplyr::arrange(dplyr::desc(stream_order),
+                     dplyr::desc(stream_magnitude),
+                     downstream_route_measure) %>%
+      dplyr::slice(1)
+    
+    next_key <- next_reach$blue_line_key
+    dd <- next_reach$downstream_route_measure
+    
+    low_stream <- candidates %>%
+      dplyr::filter(
+        blue_line_key == next_key,
+        downstream_route_measure <= dd   # see note below on direction
+      )
+    
+    stream_pick <- dplyr::bind_rows(stream_pick, low_stream) %>%
+      dplyr::distinct()  # avoid duplicates
+  }
+  
+  stream_pick
+}
+
 
 #measure distance to ocean entry for each stream segment in a migration paths object
 measure_downstream <- function(stream_pick, stream_network, code_type = "FWA") {

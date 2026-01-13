@@ -62,6 +62,8 @@ for (i in 1:n.CUs) {
   # method 1 - nearest feature
   nearest_lines <- st_nearest_feature(nuseds_cu, bcfph)
   stream_candidates <- bcfph[nearest_lines, ]  # get one stream candidate for each nuseds site
+  
+  t1 <- filter(stream_candidates, gnis_name == "Fraser River")
 
   # method 2 - FWA code
   # stream_candidates_2 <- filter(FWA_Fr_ord5, FWA_WATERS %in% nuseds_cu$FWA_WATERSHED_CDE)
@@ -76,9 +78,10 @@ for (i in 1:n.CUs) {
   # get downstream path from candidate point or stream
   for (j in 1:nrow(stream_candidates)) {
     stream_pick <- stream_candidates[j, ]
+    #stream_pick <- t1[3,]
 
     # get downstream path from candidate point or stream
-    migr_temp <- downstream_path(stream_pick, bcfph, code_type = "FWA")
+    migr_temp <- downstream_path_AI(stream_pick, bcfph, code_type = "FWA")
 
     # if path is empty, try next candidate
     if (nrow(migr_temp) == 0) next
@@ -99,7 +102,7 @@ for (i in 1:n.CUs) {
 
   migr_cu <- distinct(migr_cu) %>%
     left_join(dupes, by = "segmented_stream_id", multiple = "first")
-
+  
   # migr_cu$downstream_distance <- apply(migr_cu, 1, function(row) {
   #   measure_downstream(row, migr_cu)
   # })
@@ -115,8 +118,6 @@ names(migr_list) <- cu_seq
 
 save(migr_list,
   file = file.path(paths$fw, paste0(today, "_fw_upstream_paths.Rdata")))
-
-
 
 #############################################################################
 ## FAZ Boundary analysis

@@ -50,7 +50,7 @@ paths <- list(
   figures = here("output", "figures"),
   reports = here("reports"),
   code    = here("code"),
-  indicators = here("processed_data", "indicator_params")
+  params = here("processed_data", "params")
 )
 
 
@@ -206,7 +206,7 @@ tbl_standardize <- tribble(
   "genoff",      "gen",     "linear_std",      "species",    NA,    NA, NA)
 
 
-save(tbl_indicators, tbl_standardize, tbl_ind_report, file = file.path(paths$indicators, "indicator_tables.Rdata"))
+save(tbl_indicators, tbl_standardize, tbl_ind_report, file = file.path(paths$params, "indicator_tables.Rdata"))
 
 # ggplot custom theme -----------------------------------------------------
 

@@ -76,7 +76,6 @@ all_std_avgs <- all_flat_std %>%
   mutate(FULL_CU_IN = "All CUs", CU_NAME = "All CUs", CU_Species = "All CUs")
 
 
-
 # 4. Overall scores using additive and multiplicative methods -------------
 
 combined_scores_std <- all_flat_std %>%
@@ -232,51 +231,4 @@ combined_scores_std <- combined_scores_std %>%
     rank_col = "std_rank_avggen_within",
     descending = FALSE
   )
-
-
-
-# # 7. Calculate rank differences (cross-species vs within-species) ---------
-# 
-# # cat("Calculating rank differences between cross-species and within-species...\n")
-# # 
-# combined_scores_std <- combined_scores_std %>%
-#   mutate(
-#     # Difference in ranks (positive = ranked higher cross-species than within-species)
-#     rank_diff_avgall = std_rank_avgall_cross - std_rank_avgall_within,
-#     rank_diff_sumavgs = std_rank_sumavgs_cross - std_rank_sumavgs_within,
-#     rank_diff_sumcube = std_rank_sumcube_cross - std_rank_sumcube_within,
-#     rank_diff_avgfwR = std_rank_avgfwR_cross - std_rank_avgfwR_within,
-#     rank_diff_avgmigr = std_rank_avgmigr_cross - std_rank_avgmigr_within,
-#     rank_diff_avgdem = std_rank_avgdem_cross - std_rank_avgdem_within,
-#     rank_diff_avgmar = std_rank_avgmar_cross - std_rank_avgmar_within
-#  )
-
-
-# 8. Summary statistics ----------------------------------------------------
-
-# # Filter to one scenario for summary
-# summary_data <- combined_scores_std %>%
-#   filter(rcp == "45", period_code == 3)
-# 
-# # Species-specific summaries
-# species_summary <- summary_data %>%
-#   group_by(SPECIES_NAME) %>%
-#   dplyr::summarize(
-#     n_CUs = n(),
-#     mean_score = mean(std_avgall, na.rm = TRUE),
-#     mean_rank_cross = mean(std_rank_catavgs_cross, na.rm = TRUE),
-#     mean_rank_within = mean(std_rank_catavgs_within, na.rm = TRUE),
-#     max_rank_diff = max(abs(rank_diff_sumavgs), na.rm = TRUE),
-#     .groups = "drop"
-#   ) %>%
-#   arrange(desc(mean_score))
-# 
-# 
-# # Identify CUs with largest rank differences
-# large_diffs <- summary_data %>%
-#   select(FULL_CU_IN, CVIS_NAME, SPECIES_NAME,
-#     std_rank_sumavgs_cross, std_rank_sumavgs_within, rank_diff_sumavgs) %>%
-#   arrange(desc(abs(rank_diff_sumavgs))) %>%
-#   head(10)
-
 

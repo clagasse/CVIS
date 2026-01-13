@@ -366,7 +366,6 @@ migr_timing_plot <- function(migrT,
 
   migrT_select <- migrT[[rcp]][[cu_i]][["doy"]]
 
-
   # Names of the components you want to process
   components <- c("mean", "0.1", "0.9")
 
@@ -447,7 +446,6 @@ cu_boundary_highlight <- function(cu_boundary,
 
 }
 
-cu_boundary_highlight(cu_boundary, cu_pick = "CK-09")
 
 # 8. Hydrologic Regime ----------------------------------------------------
 cu_hydrologic_regime <- function(cu_boundary_i,
@@ -961,55 +959,62 @@ MAZ_boundary_highlight <- function(MAZ,
 
 
 # X. Testing plot functions -----------------------------------------------
-
-
-
-#
+# 
+# cu_i <- "CK-03"
+# 
 # cu_i <- cu_run$FULL_CU_IN[i]
 # cu_run_i <- cu_run[cu_run$FULL_CU_IN == cu_i, ]
 # sp_pick <- cu_run$spp[cu_run$FULL_CU_IN == cu_i] # species abbr
 # sp_pick_bcfp <- spp_lookup$spp_abr_bcfp[spp_lookup$spp_abr == sp_pick]
-#
+# 
+# cu_timing_i <- cu_timing_Fr %>% filter(FULL_CU_IN == cu_i)
+# 
 # cu_boundary_i <- cu_boundary[cu_boundary$FULL_CU_IN == cu_i, ]
-#
-# # subset nuseds observations
-# nuseds_cu <- nuseds_Fr[nuseds_Fr$FULL_CU_IN == cu_i, ]
-#
+# 
+# # # subset nuseds observations
+# # nuseds_cu <- nuseds_Fr[nuseds_Fr$FULL_CU_IN == cu_i, ]
+# #
 # # subset migration path
 # migr_cu <- migr_list[[cu_i]]
-#
-# stream_cu_sub <- stream_cu_picks[, colnames(stream_cu_picks) == cu_i]
-#
-# fwModels_cu <- fwModels[stream_cu_sub, ] %>%
-#   rename(keep_model_spawning = contains(paste0("model_spawning_", sp_pick_bcfp)),
-#     keep_model_rearing  = contains(paste0("model_rearing_", sp_pick_bcfp))) %>%
-#   mutate(model_rs = if_any(starts_with("keep_model"), ~ . == TRUE)) %>% # get boolean for model spawning and rearing
-#   mutate(model_rs = factor(model_rs, levels = c(TRUE, FALSE),
-#     labels = c("1-SPAWNING/REARING", "2-ACCESSIBLE"))) %>%
-#   select(-starts_with(c("model_spawning", "model_rearing", "known_rearing", "known_spawning")))
-#
-#
-# cu_timing_long_i <- cu_timing_long[cu_timing_long$FULL_CU_IN == cu_i, ]
-# cu_timing_i <- cu_timing_Fr[cu_timing_Fr$FULL_CU_IN == cu_i, ]
-#
-#
-# stream_accessible_plot(fwModels_cu,
-#   nuseds_cu,
-#   cu_boundary_i)
-#
-# stream_indicator_plot(fwModels_cu,
-#   cu_boundary_i,
-#   variable = "Tw8_9_45_3",
-#   unit_label = "Degrees C",
-#   plot_title = "August temperature 2041-2060",
-#   scico_palette = "roma",
-#   palette_direction = -1)
-#
-# migration_path_plot(migr_cu,
-#   nuseds_cu,
-#   cu_boundary_i
-# )
-#
-# cu_timing_plot(cu_timing_long_i)
-#
+# 
+# # stream_cu_sub <- stream_cu_picks[, colnames(stream_cu_picks) == cu_i]
+# 
+# # fwModels_cu <- fwModels[stream_cu_sub, ] %>%
+# #   rename(keep_model_spawning = contains(paste0("model_spawning_", sp_pick_bcfp)),
+# #     keep_model_rearing  = contains(paste0("model_rearing_", sp_pick_bcfp))) %>%
+# #   mutate(model_rs = if_any(starts_with("keep_model"), ~ . == TRUE)) %>% # get boolean for model spawning and rearing
+# #   mutate(model_rs = factor(model_rs, levels = c(TRUE, FALSE),
+# #     labels = c("1-SPAWNING/REARING", "2-ACCESSIBLE"))) %>%
+# #   select(-starts_with(c("model_spawning", "model_rearing", "known_rearing", "known_spawning")))
+# #
+# #
+# # cu_timing_long_i <- cu_timing_long[cu_timing_long$FULL_CU_IN == cu_i, ]
+# # cu_timing_i <- cu_timing_Fr[cu_timing_Fr$FULL_CU_IN == cu_i, ]
+# #
+# #
+# # stream_accessible_plot(fwModels_cu,
+# #   nuseds_cu,
+# #   cu_boundary_i)
+# #
+# # stream_indicator_plot(fwModels_cu,
+# #   cu_boundary_i,
+# #   variable = "Tw8_9_45_3",
+# #   unit_label = "Degrees C",
+# #   plot_title = "August temperature 2041-2060",
+# #   scico_palette = "roma",
+# #   palette_direction = -1)
+# #
+# 
+# # migr_UFR <- filter(migr_cu, watershed_group_code == "UFRA")
+# # 
+# # migration_path_plot(migr_cu,
+# #   nuseds_cu,
+# #   cu_boundary_i,
+# #   colour_var = "downstream_distance",
+# # )
+# # # #
+# # cu_timing_plot(cu_timing_long_i)
+# #
 # migr_timing_plot(migrT_rcps, cu_i, cu_timing_i)
+# 
+# migrT_cu <- migrT_rcps[["45"]][[cu_i]]
