@@ -135,49 +135,7 @@ loadPCIC_ind <- function(
 ## ----  FWA functions-----
 ###################################################################
 
-
-#function to subset downstream paths from a stream
 downstream_path <- function(stream_pick, stream_network, code_type = "FWA") {
-  
-  FWA_code <- stream_pick$localcode
-  st <- str_length(FWA_code)
-  if(code_type == "FWA") {
-    FWA_code <- stream_pick$FWA_WATERSHED_CODE
-    st <- str_locate(FWA_code, "000000")[1] - 2   #get stream code last position
-  }
-
-  st_level <- (st+4)/7
-  
-  for(n in 1:st_level) {
-    
-    #get FWA code for current FWA level of iteration
-    c_cut <- (n-1) * 7
-    s_pick <- str_sub(FWA_code, 1, st - c_cut)
-    if(code_type == "FWA") s_pick <- str_c(s_pick, "-000000")
-    
-    #get candidate streams with lower FWA code
-    ind <- str_equal(stream_network$localcode, s_pick)
-    if(code_type == "FWA") ind <- str_starts(stream_network$FWA_WATERSHED_CODE, s_pick)
-    candidates <- stream_network[ind,] %>%
-      filter(stream_order >= max(stream_pick$stream_order), 
-             stream_magnitude >= max(stream_pick$stream_magnitude))
-    
-    #get streams with matching FWA code that intersect with migration reaches
-    FWA_int <- st_intersects(candidates, stream_pick, sparse = FALSE)
-    FWA_int <- candidates[which(apply(FWA_int, 1, sum) > 0),]
-    
-    #get downstream_route_measure from lowest intersecting reach
-    dd <- min(FWA_int$downstream_route_measure)
-    low_stream <- filter(candidates, downstream_route_measure <= dd)
-    
-    #take all streams with downstream_route_measure distance below intersect
-    stream_pick <- bind_rows(stream_pick, low_stream)
-  }
-  return(stream_pick)
-}
-
-
-downstream_path_AI <- function(stream_pick, stream_network, code_type = "FWA") {
   
   FWA_code <- stream_pick$localcode
   st <- str_length(FWA_code)
@@ -190,6 +148,7 @@ downstream_path_AI <- function(stream_pick, stream_network, code_type = "FWA") {
   
   for (n in 1:st_level) {
     
+    #get FWA code for current FWA level of iteration
     c_cut <- (n - 1) * 7
     s_pick <- stringr::str_sub(FWA_code, 1, st - c_cut)
     
@@ -210,7 +169,7 @@ downstream_path_AI <- function(stream_pick, stream_network, code_type = "FWA") {
     
     if (nrow(candidates) == 0) next
     
-    # intersecting reaches (confluences will include tributaries)
+    #get streams with matching FWA code that intersect with migration reaches (confluences will include tributaries)
     int_mat <- sf::st_intersects(candidates, stream_pick, sparse = FALSE)
     FWA_int <- candidates[which(rowSums(int_mat) > 0), ]
     
@@ -226,6 +185,7 @@ downstream_path_AI <- function(stream_pick, stream_network, code_type = "FWA") {
                      downstream_route_measure) %>%
       dplyr::slice(1)
     
+    #get downstream_route_measure from lowest intersecting reach
     next_key <- next_reach$blue_line_key
     dd <- next_reach$downstream_route_measure
     
@@ -235,6 +195,7 @@ downstream_path_AI <- function(stream_pick, stream_network, code_type = "FWA") {
         downstream_route_measure <= dd   # see note below on direction
       )
     
+    #take all streams with downstream_route_measure distance below intersect
     stream_pick <- dplyr::bind_rows(stream_pick, low_stream) %>%
       dplyr::distinct()  # avoid duplicates
   }
@@ -318,6 +279,13 @@ choose_CU_stream <- function(FWA, cu_boundary, subset_order = FALSE, min_order =
 #mat <- st_coordinates(cu_FWA)
 #mat_loc <- median(mat[,3])
 #mid
+
+
+#simple calculation for work to reach migration segment
+
+calculate_work <- function(elev, dist) {
+  work <- 0.0001 * elev * dist
+}
 
 #----------------------rainfall plot-----------------------------------------
 

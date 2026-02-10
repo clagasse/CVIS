@@ -81,7 +81,7 @@ for (i in 1:n.CUs) {
     #stream_pick <- t1[3,]
 
     # get downstream path from candidate point or stream
-    migr_temp <- downstream_path_AI(stream_pick, bcfph, code_type = "FWA")
+    migr_temp <- downstream_path(stream_pick, bcfph, code_type = "FWA")
 
     # if path is empty, try next candidate
     if (nrow(migr_temp) == 0) next
@@ -100,13 +100,11 @@ for (i in 1:n.CUs) {
     summarize(num_paths = n()) %>%
     mutate(prop_paths = num_paths / max(num_paths)) # nrow(stream_candidates))
 
+  #join migraiton segments with multiple paths
   migr_cu <- distinct(migr_cu) %>%
-    left_join(dupes, by = "segmented_stream_id", multiple = "first")
+    left_join(dupes, by = "segmented_stream_id", multiple = "first") %>%
+    mutate(work_upstream = calculate_work(max(st_coordinates(.)[, 3]), downstream_distance))  #calculate work (elev x dist)
   
-  # migr_cu$downstream_distance <- apply(migr_cu, 1, function(row) {
-  #   measure_downstream(row, migr_cu)
-  # })
-
   if (i == 1) migr_list <- list(migr_cu)
   if (i > 1) migr_list <- c(migr_list, list(migr_cu))
 

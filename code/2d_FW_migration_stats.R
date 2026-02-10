@@ -1,5 +1,3 @@
-################################################################################
-#
 # 2e_FW_migration_stats.R
 #
 #  Summarize upstream migration indicators from PCIC model outputs
@@ -25,7 +23,7 @@
 #       b. Average, q10 and q90 temp or discharge across time series by period and RCP
 #       c. Mean, q10 and q90 proportion of spatial extent above 19 degree or 21 degree threshold temp for each period, RCP
 
-#################################################################################
+#--------- 0. setup -----------------------------
 
 library(here)
 setwd(here())
@@ -37,8 +35,11 @@ historical <- "0"   # historical climatology period for temperature models
 
 qlgcm <- 0    # lower quantile for statistics on GCM variation
 qhgcm <- 1   # upper quantile for statistics
-qld  <- 0.1    # lower quantile for temporal variation within migration window
-qhd <- 0.9    # upper quantile for temporal variation
+
+rcp_vec <- c("45", "85")
+
+#label for period variable used as baseline when calculating difference in Q
+baseline_pick <- "1981-2010"
 
 #--------- 1. import spatial objects ---------------------
 # load CU paths
@@ -47,162 +48,22 @@ load(file.path(paths$fw, "fw_upstream_paths.Rdata"))
 # load PCIC daily outputs
 PCIC_file_loc <- file.path(paths$climate, "PCIC_averaged", "combined")
 
-# read PCIC outputs, with dimensions for each model, time period, and day of year
-PCIC_daily <- read_mdim(file.path(PCIC_file_loc, "daily_rcp45.nc"))
-# PCIC_daily_85 <- read_mdim(file.path(PCIC_file_loc, "daily_rcp85.nc"))
 
-# convert Temperature from Kelvin to Celsius
-PCIC_daily <- mutate(PCIC_daily, waterTemperature = waterTemperature - 273.15)
-
-# get base PCIC grid - smaller object quicker for operations
-PCIC_base <- PCIC_daily[, , , 1, 1, 1]
-
-periods    <- st_get_dimension_values(PCIC_daily, "period")
-gcm_models <- st_get_dimension_values(PCIC_daily, "model")
 
 #--------------------- 2. Functions for indicators -----------------------------------
-
-# function to produce summary statistics across rcps, gcms, periods, and days of year for a stars attribute
-summarize_attribute <- function(data,
-                                attr_name = "discharge",
-                                type = "mean",  # mean or sum
-                                indicator_type = "proj",  # proj or change
-                                qlowday = qld,   # lower and upper quantiles to extract
-                                qhighday = qhd,
-                                qlowgcm = qlgcm,
-                                qhighgcm = qhgcm) {
-  ## a. SPATIAL DIMENSION -----
-  # Get array with average over x and y — keeping period, day of year, and model
-  spatial_avg <- st_apply(
-    data[attr_name],  # variable to calc
-    MARGIN = c("time", "period", "model"),  # dimensions to keep
-    FUN = mean, na.rm = T
-  )[[1]]
-
-  # if(type == "sum") {
-  #   spatial_avg <- st_apply(
-  #     data[attr_name],  # variable to calc
-  #     MARGIN = c("time", "period", "model"),  # dimensions to keep
-  #     FUN = sum, na.rm = T
-  #   )[[1]]
-  # }
-  #
-  dimnames(spatial_avg) <- list(st_get_dimension_values(data, "time"),
-    st_get_dimension_values(data, "period"),
-    st_get_dimension_values(data, "model"))
-
-  ## b. GCM dimension ------
-  ## Get average and quantiles for each day across GCM outputs and attributes
-  doy_avg <- apply(spatial_avg,
-    MARGIN = c(1, 2), # dimensions to keep
-    FUN = mean,
-    na.rm = T)
-
-  doy_qlow <- apply(spatial_avg,
-    MARGIN = c(1, 2),
-    FUN = quantile,
-    probs = qlowday,
-    na.rm = T)
-
-  doy_qhigh <- apply(spatial_avg,
-    MARGIN = c(1, 2),
-    FUN = quantile,
-    probs = qhighday,
-    na.rm = T)
-
-  doy_stats <- list(doy_avg, doy_qlow, doy_qhigh)
-  names(doy_stats) <- c("mean", qlowday, qhighday)
-
-
-  ## c. TIME DIMENSION ------
-  ## Aggregate over time - get average (or sum) and quantiles across days within migration window
-
-  # get average (or sum) across days of year for time periods, models, and rcps
-  if (type == "mean") {
-    gcm_doy_avg <- apply(spatial_avg,
-      MARGIN = c(2, 3),
-      FUN = mean,
-      na.rm = T)
-  }
-
-  if (type == "sum") {
-    gcm_doy_avg <- apply(spatial_avg,
-      MARGIN = c(2, 3),
-      FUN = sum,
-      na.rm = T)
-  }
-
-  # get average across gcm models
-  gcm_stats <- tibble(period = st_get_dimension_values(data, "period"),
-    mean    = NA,
-    qlowgcm    = NA,
-    qhighgcm   = NA)
-
-  # take average, qlow and qhigh, and change from historical across gcms for each time period and rcp
-  gcm_stats$mean     <- apply(gcm_doy_avg, 1, mean)
-  gcm_stats$qlowgcm  <- apply(gcm_doy_avg, 1, quantile, probs = qlowgcm)
-  gcm_stats$qhighgcm <- apply(gcm_doy_avg, 1, quantile, probs = qhighgcm)
-
-  if (indicator_type == "change") {
-    gcm_stats$hist     <- gcm_stats$mean[1]
-    gcm_stats$mean     <- (gcm_stats$mean - gcm_stats$hist) / gcm_stats$hist
-    gcm_stats$qlowgcm  <- (gcm_stats$qlowgcm - gcm_stats$hist) / gcm_stats$hist
-    gcm_stats$qhighgcm <- (gcm_stats$qhighgcm - gcm_stats$hist) / gcm_stats$hist
-  }
-
-  output <- list(doy = doy_stats,
-    gcm = gcm_stats)
-
-  return(output)
-
-}
-
-# 
-# # Build migration window index aligned to PCIC time dimension
-# build_pcic_window_index_dynamic <- function(PCIC_base, migr_cu, migr_s, migr_e, s_rate, e_rate, max_dist, time_vals) {
-#   n_time <- length(time_vals)
-#   intersections <- sf::st_intersects(PCIC_base, migr_cu)
-#   
-#   intersection_df <- data.frame(
-#     grid_id = rep(seq_along(intersections), lengths(intersections)),
-#     line_id = unlist(intersections)
-#   )
-#   
-#   n_cells <- length(intersections)
-#   PCIC_ind <- matrix(FALSE, nrow = n_cells, ncol = n_time)
-#   
-#   for (k in seq_len(n_time)) {
-#     day <- time_vals[k]
-#     if (day < migr_s || day > migr_e) next
-#     if (!is.finite(s_rate) || !is.finite(e_rate)) next
-#     
-#     head_dist <- max(min((day - migr_s) * s_rate, max_dist), 0)
-#     tail_dist <- max(min((day - migr_e) * e_rate, max_dist), 0)
-#     
-#     migr_win_index <- which(migr_cu$downstream_distance < head_dist &
-#                               migr_cu$downstream_distance > tail_dist)
-#     
-#     if (length(migr_win_index) == 0) next
-#     int_cells <- unique(intersection_df$grid_id[intersection_df$line_id %in% migr_win_index])
-#     if (length(int_cells) == 0) next
-#     
-#     PCIC_ind[int_cells, k] <- TRUE
-#   }
-#   return(PCIC_ind)
-# }
 
 
 #function to get an index of which streams to include for each day of the year based on upstream migration distance
 get_migration_index <- function(migr_cu,
-                               PCIC_base, 
-                               migr_s, # start date for migration window
-                               migr_e, # end date for migration window
-                               s_rate,  # movement rate of head of migration window
-                               e_rate,  # movement rate of tail of migration window
-                               migrdist,
-                               intersection_df,  #mapping table between PCIC grid cell and stream index
-                               win_start_dist = 50000  #minimum upstream distance to include at start of migration window
-                               )
+                                PCIC_base, 
+                                migr_s, # start date for migration window
+                                migr_e, # end date for migration window
+                                s_rate,  # movement rate of head of migration window
+                                e_rate,  # movement rate of tail of migration window
+                                migrdist,
+                                intersection_df,  #mapping table between PCIC grid cell and stream index
+                                win_start_dist = 50000  #minimum upstream distance to include at start of migration window
+)
 {
   migr_win <- matrix(NA, nrow = nrow(migr_cu), ncol = 365)  #stream/day matrix
   head_dist <- vector("numeric", 365)  #daily upstream distance to use as head of migration window
@@ -253,7 +114,99 @@ get_migration_index <- function(migr_cu,
   }
   
   return(PCIC_ind)
+  
+}
 
+
+# function to produce summary across spatial dimensions but maintaining gcms, periods, and days of year for a stars attribute
+summarize_attribute <- function(data,
+                                 attr_name = "discharge",
+                                 cu_name,
+                                 rcp_pick = "45",
+                                 baseline_period = baseline_pick,
+                                 qlowgcm = qlgcm,
+                                 qhighgcm = qhgcm) {
+
+  ## a. SPATIAL DIMENSION -----
+  
+  # time x period x model array
+  spatial_avg <- st_apply(
+    data[attr_name],
+    MARGIN = c("time", "period", "model"),
+    FUN = mean,
+    na.rm = TRUE
+  )[[1]]
+  
+  # label dimensions
+  dimnames(spatial_avg) <- list(
+    time   = st_get_dimension_values(data, "time"),
+    period = st_get_dimension_values(data, "period"),
+    model  = st_get_dimension_values(data, "model")
+  )
+  
+  # array -> long tibble: time, period, model, <attr_name>
+  spatial_long <- as.data.frame(
+    as.table(spatial_avg),
+    stringsAsFactors = FALSE
+  ) |>
+    tibble::as_tibble() |>
+    rlang::set_names(c("time", "period", "model", attr_name))
+  
+  # nest ONLY time + value, then add period/model into each nested tibble
+  spatial_nested <- spatial_long |>
+    dplyr::group_by(period, model) |>
+    tidyr::nest(time = c(time, !!rlang::sym(attr_name))) |>
+    dplyr::ungroup() |>
+    dplyr::mutate(
+      FULL_CU_IN = cu_name,
+      rcp        = rcp_pick,
+      attr       = attr_name
+    ) |>
+    dplyr::relocate(FULL_CU_IN, rcp, attr, period, model, time)
+  
+  ## b. BASELINE VALUES (PER MODEL AND TIME/DOY) -----
+  
+  baseline_tbl <- spatial_nested |>
+    dplyr::filter(period == baseline_period)
+  
+  if (nrow(baseline_tbl) == 0) {
+    stop("No rows found for baseline_period = '", baseline_period,
+         "'. Available periods: ",
+         paste(unique(spatial_nested$period), collapse = ", "))
+  }
+  
+  # Extract baseline data: model + time-specific values
+  baseline_values <- baseline_tbl |>
+    dplyr::select(model, time) |>
+    tidyr::unnest(time) |>
+    dplyr::select(model, time, baseline_value = !!rlang::sym(attr_name))
+  
+  ## c. ADD PROPORTIONAL DIFFERENCES INTO EACH NESTED DATAFRAME -----
+  
+  spatial_nested <- spatial_nested |>
+    dplyr::mutate(
+      time = purrr::pmap(
+        list(time, model, period),
+        \(df, m, p) {
+          # Get baseline values for this model
+          baseline_for_model <- baseline_values |>
+            dplyr::filter(model == m) |>
+            dplyr::select(time, baseline_value)
+          
+          # Join baseline values by time (day-of-year)
+          df |>
+            dplyr::left_join(baseline_for_model, by = "time") |>
+            dplyr::mutate(
+              period = p,
+              model = m,
+              prop_diff = (!!rlang::sym(attr_name) - baseline_value) / baseline_value,
+              .before = 1
+            )
+        }
+      )
+    )
+  
+  spatial_nested
 }
 
 
@@ -264,33 +217,39 @@ migrT_rcps <- list()  # list to store temperature results
 migrQ_rcps <- list()  # list to store discharge results
 #migrA21_rcps <- list()
 
-for (j in 1:2) {
+#loop over rcp scenarios
+for (j in 1:length(rcp_vec)) {
+  
+  print(paste("Starting migration stats for RCP", rcp_vec[j]))
+  
+  PCIC_file_name <- paste0("daily_rcp", rcp_vec[j], ".nc")
+  
+  PCIC_daily <- read_mdim(file.path(PCIC_file_loc, PCIC_file_name)) 
+  PCIC_daily <- mutate(PCIC_daily, waterTemperature = waterTemperature - 273.15)
 
   migrT_all <- list()  # list to store temperature results
   migrQ_all <- list()  # list to store discharge results
   #migrA21_all <- list()
-
-  if (j == 1) print("Starting migration stats for RCP 45")
-
-  if (j == 2) {
-    rm(PCIC_daily)
-    gc()
-    PCIC_daily <- read_mdim(file.path(PCIC_file_loc, "daily_rcp85.nc"))
-    # convert Temperature from Kelvin to Celsius
-    PCIC_daily <- mutate(PCIC_daily, waterTemperature = waterTemperature - 273.15)
-
-    print("Starting migration stats for RCP 85")
+  
+  if(j == 1) {
+    # get base PCIC grid - smaller object quicker for operations
+    PCIC_base <- PCIC_daily[, , , 1, 1, 1]
+    
+    periods    <- st_get_dimension_values(PCIC_daily, "period")
+    gcm_models <- st_get_dimension_values(PCIC_daily, "model")
   }
 
+  #loop over CUs
   for (i in 1:n.CUs) {
     cu_i <- cu_run$FULL_CU_IN[i]
     migr_cu <- migr_list[[cu_i]] %>%
       st_transform(4269)
+    
     migr_cu_main <- filter(migr_cu, prop_paths == 1)   # select only paths leading to all NuSEDS sites
 
     # get cu timing and calculate movement rates for migration window
     cu_timing_i <- cu_timing_Fr[cu_timing_Fr$FULL_CU_IN == cu_i, ] %>%
-      select(rt_start, rt_end, sp_start, sp_peak, sp_end) %>%
+      select(FULL_CU_IN, rt_start, rt_end, sp_start, sp_peak, sp_end) %>%
       mutate(
         rt_to_sp_s = sp_start - rt_start,  # days between spawn timing start and run timing start, used to calculate movement rate of front
         rt_to_sp_p = sp_peak - rt_end,     # days from spawn timing peak to run timing end, used to calculate movement of tail
@@ -304,9 +263,11 @@ for (j in 1:2) {
         max_dist   = max(migr_cu$downstream_distance, na.rm = T),
         main_dist  = sum(migr_cu_main$length_metre), # distance in common for all sites
         main_elev  = max(st_coordinates(migr_cu_main)[, 3]),  # highest point in common for all sites
-        max_elev   = max(st_coordinates(migr_cu)[, 3]))      # highest point along all of migration path (ie. highest NUSEDS site)
-
-
+        max_elev   = max(st_coordinates(migr_cu)[, 3]),     # highest point along all of migration path (ie. highest NUSEDS site)
+        max_work   = max(migr_cu$work_upstream, na.rm = T),       #highest work of any point along path
+        main_work  = max(migr_cu_main$work_upstream, na.rm =T)   #highest work for point along all migration path
+        )     
+    
     if (sum(!is.na(migr_cu)) == 0 |   # skip if path is empty
       is.na(cu_timing_i$migr_s) | is.na(cu_timing_i$migr_e)) { # skip if timing info missing
 
@@ -339,54 +300,6 @@ for (j in 1:2) {
                         e_rate = cu_timing_i$e_rate,  # movement rate of tail of migration window
                         migrdist = cu_timing_i$migrdist,
                         intersection_df)  #mapping table between PCIC grid cell and stream index
-# 
-#     # create a matrix of streams to include for each day of the migration
-#     migr_win <- matrix(NA, nrow = nrow(migr_cu), ncol = 365)
-#     PCIC_ind <- matrix(NA, nrow = dim(PCIC_base)[["x"]] * dim(PCIC_base)[["y"]], ncol = 365)
-#     #PCIC_pp <- matrix(NA, nrow = dim(PCIC_base)[["x"]] * dim(PCIC_base)[["y"]], ncol = 365)
-#     head_dist <- vector("numeric", 365)
-#     tail_dist <- vector("numeric", 365)
-# 
-#     # for each day of year, get index of stream segments that fall within migration window using downstream distance
-#     # then translate index of stream segments into index of PCIC grid cells
-#     for (day in 1:ncol(migr_win)) {
-#       # upper range of migration window = #days since rt_start x front movement rate
-#       head_dist[day] <- max(min((day - cu_timing_i$migr_s) * cu_timing_i$s_rate, cu_timing_i$max_dist), 0)
-#       tail_dist[day] <- max(min((day - cu_timing_i$migr_e) * cu_timing_i$e_rate, cu_timing_i$max_dist), 0)
-# 
-#       # stream segments within migration window distance each day
-#       migr_win[, day] <- migr_cu$downstream_distance < head_dist[day] & migr_cu$downstream_distance > tail_dist[day]
-#       # turn T/F into index of streams
-#       migr_win_index <- which(migr_win[, day] == TRUE)
-#       # if day is outside the migration timing window (rt_start and sp_peak), make NA
-#       if (day > cu_timing_i$migr_e | day < cu_timing_i$migr_s) migr_win_index <- NULL
-#       # use mapping table to convert stream index into PCIC grid cell index
-#       int_day <- intersection_df$grid_id[intersection_df$line_id %in% migr_win_index]
-# 
-#       # join with prop_path value
-#       prop_day <- bind_cols(grid_id = int_day,
-#         prop_path = intersection_df$prop_path[intersection_df$line_id %in% migr_win_index])
-# 
-#       int_day <- unique(int_day)
-# 
-#       # get T/F index for each PCIC grid cell each day
-#       PCIC_ind[, day] <- seq(1, dim(PCIC_base)[["x"]] * dim(PCIC_base)[["y"]]) %in% int_day
-# 
-#       ## Remainder of this for loop is for implementing prop_path weighting, not currently working
-#       # get average prop_path for each grid cell
-#       # prop_avg <- prop_day %>%
-#       #   group_by(grid_id) %>%
-#       #   summarize(prop_avg = mean(prop_path, na.rm = T)) %>%
-#       #   ungroup()
-#       #
-#       # #create a vector corresponding to total number of grid cells,
-#       # # fill it with prop_path value using index of intersecting cells
-#       # vec <- rep(NA, dim(PCIC_base)[["x"]] * dim(PCIC_base)[["y"]])
-#       # vec[prop_avg[[1]]] <- prop_avg[[2]]
-#       #
-#       # #get prop_paths value for each PCIC grid cell each day
-#       # PCIC_pp[,day] <- vec
-#     }
 
     daily_cells <- apply(PCIC_ind, 2, sum, na.rm = T)  # vector of number of grid cells included each day
     # reshape flattened PCIC index by grid cells into array with same dimensions as stars object
@@ -400,11 +313,11 @@ for (j in 1:2) {
       filter(time >= cu_timing_i$migr_s, time <= cu_timing_i$migr_e) # filter out values outside migration window
 
     # new T or Q attribute with days outside of migration window turned to NA
-    PCIC_cu$win_T <- PCIC_cu$waterTemperature
-    PCIC_cu$win_T[!PCIC_cu$migration_window] <- NA
+    PCIC_cu$migrT <- PCIC_cu$waterTemperature
+    PCIC_cu$migrT[!PCIC_cu$migration_window] <- NA
 
-    PCIC_cu$win_Q <- PCIC_cu$discharge
-    PCIC_cu$win_Q[!PCIC_cu$migration_window] <- NA
+    PCIC_cu$migrQ <- PCIC_cu$discharge
+    PCIC_cu$migrQ[!PCIC_cu$migration_window] <- NA
 
     ## Logical for whether cell temperature is above threshold on each day
     #PCIC_cu$win_Tthr21 <- PCIC_cu$win_T > 21
@@ -441,98 +354,91 @@ for (j in 1:2) {
 
     ### AGGREGATE OVER DIMENSIONS to get summary statistics------
 
-    migrT_stats <- summarize_attribute(PCIC_cu,
-      attr_name = "win_T",
-      type = "mean",
-      indicator_type = "proj")
+    migrT_i <- summarize_attribute(PCIC_cu,
+      attr_name = "migrT",
+      cu_name = cu_i,
+      rcp = rcp_vec[j])
 
-    migrQ_stats <- summarize_attribute(PCIC_cu,
-      attr_name = "win_Q",
-      type = "mean",
-      indicator_type = "change")
-
-    # migrA21_stats <- summarize_attribute(PCIC_cu,
-    #   attr_name = "win_Tthr21",
-    #   type = "mean",
-    #   indicator_type = "proj")
-
-    cu_migr_stats[[i]]   <- cu_timing_i
-    migrT_all[[i]]       <- migrT_stats
-    migrQ_all[[i]]       <- migrQ_stats
-    #migrA21_all[[i]]  <- migrA21_stats
+    migrQ_i <- summarize_attribute(PCIC_cu,
+      attr_name = "migrQ",
+      cu_name = cu_i,
+      rcp = rcp_vec[j])
+    
+    migr_bind <- bind_rows(migrT_i, migrQ_i)
+    
+    if(i == 1 & j == 1)  {
+      migr_daily_all <- migr_bind
+      cu_migr_timing <- cu_timing_i 
+    }  else {
+      migr_daily_all <- bind_rows(migr_daily_all, migr_bind)
+    }
+    
+    cu_migr_timing[i,] <- cu_timing_i
 
     print(paste("Migration stats complete for:", cu_i))
 
   }
 
-  names(cu_migr_stats)  <- cu_run$FULL_CU_IN
-  names(migrT_all)      <- cu_run$FULL_CU_IN
-  names(migrQ_all)      <- cu_run$FULL_CU_IN
-  #names(migrA21_all) <- cu_run$FULL_CU_IN
-
-  migrT_rcps[[j]]      <- migrT_all
-  migrQ_rcps[[j]]      <- migrQ_all
-  #migrA21_rcps[[j]] <- migrA21_all
-
 }
 
-names(migrT_rcps) <- c("45", "85")
-names(migrQ_rcps) <- c("45", "85")
-#names(migrA21_rcps) <- c("45", "85")
 
-
-#------------- Flatten results into dataframe
-
-# Helper function to extract gcm tibbles from a nested list
-extract_gcm <- function(data_list, attr_label) {
-  imap_dfr(data_list, function(rcp_list, rcp_name) {
-    imap_dfr(rcp_list, function(cu_list, cu_name) {
-      if (is.null(cu_list) || !is.list(cu_list)) return(NULL)
-      if (!"gcm" %in% names(cu_list)) return(NULL)
-      gcm_tbl <- cu_list[["gcm"]]
-      if (!is.data.frame(gcm_tbl)) return(NULL)
-      gcm_tbl %>%
-        mutate(rcp = rcp_name,
-          FULL_CU_IN = cu_name,
-          attr = attr_label) %>%
-        relocate(attr, FULL_CU_IN, rcp)
-    })
-  })
-}
-
-# Apply to each object
-df_migrT     <- extract_gcm(migrT_rcps, "migrT")
-df_migrQ     <- extract_gcm(migrQ_rcps, "migrQ")
-#df_migrA21 <- extract_gcm(migrA21_rcps, "migrA21")
-
-# Combine all into one data frame
-df_migr_combined <- bind_rows(
-  df_migrT,
-  df_migrQ
-  #df_migrA21
-)
-
-
-# Filter to only data frames or NULLs
-cleaned_list <- cu_migr_stats %>%
-  keep(~ is.data.frame(.x) || is.null(.x))
-df_migr_cu  <- list_rbind(cleaned_list, names_to = "FULL_CU_IN")
-
-migr_all_flat <- df_migr_combined %>%
-  pivot_wider(
-    id_cols = c(rcp, FULL_CU_IN, period),
-    names_from = attr,
-    values_from = c(mean, qlowgcm, qhighgcm),
-    names_glue = "{attr}_{.value}"
+migr_stats_gcm <- migr_daily_all %>%
+  mutate(
+    doy_mean = map2_dbl(time, attr, \(tbl, a) mean(tbl[[a]], na.rm = TRUE)),
+    prop_diff_mean = map_dbl(time, \(tbl) {
+      if ("prop_diff" %in% names(tbl)) {
+        mean(tbl$prop_diff, na.rm = TRUE)
+      } else {
+        NA_real_
+      }
+    }),
+    indicator_mean = case_when(
+      attr == "migrT" ~ doy_mean,
+      attr == "migrQ" ~ prop_diff_mean
+    )
   ) %>%
-  left_join(select(cu_run, FULL_CU_IN, CU_NAME, SPECIES_NAME),
-    by = "FULL_CU_IN") %>%
-  relocate(CU_NAME, SPECIES_NAME, .after = FULL_CU_IN)
-
-migr_all_flat <- left_join(migr_all_flat, df_migr_cu,
-  join_by("FULL_CU_IN"))
+  select(-time)
 
 
-save(cu_migr_stats, migrT_rcps, migrQ_rcps, #migrA21_rcps,
-  migr_all_flat,
+migr_stats <- migr_stats_gcm %>%
+  group_by(FULL_CU_IN, rcp, attr, period) %>%
+  summarise(
+    ngcm   = sum(!is.na(.data[["indicator_mean"]])),
+    mean   = mean(.data[["indicator_mean"]], na.rm = TRUE),
+    qlowgcm = as.numeric(quantile(.data[["indicator_mean"]], probs = qlgcm, na.rm = TRUE, names = FALSE)),
+    qhighgcm = as.numeric(quantile(.data[["indicator_mean"]], probs = qhgcm, na.rm = TRUE, names = FALSE)),
+    .groups = "drop"
+  ) %>%
+  arrange(FULL_CU_IN, rcp, attr, period)
+
+migr_stats_wide <- migr_stats %>%
+  # Long-ify the stats so we can pivot by attr + stat
+  pivot_longer(
+    cols = c(ngcm, mean, qlowgcm, qhighgcm),
+    names_to  = "stat",
+    values_to = "value"
+  ) %>%
+  # Pivot wider with attr included in the column name
+  pivot_wider(
+    id_cols     = c(FULL_CU_IN, rcp, period),
+    names_from  = c(attr, stat),
+    values_from = value,
+    names_glue  = "{attr}_{stat}"
+  ) %>%
+  arrange(FULL_CU_IN, rcp, period)
+
+
+
+#save output
+save(migr_stats, migr_stats_wide, migr_stats_gcm, cu_migr_timing, migr_daily_all,
   file = file.path(paths$fw, paste0(today, "_migr_stats.Rdata")))
+
+
+
+
+
+
+
+
+
+
