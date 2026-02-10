@@ -60,15 +60,15 @@ paths <- list(
 periods_use <- c(0, 3, 5)  # period codes to keep (see period_lookup for corresponding years)
 
 # lower and upper quantiles for spatial variation statistics
-qlowsp <- 0.1
-qhighsp <- 0.9
+qlsp <- 0.1
+qhsp <- 0.9
 
-qlowgcm <- 0.1    # lower quantile for statistics on GCM variation
-qhighgcm <- 0.9   # upper quantile for statistics
+qlgcm <- 0.1    # lower quantile for statistics on GCM variation
+qhgcm <- 0.9   # upper quantile for statistics
 
 T_model <- "tw8"    # temperature model tw8 = thermalscapes August temp, alternative of 7DEC (not implemented)
 
-historical <- "0"   # historical climatology period for temperature models
+historical_code <- "0"   # historical climatology period for temperature models
 # 0 = 1981-2000,  1 = 2001-2020.  For flow 0 = 1981-2010
 
 # choose stream base network
@@ -76,6 +76,11 @@ base_network <- switch(1, "tscapes", "bcfpa")  # only tscapes currently implemen
 
 CI_type <- c("ALL")   # habitat types to use for cumulative impacts (marine)
 # options include:  ALL, dp, bh, eg, sr, kp
+
+ct_type <- 
+
+#vector of RCP codes
+rcp_vec <- c("45", "85")
 
 # choose method for determining nearshore residency period for marine indicators
 # static = same months used for all CUs,  peak_offset = offsets from peak ocean entry month used
@@ -85,7 +90,6 @@ ns_start_static <- 4  # for static method, start month
 ns_end_static   <- 7  # for static method, end month included
 ns_start_offset <- 2   # amount of months before peak ocean entry month to include when calculating nearshore marine indicators
 ns_end_offset   <- 2   # amount of months after peak ocean entry month for calculating nearshore marine indicators
-
 
 min_gen_red <- 500  #if generational avg spawners is below this value and RapidStatus is None, status will be adjusted to Red
 
@@ -100,6 +104,10 @@ source(here("code", "4_scoring_utils.R"))
 # load plotting functions
 source(here("code", "5a_plots_CU.R"))
 source(here("code", "5b_plots_compare.R"))
+
+
+# load CU boundaries
+load(file.path(paths$fw, "cu_boundary.Rds"))
 
 
 # CU settings and import -------------------------------------------------------------
@@ -155,7 +163,7 @@ period_lookup <- tribble(
 tbl_indicators <- tribble(
   ~abbrev,      ~type,  ~long_type,   ~stat, ~std_fun, ~unit, ~name,
   "favchange", "fwR",   "Freshwater Spawning and Rearing",  "mean",     "invlinear_std",   "Favourability",   "ENM Change in Favourability",
-  "CT",         "fwR",  "Freshwater Spawning and Rearing",   "mean",    "linear_std",     "Threat score",    "Cumulative threats to freshwater habitat",
+  "cthr",         "fwR",  "Freshwater Spawning and Rearing",   "mean",    "linear_std",     "Threat score",    "Cumulative threats to freshwater habitat",
   "tw8rate",    "fwR",  "Freshwater Spawning and Rearing",   "mean",    "linear_std",    "Temperature change per decade (°C)",   "Rate of change in August Temperature",
   "tw8proj",    "fwR",  "Freshwater Spawning and Rearing",   "mean",    "exponential_std", "Temperature (°C)",  "Projected August Temperature",
   "lowQpdelta", "fwR",  "Freshwater Spawning and Rearing",  "mean",    "decay_std",  "Proportion change from baseline",     "Proportional change in August flow",
@@ -186,7 +194,7 @@ tbl_ind_report <- tbl_indicators %>%
 tbl_standardize <- tribble(
   ~abbrev,      ~type,      ~std_fun,          ~range_type,  ~lambda, ~xmin, ~xmax,
   "Favchange", "fwR",        "invlinear_std",  "all",      NA,     NA,   0,
-  "ct",         "fwR",      "linear_std",      "all",    NA,    0,   NA,
+  "cthr",         "fwR",      "linear_std",      "all",    NA,    0,   NA,
   "Tw8rate",    "fwR",      "linear_std",      "all",    NA,    NA,   NA,
   "Tw8proj",    "fwR",       "exponential_std", "all",    3,    15,   NA,
   "lowQpdelta",  "fwR",    "decay_std",        "all",    3,    NA,   0,
@@ -204,6 +212,35 @@ tbl_standardize <- tribble(
   "CUnmat",      "dem",     "decay_std",       "all",    3,    0, 10000,
   "hetzyg",      "gen",     "invlinear_std",      "species",     NA,    NA, NA,
   "genoff",      "gen",     "linear_std",      "species",    NA,    NA, NA)
+
+
+
+#mapping of field codes to gcm names for thermalscapes model
+gcm_codes <- c(
+  "0" = "historical",
+  "1" = "canesm2",
+  "2" = "csiro",
+  "3" = "gfdl",
+  "4" = "hadgem2",
+  "5" = "miroc",
+  "6" = "mpi",
+  "7" = "access1",
+  "8" = "cnrm",
+  "9" = "mean",
+  "20" = "ccsm4"
+)
+
+#mapping of field codes to gcm names for PCIC model (use same code for same model where they overlap)
+PCIC_gcm <- c(
+  "0" = "historical",
+  "1" = "canesm2",
+
+  "4" = "hadgem2",
+  "6" = "mpi",
+
+  "9" = "ensemble"
+)
+
 
 
 save(tbl_indicators, tbl_standardize, tbl_ind_report, file = file.path(paths$params, "indicator_tables.Rdata"))

@@ -29,15 +29,6 @@ library(here)
 setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
 
-historical <- "0"   # historical climatology period for temperature models
-# 0 = 1981-2000,  1 = 2001-2020
-# for flow models, 0 = 1981-2010
-
-qlgcm <- 0    # lower quantile for statistics on GCM variation
-qhgcm <- 1   # upper quantile for statistics
-
-rcp_vec <- c("45", "85")
-
 #label for period variable used as baseline when calculating difference in Q
 baseline_pick <- "1981-2010"
 

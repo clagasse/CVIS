@@ -443,8 +443,8 @@ pflow_GCMs <- lapply(pflow_GCMs, function(dt) {
 # get mean for each scenario and combine into data.table
 for (i in 1:2) {
 
-  if (i == 1) rcp_pick <- "rcp45"
-  if (i == 2) rcp_pick <- "rcp85"
+  if (i == 1) rcp_pick <- "45"
+  if (i == 2) rcp_pick <- "85"
 
   rcp_names <- grep(rcp_pick, pflow_names, value = TRUE)
 
@@ -608,6 +608,71 @@ save(Tw_stations, file = file.path(paths$fw, "Tw_stations.Rds"))
 
 
 
+
+#' Flow-only structural renaming
+#'
+#' Transforms flow_* columns from patterns like:
+#'   - flow_rcp85_mpi_4_8      -> flow8_mpi_85_4
+#'   - flow_historical_mean_0_8 -> flow8_mean_0_0
+rename_flow_columns_step1 <- function(df) {
+  stopifnot(!is.null(names(df)))
+  old <- names(df)
+  new <- old
+  
+  # 1) Replace 'historical' with '0' only for flow_ columns
+  new <- sub("^(flow)_historical_", "\\1_0_", new, perl = TRUE)
+  
+  # 2) Remove literal 'rcp' but keep the numeric code (rcp45 -> 45), only for flow_...
+  new <- sub("^(flow)_rcp(\\d{1,2})_", "\\1_\\2_", new, perl = TRUE)
+  
+  # 3) Rebuild:
+  #    A) flow_<rcp>_<model>_<g>_<last>  -> flow<last>_<model>_<rcp>_<g>
+  new <- sub("^(flow)_(\\d{1,2})_([^_]+)_(\\d+)_(\\d+)$", "\\1\\5_\\3_\\2_\\4", new, perl = TRUE)
+  
+  #    B) flow_0_<model>_<g>_<last>      -> flow<last>_<model>_0_<g>
+  new <- sub("^(flow)_0_([^_]+)_(\\d+)_(\\d+)$", "\\1\\4_\\2_0_\\3", new, perl = TRUE)
+  
+  # Apply back
+  names(df) <- new
+  df
+}
+
+
+
+#' Remap model token in flow columns to PCIC numeric codes
+#'
+#' Expects flow columns already in the form: flow<last>_<model>_<rcp>_<g>
+#' Replaces <model> with its PCIC code using the provided mapping.
+#' Unknown models are left as-is (e.g., "mean").
+
+map_gcm_models_to_code_step2 <- function(df, gcm_codes) {
+  stopifnot(!is.null(names(df)))
+  if (is.null(names(gcm_codes)) || !all(nzchar(names(gcm_codes)))) {
+    stop("gcm_codes must be a named character vector: codes -> model names.")
+  }
+  
+  # Invert mapping to model -> code
+  model_to_code <- stats::setNames(names(gcm_codes), gcm_codes)
+  
+  remap_one <- function(nm) {
+    # Expecting: flow<last>_<model>_<rcp>_<g>
+    m <- stringr::str_match(nm, "^(flow\\d+)_([^_]+)_(\\d{1,2})_(\\d+)$")
+    if (is.na(m[1])) return(nm)  # no match -> unchanged
+    
+    prefix <- m[2]  # "flow<last>"
+    model  <- m[3]
+    rcp    <- m[4]
+    g      <- m[5]
+    
+    # Replace model if mapped; otherwise keep as-is (e.g., "mean")
+    model_code <- if (model %in% names(model_to_code)) model_to_code[[model]] else model
+    paste0(prefix, "_", model_code, "_", rcp, "_", g)
+  }
+  
+  names(df) <- vapply(names(df), remap_one, character(1))
+  df
+}
+
 # 3. Join stream network models on common base stream network------
 
 # choose stream base network
@@ -627,13 +692,20 @@ st_geometry(tscapes) <- "shape"
 # Cumulative threat score for Fraser streams
 fwct <- st_read(file.path(paths$spatial, "CumulativeThreatScore", "CumulativeThreat_FRB.shp")) %>%
   as.data.table() %>%
-  clean_names()
+  clean_names()  %>%
+  rename(pollution_z = pollution,
+         cthr_anad = ct_anad) %>%    #standardize names of cumulative threat columns with cthr prefix
+  dplyr::rename_with(
+    ~ paste0("cthr_", sub("_z$", "", .x)),
+    .cols = dplyr::ends_with("_z")
+  )
+
 
 # ENM
 load(file.path(paths$fw, "ENM_all_species.Rds")) # %>%
 ENM_df <- clean_names(ENM_df)
 
-# August and Nov-Jan flow
+# August and Nov-Jan flow  (fwQ8 and fwQNDJ)
 if (base_network == "tscapes") {
   load(file.path(paths$fw, "stream_flow_August_Fr_tscapes.Rds")) %>%
     as.data.table()
@@ -647,6 +719,18 @@ if (base_network == "bcfpa") {
     clean_names()
 }
 
+
+#rename flow columns for consistency with temperature column names
+
+# Step 1: structural renaming (flow-only)
+fwQ8 <- rename_flow_columns_step1(fwQ8)
+# Step 2: map model names to PCIC numeric codes
+fwQ8 <- map_gcm_models_to_code_step2(fwQ8, gcm_codes)
+
+# Step 1: structural renaming (flow-only)
+fwQNDJ <- rename_flow_columns_step1(fwQNDJ)
+# Step 2: map model names to PCIC numeric codes
+fwQNDJ <- map_gcm_models_to_code_step2(fwQNDJ, gcm_codes)
 
 # combine on common base network
 if (base_network == "bcfpa") {
@@ -712,7 +796,7 @@ if (base_network == "tscapes") {
       multiple = "first")
   # join Nov-Jan flow
   fw_models <- fw_models %>%
-    left_join(select(fwQNDJ, -any_of("flow_historical_mean_0_17")),
+    left_join(select(fwQNDJ, -any_of("flow17_9_0_0")),
       join_by(linear_feature_id),
       multiple = "first")
 
@@ -731,52 +815,57 @@ if (base_network == "tscapes") {
 
 # 4. Calculate indicators for combined model object---------
 
-T_model <- "tw8"
-historical <- "0"
-
 load(file.path(paths$fw, "fw_models_tscapes.Rds"))
-
-### Low flow stats
-## same process as CU stats
-GCMs <- c("access1", "canesm2", "ccsm4", "cnrm", "hadgem2", "mpi")
-GCM_grep <- paste(paste0(GCMs, collapse = "|"), "mean", sep = "|")
-
 fw_models_df <- st_drop_geometry(fw_models)
 
+
 ### High flow stats
-## same process as CU stats
+
 flow_long <- fw_models_df %>%
-  select(linear_feature_id, contains("flow")) %>%
-  pivot_longer(cols = matches("^flow"),
-    names_to = c(".value", "rcp", "gcm", "period", "month"),
-    names_pattern = paste0("^(flow)_(rcp\\d{2}|historical)_(", GCM_grep, ")_(\\d+)_(\\d+)$")) %>%
-  mutate(rcp = substr(rcp, start = 4, stop = 5)) # remove rcp from column character
+  select(linear_feature_id, starts_with("flow")) %>%
+  pivot_longer(
+    cols = starts_with("flow"),
+    names_to = c(".value", "month", "gcm", "rcp", "period"),
+    # 1) (flow) literal, captured for .value
+    # 2) (\\d+) month: one or more digits (handles 8, 17, 18)
+    # 3) ([^_]+) gcm: letters/digits (e.g., mpi, mean, 6, 1, 20)
+    # 4) (\\d{1,2}) rcp: 0, 45, 85 (1–2 digits)
+    # 5) (\\d+) period: one or more digits
+    names_pattern = "^\\s*(flow)(\\d+)_([^_]+)_(\\d{1,2})_(\\d+)\\s*$",
+    values_to = "flow"
+  ) %>%
+  mutate(
+    month  = as.integer(month),
+    gcm    = as.integer(gcm),
+    rcp    = as.integer(rcp),
+    period = as.integer(period)
+  )
 
 flow_wide <- flow_long %>%
-  filter(gcm == "mean") %>%
+  filter(gcm == 9) %>%
   pivot_wider(
-    names_from = c(month, rcp, period),
+    names_from = c(month, gcm, rcp, period),
     values_from = flow,
-    names_prefix = "flow_") %>%
+    names_prefix = "flow") %>%
   arrange(linear_feature_id)
 
-hist_col_18 <- names(flow_wide)[str_detect(names(flow_wide), "flow_18_to_0")]
+hist_col_18 <- names(flow_wide)[str_detect(names(flow_wide), "flow18_9_0_0")]
 proj_col_18 <- names(flow_wide)[str_detect(names(flow_wide), "45|85")]
-proj_col_18 <- proj_col_18[str_detect(proj_col_18, "18")]
+proj_col_18 <- proj_col_18[str_detect(proj_col_18, "flow18")]
 
 fwQNDJ_wide <- flow_wide %>%
   mutate(histq = !!sym(hist_col_18),
-    across(contains(proj_col_18), ~ (.x - histq) / histq, .names = "qpdelta_{.col}")) %>%
-  select(linear_feature_id, contains("qpdelta"))
+    across(contains(proj_col_18), ~ (.x - histq) / histq, .names = "delta{.col}")) %>%
+  select(linear_feature_id, contains("deltaflow"))
 
-hist_col_8 <- names(flow_wide)[str_detect(names(flow_wide), "flow_8_to_0")]
+hist_col_8 <- names(flow_wide)[str_detect(names(flow_wide), "flow8_9_0_0")]
 proj_col_8 <- names(flow_wide)[str_detect(names(flow_wide), "45|85")]
-proj_col_8 <- proj_col_8[str_detect(proj_col_8, "_8_")]
+proj_col_8 <- proj_col_8[str_detect(proj_col_8, "flow8")]
 
 fwQ8_wide <- flow_wide %>%
   mutate(histq = !!sym(hist_col_8),
-    across(contains(proj_col_8), ~ (.x - histq) / histq, .names = "qpdelta_{.col}")) %>%
-  select(linear_feature_id, contains("qpdelta"))
+    across(contains(proj_col_8), ~ (.x - histq) / histq, .names = "delta{.col}")) %>%
+  select(linear_feature_id, contains("deltaflow"))
 
 ## Historic flow stats for all months
 # hflow_sub <- hflow %>%
@@ -786,10 +875,10 @@ fwQ8_wide <- flow_wide %>%
 
 # temp stats by stream
 fwT_indi <- fw_models_df %>%
-  mutate(histT = !!sym(paste(T_model, "0_00", historical, sep = "_"))) %>%  # add historical Tw8
+  mutate(histT = !!sym(paste(T_model, "0_00", historical_code, sep = "_"))) %>%  # add historical Tw8
   select(linear_feature_id, histT,
     all_of(grep(paste0("^", T_model, "_", 9), names(fw_models), value = TRUE))) %>%
-  mutate(across(contains(T_model), ~ .x - histT, .names = "delta_{.col}"))
+  mutate(across(contains(T_model), ~ .x - histT, .names = "delta{.col}"))
 
 
 # ENM stats by stream
@@ -824,7 +913,7 @@ fw_sp_ind <- fw_models %>%
     mad_m3s, upstream_area_ha, gradient, gnis_name, model_access_salmon,
     model_habitat_salmon,
     model_habitat_ch, model_habitat_cm, model_habitat_co, model_habitat_pk, model_habitat_sk,
-    ct_anad,
+    contains("cthr"),
     contains("fav")) %>%
   left_join(fwT_indi,
     join_by(linear_feature_id)) %>%

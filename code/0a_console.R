@@ -19,8 +19,6 @@ load(file.path(paths$marine, "MAZ.Rds"))
 load(file.path(paths$fw, "basins_shp.Rds"))
 # make a Fraser basin version
 Fr_basin <- filter(basins, BASIN == "FRASER")
-# load CU boundaries
-load(file.path(paths$fw, "cu_boundary.Rds"))
 
 
 # freshwater stream subsets by CU boundary
