@@ -77,7 +77,7 @@ base_network <- switch(1, "tscapes", "bcfpa")  # only tscapes currently implemen
 CI_type <- c("ALL")   # habitat types to use for cumulative impacts (marine)
 # options include:  ALL, dp, bh, eg, sr, kp
 
-ct_type <- 
+ct_type <- "anad"  #cumulative threat type to use for indicator - default anadromous (i.e. sum of all)
 
 #vector of RCP codes
 rcp_vec <- c("45", "85")
@@ -224,23 +224,11 @@ gcm_codes <- c(
   "4" = "hadgem2",
   "5" = "miroc",
   "6" = "mpi",
-  "7" = "access1",
-  "8" = "cnrm",
+  "7" = "access1",   #PCIC model
+  "8" = "cnrm",      #PCIC model
   "9" = "mean",
-  "20" = "ccsm4"
+  "20" = "ccsm4"     #PCIC model
 )
-
-#mapping of field codes to gcm names for PCIC model (use same code for same model where they overlap)
-PCIC_gcm <- c(
-  "0" = "historical",
-  "1" = "canesm2",
-
-  "4" = "hadgem2",
-  "6" = "mpi",
-
-  "9" = "ensemble"
-)
-
 
 
 save(tbl_indicators, tbl_standardize, tbl_ind_report, file = file.path(paths$params, "indicator_tables.Rdata"))
