@@ -68,6 +68,10 @@ qhgcm <- 0.9   # upper quantile for statistics
 
 T_model <- "tw8"    # temperature model tw8 = thermalscapes August temp, alternative of 7DEC (not implemented)
 
+fw_habitat_selection <- switch(1, "rs", "acc")   #choose how to subset stream network for spawning and rearing indicators
+#rs = use BCfishpass rearing and spawning habitat (from accessible habitat)
+#acc = use all BCfishpass accessible habitat 
+
 historical_code <- "0"   # historical climatology period for temperature models
 # 0 = 1981-2000,  1 = 2001-2020.  For flow 0 = 1981-2010
 
@@ -216,18 +220,19 @@ tbl_standardize <- tribble(
 
 
 #mapping of field codes to gcm names for thermalscapes model
-gcm_codes <- c(
-  "0" = "historical",
-  "1" = "canesm2",
-  "2" = "csiro",
-  "3" = "gfdl",
-  "4" = "hadgem2",
-  "5" = "miroc",
-  "6" = "mpi",
-  "7" = "access1",   #PCIC model
-  "8" = "cnrm",      #PCIC model
-  "9" = "mean",
-  "20" = "ccsm4"     #PCIC model
+gcm_codes <- tribble(
+  ~gcm, ~gcm_name,
+  "0",  "historical",
+  "1",  "canesm2",
+  "2",  "csiro",
+  "3",  "gfdl",
+  "4",  "hadgem2",
+  "5",  "miroc",
+  "6",  "mpi",
+  "7",  "access1",   #PCIC model
+  "8",  "cnrm",      #PCIC model
+  "9",  "ensemble",
+  "20", "ccsm4"     #PCIC model
 )
 
 

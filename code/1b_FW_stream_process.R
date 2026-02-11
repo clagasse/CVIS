@@ -948,17 +948,23 @@ projections_list <- list.files(file.path(paths$climate, "Ruzzante_low_flows", "r
 # import csv for each water station
 # assign into 20 year periods and nest by period
 for (i in 1:length(projections_list)) {
-  projections_csv <- read_csv(file.path(paths$climate, "Ruzzante_low_flows", "regressionProjections", projections_list[i])) %>%
-    mutate(ID = str_sub(projections_list[i], 1, -5),
+  projections_csv <- read_csv(file.path(paths$climate, "Ruzzante_low_flows", "regressionProjections",
+                                        projections_list[i])) %>%
+    rename(gcm_name = source_id,
+           rcp = experiment_id) %>%
+    mutate(
+      ID = as.character(ID),
+      rcp = stringr::str_sub(rcp, -2, -1),
+      rcp = dplyr::if_else(rcp == "al", "0", rcp),
       period = if_else(Year >= 1981 & Year <= 2010, "0",
         # if_else(Year >= 2001 & Year <= 2020, 1,
         if_else(Year >= 2021 & Year <= 2040, "2",
           if_else(Year >= 2041 & Year <= 2060, "3",
             if_else(Year >= 2061 & Year <= 2080, "4",
-              if_else(Year >= 2081 & Year <= 2100, "5", NA)))))) %>%
-    nest(.by = c("ID", "source_id",  "experiment_id", "variant_label", "period")) %>%
-    filter((period < 2 & experiment_id == "historical") |
-      (period >= 2 & experiment_id != "historical"))
+              if_else(Year >= 2081 & Year <= 2100, "5", NA))))))  %>%
+    nest(.by = c("ID", "gcm_name",  "rcp", "variant_label", "period")) %>%
+    filter((period < 2 & rcp == "0") |
+      (period >= 2 & rcp != "0"))
 
   if (i == 1) watershed_proj <- projections_csv
   else if (i > 1) watershed_proj <- bind_rows(watershed_proj, projections_csv)
@@ -967,7 +973,7 @@ for (i in 1:length(projections_list)) {
 # get average across model variants for each period and scenario
 wp_vm <- watershed_proj %>%
   mutate(mean = map_dbl(data, ~ mean(.x$predMean.m3s_8))) %>%
-  nest(.by = c("ID", "experiment_id", "source_id", "period"))
+  nest(.by = c("ID", "rcp", "gcm_name", "period")) 
 
 # save averaged flow projections
 save(wp_vm, file = file.path(paths$fw, "Statistical_flow_projections.Rds"))
