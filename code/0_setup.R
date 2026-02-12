@@ -84,7 +84,7 @@ CI_type <- c("ALL")   # habitat types to use for cumulative impacts (marine)
 ct_type <- "anad"  #cumulative threat type to use for indicator - default anadromous (i.e. sum of all)
 
 #vector of RCP codes
-rcp_vec <- c("45", "85")
+rcp_vec <- c("0", "00", "45", "85")
 
 # choose method for determining nearshore residency period for marine indicators
 # static = same months used for all CUs,  peak_offset = offsets from peak ocean entry month used
@@ -139,21 +139,23 @@ save(cu_run, file = file.path(paths$CU, "cu_run.Rds"))
 # translation table between periods
 ## note that not all periods are exactly the same among data sets, but average year is close
 period_lookup <- tribble(
-  ~period_code, ~period, ~start_year, ~end_year, ~model,
+  ~period_code, ~period, ~start_year, ~end_year, ~dsmodel,
   0, "1981-2000", 1981, 2000, "tscapes",
   1, "2001-2020", 2001, 2020, "tscapes",
   2, "2021-2040", 2021, 2040, "tscapes",
   3, "2041-2060", 2041, 2060, "tscapes",
   4, "2061-2080", 2061, 2080, "tscapes",
   5, "2081-2099", 2081, 2100, "tscapes",
-  0, "1981-2010", 1981, 2010, "stream_flow",
-  2, "2021-2040", 2021, 2040, "stream_flow",
-  3, "2041-2060", 2041, 2060, "stream_flow",
-  4, "2061-2080", 2061, 2080, "stream_flow",
-  5, "2081-2099", 2081, 2100, "stream_flow",
-  0, "1981-2010", 1981, 2010, "PCIC_migr",
-  3, "2041-2060", 2041, 2060, "PCIC_migr",
-  5, "2081-2099", 2081, 2100, "PCIC_migr",
+  0, "1981-2010", 1981, 2010, "streamdyn",
+  2, "2021-2040", 2021, 2040, "streamdyn",
+  3, "2041-2060", 2041, 2060, "streamdyn",
+  4, "2061-2080", 2061, 2080, "streamdyn",
+  5, "2081-2099", 2081, 2100, "streamdyn",
+  0, "1981-2010", 1981, 2010, "pcicgrid",
+  2, "2021-2040", 2021, 2040, "pcicgrid",
+  3, "2041-2060", 2041, 2060, "pcicgrid",
+  4, "2061-2080", 2061, 2080, "pcicgrid",
+  5, "2081-2099", 2081, 2100, "pcicgrid",
   0, "1981-2010", 1981, 2010, "CMIP6_SST",
   3, "2041-2060", 2041, 2060, "CMIP6_SST",
   5, "2081-2099", 2081, 2100, "CMIP6_SST",
@@ -170,12 +172,12 @@ tbl_indicators <- tribble(
   "cthr",         "fwR",  "Freshwater Spawning and Rearing",   "mean",    "linear_std",     "Threat score",    "Cumulative threats to freshwater habitat",
   "tw8rate",    "fwR",  "Freshwater Spawning and Rearing",   "mean",    "linear_std",    "Temperature change per decade (°C)",   "Rate of change in August Temperature",
   "tw8proj",    "fwR",  "Freshwater Spawning and Rearing",   "mean",    "exponential_std", "Temperature (°C)",  "Projected August Temperature",
-  "lowQpdelta", "fwR",  "Freshwater Spawning and Rearing",  "mean",    "decay_std",  "Proportion change from baseline",     "Proportional change in August flow",
+  "flow8pdelta", "fwR",  "Freshwater Spawning and Rearing",  "mean",    "decay_std",  "Proportion change from baseline",     "Proportional change in August flow",
   # "st8pdelta",  "fwR",  "Freshwater Spawning and Rearing",   "mean",    "decay_std",   "Proportion change",  "Proportional change in August flow (station model)",
-  "highQpdelta",  "fwR", "Freshwater Spawning and Rearing",  "mean",    "exponential_std", "Proportion change from baseline", "Proportional change in Nov-Jan flow",
+  "flow18pdelta",  "fwR", "Freshwater Spawning and Rearing",  "mean",    "exponential_std", "Proportion change from baseline", "Proportional change in Nov-Jan flow",
   "fwres",     "fwR",    "Freshwater Spawning and Rearing", "value",    "step_std",  "Number of days",  "Freshwater residency time",
-  "migrT",      "migr",  "Upstream Migration",  "mean",    "exponential_std",  "Temperature (°C)",   "Projected temperature during upstream migration",
-  "migrQ",      "migr",  "Upstream Migration", "mean",      "decay_std",  "Proportion change",  "Proportional change in discharge during upstream migration",
+  "migrTproj",      "migr",  "Upstream Migration",  "mean",    "exponential_std",  "Temperature (°C)",   "Projected temperature during upstream migration",
+  "migrQpdelta",      "migr",  "Upstream Migration", "mean",      "decay_std",  "Proportion change",  "Proportional change in discharge during upstream migration",
   # "migrA21",    "migr",   "mean",    "exponential_std", "Proportion", "Average proportion of path above 21 degrees during upstream migration",
   "migrdist",   "migr",  "Upstream Migration", "value",      "linear_std",  "Kilometres",   "Length of upstream migration",
   "SSTproj",     "mar",  "Nearshore Marine",  "mean", "exponential_std", "Temperature (°C)", "Projected nearshore SST during ocean entry",
@@ -221,7 +223,7 @@ tbl_standardize <- tribble(
 
 #mapping of field codes to gcm names for thermalscapes model
 gcm_codes <- tribble(
-  ~gcm, ~gcm_name,
+  ~gcm, ~gcm_name, 
   "0",  "historical",
   "1",  "canesm2",
   "2",  "csiro",

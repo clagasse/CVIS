@@ -32,6 +32,12 @@ source(file.path(here(), "code", "0_setup.R"))
 #label for period variable used as baseline when calculating difference in Q
 baseline_pick <- "1981-2010"
 
+#rcps to iterate
+rcp_iter <- c("45", "85")
+
+#name of downscale model type
+dsmodel_name <- "pcicgrid"
+
 #--------- 1. import spatial objects ---------------------
 # load CU paths
 load(file.path(paths$fw, "fw_upstream_paths.Rdata"))
@@ -190,7 +196,7 @@ summarize_attribute <- function(data,
             dplyr::mutate(
               period = p,
               model = m,
-              prop_diff = (!!rlang::sym(attr_name) - baseline_value) / baseline_value,
+              pdelta = (!!rlang::sym(attr_name) - baseline_value) / baseline_value,
               .before = 1
             )
         }
@@ -209,11 +215,11 @@ migrQ_rcps <- list()  # list to store discharge results
 #migrA21_rcps <- list()
 
 #loop over rcp scenarios
-for (j in 1:length(rcp_vec)) {
+for (j in 1:length(rcp_iter)) {
   
-  print(paste("Starting migration stats for RCP", rcp_vec[j]))
+  print(paste("Starting migration stats for RCP", rcp_iter[j]))
   
-  PCIC_file_name <- paste0("daily_rcp", rcp_vec[j], ".nc")
+  PCIC_file_name <- paste0("daily_rcp", rcp_iter[j], ".nc")
   
   PCIC_daily <- read_mdim(file.path(PCIC_file_loc, PCIC_file_name)) 
   PCIC_daily <- mutate(PCIC_daily, waterTemperature = waterTemperature - 273.15)
@@ -348,12 +354,12 @@ for (j in 1:length(rcp_vec)) {
     migrT_i <- summarize_attribute(PCIC_cu,
       attr_name = "migrT",
       cu_name = cu_i,
-      rcp = rcp_vec[j])
+      rcp = rcp_iter[j])
 
     migrQ_i <- summarize_attribute(PCIC_cu,
       attr_name = "migrQ",
       cu_name = cu_i,
-      rcp = rcp_vec[j])
+      rcp = rcp_iter[j])
     
     migr_bind <- bind_rows(migrT_i, migrQ_i)
     
@@ -372,56 +378,79 @@ for (j in 1:length(rcp_vec)) {
 
 }
 
+#rename and reformat columns for consistency with other workflows
+migr_daily_all <- migr_daily_all %>%
+  rename(gcm_name = any_of("model")) %>%
+  mutate(dsmodel = dsmodel_name,
+         gcm_name = gcm_name %>%
+                  str_to_lower() %>%
+                  str_replace("[-\\.].*$", ""))   %>% # remove dash or dot and the rest 
+  left_join(select(period_lookup, period_code, period, dsmodel), #add period_code using mapping
+            by = c("period", "dsmodel")) %>%
+  left_join(gcm_codes, by = c("gcm_name")) 
 
-migr_stats_gcm <- migr_daily_all %>%
+
+  # extract stats across doy within nested rows
+migr_all <- migr_daily_all %>%
+  rowwise() %>%
   mutate(
-    doy_mean = map2_dbl(time, attr, \(tbl, a) mean(tbl[[a]], na.rm = TRUE)),
-    prop_diff_mean = map_dbl(time, \(tbl) {
-      if ("prop_diff" %in% names(tbl)) {
-        mean(tbl$prop_diff, na.rm = TRUE)
+    # mean of the column named by `attr` in the nested tibble
+    proj = {
+      tbl <- time
+      col <- attr
+      if (!is.null(col) && nzchar(col) && col %in% names(tbl)) {
+        mean(tbl[[col]], na.rm = TRUE)
       } else {
         NA_real_
       }
-    }),
-    indicator_mean = case_when(
-      attr == "migrT" ~ doy_mean,
-      attr == "migrQ" ~ prop_diff_mean
-    )
+    },
+    # mean of pdelta if present
+    pdelta = if ("pdelta" %in% names(time)) {
+      mean(time$pdelta, na.rm = TRUE)
+    } else {
+      NA_real_
+    },
+    # build two long rows per input row
+    stats = list(tibble(
+      indicator = c(paste0(attr, "proj"), paste0(attr, "pdelta")),
+      value     = c(proj, pdelta)
+    ))
   ) %>%
-  select(-time)
+  ungroup() %>%
+  unnest(stats) %>%
+  # optionally drop rows we couldn't compute
+  filter(!is.na(value)) %>%
+  # keep any id columns you need; drop intermediates
+  select(-time, -proj, -pdelta, -attr) %>%
+  mutate(stat = "mean")  # add mean stat
 
 
-migr_stats <- migr_stats_gcm %>%
-  group_by(FULL_CU_IN, rcp, attr, period) %>%
+gcm_quantiles_wide <- migr_all %>%
+  # exclude ensemble rows (by id or name)
+  filter(!(gcm == 9L | str_to_lower(str_trim(gcm_name)) == "ensemble")) %>%
+  group_by(FULL_CU_IN, rcp, period, period_code, dsmodel, indicator) %>%
   summarise(
-    ngcm   = sum(!is.na(.data[["indicator_mean"]])),
-    mean   = mean(.data[["indicator_mean"]], na.rm = TRUE),
-    qlowgcm = as.numeric(quantile(.data[["indicator_mean"]], probs = qlgcm, na.rm = TRUE, names = FALSE)),
-    qhighgcm = as.numeric(quantile(.data[["indicator_mean"]], probs = qhgcm, na.rm = TRUE, names = FALSE)),
-    .groups = "drop"
-  ) %>%
-  arrange(FULL_CU_IN, rcp, attr, period)
+    gcm_name = "ensemble",
+    gcm      =  "9",
+    mean     = mean(value, na.rm = TRUE),
+    qlowgcm  = stats::quantile(value, probs = qlgcm, na.rm = TRUE, names = FALSE),
+    qhighgcm = stats::quantile(value, probs = qhgcm, na.rm = TRUE, names = FALSE),
+    .groups  = "drop"
+  )
 
-migr_stats_wide <- migr_stats %>%
-  # Long-ify the stats so we can pivot by attr + stat
+gcm_quantiles_long <- gcm_quantiles_wide %>%
   pivot_longer(
-    cols = c(ngcm, mean, qlowgcm, qhighgcm),
+    cols      = c(mean, qlowgcm, qhighgcm),
     names_to  = "stat",
     values_to = "value"
-  ) %>%
-  # Pivot wider with attr included in the column name
-  pivot_wider(
-    id_cols     = c(FULL_CU_IN, rcp, period),
-    names_from  = c(attr, stat),
-    values_from = value,
-    names_glue  = "{attr}_{stat}"
-  ) %>%
-  arrange(FULL_CU_IN, rcp, period)
+  )
 
+#bind back
+migr_all <- bind_rows(migr_all, gcm_quantiles_long)
 
 
 #save output
-save(migr_stats, migr_stats_wide, migr_stats_gcm, cu_migr_timing, migr_daily_all,
+save(migr_all, cu_migr_timing, migr_daily_all,
   file = file.path(paths$fw, paste0(today, "_migr_stats.Rdata")))
 
 

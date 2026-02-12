@@ -556,47 +556,6 @@ regime_stats <- function(watershed_flow, cu_boundary_i) {
 
 
 
-# 3.6 helper functions for standardizing format  --------------------------
-
-
-
-# Ensure every df has the same columns and types before binding
-standardize_long_stats <- function(df) {
-  # Required columns in the final stack
-  cols <- c("FULL_CU_IN", "gcm", "gcm_name", "dsmodel", "rcp", "period_code",
-            "indicator", "stat", "value")
-  
-  # Add any missing columns as NA
-  for (nm in cols) {
-    if (!nm %in% names(df)) df[[nm]] <- NA
-  }
-  
-  # Coerce to consistent types
-  df %>%
-    mutate(
-      FULL_CU_IN  = as.character(FULL_CU_IN),
-      gcm         = as.character(gcm),
-      gcm_name    = as.character(gcm_name),
-      dsmodel     = as.character(dsmodel),
-      rcp         = as.integer(rcp),
-      period_code = as.integer(period_code),
-      indicator   = as.character(indicator),
-      stat        = as.character(stat),
-      value       = as.numeric(value)
-    ) %>%
-    select(all_of(cols))
-}
-
-# Bind any number of long-stat data frames safely
-stack_long_stats <- function(...) {
-  dots <- list(...)
-  map(dots, standardize_long_stats) %>%
-    bind_rows() %>%
-    arrange(FULL_CU_IN, dsmodel, indicator, rcp, period_code, stat, gcm)
-}
-
-
-
 # ---- 4. Calculate stream network CU indicators----
 
 for (i in 1:n.CUs) {
