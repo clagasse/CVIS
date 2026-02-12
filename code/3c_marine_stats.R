@@ -13,6 +13,7 @@ library(here)
 setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
 
+
 # To use Pacea SSTs, uncomment the next line:
 # BCCM_paceaSST_sub <- bccm_surface_temperature()
 
@@ -52,8 +53,8 @@ CImpact_summary <- CImpact_points %>%
       .cols = contains("Cumul_Impact"),
       .fns = list(
         mean       = ~ wmean(.x, Shape_Area, na.rm = T),
-        qlowsp     = ~ wqt(.x, Shape_Area, prob = qlowsp, na.rm = T),
-        qhighsp    = ~ wqt(.x, Shape_Area, prob = qhighsp, na.rm = T)
+        qlowsp     = ~ wqt(.x, Shape_Area, prob = qlsp, na.rm = T),
+        qhighsp    = ~ wqt(.x, Shape_Area, prob = qhsp, na.rm = T)
       ),
       .names = paste0("CImpact", "_", "{.fn}")
     ),
@@ -77,18 +78,48 @@ for (i in 1:n.CUs) {
   SST_i <- subset_and_mean_var(st_drop_geometry(CMIP6_SST),
     months = months_include,
     MAZ_pick = cu_marine_i$MAZ,
-    include_quantiles = TRUE)
+    include_quantiles = TRUE) %>%
+    mutate(dsmodel = "qdm",
+           FULL_CU_IN = cu_i) %>%
+    pivot_longer(
+      cols = matches("SST"),
+      names_to = c("indicator","stat"),
+      # REGEX: capture indicator root, optional underscore + suffix
+      #  ^(.*?)         -> indicator prefix (lazy)
+      #  (?:_(.*))?     -> optional group: underscore and then suffix (stat)
+      names_pattern = "^(.*?)(?:_(.*))?$",
+      values_to = "value"
+    )
 
   CImpact_i <- CImpact_summary %>%
-    filter(MAZ_Acrony == cu_marine_i$MAZ)
+    filter(MAZ_Acrony == cu_marine_i$MAZ) %>%
+    select(-MAZ_Acrony) %>%
+    mutate(dsmodel = "CImpact",
+           FULL_CU_IN = cu_i) %>%
+    pivot_longer(
+      cols = matches("CImpact"),
+      names_to = c("indicator","stat"),
+      # REGEX: capture indicator root, optional underscore + suffix
+      #  ^(.*?)         -> indicator prefix (lazy)
+      #  (?:_(.*))?     -> optional group: underscore and then suffix (stat)
+      names_pattern = "^(.*?)(?:_(.*))?$",
+      values_to = "value"
+    )
 
   SST_ROM_i <- subset_and_mean_var(st_drop_geometry(ROM_SST),
     months = months_include,
     MAZ_pick = cu_marine_i$MAZ,
     include_quantiles = FALSE) %>%
-    rename_with(
-      ~ gsub("(SST)(proj|rate)", "\\1ROM\\2", .x),
-      .cols = contains("SST")
+    mutate(dsmodel = "bccmssc",
+           FULL_CU_IN = cu_i) %>%
+    pivot_longer(
+      cols = matches("SST"),
+      names_to = c("indicator","stat"),
+      # REGEX: capture indicator root, optional underscore + suffix
+      #  ^(.*?)         -> indicator prefix (lazy)
+      #  (?:_(.*))?     -> optional group: underscore and then suffix (stat)
+      names_pattern = "^(.*?)(?:_(.*))?$",
+      values_to = "value"
     )
 
   SSS_ROM_i <- subset_and_mean_var(st_drop_geometry(ROM_SSS),
@@ -96,31 +127,41 @@ for (i in 1:n.CUs) {
     MAZ_pick = cu_marine_i$MAZ,
     var_name = "SSS",
     include_quantiles = FALSE) %>%
-    rename_with(
-      ~ gsub("(SSS)(proj|rate)", "\\1ROM\\2", .x),
-      .cols = contains("SSS")
+    mutate(dsmodel = "bccmssc",
+           FULL_CU_IN = cu_i) %>%
+    pivot_longer(
+      cols = matches("SSS"),
+      names_to = c("indicator","stat"),
+      # REGEX: capture indicator root, optional underscore + suffix
+      #  ^(.*?)         -> indicator prefix (lazy)
+      #  (?:_(.*))?     -> optional group: underscore and then suffix (stat)
+      names_pattern = "^(.*?)(?:_(.*))?$",
+      values_to = "value"
     )
+  
+  
+  #join to one table
+  mar_all_i <- bind_rows(SST_i, SST_ROM_i, SSS_ROM_i, CImpact_i)
 
-  SS_ROM_i <- left_join(SST_ROM_i, SSS_ROM_i, join_by(rcp, period_code))
 
   if (i == 1) {
-    # cu_marine_all <- cu_marine_i
-    # # SST_mar <- SST_mar_i
-    # # SSS_mar <- SSS_mar_i
-    # # CI_mar    <- CI_mar_i
-    # #
-    mar_all_flat <- bind_cols(cu_marine_i, SST_i, CImpact_i) %>%
-      left_join(SS_ROM_i, join_by(rcp, period_code))
+    mar_all <- mar_all_i
   }
   if (i > 1) {
-    temp <- bind_cols(cu_marine_i, SST_i, CImpact_i) %>%
-      left_join(SS_ROM_i, join_by(rcp, period_code))
-
-    mar_all_flat <- bind_rows(mar_all_flat, temp)
+    mar_all <- bind_rows(mar_all, mar_all_i)
   }
 
 }
 
 
-save(mar_all_flat,
+#clean up values
+mar_all <- mar_all %>%
+  mutate(
+    rcp = if_else(rcp == "H" | is.na(rcp), "0", rcp),
+    period_code = if_else(is.na(period_code), 0 , period_code),
+    gcm = if_else(period_code == 0, 0, 9)) %>%
+  relocate(FULL_CU_IN)
+
+
+save(mar_all,
   file = file.path(paths$marine, paste0(today, "_marine_stats.Rds")))

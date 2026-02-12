@@ -448,6 +448,18 @@ gcm_quantiles_long <- gcm_quantiles_wide %>%
 #bind back
 migr_all <- bind_rows(migr_all, gcm_quantiles_long)
 
+#add migration distance indicator
+cu_migrdist <- cu_migr_timing %>%
+  select(FULL_CU_IN, migrdist) %>%
+  rename(value = migrdist) %>%
+  mutate(indicator = "migrdist",
+         stat      = "mean",
+         gcm = "0",
+         rcp = "0",
+         period_code = 0)
+
+migr_all <- bind_rows(migr_all, cu_migrdist)
+
 
 #save output
 save(migr_all, cu_migr_timing, migr_daily_all,

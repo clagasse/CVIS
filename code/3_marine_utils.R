@@ -224,8 +224,8 @@ subset_and_mean_var <- function(data,
     group_by(rcp, period_code) %>%
     summarize(
       !!paste0(var_name, "proj_", "mean")     := mean(monthly_mean, na.rm = TRUE),
-      !!paste0(var_name, "proj_", "qlowsp")   := quantile(monthly_mean, qlowsp, na.rm = TRUE),
-      !!paste0(var_name, "proj_", "qhighsp")  := quantile(monthly_mean, qhighsp, na.rm = TRUE),
+      !!paste0(var_name, "proj_", "qlowsp")   := quantile(monthly_mean, qlsp, na.rm = TRUE),
+      !!paste0(var_name, "proj_", "qhighsp")  := quantile(monthly_mean, qhsp, na.rm = TRUE),
       !!paste0(var_name, "proj_", "qlowgcm")  := mean(monthly_p10, na.rm = TRUE),
       !!paste0(var_name, "proj_", "qhighgcm") := mean(monthly_p90, na.rm = TRUE),
       .groups = "drop"

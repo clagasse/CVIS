@@ -150,10 +150,12 @@ status_data <- status_data %>%
   ) %>%
   ungroup() %>%
   mutate(CyclicCU = if_else(FULL_CU_IN %in% cyclic_CUs, TRUE, FALSE)) %>%
-  mutate(CUnmat = if_else(CyclicCU == TRUE, round(Max4yr_SpnForAbd_Wild), round(roll_avg_gen)))
+  mutate(CUnmat_mean = if_else(CyclicCU == TRUE, round(Max4yr_SpnForAbd_Wild), round(roll_avg_gen)))
 
-status_data$CUstatus <- status_data$CVIS_RapidStatus
-status_data$status_year <- status_data$Year
+status_data <- status_data %>%
+  mutate(CUstatus_mean = unname(status_map[CVIS_RapidStatus]),
+         status_year = Year) # NA for unmapped
+  
 
 # get recent status
 # only take last 4 years of data. Use most recent year of status, removing any values with no status
@@ -166,8 +168,7 @@ recent_status <- status_data %>%
 
 # join to CU list
 cu_list <- cu_list %>%
-  left_join(select(recent_status, FULL_CU_IN, CUstatus, CUnmat, status_year), join_by(FULL_CU_IN))
-
+  left_join(select(recent_status, FULL_CU_IN, CUstatus_mean, CUnmat_mean, status_year), join_by(FULL_CU_IN))
 
 # Import NuSEDS data ------------------------------------------------------
 

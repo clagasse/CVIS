@@ -86,6 +86,9 @@ ct_type <- "anad"  #cumulative threat type to use for indicator - default anadro
 #vector of RCP codes
 rcp_vec <- c("0", "00", "45", "85")
 
+#for converting CU status categories to a numeric
+status_map <- c(Green = 1, Amber = 2, Red = 3)
+
 # choose method for determining nearshore residency period for marine indicators
 # static = same months used for all CUs,  peak_offset = offsets from peak ocean entry month used
 ns_time_method <- switch(2, "static", "peak_offset")
@@ -133,6 +136,26 @@ cu_seq  <- cu_run$FULL_CU_IN # Create vector of CUs to analyze, ordered CK, CM, 
 n.CUs   <- nrow(cu_run)
 
 save(cu_run, file = file.path(paths$CU, "cu_run.Rds"))
+
+
+# make long version of cu_run for indicator analysis ----------------------
+
+cu_long <- cu_run %>%
+  select(FULL_CU_IN, matches(tbl_indicators$abbrev)) %>%
+  pivot_longer(
+    cols = matches(tbl_indicators$abbrev),
+    names_to = c("indicator","stat"),
+    # REGEX: capture indicator root, optional underscore + suffix
+    #  ^(.*?)         -> indicator prefix (lazy)
+    #  (?:_(.*))?     -> optional group: underscore and then suffix (stat)
+    names_pattern = "^(.*?)(?:_(.*))?$",
+    values_to = "value"
+  ) %>%
+  mutate(
+    gcm         = 0L,
+    rcp         = 0L,
+    period_code = 0L
+  )
 
 # Lookup and definition tables --------------------------------------------
 
@@ -190,7 +213,6 @@ tbl_indicators <- tribble(
 )
 
 
-
 tbl_ind_report <- tbl_indicators %>%
   select(abbrev, long_type, name) %>%
   rename(Abbreviation = abbrev,
@@ -218,7 +240,6 @@ tbl_standardize <- tribble(
   "CUnmat",      "dem",     "decay_std",       "all",    3,    0, 10000,
   "hetzyg",      "gen",     "invlinear_std",      "species",     NA,    NA, NA,
   "genoff",      "gen",     "linear_std",      "species",    NA,    NA, NA)
-
 
 
 #mapping of field codes to gcm names for thermalscapes model
