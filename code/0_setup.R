@@ -57,6 +57,15 @@ paths <- list(
 
 # Analysis configurations -------------------------------------------------
 
+# CUs to subset
+DFO_area_include <- c("FRASER AND INTERIOR")
+CU_exclude   <- c("CK-01",       #exclude okanagan Chinook
+                  "CK-02",       #exclude boundary bay Chinook
+                  "SEL-01-01",   #okanagan sockeye
+                  "SER-03")     # Widgeon  (throws errors)
+species_include <- c("Chinook", "Coho", "Sockeye", "Chum", "Pink")
+CU_type_include <- c("Current")   #only include Current CUs, exclude extirpated ones
+
 periods_use <- c(0, 3, 5)  # period codes to keep (see period_lookup for corresponding years)
 
 # lower and upper quantiles for spatial variation statistics
@@ -100,62 +109,6 @@ ns_end_offset   <- 2   # amount of months after peak ocean entry month for calcu
 
 min_gen_red <- 500  #if generational avg spawners is below this value and RapidStatus is None, status will be adjusted to Red
 
-
-# Run utility and plot scripts --------------------------------------------
-
-# load utility functions
-source(here("code", "2_fw_utils.R"))
-source(here("code", "3_marine_utils.R"))
-source(here("code", "4_scoring_utils.R"))
-
-# load plotting functions
-source(here("code", "5a_plots_CU.R"))
-source(here("code", "5b_plots_compare.R"))
-
-
-# load CU boundaries
-load(file.path(paths$fw, "cu_boundary.Rds"))
-
-
-# CU settings and import -------------------------------------------------------------
-
-# load CU tables
-source(here("code", "1a_CU_import.R"))   # CU table
-
-# Select subset of CUs to run for analysis
-cu_run <- cu_list %>%
-  filter(DFO_AREA == "FRASER AND INTERIOR",
-    CU_TYPE == "Current",
-    CU_NAME != "BOUNDARY BAY_FA_0.3",
-    str_detect(SMU_NAME, "OKANAGAN", negate = TRUE)) %>%
-  filter(SPECIES_NAME %in% c("Chinook", "Coho", "Sockeye", "Chum", "Pink"),   # optional species filter
-    FULL_CU_IN %notin% c("SER-02")) %>% # remove widgeon (throws error)
-  arrange(SPECIES_NAME)
-
-cu_seq  <- cu_run$FULL_CU_IN # Create vector of CUs to analyze, ordered CK, CM, CO, PKO, SEL, SER, SH
-n.CUs   <- nrow(cu_run)
-
-save(cu_run, file = file.path(paths$CU, "cu_run.Rds"))
-
-
-# make long version of cu_run for indicator analysis ----------------------
-
-cu_long <- cu_run %>%
-  select(FULL_CU_IN, matches(tbl_indicators$abbrev)) %>%
-  pivot_longer(
-    cols = matches(tbl_indicators$abbrev),
-    names_to = c("indicator","stat"),
-    # REGEX: capture indicator root, optional underscore + suffix
-    #  ^(.*?)         -> indicator prefix (lazy)
-    #  (?:_(.*))?     -> optional group: underscore and then suffix (stat)
-    names_pattern = "^(.*?)(?:_(.*))?$",
-    values_to = "value"
-  ) %>%
-  mutate(
-    gcm         = 0L,
-    rcp         = 0L,
-    period_code = 0L
-  )
 
 # Lookup and definition tables --------------------------------------------
 
@@ -323,3 +276,22 @@ indicator_palette <- c(
   "Nearshore Marine"   = "green4",
   "Genetics"  = "orange3"
 )
+
+
+# Run utility and plot scripts --------------------------------------------
+
+# load CU boundaries
+load(file.path(paths$fw, "cu_boundary.Rds"))
+
+# load utility functions
+source(here("code", "2_fw_utils.R"))
+source(here("code", "3_marine_utils.R"))
+source(here("code", "4_scoring_utils.R"))
+
+# load plotting functions
+source(here("code", "5a_plots_CU.R"))
+source(here("code", "5b_plots_compare.R"))
+
+# load CU tables
+source(here("code", "1a_CU_import.R"))   # CU table
+

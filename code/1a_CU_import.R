@@ -284,8 +284,46 @@ cu_list <- cu_list %>%
   left_join(genetics_cu, join_by(FULL_CU_IN))
 
 
+
+# Subset CUs to run for analysis based on settings ----------------------------------
+
+# Select subset of CUs to run for analysis
+cu_run <- cu_list %>%
+  filter(DFO_AREA %in% DFO_area_include,
+         FULL_CU_IN %notin% CU_exclude,
+         CU_TYPE %in% CU_type_include,
+         SPECIES_NAME %in% species_include) %>%
+  arrange(SPECIES_NAME)
+
+cu_seq  <- cu_run$FULL_CU_IN # Create vector of CUs to analyze, ordered CK, CM, CO, PKO, SEL, SER, SH
+n.CUs   <- nrow(cu_run)
+
+
+# make long version of cu_run for indicator analysis ----------------------
+
+cu_long <- cu_run %>%
+  select(FULL_CU_IN, matches(tbl_indicators$abbrev)) %>%
+  pivot_longer(
+    cols = matches(tbl_indicators$abbrev),
+    names_to = c("indicator","stat"),
+    # REGEX: capture indicator root, optional underscore + suffix
+    #  ^(.*?)         -> indicator prefix (lazy)
+    #  (?:_(.*))?     -> optional group: underscore and then suffix (stat)
+    names_pattern = "^(.*?)(?:_(.*))?$",
+    values_to = "value"
+  ) %>%
+  mutate(
+    gcm         = 0L,
+    rcp         = 0L,
+    period_code = 0L
+  )
+
+
 # Save R objects ----------------------------------------------------------
 
 save(cu_list, file = file.path(paths$CU, "cu_list.Rds"))
 save(status_data, file = file.path(paths$CU, "cu_status_data.Rds"))
 save(cu_timing_Fr, cu_timing_long, file = file.path(paths$CU, "cu_timing_data.Rdata"))
+save(cu_run, file = file.path(paths$CU, "cu_run.Rds"))
+
+
