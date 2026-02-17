@@ -72,7 +72,7 @@ stack_long_stats <- function(...) {
   dots <- list(...)
   map(dots, standardize_long_stats) %>%
     bind_rows() %>%
-    arrange(FULL_CU_IN, dsmodel, indicator, rcp, period_code, stat, gcm)
+    arrange(FULL_CU_IN, category, dsmodel, indicator, rcp, period_code, stat, gcm)
 }
 
 ###############################################################################

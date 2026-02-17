@@ -9,7 +9,7 @@
 # if xmin or xmax are set, a manual min and max range are used for standardizing between 0 and 1
 # if use_95 = TRUE, the min and max are set based on 95% quantile ranges to exclude outliers
 
-linear_std <- function(x, ..., xmin = NA, xmax = NA, use_95 = T) {
+linear_std <- function(x, ..., xmin = NA, xmax = NA, use_95 = F) {
   if (is.na(xmax)) {
     xmax <- max(x, na.rm = T)
     if (use_95 == TRUE) xmax <- unlist(quantile(x, na.rm = T, probs = 0.975))
@@ -24,7 +24,8 @@ linear_std <- function(x, ..., xmin = NA, xmax = NA, use_95 = T) {
   for (i in 1:length(x)) {
     if (is.na(x[i])) next
     z <- ifelse(x[i] < xmin, xmin,
-      ifelse(x[i] > xmax, xmax, x[i]))
+      ifelse(x[i] > xmax, xmax, x[i])
+    )
     y[i] <- (z - xmin) / (xmax - xmin)
     if (xmax == xmin) y[i] <- 0.5 # set standardized value to 0.5 if xmin = xmax
   }
@@ -33,7 +34,7 @@ linear_std <- function(x, ..., xmin = NA, xmax = NA, use_95 = T) {
 }
 
 # inverse raw standardization function with 1 corresponding to lowest value
-invlinear_std <- function(x, ..., xmin = NA, xmax = NA, use_95 = T) {
+invlinear_std <- function(x, ..., xmin = NA, xmax = NA, use_95 = F) {
   if (is.na(xmax)) {
     xmax <- max(x, na.rm = T)
     if (use_95 == TRUE) xmax <- unlist(quantile(x, na.rm = T, probs = 0.975))
@@ -56,7 +57,6 @@ invlinear_std <- function(x, ..., xmin = NA, xmax = NA, use_95 = T) {
 
 ## asymptotic standardization function for indicators where higher values = greater risk
 logarithmic_std <- function(x, ..., lambda = 0.6, xmin = NA, xmax = NA) {
-
   if (is.na(xmax)) xmax <- max(x, na.rm = T)
   if (is.na(xmin)) xmin <- min(x, na.rm = T)
   y <- rep(NA, length(x))
@@ -71,8 +71,7 @@ logarithmic_std <- function(x, ..., lambda = 0.6, xmin = NA, xmax = NA) {
 }
 
 # exponential increase function where higher values = greater risk
-exponential_std <- function(x, ..., lambda = 1, xmin = NA, xmax = NA, use_95 = T) {
-
+exponential_std <- function(x, ..., lambda = 1, xmin = NA, xmax = NA, use_95 = F) {
   if (is.na(xmax)) {
     xmax <- max(x, na.rm = T)
     if (use_95 == TRUE) xmax <- unlist(quantile(x, na.rm = T, probs = 0.975))
@@ -95,8 +94,7 @@ exponential_std <- function(x, ..., lambda = 1, xmin = NA, xmax = NA, use_95 = T
 }
 
 # exponential decay standardization function for indicators where higher values = lower risk
-decay_std <- function(x, ..., lambda = 0.03, xmin = NA, xmax = NA, use_95 = T) {
-
+decay_std <- function(x, ..., lambda = 0.03, xmin = NA, xmax = NA, use_95 = F) {
   if (is.na(xmax)) {
     xmax <- max(x, na.rm = T)
     if (use_95 == TRUE) xmax <- unlist(quantile(x, na.rm = T, probs = 0.975))
@@ -162,20 +160,17 @@ enh_std <- function(x, ..., z) {
 
 
 simulate_range <- function(x, n = 100) {
-
   minx <- min(x, na.rm = T)
   maxx <- max(x, na.rm = T)
 
   y <- seq(from = minx, to = maxx, length.out = n)
   return(y)
-
 }
 
 
 # 2. Data tidying and reshaping -------------------------------------------
 
 sum_selected_columns <- function(data, match_strings, new_col_name = "row_sum") {
-
   pattern <- paste(match_strings, collapse = "|")
   selected_cols <- names(data)[str_detect(names(data), pattern)]
   if (sum(selected_cols %in% "SPECIES_NAME") > 0) selected_cols <- selected_cols[str_detect(selected_cols, "SPECIES_NAME", negate = TRUE)]
@@ -244,144 +239,232 @@ subset_ind_table <- function(data,
                              id_col = "FULL_CU_IN",
                              rcp_col = "rcp",
                              period_col = "period_code",
-                             get_raw = T,  # include unstandardized columns
-                             get_std = F,  # include standardized columns
-                             get_gcm = T,  # include gcm variation
+                             get_raw = T, # include unstandardized columns
+                             get_std = F, # include standardized columns
+                             get_gcm = T, # include gcm variation
                              get_spat = F, # include spatial variation,
-                             get_pop  = F, # include population variation (genetic indicators)
-                             rename_cols = T,  # rename id and sp cols
+                             get_pop = F, # include population variation (genetic indicators)
+                             rename_cols = T, # rename id and sp cols
                              gcm_range_suffix = c("qlowgcm", "qhighgcm", "qmingcm", "qmaxgcm"),
                              sp_range_suffix = c("qlowsp", "qhighsp"),
-                             pop_suffix = c("popmin", "popmax")
-) {
-  # take column names that contain prefix with model type
+                             pop_suffix = c("popmin", "popmax")) {
+  # Detect Long Format (indicator, stat, value columns)
+  is_long <- "indicator" %in% names(data) && "stat" %in% names(data) && "value" %in% names(data)
+
+  if (is_long) {
+    # 1. Standard Handle for Long Format Indicators
+    data_sub <- data %>%
+      filter(indicator %in% indicators_choose)
+
+    # Define keys for pivoting/joining
+    keys <- c(id_col, sp_col, rcp_col, period_col)
+    keys <- keys[keys %in% names(data)]
+
+    # Pivot RAW values
+    raw_wide <- NULL
+    if (get_raw) {
+      # Filter for main stats and ensemble gcm (9)
+      raw_data <- data_sub %>%
+        filter(gcm == "9" | is.na(gcm)) %>%
+        filter(stat == stat_suffix) # Only get the main stat (mean)
+
+      raw_wide <- raw_data %>%
+        pivot_wider(
+          id_cols = all_of(keys),
+          names_from = c(indicator, stat),
+          values_from = value,
+          names_sep = "_"
+        )
+    }
+
+    # Pivot STD values
+    std_wide <- NULL
+    if (get_std) {
+      std_data <- data_sub %>%
+        filter(gcm == "9" | is.na(gcm)) %>%
+        filter(stat == stat_suffix) # Only get the main stat (mean)
+
+      std_wide <- std_data %>%
+        pivot_wider(
+          id_cols = all_of(keys),
+          names_from = c(indicator, stat),
+          values_from = std_value,
+          names_sep = "_",
+          names_prefix = "std_"
+        )
+    }
+
+    # Get GCM ranges from long data
+    gcm_wide <- NULL
+    if (get_gcm) {
+      gcm_data <- data_sub %>%
+        filter(stat %in% gcm_range_suffix)
+
+      if (nrow(gcm_data) > 0) {
+        gcm_wide <- gcm_data %>%
+          pivot_wider(
+            id_cols = all_of(keys),
+            names_from = c(indicator, stat),
+            values_from = if_else(get_std, std_value, value),
+            names_sep = "_"
+          )
+      }
+    }
+
+    # Combine all
+    data_out <- raw_wide
+    if (!is.null(std_wide)) {
+      if (is.null(data_out)) data_out <- std_wide else data_out <- left_join(data_out, std_wide, by = keys)
+    }
+    if (!is.null(gcm_wide)) {
+      if (is.null(data_out)) data_out <- gcm_wide else data_out <- left_join(data_out, gcm_wide, by = keys)
+    }
+
+    data <- data_out
+  } else {
+    # 2. Handle Wide/Modified Format (like scores_long)
+    # If it's a "wide" table but has multiple GCM rows, we may need to summarize GCM ranges
+
+    # Check if multiple GCMs exist for the same CU/RCP/Period
+    has_target_gcm_col <- "gcm" %in% names(data)
+
+    if (has_target_gcm_col && get_gcm) {
+      # Identify indicator/score columns
+      score_cols <- names(data)[str_detect(names(data), paste0(indicators_choose, collapse = "|"))]
+
+      # Grouping keys
+      group_keys <- c(id_col, sp_col, rcp_col, period_col)
+      group_keys <- group_keys[group_keys %in% names(data)]
+
+      # Calculate GCM ranges if not present
+      if (sum(str_detect(score_cols, "qlowgcm|qhighgcm")) == 0) {
+        cat("Summarizing GCM variation for columns:", paste(score_cols, collapse = ", "), "\n")
+
+        gcm_summary <- data %>%
+          group_by(across(all_of(group_keys))) %>%
+          summarise(
+            across(all_of(score_cols),
+              list(
+                qlowgcm = ~ quantile(.x, 0.1, na.rm = T),
+                qhighgcm = ~ quantile(.x, 0.9, na.rm = T)
+              ),
+              .names = "{.col}_{.fn}"
+            ),
+            .groups = "drop"
+          )
+
+        # Filter data for ensemble/main view (GCM 9)
+        ensemble_data <- data %>% filter(gcm == "9" | is.na(gcm))
+        if (nrow(ensemble_data) == 0) {
+          ensemble_data <- data %>%
+            group_by(across(all_of(group_keys))) %>%
+            slice(1) %>%
+            ungroup()
+        }
+
+        data <- left_join(ensemble_data, gcm_summary, by = group_keys)
+      }
+    }
+  }
+
+  # Final Selection and Column Management
   cols_sub <- names(data)[str_detect(names(data), paste0(indicators_choose, collapse = "|"))]
 
-  # remove raw or std cols if selected
   if (get_raw == F) cols_sub <- cols_sub[str_detect(cols_sub, "std")]
   if (get_std == F) cols_sub <- cols_sub[!str_detect(cols_sub, "std")]
 
-  if (length(indicators_choose) == 1) {
-    # take names with prefix that also contain stat suffix
-    stat_col <- cols_sub[str_detect(cols_sub, stat_suffix)] # contains "mean" or other suffix
-    # some indicators don't have a mean, just the raw value. in that case, use the abbreviation
-    if (length(stat_col) == 0) stat_col <- cols_sub
-  } else {
-    stat_col <- cols_sub[!str_detect(cols_sub, paste0(gcm_range_suffix, collapse = "|"))]  # remove gcm variation columns for now
-    stat_col <- stat_col[!str_detect(stat_col, paste0(sp_range_suffix, collapse = "|"))] # remove spat variation columns for now
-  }
+  # Filters stats
+  stat_col <- cols_sub[!str_detect(cols_sub, paste0(c(gcm_range_suffix, sp_range_suffix, pop_suffix), collapse = "|"))]
 
   cols_out <- c(id_col, sp_col)
-  # include rcp and period columns if present
-  if (sum(str_detect(names(data), rcp_col)) > 0) cols_out <- c(cols_out, rcp_col)
-  if (sum(str_detect(names(data), period_col)) > 0) cols_out <- c(cols_out, period_col)
+  if (rcp_col %in% names(data)) cols_out <- c(cols_out, rcp_col)
+  if (period_col %in% names(data)) cols_out <- c(cols_out, period_col)
   cols_out <- c(cols_out, stat_col)
 
-  # get gcm min and max cols
-  if (get_gcm == T) {
-    gcm_cols   <- cols_sub[str_detect(cols_sub, paste0(gcm_range_suffix, collapse = "|"))]
-    cols_out <- c(cols_out, gcm_cols)
+  if (get_gcm) cols_out <- c(cols_out, names(data)[names(data) %in% paste0(indicators_choose, "_", rep(gcm_range_suffix, each = length(indicators_choose)))])
+  if (get_spat) cols_out <- c(cols_out, names(data)[names(data) %in% paste0(indicators_choose, "_", rep(sp_range_suffix, each = length(indicators_choose)))])
+  if (get_pop) cols_out <- c(cols_out, names(data)[names(data) %in% paste0(indicators_choose, "_", rep(pop_suffix, each = length(indicators_choose)))])
+
+  data_sub <- data %>% select(any_of(cols_out))
+
+  if (rename_cols) {
+    # Check if columns exist before renaming
+    rename_list <- list()
+    if (id_col %in% names(data_sub)) rename_list$id <- id_col
+    if (sp_col %in% names(data_sub)) rename_list$sp <- sp_col
+    data_sub <- data_sub %>% rename(!!!rename_list)
   }
-
-  # get spatial min and max cols
-  if (get_spat == T) {
-    spat_cols <- cols_sub[str_detect(cols_sub, paste0(sp_range_suffix, collapse = "|"))]
-    cols_out <- c(cols_out, spat_cols)
-  }
-
-  # get spatial min and max cols
-  if (get_pop == T) {
-    pop_cols <- cols_sub[str_detect(cols_sub, paste0(pop_suffix, collapse = "|"))]
-    cols_out <- c(cols_out, pop_cols)
-  }
-
-  data_sub <- data %>%
-    select(cols_out)
-
-  if (rename_cols == T) data_sub <- rename(data_sub,
-    id = !!id_col,  sp = !!sp_col)
 
   return(data_sub)
-
 }
 
-# utility function to update indicator column names for plotting
-library(dplyr)
-library(stringr)
 
 rename_ind_table <- function(data,
                              indicator_abbrev,
                              gcm_range_suffix = c("qlowgcm", "qhighgcm", "qmingcm", "qmaxgcm"),
                              sp_range_suffix = c("qlowsp", "qhighsp"),
                              pop_suffix = c("popmin", "popmax"),
-                             name_suffix = "",  # optional name suffix
+                             name_suffix = "", # optional name suffix
                              single_value_col = FALSE) {
-  # Identify relevant columns
+  # Identify relevant columns belonging to this indicator
   cols_sub <- names(data)[str_detect(names(data), indicator_abbrev)]
 
-  stat_col <- cols_sub[!str_detect(cols_sub, "std")]
-  stat_col <- stat_col[!str_detect(stat_col, paste0(gcm_range_suffix, collapse = "|"))]
-  stat_col <- stat_col[!str_detect(stat_col, paste0(sp_range_suffix, collapse = "|"))]
-  stat_col <- stat_col[!str_detect(stat_col, paste0(pop_suffix, collapse = "|"))]
+  # 1. Identify variation columns first (more specific patterns)
+  min_gcmcol <- cols_sub[str_detect(cols_sub, gcm_range_suffix[1])][1]
+  max_gcmcol <- cols_sub[str_detect(cols_sub, gcm_range_suffix[2])][1]
 
-  std_col <- cols_sub[str_detect(cols_sub, "std")]
+  min_spatcol <- cols_sub[str_detect(cols_sub, sp_range_suffix[1])][1]
+  max_spatcol <- cols_sub[str_detect(cols_sub, sp_range_suffix[2])][1]
 
-  min_gcmcol <- cols_sub[str_detect(cols_sub, gcm_range_suffix[1])]
-  max_gcmcol <- cols_sub[str_detect(cols_sub, gcm_range_suffix[2])]
+  min_popcol <- cols_sub[str_detect(cols_sub, pop_suffix[1])][1]
+  max_popcol <- cols_sub[str_detect(cols_sub, pop_suffix[2])][1]
 
-  min_spatcol <- cols_sub[str_detect(cols_sub, sp_range_suffix[1])]
-  max_spatcol <- cols_sub[str_detect(cols_sub, sp_range_suffix[2])]
+  variation_cols <- na.omit(c(min_gcmcol, max_gcmcol, min_spatcol, max_spatcol, min_popcol, max_popcol))
 
-  min_popcol <- cols_sub[str_detect(cols_sub, pop_suffix[1])]
-  max_popcol <- cols_sub[str_detect(cols_sub, pop_suffix[2])]
+  # 2. Identify main values among the remaining columns
+  remaining_cols <- setdiff(cols_sub, variation_cols)
+
+  std_col <- remaining_cols[str_detect(remaining_cols, "std")][1]
+  stat_col <- setdiff(remaining_cols, std_col)[1]
 
   out_data <- data
 
-  # Rename raw and std columns with suffix
-  if (length(stat_col) > 0) {
+  # Rename main values
+  if (!is.na(stat_col)) {
     out_data <- out_data %>%
-      rename_with(~ paste0(name_suffix, "raw"), all_of(stat_col))
+      rename(!!paste0(name_suffix, "raw") := !!stat_col)
   }
-  if (length(std_col) > 0) {
+  if (!is.na(std_col)) {
     out_data <- out_data %>%
-      rename_with(~ paste0(name_suffix, "std"), all_of(std_col))
-  }
-
-  # Rename GCM range columns
-  if (length(min_gcmcol) > 0) {
-    out_data <- out_data %>%
-      rename_with(~ paste0(name_suffix, "min_gcm"), all_of(min_gcmcol))
-  }
-  if (length(max_gcmcol) > 0) {
-    out_data <- out_data %>%
-      rename_with(~ paste0(name_suffix, "max_gcm"), all_of(max_gcmcol))
+      rename(!!paste0(name_suffix, "std") := !!std_col)
   }
 
-  # Rename SP range columns
-  if (length(min_spatcol) > 0) {
+  # Rename variation columns
+  if (!is.na(min_gcmcol)) {
     out_data <- out_data %>%
-      rename_with(~ paste0(name_suffix, "min_spat"), all_of(min_spatcol))
+      rename(!!paste0(name_suffix, "min_gcm") := !!min_gcmcol)
   }
-  if (length(max_spatcol) > 0) {
+  if (!is.na(max_gcmcol)) {
     out_data <- out_data %>%
-      rename_with(~ paste0(name_suffix, "max_spat"), all_of(max_spatcol))
-  }
-
-  # Rename pop range columns
-  if (length(min_popcol) > 0) {
-    out_data <- out_data %>%
-      rename_with(~ paste0(name_suffix, "min_pop"), all_of(min_popcol))
-  }
-  if (length(max_popcol) > 0) {
-    out_data <- out_data %>%
-      rename_with(~ paste0(name_suffix, "max_pop"), all_of(max_popcol))
+      rename(!!paste0(name_suffix, "max_gcm") := !!max_gcmcol)
   }
 
-  # Optionally collapse to single value column
-  if (single_value_col) {
-    value_col <- if (length(stat_col) > 0) paste0(name_suffix, "raw") else paste0(name_suffix, "std")
+  if (!is.na(min_spatcol)) {
     out_data <- out_data %>%
-      rename(value = all_of(value_col))
+      rename(!!paste0(name_suffix, "min_spat") := !!min_spatcol)
+  }
+  if (!is.na(max_spatcol)) {
+    out_data <- out_data %>%
+      rename(!!paste0(name_suffix, "max_spat") := !!max_spatcol)
+  }
+
+  if (!is.na(min_popcol)) {
+    out_data <- out_data %>%
+      rename(!!paste0(name_suffix, "min_pop") := !!min_popcol)
+  }
+  if (!is.na(max_popcol)) {
+    out_data <- out_data %>%
+      rename(!!paste0(name_suffix, "max_pop") := !!max_popcol)
   }
 
   return(out_data)
@@ -410,8 +493,10 @@ standardize_indicator <- function(data,
   # some indicators don't have a mean, just the raw value. in that case, use the abbreviation
   if (length(stat_col) == 0) stat_col <- cols_sub
 
-  data <- select(data,
-    all_of(c(id_col, species_col, stat_col, min_gcmcol, max_gcmcol, "rcp", "period_code")))
+  data <- select(
+    data,
+    all_of(c(id_col, species_col, stat_col, min_gcmcol, max_gcmcol, "rcp", "period_code"))
+  )
 
   # # Select columns
   # select_cols <- c(id_col, stat_col, min_gcmcol, max_gcmcol, "rcp", "period_code")
@@ -421,6 +506,7 @@ standardize_indicator <- function(data,
   # Build grouping dynamically
   grouping_vars <- c("rcp", "period_code")
   if (range_type == "species") grouping_vars <- c(grouping_vars, species_col)
+
 
 
   if (length(min_gcmcol) == 1 && length(max_gcmcol) == 1 && use_gcm_range == TRUE) {
@@ -454,11 +540,131 @@ standardize_indicator <- function(data,
       data_std <- left_join(data_std,
         select(data, all_of(c(id_col, species_col))),
         by = id_col,
-        multiple = "first")
+        multiple = "first"
+      )
     }
-
-
   }
+
+  return(data_std)
+}
+
+# New function for standardizing long format data
+standardize_long_indicator <- function(data,
+                                       indicator_pick,
+                                       target_stat = "mean",
+                                       std_fun = "linear_std",
+                                       std_params = NA,
+                                       calibration_gcm = "9", # Ensemble mean GCM code
+                                       grouping_vars = grouping_vars_pick, #variables to group when determining std ranges 
+                                       id_col = "FULL_CU_IN",
+                                       species_col = "SPECIES_NAME") {
+  range_type <- std_params$range_type
+
+  # Filter for the specific indicator
+  # AND specific statistics we want to standardize (target_stat + GCM variations)
+  # We exclude "nsegments", "length", etc. unless they ARE the target stats.
+
+  # Standard variations to keep if present
+  # qlowgcm, qhighgcm, qmingcm, qmaxgcm
+  # We assume these should be standardized using the same params as the mean.
+  stats_to_std <- c(target_stat, "qlowgcm", "qhighgcm", "qmingcm", "qmaxgcm")
+
+  data_sub <- data %>%
+    filter(
+      indicator == indicator_pick,
+      stat %in% stats_to_std
+    )
+
+  if (nrow(data_sub) == 0) {
+    warning(paste("No data found for indicator:", indicator_pick, "with stats:", paste(stats_to_std, collapse = ", ")))
+    return(NULL)
+  }
+
+  # Define grouping for calibration (determining range)
+  if (!is.na(range_type) && range_type == "species") {
+    grouping_vars <- c(grouping_vars, species_col)
+  }
+
+  # 1. Identify Calibration Data (Ensemble Mean) for Range Determination
+  # We typically use the target_stat (e.g. "mean") of the ensemble (gcm=9) to determine range.
+  calibration_data <- data_sub %>%
+    filter(
+      gcm == calibration_gcm,
+      stat == target_stat
+    )
+
+  # Check if calibration data exists
+  if (nrow(calibration_data) == 0) {
+    # If no ensemble mean, try using all data (maybe gcm is NA or different structure?)
+    warning(paste("No calibration data (gcm =", calibration_gcm, ", stat =", target_stat, ") found for:", indicator_pick, ". Using all data for range."))
+    calibration_data <- data_sub
+  }
+
+  # 2. Calculate Standardization Parameters (xmin, xmax) per group
+
+  # Function to get params for a group
+  get_group_params <- function(val, current_params) {
+    # If xmin/xmax are NA, calculate them from val
+
+    use_95 <- if (!is.null(current_params$use_95)) current_params$use_95 else TRUE
+
+    p_out <- current_params
+
+    if (is.na(current_params$xmax)) {
+      p_out$xmax <- max(val, na.rm = TRUE)
+      if (use_95) p_out$xmax <- unlist(quantile(val, na.rm = T, probs = 0.975))
+    }
+    if (is.na(current_params$xmin)) {
+      p_out$xmin <- min(val, na.rm = TRUE)
+      if (use_95) p_out$xmin <- unlist(quantile(val, na.rm = T, probs = 0.025))
+    }
+    return(tibble(xmin_calib = p_out$xmin, xmax_calib = p_out$xmax))
+  }
+
+  # Calculate params for each group
+  calibration_params <- calibration_data %>%
+    group_by(across(all_of(grouping_vars))) %>%
+    summarise(params = list(get_group_params(value, std_params)), .groups = "drop") %>%
+    unnest(params)
+
+  # 3. Join Parameters back to Full Data (all GCMs, all stats)
+  data_stding <- data_sub %>%
+    left_join(calibration_params, by = grouping_vars)
+
+  # 4. Apply Standardization
+
+  data_std <- data_stding %>%
+    # Rowwise or grouped application?
+    # Since params are in columns xmin_calib, xmax_calib, we can just apply rowwise or mapped.
+    # Grouping isn't strictly necessary if we have the params on each row, but might be safer for some logic.
+    mutate(
+      std_value = {
+        # Create a list of arguments for the function specific to each row/group?
+        # Actually, since we have vectors of xmin/xmax, we can't easily use do.call with vector args if the function expects single scalars.
+        # But wait, linear_std/etc loops over x.
+        # If we group by the calibration grouping vars again, xmin/xmax are constant within group.
+        NULL
+      }
+    )
+
+  # Let's use grouping to ensure constant params for the block passed to std_fun
+  data_std <- data_stding %>%
+    group_by(across(all_of(grouping_vars))) %>%
+    mutate(
+      std_value = {
+        xmin_g <- first(xmin_calib)
+        xmax_g <- first(xmax_calib)
+
+        params_g <- std_params
+        params_g$xmin <- xmin_g
+        params_g$xmax <- xmax_g
+
+        # Apply function to the vector of values in this group
+        do.call(std_fun, c(list(x = value), params_g))
+      }
+    ) %>%
+    ungroup() %>%
+    select(-xmin_calib, -xmax_calib)
 
   return(data_std)
 }
@@ -473,10 +679,86 @@ get_CU_indicators <- function(data,
                               indicators_choose = tbl_indicators$abbrev,
                               stats_keep = c("mean", "qlowgcm", "qhighgcm"),
                               use_standardized = TRUE) {
+  # Detect Long Format
+  is_long <- "indicator" %in% names(data) && "stat" %in% names(data) && "value" %in% names(data)
 
-  data_sub <- filter(data,
+  if (is_long) {
+    data_sub <- filter(
+      data,
+      rcp == RCP_pick,
+      period_code == period_pick
+    )
+
+    # Set value column based on use_standardized
+    val_col <- if (use_standardized) "std_value" else "value"
+    pivot_prefix <- if (use_standardized) "std_" else ""
+
+    # Filter for chosen indicators and ensemble/aggregate stats
+    if ("gcm" %in% names(data_sub)) {
+      data_sub <- data_sub %>% filter(gcm == "9" | is.na(gcm))
+    }
+
+    data_sub <- data_sub %>%
+      filter(
+        indicator %in% indicators_choose,
+        stat %in% stats_keep
+      ) %>%
+      select(all_of(c(id_col_name, sp_col_name, "indicator", "stat", val_col))) %>%
+      rename(val = !!sym(val_col))
+
+    sp_pick <- data_sub %>%
+      filter(FULL_CU_IN == cu_i) %>%
+      pull(sp_col_name) %>%
+      unique() %>%
+      na.omit() %>%
+      as.character()
+
+    if (length(sp_pick) > 1) sp_pick <- sp_pick[1]
+
+    # Calculate species averages
+    sp_avgs <- data_sub %>%
+      filter(!!sym(sp_col_name) == sp_pick) %>%
+      group_by(indicator, stat) %>%
+      summarise(val = mean(val, na.rm = TRUE), .groups = "drop") %>%
+      rename(sp = val)
+
+    # Calculate all CU averages
+    all_cu_avgs <- data_sub %>%
+      group_by(indicator, stat) %>%
+      summarise(val = mean(val, na.rm = TRUE), .groups = "drop") %>%
+      rename(allcu = val)
+
+    # Get CU values
+    data_CU <- data_sub %>%
+      filter(FULL_CU_IN == cu_i) %>%
+      select(indicator, stat, val) %>%
+      rename(cu = val)
+
+    # Join all together
+    out_data <- data_CU %>%
+      left_join(sp_avgs, by = c("indicator", "stat")) %>%
+      left_join(all_cu_avgs, by = c("indicator", "stat")) %>%
+      mutate(FULL_CU_IN = cu_i, rcp = RCP_pick, period_code = period_pick) %>%
+      relocate(FULL_CU_IN, rcp, period_code)
+
+    # Rename and pivot
+    out_data <- out_data %>%
+      pivot_wider(
+        names_from = stat,
+        values_from = c("cu", "sp", "allcu"),
+        names_glue = "{.value}_{stat}"
+      ) %>%
+      # Rename 'mean' stats to just 'value' to match plot expectations
+      rename_with(~ str_replace(., "_mean$", "_value"), ends_with("_mean"))
+
+    return(out_data)
+  }
+
+  data_sub <- filter(
+    data,
     rcp == RCP_pick,
-    period_code == period_pick)
+    period_code == period_pick
+  )
 
   sp_pick <- data_sub %>%
     filter(FULL_CU_IN == cu_i) %>%
@@ -502,22 +784,28 @@ get_CU_indicators <- function(data,
   # Calculate species averages
   sp_avgs <- data_sub %>%
     filter(!!sym(sp_col_name) == sp_pick) %>%
-    dplyr::summarize(across(all_of(cols_sub),
-      \(x) mean(x, na.rm = TRUE)), .groups = "drop") %>%
-    pivot_longer(cols = all_of(cols_sub),
+    dplyr::summarize(across(
+      all_of(cols_sub),
+      \(x) mean(x, na.rm = TRUE)
+    ), .groups = "drop") %>%
+    pivot_longer(
+      cols = all_of(cols_sub),
       values_to = paste0(pivot_prefix, "sp"),
       names_prefix = pivot_prefix,
       names_sep = "_",
-      names_to = c("indicator", "stat"))
+      names_to = c("indicator", "stat")
+    )
 
   # Calculate all CU averages
   all_cu_avgs <- data_sub %>%
     dplyr::summarize(across(all_of(cols_sub), \(x) mean(x, na.rm = TRUE)), .groups = "drop") %>%
-    pivot_longer(cols = all_of(cols_sub),
+    pivot_longer(
+      cols = all_of(cols_sub),
       values_to = paste0(pivot_prefix, "allcu"),
       names_prefix = pivot_prefix,
       names_sep = "_",
-      names_to = c("indicator", "stat")) %>%
+      names_to = c("indicator", "stat")
+    ) %>%
     mutate(stat = if_else(is.na(stat), "mean", stat))
 
   # Get CU values
@@ -525,11 +813,13 @@ get_CU_indicators <- function(data,
     filter(FULL_CU_IN == cu_i) %>%
     dplyr::summarize(across(all_of(cols_sub), \(x) mean(x, na.rm = TRUE)), .groups = "drop") %>%
     # select(id_col_name, sp_col_name, all_of(cols_sub)) %>%
-    pivot_longer(cols = all_of(cols_sub),
+    pivot_longer(
+      cols = all_of(cols_sub),
       values_to = paste0(pivot_prefix, "cu"),
       names_prefix = pivot_prefix,
       names_sep = "_",
-      names_to = c("indicator", "stat"))
+      names_to = c("indicator", "stat")
+    )
 
 
   # Join all together
@@ -537,15 +827,20 @@ get_CU_indicators <- function(data,
     left_join(sp_avgs, join_by(indicator, stat)) %>%
     left_join(all_cu_avgs, join_by(indicator, stat)) %>%
     mutate(stat = if_else(is.na(stat), "mean", stat)) %>%
-    mutate(FULL_CU_IN = cu_i,
+    mutate(
+      FULL_CU_IN = cu_i,
       rcp = RCP_pick,
-      period_code = period_pick) %>%
+      period_code = period_pick
+    ) %>%
     relocate(FULL_CU_IN, rcp, period_code) %>%
     filter(stat %in% stats_keep) %>%
-    pivot_wider(names_from = stat,
-      values_from = c(paste0(pivot_prefix, "cu"),
+    pivot_wider(
+      names_from = stat,
+      values_from = c(
+        paste0(pivot_prefix, "cu"),
         paste0(pivot_prefix, "sp"),
-        paste0(pivot_prefix, "allcu"))
+        paste0(pivot_prefix, "allcu")
+      )
     )
 
   return(data_CU)

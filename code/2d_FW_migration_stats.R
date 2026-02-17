@@ -460,6 +460,10 @@ cu_migrdist <- cu_migr_timing %>%
 
 migr_all <- bind_rows(migr_all, cu_migrdist)
 
+#add category column
+migr_all <- migr_all %>%
+  mutate(category = "migr")
+
 
 #save output
 save(migr_all, cu_migr_timing, migr_daily_all,

@@ -19,17 +19,19 @@ source(file.path(here(), "code", "0_setup.R"))
 
 # get cu timing for ocean entry
 cu_marine <- cu_timing_Fr %>%
-  select(FULL_CU_IN, CVIS_NAME, SPECIES_NAME, oe_age, oe_dat_qual,
-    oe_start, oe_peak, oe_end, n_oe, ns_start_month, ns_end_month) %>%
+  select(
+    FULL_CU_IN, CVIS_NAME, SPECIES_NAME, oe_age, oe_dat_qual,
+    oe_start, oe_peak, oe_end, n_oe, ns_start_month, ns_end_month
+  ) %>%
   mutate(MAZ = "GStr") %>%
-  select(-any_of(c("oe_age", "oe_peak")))  # remove these columns since they are already in fwR data frame
+  select(-any_of(c("oe_age", "oe_peak"))) # remove these columns since they are already in fwR data frame
 
 # load marine model files
 load(file = file.path(paths$marine, "CMIP6_SST_periods.Rds"))
-load(file = file.path(paths$marine, "CImpact_points.Rds"))  # load CImpact_points
+load(file = file.path(paths$marine, "CImpact_points.Rds")) # load CImpact_points
 
-load(file = file.path(paths$marine, "ROM_SST.Rds"))   # SSC and BCCM outputs of SST
-load(file = file.path(paths$marine, "ROM_SSS.Rds"))   # SSC and BCCM outputs of SSS
+load(file = file.path(paths$marine, "ROM_SST.Rds")) # SSC and BCCM outputs of SST
+load(file = file.path(paths$marine, "ROM_SSS.Rds")) # SSC and BCCM outputs of SSS
 # load(file = file.path(paths$marine, "SSC_SST_periods.Rds"))
 # load(file = file.path(paths$marine, "BCCM_SST_periods.Rds"))
 
@@ -41,7 +43,8 @@ CMIP_SST_summary <- CMIP6_SST %>%
   st_drop_geometry() %>%
   group_by(MAZ_Acrony, rcp, period_code) %>%
   summarize(across(contains("SST"), ~ mean(.x, na.rm = T)),
-    .groups = "drop")
+    .groups = "drop"
+  )
 
 # filter to select the Cumulative impact habitat types then summarize by MAZ
 CImpact_summary <- CImpact_points %>%
@@ -78,12 +81,15 @@ for (i in 1:n.CUs) {
   SST_i <- subset_and_mean_var(st_drop_geometry(CMIP6_SST),
     months = months_include,
     MAZ_pick = cu_marine_i$MAZ,
-    include_quantiles = TRUE) %>%
-    mutate(dsmodel = "qdm",
-           FULL_CU_IN = cu_i) %>%
+    include_quantiles = TRUE
+  ) %>%
+    mutate(
+      dsmodel = "qdm",
+      FULL_CU_IN = cu_i
+    ) %>%
     pivot_longer(
       cols = matches("SST"),
-      names_to = c("indicator","stat"),
+      names_to = c("indicator", "stat"),
       # REGEX: capture indicator root, optional underscore + suffix
       #  ^(.*?)         -> indicator prefix (lazy)
       #  (?:_(.*))?     -> optional group: underscore and then suffix (stat)
@@ -94,11 +100,13 @@ for (i in 1:n.CUs) {
   CImpact_i <- CImpact_summary %>%
     filter(MAZ_Acrony == cu_marine_i$MAZ) %>%
     select(-MAZ_Acrony) %>%
-    mutate(dsmodel = "CImpact",
-           FULL_CU_IN = cu_i) %>%
+    mutate(
+      dsmodel = "CImpact",
+      FULL_CU_IN = cu_i
+    ) %>%
     pivot_longer(
       cols = matches("CImpact"),
-      names_to = c("indicator","stat"),
+      names_to = c("indicator", "stat"),
       # REGEX: capture indicator root, optional underscore + suffix
       #  ^(.*?)         -> indicator prefix (lazy)
       #  (?:_(.*))?     -> optional group: underscore and then suffix (stat)
@@ -109,12 +117,15 @@ for (i in 1:n.CUs) {
   SST_ROM_i <- subset_and_mean_var(st_drop_geometry(ROM_SST),
     months = months_include,
     MAZ_pick = cu_marine_i$MAZ,
-    include_quantiles = FALSE) %>%
-    mutate(dsmodel = "bccmssc",
-           FULL_CU_IN = cu_i) %>%
+    include_quantiles = FALSE
+  ) %>%
+    mutate(
+      dsmodel = "bccmssc",
+      FULL_CU_IN = cu_i
+    ) %>%
     pivot_longer(
       cols = matches("SST"),
-      names_to = c("indicator","stat"),
+      names_to = c("indicator", "stat"),
       # REGEX: capture indicator root, optional underscore + suffix
       #  ^(.*?)         -> indicator prefix (lazy)
       #  (?:_(.*))?     -> optional group: underscore and then suffix (stat)
@@ -126,21 +137,24 @@ for (i in 1:n.CUs) {
     months = months_include,
     MAZ_pick = cu_marine_i$MAZ,
     var_name = "SSS",
-    include_quantiles = FALSE) %>%
-    mutate(dsmodel = "bccmssc",
-           FULL_CU_IN = cu_i) %>%
+    include_quantiles = FALSE
+  ) %>%
+    mutate(
+      dsmodel = "bccmssc",
+      FULL_CU_IN = cu_i
+    ) %>%
     pivot_longer(
       cols = matches("SSS"),
-      names_to = c("indicator","stat"),
+      names_to = c("indicator", "stat"),
       # REGEX: capture indicator root, optional underscore + suffix
       #  ^(.*?)         -> indicator prefix (lazy)
       #  (?:_(.*))?     -> optional group: underscore and then suffix (stat)
       names_pattern = "^(.*?)(?:_(.*))?$",
       values_to = "value"
     )
-  
-  
-  #join to one table
+
+
+  # join to one table
   mar_all_i <- bind_rows(SST_i, SST_ROM_i, SSS_ROM_i, CImpact_i)
 
 
@@ -150,18 +164,20 @@ for (i in 1:n.CUs) {
   if (i > 1) {
     mar_all <- bind_rows(mar_all, mar_all_i)
   }
-
 }
 
 
-#clean up values
+# clean up values
 mar_all <- mar_all %>%
   mutate(
     rcp = if_else(rcp == "H" | is.na(rcp), "0", rcp),
-    period_code = if_else(is.na(period_code), 0 , period_code),
-    gcm = if_else(period_code == 0, 0, 9)) %>%
+    period_code = if_else(is.na(period_code), 0, period_code),
+    gcm = if_else(period_code == 0, 0, 9),
+    category = "mar"
+  ) %>%
   relocate(FULL_CU_IN)
 
 
 save(mar_all,
-  file = file.path(paths$marine, paste0(today, "_marine_stats.Rds")))
+  file = file.path(paths$marine, paste0(today, "_marine_stats.Rdata"))
+)

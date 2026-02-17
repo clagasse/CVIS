@@ -41,8 +41,11 @@ cu_timing_plot <- function(data, show_indicator_periods = FALSE) {
         TRUE ~ life_stage
       ),
       life_stage_label = factor(life_stage_label,
-        levels = c("Spawning", "Upstream Run Timing",
-          "Ocean Entry", "Juvenile FW Migration"))
+        levels = c(
+          "Spawning", "Upstream Run Timing",
+          "Ocean Entry", "Juvenile FW Migration"
+        )
+      )
     )
 
   # Calculate freshwater residency period
@@ -71,31 +74,38 @@ cu_timing_plot <- function(data, show_indicator_periods = FALSE) {
   )
 
   # Create base plot
-  p <- ggplot(data, aes(x = life_stage_label, xend = life_stage_label,
+  p <- ggplot(data, aes(
+    x = life_stage_label, xend = life_stage_label,
     y = as.Date("2000-01-01") + start,
-    yend = as.Date("2000-01-01") + end)) +
+    yend = as.Date("2000-01-01") + end
+  )) +
     # Life stage duration bars (5th-95th percentile)
     geom_segment(aes(color = life_stage_label),
-      linewidth = 8, alpha = 1) +
+      linewidth = 8, alpha = 1
+    ) +
     # Peak timing points
-    geom_point(aes(y = as.Date("2000-01-01") + peak,
-      size = dat_qual, fill = life_stage_label),
-    shape = 21, color = "gray20", stroke = 0.8) +
+    geom_point(
+      aes(
+        y = as.Date("2000-01-01") + peak,
+        size = dat_qual, fill = life_stage_label
+      ),
+      shape = 21, color = "gray20", stroke = 0.8
+    ) +
     scale_color_manual(values = stage_colors, guide = "none") +
     scale_fill_manual(values = stage_colors, guide = "none") +
-
     scale_size_area(
-      name   = "Data Quality",
-      max_size = 3,            # overall max point radius; adjust to taste
-      trans  = "reverse",
+      name = "Data Quality",
+      max_size = 3, # overall max point radius; adjust to taste
+      trans = "reverse",
       breaks = c(1, 2, 3, 4, 5),
       limits = c(6, 1)
     ) +
-
-    scale_y_date(date_breaks = "1 month",
+    scale_y_date(
+      date_breaks = "1 month",
       date_labels = "%b",
       limits = c(as.Date("2000-01-01"), as.Date("2000-12-31")),
-      expand = c(0.02, 0)) +
+      expand = c(0.02, 0)
+    ) +
     coord_flip() +
     theme(
       panel.grid.major.y = element_blank(),
@@ -135,7 +145,7 @@ cu_timing_plot <- function(data, show_indicator_periods = FALSE) {
       ymax = august_end,
       xmin = 0.5,
       xmax = 4.1,
-      color_fill = "#FFE0B2"  # Light orange
+      color_fill = "#FFE0B2" # Light orange
     ))
 
     # Peak ocean entry period (for marine SST) - Light blue
@@ -151,7 +161,7 @@ cu_timing_plot <- function(data, show_indicator_periods = FALSE) {
         ymax = ns_end_plot,
         xmin = 0.5,
         xmax = 4.1,
-        color_fill = "#B3E5FC"  # Light blue
+        color_fill = "#B3E5FC" # Light blue
       ))
     }
 
@@ -167,28 +177,38 @@ cu_timing_plot <- function(data, show_indicator_periods = FALSE) {
         ymax = migr_end,
         xmin = 0.5,
         xmax = 4.1,
-        color_fill = "#C8E6C9"  # Light green
+        color_fill = "#C8E6C9" # Light green
       ))
     }
 
     # Add shaded rectangles for indicator periods with different colors
     p <- p +
-      geom_rect(data = indicator_rects,
-        aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax,
-          fill = I(color_fill)),
-        alpha = 0.4, inherit.aes = FALSE) +
-      geom_text(data = indicator_rects,
-        aes(x = xmax + 0.1, y = ymin + (ymax - ymin) / 2,
-          label = period_name),
+      geom_rect(
+        data = indicator_rects,
+        aes(
+          xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax,
+          fill = I(color_fill)
+        ),
+        alpha = 0.4, inherit.aes = FALSE
+      ) +
+      geom_text(
+        data = indicator_rects,
+        aes(
+          x = xmax + 0.1, y = ymin + (ymax - ymin) / 2,
+          label = period_name
+        ),
         hjust = 0, size = 2.8, color = "grey20",
-        lineheight = 0.85, inherit.aes = FALSE)
+        lineheight = 0.85, inherit.aes = FALSE
+      )
   }
 
   # Add title and subtitle with FW residency
   subtitle_text <- sprintf("Ocean Entry Age: %s", oe_age)
   if (!is.na(fw_residency_days)) {
-    subtitle_text <- sprintf("Ocean Entry Age: %s  |  Freshwater Residency: ~%d days",
-      oe_age, round(fw_residency_days))
+    subtitle_text <- sprintf(
+      "Ocean Entry Age: %s  |  Freshwater Residency: ~%d days",
+      oe_age, round(fw_residency_days)
+    )
   }
 
   p <- p +
@@ -201,7 +221,6 @@ cu_timing_plot <- function(data, show_indicator_periods = FALSE) {
     )
 
   return(p)
-
 }
 
 # # # Load your timing data
@@ -226,10 +245,14 @@ stream_accessible_plot <- function(stream_data,
   p1 <- p1 +
     geom_sf(data = nuseds_cu, aes(fill = SPECIES), size = 2, alpha = 0.6) +
     geom_sf(data = st_zm(stream_data), aes(color = model_rs)) +
-    coord_sf(xlim = st_bbox(cu_boundary_i)[c(1, 3)],
-      ylim = st_bbox(cu_boundary_i)[c(2, 4)]) +
-    labs(colour = "BC FishPass",
-      fill = "NUSEDS sites")
+    coord_sf(
+      xlim = st_bbox(cu_boundary_i)[c(1, 3)],
+      ylim = st_bbox(cu_boundary_i)[c(2, 4)]
+    ) +
+    labs(
+      colour = "BC FishPass",
+      fill = "NUSEDS sites"
+    )
 
   return(p1)
 }
@@ -257,15 +280,21 @@ stream_indicator_plot <- function(fwModels,
   ## stream map
   p1 <- ggplot() +
     geom_sf(data = fwModels, aes(color = !!var_sym), linewidth = 1.) +
-    scale_color_scico(palette = scico_palette,
+    scale_color_scico(
+      palette = scico_palette,
       direction = palette_direction,
-      limits = color_range) +
+      limits = color_range
+    ) +
     geom_sf(data = cu_boundary, color = "black", alpha = 0.3) +
-    coord_sf(xlim = st_bbox(cu_boundary)[c(1, 3)],
+    coord_sf(
+      xlim = st_bbox(cu_boundary)[c(1, 3)],
       ylim = st_bbox(cu_boundary)[c(2, 4)],
-      datum = NA) +    # this eliminates axis labels
-    labs(subtitle = plot_title,
-      color = unit_label)
+      datum = NA
+    ) + # this eliminates axis labels
+    labs(
+      subtitle = plot_title,
+      color = unit_label
+    )
 
   if (nrow(lakes_cu) > 0) p1 <- p1 + geom_sf(data = lakes_cu, color = "darkblue", alpha = 0.7)
 
@@ -275,11 +304,15 @@ stream_indicator_plot <- function(fwModels,
 
   if (temp_stations == TRUE) {
     p1 <- p1 +
-      geom_sf(data = Tw_stations, aes(shape = "Temperature Gauge"),
-        size = 0.6, show.legend = TRUE) +
-      coord_sf(xlim = st_bbox(cu_boundary)[c(1, 3)],
+      geom_sf(
+        data = Tw_stations, aes(shape = "Temperature Gauge"),
+        size = 0.6, show.legend = TRUE
+      ) +
+      coord_sf(
+        xlim = st_bbox(cu_boundary)[c(1, 3)],
         ylim = st_bbox(cu_boundary)[c(2, 4)],
-        datum = NA) +
+        datum = NA
+      ) +
       scale_shape_manual(
         values = c("Temperature Gauge" = 16),
         name = NULL
@@ -295,9 +328,11 @@ stream_indicator_plot <- function(fwModels,
 
   # add custom labels for BCFishPass
   if (histogram_fill == "model_rs") {
-    h1 <- h1 +    labs(fill = "Habitat Potential (BC Fishpass)") +
-      scale_fill_manual(values = c("2-ACCESSIBLE" = "darkgrey",
-        "1-SPAWNING/REARING" = "forestgreen"))
+    h1 <- h1 + labs(fill = "Habitat Potential (BC Fishpass)") +
+      scale_fill_manual(values = c(
+        "2-ACCESSIBLE" = "darkgrey",
+        "1-SPAWNING/REARING" = "forestgreen"
+      ))
   }
 
 
@@ -306,11 +341,13 @@ stream_indicator_plot <- function(fwModels,
   # add mean value line and label
   h1 <- h1 +
     geom_vline(aes(xintercept = mean(!!var_sym, na.rm = TRUE)),
-      color = "red", linetype = "dashed") +
+      color = "red", linetype = "dashed"
+    ) +
     annotate("text",
       x = mean(fwModels[[variable]], na.rm = TRUE),
       y = y_pos,
-      label = "mean") +
+      label = "mean"
+    ) +
     theme_void() +
     theme(
       axis.line.x = element_line(color = "black"),
@@ -335,23 +372,27 @@ migration_path_plot <- function(migr_path,
                                 plot_title = "",
                                 colour_var = "mad_m3s",
                                 colour_label = "Mean Annual Discharge (m3s)") {
-
   p <- ggplot() +
     annotation_map_tile(type = "cartolight") +
-    geom_sf(data = cu_boundary,
+    geom_sf(
+      data = cu_boundary,
       fill = "grey",
-      alpha = 0.1) +
+      alpha = 0.1
+    ) +
     geom_sf(data = migr_path, aes(colour = !!sym(colour_var)), linewidth = 2) +
     scale_color_scico(palette = "batlow") +
-    geom_sf(data = nuseds_data, aes(fill = SPECIES_LOOKUP),
-      color = "black",      # outline color
-      size = 3,             # increase point size
-      shape = 21)  +
-    labs(color = colour_label, fill = "NuSEDS sites",
-      subtitle = plot_title)
+    geom_sf(
+      data = nuseds_data, aes(fill = SPECIES_LOOKUP),
+      color = "black", # outline color
+      size = 3, # increase point size
+      shape = 21
+    ) +
+    labs(
+      color = colour_label, fill = "NuSEDS sites",
+      subtitle = plot_title
+    )
 
   return(p)
-
 }
 
 
@@ -362,8 +403,6 @@ migr_timing_plot <- function(migrT,
                              timing,
                              rcp = "45",
                              period_choose = c("1981-2010", "2041-2060")) {
-
-
   migrT_select <- migrT[[rcp]][[cu_i]][["doy"]]
 
   # Names of the components you want to process
@@ -392,13 +431,13 @@ migr_timing_plot <- function(migrT,
     geom_path(alpha = 0.6, position = "identity") +
     # Add vertical lines for rt_start, rt_end, sp_start
     geom_vline(xintercept = timing$rt_start, linetype = "dashed", color = "blue", linewidth = 0.8) +
-    geom_vline(xintercept = timing$rt_end,   linetype = "dashed", color = "blue", linewidth = 0.8) +
-    geom_vline(xintercept = timing$sp_start, linetype = "dashed", color = "red",  linewidth = 0.8) +
-    geom_vline(xintercept = timing$sp_peak, linetype = "dashed", color = "red",  linewidth = 0.8) +
+    geom_vline(xintercept = timing$rt_end, linetype = "dashed", color = "blue", linewidth = 0.8) +
+    geom_vline(xintercept = timing$sp_start, linetype = "dashed", color = "red", linewidth = 0.8) +
+    geom_vline(xintercept = timing$sp_peak, linetype = "dashed", color = "red", linewidth = 0.8) +
 
     # Add text annotations
     annotate("text", x = timing$rt_start, y = Inf, label = "RT Start", vjust = 2, color = "blue") +
-    annotate("text", x = timing$rt_end,   y = Inf, label = "RT End",   vjust = 2, color = "blue") +
+    annotate("text", x = timing$rt_end, y = Inf, label = "RT End", vjust = 2, color = "blue") +
     annotate("text", x = timing$sp_start, y = Inf, label = "SP Start", vjust = 2, color = "red") +
     annotate("text", x = timing$sp_peak, y = Inf, label = "SP Peak", vjust = 2, color = "red") +
 
@@ -408,13 +447,14 @@ migr_timing_plot <- function(migrT,
     #   hjust = 1.1, vjust = -0.5, color = "black", size = 3.5) +
 
     scale_fill_brewer(palette = "Spectral") +
-    labs(title = "Temperature Trends with 10–90% Quantile Bounds",
+    labs(
+      title = "Temperature Trends with 10–90% Quantile Bounds",
       x = "Day of Year (DOY)",
       y = "Temperature (°C)",
-      fill = "Time Period")
+      fill = "Time Period"
+    )
 
   return(p)
-
 }
 
 
@@ -433,17 +473,15 @@ migr_timing_plot <- function(migrT,
 
 cu_boundary_highlight <- function(cu_boundary,
                                   cu_pick) {
-
   cu_boundary_i <- filter(cu_boundary, FULL_CU_IN == cu_pick)
 
   p <- ggplot() +
-    #annotation_map_tile(type = "cartolight") +
+    # annotation_map_tile(type = "cartolight") +
     geom_sf(data = cu_boundary, color = "black", alpha = 0.3) +
-    geom_sf(data = cu_boundary_i, fill = "green") 
-    #labs(title = cu_pick)
-  
-  return(p)
+    geom_sf(data = cu_boundary_i, fill = "green")
+  # labs(title = cu_pick)
 
+  return(p)
 }
 
 
@@ -465,11 +503,14 @@ cu_hydrologic_regime <- function(cu_boundary_i,
     scale_colour_brewer(palette = "Set1") +
     # geom_sf_text(data = stations_cu, aes(label = Station.Wrapped), size = 2) +
     # geom_sf(data = st_zm(fwModels_cu), alpha = 0.4) +
-    coord_sf(xlim = st_bbox(cu_boundary_i)[c(1, 3)],
-      ylim = st_bbox(cu_boundary_i)[c(2, 4)]) +
-    labs(fill = "Hydrologic regime",
-      color = "Flow Gauge")
-
+    coord_sf(
+      xlim = st_bbox(cu_boundary_i)[c(1, 3)],
+      ylim = st_bbox(cu_boundary_i)[c(2, 4)]
+    ) +
+    labs(
+      fill = "Hydrologic regime",
+      color = "Flow Gauge"
+    )
 }
 
 
@@ -483,12 +524,11 @@ cu_hydrologic_regime <- function(cu_boundary_i,
 #   period_pick = "3",
 #   indicators_choose = tbl_indicators$abbrev)
 
-plot_cu_lolli <- function(data,   # need indicator data for a single CU, use get_cu_indicators()
+plot_cu_lolli <- function(data, # need indicator data for a single CU, use get_cu_indicators()
                           # indicators_choose = c("migrT", "migrQ", "migrA21", "migrdist"),
                           indicators_choose = c("CUstatus", "CUnmat"),
-                          use_standardized = TRUE,  # use raw or transformed (standardized values)
+                          use_standardized = TRUE, # use raw or transformed (standardized values)
                           plot_colours = species_palette) {
-
   colors <- c(
     "CU" = "blue",
     "Species Mean" = "black",
@@ -512,7 +552,8 @@ plot_cu_lolli <- function(data,   # need indicator data for a single CU, use get
 
 
   data_wide <- data %>%
-    pivot_wider(id_cols = indicator,
+    pivot_wider(
+      id_cols = indicator,
       names_from = stat,
       values_from = c(cu_value, sp_value)
     ) %>%
@@ -525,16 +566,22 @@ plot_cu_lolli <- function(data,   # need indicator data for a single CU, use get
     )
 
   p <- ggplot(data_wide, aes(x = indicator))
-  if (gcm_check >= 1) {   # add gcm variation if data exists
+  if (gcm_check >= 1) { # add gcm variation if data exists
     # GCM variation segment
-    p <- p + geom_segment(aes(xend = indicator, y = cu_value_qlowgcm, yend = cu_value_qhighgcm,
-      color = "GCM Variation"), size = 2)
+    p <- p + geom_segment(aes(
+      xend = indicator, y = cu_value_qlowgcm, yend = cu_value_qhighgcm,
+      color = "GCM Variation"
+    ), size = 2)
   }
   # CU vs Species Mean segment
-  p <- p + geom_segment(aes(xend = indicator,
-    y = cu_value_mean, yend = sp_value_mean,
-    color = above_sp),
-  size = 3, alpha = 0.5) +
+  p <- p + geom_segment(
+    aes(
+      xend = indicator,
+      y = cu_value_mean, yend = sp_value_mean,
+      color = above_sp
+    ),
+    size = 3, alpha = 0.5
+  ) +
     # Points
     geom_point(aes(y = cu_value_mean, color = "CU"), size = 3) +
     geom_point(aes(y = sp_value_mean, color = "Species Mean"), size = 2) +
@@ -573,22 +620,24 @@ marine_indicator_plot <- function(data,
                                   plot_title = "",
                                   palette_direction = -1,
                                   palette_limits = c(9, 14)) {
-
   p <- ggplot() +
     geom_sf(data = data, aes(colour = !!sym(var))) +
     scico::scale_color_scico(
       palette   = scico_palette,
       direction = palette_direction,
-      limits    = palette_limits         # <-- set your min/max here
+      limits    = palette_limits # <-- set your min/max here
     ) +
     geom_sf(data = MAZ, fill = NA, color = "black") +
-    coord_sf(xlim = st_bbox(data)[c(1, 3)],
-      ylim = st_bbox(data)[c(2, 4)]) +
-    labs(color = unit_label,
-      title = plot_title)
+    coord_sf(
+      xlim = st_bbox(data)[c(1, 3)],
+      ylim = st_bbox(data)[c(2, 4)]
+    ) +
+    labs(
+      color = unit_label,
+      title = plot_title
+    )
 
   return(p)
-
 }
 
 
@@ -596,12 +645,11 @@ marine_indicator_plot <- function(data,
 
 abundance_status_plot <- function(status_data,
                                   cu_i) {
-
   status_palette <- c(
     "Red" = "firebrick",
     "Amber" = "orange",
     "Green" = "green2",
-    "None"  = "grey40"
+    "None" = "grey40"
   )
 
   trend_palette <- c(
@@ -624,9 +672,9 @@ abundance_status_plot <- function(status_data,
   latest_status <- latest_entry$RapidStatus
   # latest_abundance <- round(latest_entry$SpnForAbd_Wild)
   latest_abundance <- ifelse(is.na(latest_entry$SpnForAbd_Wild), "NA", round(latest_entry$SpnForAbd_Wild))
-  if(is.numeric(latest_abundance)) scales::comma(latest_abundance)
-  latest_genabd   <- ifelse(is.na(latest_entry$GenAvgUsed), "NA", round(latest_entry$GenAvgUsed))
-  if(is.numeric(latest_genabd)) scales::comma(latest_genabd)
+  if (is.numeric(latest_abundance)) scales::comma(latest_abundance)
+  latest_genabd <- ifelse(is.na(latest_entry$GenAvgUsed), "NA", round(latest_entry$GenAvgUsed))
+  if (is.numeric(latest_genabd)) scales::comma(latest_genabd)
   status_color <- status_palette[latest_status]
 
   if (latest_entry$DataType == "Abs_Abd" && !is.na(latest_entry$DataType)) data_type <- "Absolute Abundance"
@@ -636,10 +684,10 @@ abundance_status_plot <- function(status_data,
   # Create a one-row data frame for annotation
   annotation_df <- data.frame(
     x = max(plot_data$Year),
-    y = max(plot_data$SpawnerAbundance, na.rm = TRUE) * 0.96,  # slightly below top
+    y = max(plot_data$SpawnerAbundance, na.rm = TRUE) * 0.96, # slightly below top
     label = paste0(
       plot_data$CVIS_NAME, "<br>",
-      "Data Type: ", data_type,  "</span><br>",
+      "Data Type: ", data_type, "</span><br>",
       "Most Recent Status: <span style='color:", status_color, "'>", latest_status, "</span><br>",
       "Recent Spawner Abundance: ", latest_abundance, "</span><br>",
       "Recent Generational Avg: ", latest_genabd
@@ -647,12 +695,12 @@ abundance_status_plot <- function(status_data,
   )
 
   legend_lines <- data.frame(
-    Year = c(2000, 2000),  # any values, won't be plotted
+    Year = c(2000, 2000), # any values, won't be plotted
     Abundance = c(0, 0),
     LineType = c("Geometric Avg", "Annual Abundance")
   )
 
-  p <-   ggplot(data = plot_data) +
+  p <- ggplot(data = plot_data) +
     # geom_hline(aes(yintercept = RelAbd_LBM/1000), linetype = "dashed", color = "red") +
     # geom_hline(aes(yintercept = RelAbd_UBM/1000), linetype = "dashed", color = "green") +
     geom_line(aes(x = Year, y = GeometricAvgAbundnace), color = trend_palette[2], size = 2) +
@@ -717,7 +765,6 @@ abundance_status_plot <- function(status_data,
 
 
   return(p)
-
 }
 
 # abundance_status_plot(status_data,
@@ -730,14 +777,13 @@ abundance_status_plot <- function(status_data,
 # This is the OPPOSITE of plot_lollipop which shows one indicator across all CUs
 
 plot_cu_indicators_lollipop <- function(data,
-                                        indicators_choose = NULL,  # NULL = all indicators
-                                        group_by_category = TRUE,  # Group indicators by type
-                                        show_species_avg = TRUE,   # Show species average comparison
-                                        show_all_cu_avg = TRUE,    # Show all CU average comparison
+                                        indicators_choose = NULL, # NULL = all indicators
+                                        group_by_category = TRUE, # Group indicators by type
+                                        show_species_avg = TRUE, # Show species average comparison
+                                        show_all_cu_avg = TRUE, # Show all CU average comparison
                                         show_gcm_variation = TRUE, # Show GCM uncertainty
                                         plot_title = NULL,
                                         y_limit = c(0, 1)) {
-
   sp_name <- data$SPECIES_NAME[1]
   cu_name <- data$CVIS_NAME[1]
 
@@ -749,7 +795,8 @@ plot_cu_indicators_lollipop <- function(data,
   # Prepare data for plotting
   plot_data <- data %>%
     left_join(select(tbl_indicators, abbrev, name, type),
-      by = c("indicator" = "abbrev")) %>%
+      by = c("indicator" = "abbrev")
+    ) %>%
     mutate(
       # Calculate difference from species average
       diff_from_avg = cu_value - sp_value,
@@ -794,9 +841,15 @@ plot_cu_indicators_lollipop <- function(data,
   p <- ggplot(plot_data, aes(x = name, y = cu_value))
 
   # Add GCM variation bars if requested and available
-  if (show_gcm_variation && "gcm_qlowgcm" %in% names(plot_data)) {
+  # get_CU_indicators now produces cu_qlowgcm, cu_qhighgcm etc.
+  has_gcm_cols <- any(c("cu_qlowgcm", "cu_value_qlowgcm") %in% names(plot_data))
+
+  if (show_gcm_variation && has_gcm_cols) {
+    gcm_min_col <- if ("cu_qlowgcm" %in% names(plot_data)) "cu_qlowgcm" else "cu_value_qlowgcm"
+    gcm_max_col <- if ("cu_qhighgcm" %in% names(plot_data)) "cu_qhighgcm" else "cu_value_qhighgcm"
+
     p <- p + geom_segment(
-      aes(xend = name, y = gcm_qlowgcm, yend = gcm_qhighgcm),
+      aes(xend = name, y = !!sym(gcm_min_col), yend = !!sym(gcm_max_col)),
       color = "grey70",
       linewidth = 3,
       alpha = 0.5,
@@ -817,7 +870,8 @@ plot_cu_indicators_lollipop <- function(data,
         fill = "grey",
         color = "black",
         size = 3,
-        na.rm = TRUE)
+        na.rm = TRUE
+      )
   }
 
   # Add all CU average if requested
@@ -826,17 +880,19 @@ plot_cu_indicators_lollipop <- function(data,
       fill = "gold",
       color = "black",
       size = 3,
-      na.rm = TRUE)
+      na.rm = TRUE
+    )
   }
 
   # Add main points with continuous color scale (RdYlGn reversed so red = high risk)
   p <- p + geom_point(aes(fill = cu_value, shape = "CU Value"),
     color = "black",
     size = 4,
-    stroke = 1) +
+    stroke = 1
+  ) +
     scale_fill_distiller(
       palette = "RdYlGn",
-      direction = -1,  # Reversed: red for high values (high risk)
+      direction = -1, # Reversed: red for high values (high risk)
       limits = c(0, 1),
       name = "Risk Score",
       guide = guide_colorbar(order = 1)
@@ -945,40 +1001,38 @@ plot_cu_indicators_lollipop <- function(data,
 
 MAZ_boundary_highlight <- function(MAZ,
                                    MAZ_pick) {
-
-  MAZ_i <-  filter(MAZ, MAZ_Acrony == MAZ_pick)
+  MAZ_i <- filter(MAZ, MAZ_Acrony == MAZ_pick)
 
   p <- ggplot() +
-    #annotation_map_tile(type = "cartolight") +
+    # annotation_map_tile(type = "cartolight") +
     geom_sf(data = MAZ, color = "black", alpha = 0.3) +
     geom_sf(data = MAZ_i, fill = "green")
 
   return(p)
-
 }
 
 
 # X. Testing plot functions -----------------------------------------------
-# 
+#
 # cu_i <- "CK-03"
-# 
+#
 # cu_i <- cu_run$FULL_CU_IN[i]
 # cu_run_i <- cu_run[cu_run$FULL_CU_IN == cu_i, ]
 # sp_pick <- cu_run$spp[cu_run$FULL_CU_IN == cu_i] # species abbr
 # sp_pick_bcfp <- spp_lookup$spp_abr_bcfp[spp_lookup$spp_abr == sp_pick]
-# 
+#
 # cu_timing_i <- cu_timing_Fr %>% filter(FULL_CU_IN == cu_i)
-# 
+#
 # cu_boundary_i <- cu_boundary[cu_boundary$FULL_CU_IN == cu_i, ]
-# 
+#
 # # # subset nuseds observations
 # # nuseds_cu <- nuseds_Fr[nuseds_Fr$FULL_CU_IN == cu_i, ]
 # #
 # # subset migration path
 # migr_cu <- migr_list[[cu_i]]
-# 
+#
 # # stream_cu_sub <- stream_cu_picks[, colnames(stream_cu_picks) == cu_i]
-# 
+#
 # # fwModels_cu <- fwModels[stream_cu_sub, ] %>%
 # #   rename(keep_model_spawning = contains(paste0("model_spawning_", sp_pick_bcfp)),
 # #     keep_model_rearing  = contains(paste0("model_rearing_", sp_pick_bcfp))) %>%
@@ -1004,9 +1058,9 @@ MAZ_boundary_highlight <- function(MAZ,
 # #   scico_palette = "roma",
 # #   palette_direction = -1)
 # #
-# 
+#
 # # migr_UFR <- filter(migr_cu, watershed_group_code == "UFRA")
-# # 
+# #
 # # migration_path_plot(migr_cu,
 # #   nuseds_cu,
 # #   cu_boundary_i,
@@ -1016,5 +1070,5 @@ MAZ_boundary_highlight <- function(MAZ,
 # # cu_timing_plot(cu_timing_long_i)
 # #
 # migr_timing_plot(migrT_rcps, cu_i, cu_timing_i)
-# 
+#
 # migrT_cu <- migrT_rcps[["45"]][[cu_i]]
