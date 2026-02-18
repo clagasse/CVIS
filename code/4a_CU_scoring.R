@@ -1,4 +1,4 @@
-################################################################################
+####
 #
 # 4a_CU_scoring.R
 #
@@ -7,8 +7,8 @@
 # 3 - calculate combined scores and ranks
 # 4 - export long and wide format results
 #
-###############################################################################
-#----------------1. Setup and import----------------
+####
+#----1. Setup and import----
 library(here)
 setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
@@ -50,7 +50,7 @@ cols_keep <- c("FULL_CU_IN", "gcm", "gcm_name", "dsmodel", "rcp", "period_code",
 prep_df <- function(df, model_default = "none") {
   if (!"gcm_name" %in% names(df)) df$gcm_name <- NA
   if (!"dsmodel" %in% names(df)) df$dsmodel <- model_default
-
+  
   df %>%
     mutate(
       FULL_CU_IN = as.character(FULL_CU_IN),
@@ -73,7 +73,7 @@ all_long <- bind_rows(cu_long_prep, fw_long, migr_long, mar_long) %>%
   filter(!is.na(value)) %>%
   # Filter to relevant periods/rcps if needed, or keep all
   filter(period_code %in% periods_use) %>%
-  #keep only selected cumulative threat type (ie. all)
+  # keep only selected cumulative threat type (ie. all)
   filter(!(str_detect(dsmodel, regex("cthr", ignore_case = TRUE)) & dsmodel != cthr_pick))
 
 # Add species info
@@ -82,7 +82,7 @@ all_long <- select(cu_run, FULL_CU_IN, SPECIES_NAME, CVIS_NAME) %>%
 
 
 
-#------------- 2. Calculate standardized scores-------------------------------
+#---- 2. Calculate standardized scores----
 
 cat("\nStandardizing indicators...\n")
 
@@ -92,15 +92,15 @@ all_std_long <- list()
 for (i in 1:nrow(tbl_standardize)) {
   ind_abbrev <- tbl_standardize$abbrev[i]
   std_params_i <- as.list(tbl_standardize[i, ])
-
+  
   cat("Processing:", ind_abbrev, "\n")
-
+  
   # Check if indicator exists in data
   if (nrow(filter(all_long, indicator == ind_abbrev)) == 0) {
     cat("  No data found for", ind_abbrev, "- skipping.\n")
     next
   }
-
+  
   # Standardize
   std_result <- standardize_long_indicator(
     data = all_long,
@@ -109,17 +109,17 @@ for (i in 1:nrow(tbl_standardize)) {
     std_params = std_params_i,
     calibration_gcm = "9" # Ensemble
   )
-
+  
   all_std_long[[i]] <- std_result
 }
 
 all_std_long <- bind_rows(all_std_long)
 
 
-# 3.  Scoring and ranks across indicators--------------------------------------
+# 3.  Scoring and ranks across indicators----
 
 ## first we need to make sure that indicators without projections (e.g. status)
-  # get applied when calculating scores for each rcp/gcm/scenario combination
+# get applied when calculating scores for each rcp/gcm/scenario combination
 
 # Keep only baseline models you want
 dat <- all_std_long %>%
@@ -135,7 +135,9 @@ static_tbl <- dat %>%
 proj_tbl <- dat %>%
   filter(!(gcm == 0 & period_code == 0)) %>%
   select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, gcm, rcp, period_code,
-         indicator, category, proj_value = std_value)
+         indicator, category,
+         proj_value = std_value
+  )
 
 
 # CU × GCM × RCP × PERIOD grid (from projections)
@@ -146,20 +148,25 @@ grid_cu_scen <- proj_tbl %>%
 inds_per_cu <- dat %>%
   distinct(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, indicator, category)
 
-# Expand grid with indicators for the same CU
+# Expand grid with indicators for the same CU, excluding period_code 0
 grid_expanded <- grid_cu_scen %>%
-  inner_join(inds_per_cu, by = c("FULL_CU_IN","SPECIES_NAME","CVIS_NAME"))
+  filter(period_code != 0) %>%
+  inner_join(inds_per_cu, by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME"))
 
 vals <- grid_expanded %>%
   left_join(proj_tbl,
-            by = c("FULL_CU_IN","SPECIES_NAME","CVIS_NAME",
-                   "gcm","rcp","period_code","indicator","category")) %>%
+            by = c(
+              "FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME",
+              "gcm", "rcp", "period_code", "indicator", "category"
+            )
+  ) %>%
   left_join(static_tbl,
-            by = c("FULL_CU_IN","SPECIES_NAME","CVIS_NAME","indicator","category")) %>%
+            by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "indicator", "category")
+  ) %>%
   mutate(std_value = dplyr::coalesce(proj_value, static_value))
 
 
-#now that we have an expanded grid of values covering all gcm/scenario/period combinations
+# now that we have an expanded grid of values covering all gcm/scenario/period combinations
 # we calculate teh aggregated scores
 scores_base <- vals %>%
   group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, gcm, rcp, period_code) %>%
@@ -167,30 +174,49 @@ scores_base <- vals %>%
     # Category averages
     a_fwrs <- mean(std_value[category == "fwrs"], na.rm = TRUE)
     a_migr <- mean(std_value[category == "migr"], na.rm = TRUE)
-    a_mar  <- mean(std_value[category == "mar"],  na.rm = TRUE)
-    a_dem  <- mean(std_value[category == "dem"],  na.rm = TRUE)
-    a_gen  <- mean(std_value[category == "gen"],  na.rm = TRUE)
+    a_mar <- mean(std_value[category == "mar"], na.rm = TRUE)
+    a_dem <- mean(std_value[category == "dem"], na.rm = TRUE)
+    a_gen <- mean(std_value[category == "gen"], na.rm = TRUE)
     
     # Category cube-root of mean of cubes
-    c_fwrs <- mean((std_value[category == "fwrs"])^3, na.rm = TRUE)^(1/3)
-    c_migr <- mean((std_value[category == "migr"])^3, na.rm = TRUE)^(1/3)
-    c_mar  <- mean((std_value[category == "mar"])^3,  na.rm = TRUE)^(1/3)
-    c_dem  <- mean((std_value[category == "dem"])^3,  na.rm = TRUE)^(1/3)
-    c_gen  <- mean((std_value[category == "gen"])^3,  na.rm = TRUE)^(1/3)
+    c_fwrs <- mean((std_value[category == "fwrs"])^3, na.rm = TRUE)^(1 / 3)
+    c_migr <- mean((std_value[category == "migr"])^3, na.rm = TRUE)^(1 / 3)
+    c_mar <- mean((std_value[category == "mar"])^3, na.rm = TRUE)^(1 / 3)
+    c_dem <- mean((std_value[category == "dem"])^3, na.rm = TRUE)^(1 / 3)
+    c_gen <- mean((std_value[category == "gen"])^3, na.rm = TRUE)^(1 / 3)
+    
+    # Soft Red Flag (hinge soft-count): t0 = 0.33, t1 = 0.66
+    # w(s) = 0 if s <= t0; (s - t0)/(t1 - t0) if t0 < s < t1; 1 if s >= t1
+    hinge_weight <- function(s, t0 = 0.33, t1 = 0.66) {
+      ifelse(s <= t0, 0, ifelse(s >= t1, 1, (s - t0) / (t1 - t0)))
+    }
+    
+    sf_fwrs <- sum(hinge_weight(std_value[category == "fwrs"]), na.rm = TRUE)
+    sf_migr <- sum(hinge_weight(std_value[category == "migr"]), na.rm = TRUE)
+    sf_mar <- sum(hinge_weight(std_value[category == "mar"]), na.rm = TRUE)
+    sf_dem <- sum(hinge_weight(std_value[category == "dem"]), na.rm = TRUE)
+    sf_gen <- sum(hinge_weight(std_value[category == "gen"]), na.rm = TRUE)
     
     # Overall metrics
-    avg_all  <- mean(std_value, na.rm = TRUE)                              # avg of all indicators
+    avg_all <- mean(std_value, na.rm = TRUE) # avg of all indicators
     cat_avgs <- mean(c(a_fwrs, a_migr, a_mar, a_dem, a_gen), na.rm = TRUE) # avg of category averages
     avg_cube <- mean(c(c_fwrs, c_migr, c_mar, c_dem, c_gen), na.rm = TRUE) # avg of cube means
+    flag_all <- sum(hinge_weight(std_value), na.rm = TRUE) # total soft-count of red flags
     
     tibble::tibble(
-      method   = c(rep("avg", 5), rep("cube", 5), "catavg","avgall","avgcube"),
-      category = c("fwrs","migr","mar","dem","gen",
-                   "fwrs","migr","mar","dem","gen",
-                   "all","all","all"),
-      score    = c(a_fwrs, a_migr, a_mar, a_dem, a_gen,
-                   c_fwrs, c_migr, c_mar, c_dem, c_gen,
-                   cat_avgs, avg_all, avg_cube)
+      method = c(rep("avg", 5), rep("cube", 5), rep("flag", 5), "catavg", "avgall", "avgcube", "flag"),
+      category = c(
+        "fwrs", "migr", "mar", "dem", "gen",
+        "fwrs", "migr", "mar", "dem", "gen",
+        "fwrs", "migr", "mar", "dem", "gen",
+        "all", "all", "all", "all"
+      ),
+      score = c(
+        a_fwrs, a_migr, a_mar, a_dem, a_gen,
+        c_fwrs, c_migr, c_mar, c_dem, c_gen,
+        sf_fwrs, sf_migr, sf_mar, sf_dem, sf_gen,
+        cat_avgs, avg_all, avg_cube, flag_all
+      )
     )
   }) %>%
   ungroup() %>%
@@ -221,7 +247,7 @@ score100_within <- scores_base %>%
   select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, gcm, rcp, period_code, method, category, score100_species)
 
 
-# ---------------- Existing ranks (keep if you still want them) --------------
+# ---- Existing ranks (keep if you still want them) ----
 ranks_cross <- scores_base %>%
   group_by(rcp, period_code, gcm, method, category) %>%
   mutate(rankall = rank(score, ties.method = "average", na.last = "keep")) %>%
@@ -237,16 +263,20 @@ ranks_within <- scores_base %>%
 # 3) Final tidy table with new 0–100 scores alongside ranks
 scores_tidy <- scores_base %>%
   left_join(score100_cross,
-            by = c("FULL_CU_IN","SPECIES_NAME","CVIS_NAME","gcm","rcp","period_code","method","category")) %>%
+            by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "gcm", "rcp", "period_code", "method", "category")
+  ) %>%
   left_join(score100_within,
-            by = c("FULL_CU_IN","SPECIES_NAME","CVIS_NAME","gcm","rcp","period_code","method","category")) %>%
+            by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "gcm", "rcp", "period_code", "method", "category")
+  ) %>%
   left_join(ranks_cross,
-            by = c("FULL_CU_IN","SPECIES_NAME","CVIS_NAME","gcm","rcp","period_code","method","category")) %>%
+            by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "gcm", "rcp", "period_code", "method", "category")
+  ) %>%
   left_join(ranks_within,
-            by = c("FULL_CU_IN","SPECIES_NAME","CVIS_NAME","gcm","rcp","period_code","method","category")) %>%
+            by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "gcm", "rcp", "period_code", "method", "category")
+  ) %>%
   arrange(rcp, period_code, gcm, SPECIES_NAME, FULL_CU_IN, method, category)
 
-# 4. Averaging scores -----------------------------------------------------
+# 4. Averaging scores ----
 
 # 1) Score averages (from scores_tidy)
 # scores_tidy has at least: rcp, period_code, method, category, score
@@ -268,10 +298,10 @@ ind_avgs_tidy <- all_std_long %>%
   select(rcp, period_code, method, category, mean_value)
 
 
-# 5. Save outputs ---------------------------------------------------------
+# 5. Save outputs ----
 
 write.csv(all_std_long, file.path(paths$output, "all_std_long.csv"))
 write.csv(scores_tidy, file.path(paths$output, "overall_scores.csv"))
 
-
-
+# Save as R objects for cleaner ingestion in sensitivity/plotting scripts
+save(all_std_long, scores_tidy, file = file.path(paths$output, "scoring_results.Rdata"))
