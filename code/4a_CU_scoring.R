@@ -118,90 +118,133 @@ all_std_long <- bind_rows(all_std_long)
 
 # 3.  Scoring and ranks across indicators--------------------------------------
 
+## first we need to make sure that indicators without projections (e.g. status)
+  # get applied when calculating scores for each rcp/gcm/scenario combination
 
-# Helper: compute standardized scores in LONG + tidy dimensions per (rcp, period_code)
-# Returns: rcp, period_code, method, category, score
-summarize_scores_long_tidy <- function(data) {
-  data %>%
-    group_by(rcp, period_code) %>%
-    reframe({
-      # Category averages (standardized)
-      a_fwrs <- mean(std_value[category == "fwrs"], na.rm = TRUE)
-      a_migr <- mean(std_value[category == "migr"], na.rm = TRUE)
-      a_mar  <- mean(std_value[category == "mar"],  na.rm = TRUE)
-      a_dem  <- mean(std_value[category == "dem"],  na.rm = TRUE)
-      a_gen  <- mean(std_value[category == "gen"],  na.rm = TRUE)
-      
-      # Category power means (cube-root of mean of cubes)
-      c_fwrs <- mean(std_value[category == "fwrs"]^3, na.rm = TRUE)^(1/3)
-      c_migr <- mean(std_value[category == "migr"]^3, na.rm = TRUE)^(1/3)
-      c_mar  <- mean(std_value[category == "mar"]^3,  na.rm = TRUE)^(1/3)
-      c_dem  <- mean(std_value[category == "dem"]^3,  na.rm = TRUE)^(1/3)
-      c_gen  <- mean(std_value[category == "gen"]^3,  na.rm = TRUE)^(1/3)
-      
-      # Overall metrics (category should be "all")
-      avg_all  <- mean(std_value, na.rm = TRUE)                               # method = avgall
-      cat_avgs <- mean(c(a_fwrs, a_migr, a_mar, a_dem, a_gen), na.rm = TRUE)  # method = catavg
-      avg_cube <- mean(c(c_fwrs, c_migr, c_mar, c_dem, c_gen), na.rm = TRUE)  # method = avgcube
-      
-      tibble(
-        method   = c(
-          # per-category metrics
-          rep("avg", 5), rep("cube", 5),
-          # overall metrics (category = "all")
-          "catavg", "avgall", "avgcube"
-        ),
-        category = c(
-          # avg by category
-          "fwrs","migr","mar","dem","gen",
-          # cube by category
-          "fwrs","migr","mar","dem","gen",
-          # overall (force category = "all")
-          "all", "all", "all"
-        ),
-        score    = c(
-          a_fwrs, a_migr, a_mar, a_dem, a_gen,
-          c_fwrs, c_migr, c_mar, c_dem, c_gen,
-          cat_avgs, avg_all, avg_cube
-        )
-      )
-    }) %>%
-    ungroup()
-}
+# Keep only baseline models you want
+dat <- all_std_long %>%
+  filter(dsmodel %in% dsmodel_baseline)
+
+# STATIC: indicators with only baseline rows (used as fallback)
+static_tbl <- dat %>%
+  filter(gcm == 0, period_code == 0) %>%
+  select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, indicator, category, static_value = std_value) %>%
+  distinct()
+
+# PROJECTED: everything else (including baseline rows that also have projections, if any)
+proj_tbl <- dat %>%
+  filter(!(gcm == 0 & period_code == 0)) %>%
+  select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, gcm, rcp, period_code,
+         indicator, category, proj_value = std_value)
 
 
-# 1) Base scores 
-scores_base <- all_std_long %>%
-  filter(dsmodel %in% dsmodel_baseline) %>%
-  group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, gcm) %>%
-  group_modify(~ summarize_scores_long_tidy(.x)) %>%
+# CU × GCM × RCP × PERIOD grid (from projections)
+grid_cu_scen <- proj_tbl %>%
+  distinct(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, gcm, rcp, period_code)
+
+# Indicator list per CU (union of indicators seen anywhere — projected or static)
+inds_per_cu <- dat %>%
+  distinct(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, indicator, category)
+
+# Expand grid with indicators for the same CU
+grid_expanded <- grid_cu_scen %>%
+  inner_join(inds_per_cu, by = c("FULL_CU_IN","SPECIES_NAME","CVIS_NAME"))
+
+vals <- grid_expanded %>%
+  left_join(proj_tbl,
+            by = c("FULL_CU_IN","SPECIES_NAME","CVIS_NAME",
+                   "gcm","rcp","period_code","indicator","category")) %>%
+  left_join(static_tbl,
+            by = c("FULL_CU_IN","SPECIES_NAME","CVIS_NAME","indicator","category")) %>%
+  mutate(std_value = dplyr::coalesce(proj_value, static_value))
+
+
+#now that we have an expanded grid of values covering all gcm/scenario/period combinations
+# we calculate teh aggregated scores
+scores_base <- vals %>%
+  group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, gcm, rcp, period_code) %>%
+  reframe({
+    # Category averages
+    a_fwrs <- mean(std_value[category == "fwrs"], na.rm = TRUE)
+    a_migr <- mean(std_value[category == "migr"], na.rm = TRUE)
+    a_mar  <- mean(std_value[category == "mar"],  na.rm = TRUE)
+    a_dem  <- mean(std_value[category == "dem"],  na.rm = TRUE)
+    a_gen  <- mean(std_value[category == "gen"],  na.rm = TRUE)
+    
+    # Category cube-root of mean of cubes
+    c_fwrs <- mean((std_value[category == "fwrs"])^3, na.rm = TRUE)^(1/3)
+    c_migr <- mean((std_value[category == "migr"])^3, na.rm = TRUE)^(1/3)
+    c_mar  <- mean((std_value[category == "mar"])^3,  na.rm = TRUE)^(1/3)
+    c_dem  <- mean((std_value[category == "dem"])^3,  na.rm = TRUE)^(1/3)
+    c_gen  <- mean((std_value[category == "gen"])^3,  na.rm = TRUE)^(1/3)
+    
+    # Overall metrics
+    avg_all  <- mean(std_value, na.rm = TRUE)                              # avg of all indicators
+    cat_avgs <- mean(c(a_fwrs, a_migr, a_mar, a_dem, a_gen), na.rm = TRUE) # avg of category averages
+    avg_cube <- mean(c(c_fwrs, c_migr, c_mar, c_dem, c_gen), na.rm = TRUE) # avg of cube means
+    
+    tibble::tibble(
+      method   = c(rep("avg", 5), rep("cube", 5), "catavg","avgall","avgcube"),
+      category = c("fwrs","migr","mar","dem","gen",
+                   "fwrs","migr","mar","dem","gen",
+                   "all","all","all"),
+      score    = c(a_fwrs, a_migr, a_mar, a_dem, a_gen,
+                   c_fwrs, c_migr, c_mar, c_dem, c_gen,
+                   cat_avgs, avg_all, avg_cube)
+    )
+  }) %>%
   ungroup() %>%
   mutate(score = ifelse(is.nan(score), NA_real_, score))
 
-# 2) Ranks for ALL metrics 
-# Cross-species ranks (across all CUs) for each (rcp, period_code, gcm, method, category)
+# Helper for 0–100 scaling with NA-safe behavior
+scale_0_100 <- function(x) {
+  mn <- suppressWarnings(min(x, na.rm = TRUE))
+  mx <- suppressWarnings(max(x, na.rm = TRUE))
+  if (!is.finite(mn) || !is.finite(mx) || mx <= mn) {
+    return(rep(NA_real_, length(x))) # constant or all-NA → no scale
+  }
+  (x - mn) / (mx - mn) * 100
+}
+
+# Cross-species 0–100 within (rcp, period_code, gcm, method, category)
+score100_cross <- scores_base %>%
+  group_by(rcp, period_code, gcm, method, category) %>%
+  mutate(score100_all = scale_0_100(score)) %>%
+  ungroup() %>%
+  select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, gcm, rcp, period_code, method, category, score100_all)
+
+# Within-species 0–100 within (SPECIES_NAME, rcp, period_code, gcm, method, category)
+score100_within <- scores_base %>%
+  group_by(SPECIES_NAME, rcp, period_code, gcm, method, category) %>%
+  mutate(score100_species = scale_0_100(score)) %>%
+  ungroup() %>%
+  select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, gcm, rcp, period_code, method, category, score100_species)
+
+
+# ---------------- Existing ranks (keep if you still want them) --------------
 ranks_cross <- scores_base %>%
   group_by(rcp, period_code, gcm, method, category) %>%
   mutate(rankall = rank(score, ties.method = "average", na.last = "keep")) %>%
   ungroup() %>%
   select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, gcm, rcp, period_code, method, category, rankall)
 
-# Within-species ranks for each (species, rcp, period_code, gcm, method, category)
 ranks_within <- scores_base %>%
   group_by(SPECIES_NAME, rcp, period_code, gcm, method, category) %>%
   mutate(rankspecies = rank(score, ties.method = "average", na.last = "keep")) %>%
   ungroup() %>%
   select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, gcm, rcp, period_code, method, category, rankspecies)
 
-# 3) Final tidy table with separate rank columns 
+# 3) Final tidy table with new 0–100 scores alongside ranks
 scores_tidy <- scores_base %>%
+  left_join(score100_cross,
+            by = c("FULL_CU_IN","SPECIES_NAME","CVIS_NAME","gcm","rcp","period_code","method","category")) %>%
+  left_join(score100_within,
+            by = c("FULL_CU_IN","SPECIES_NAME","CVIS_NAME","gcm","rcp","period_code","method","category")) %>%
   left_join(ranks_cross,
             by = c("FULL_CU_IN","SPECIES_NAME","CVIS_NAME","gcm","rcp","period_code","method","category")) %>%
   left_join(ranks_within,
             by = c("FULL_CU_IN","SPECIES_NAME","CVIS_NAME","gcm","rcp","period_code","method","category")) %>%
   arrange(rcp, period_code, gcm, SPECIES_NAME, FULL_CU_IN, method, category)
-
-
 
 # 4. Averaging scores -----------------------------------------------------
 

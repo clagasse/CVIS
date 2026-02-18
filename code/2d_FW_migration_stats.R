@@ -453,6 +453,7 @@ cu_migrdist <- cu_migr_timing %>%
   select(FULL_CU_IN, migrdist) %>%
   rename(value = migrdist) %>%
   mutate(indicator = "migrdist",
+         dsmodel  = "observed",
          stat      = "mean",
          gcm = "0",
          rcp = "0",

@@ -131,17 +131,15 @@ step_std <- function(x, ..., x1 = 200, x2 = 300, x3 = NA) {
 }
 
 
-cat_std <- function(x, ..., x1 = "Green", x2 = "Amber/Green", x3 = "Amber", x4 = "Red/Amber", x5 = "Red") {
+cat_std <- function(x, ..., x1 = 1, x2 = 2, x3 = 3) {
   # Standardize a score between 0 and 1 based on category values
   y <- rep(NA, length(x))
 
   for (i in 1:length(x)) {
     if (is.na(x[i])) next
     if (x[i] == x1) y[i] <- 0
-    if (x[i] == x2) y[i] <- 0.25
-    if (x[i] == x3) y[i] <- 0.5
-    if (x[i] == x4) y[i] <- 0.75
-    if (x[i] == x5) y[i] <- 1
+    if (x[i] == x2) y[i] <- 0.5
+    if (x[i] == x3) y[i] <- 1
   }
   return(y)
 }

@@ -1938,21 +1938,6 @@ plot_lollipop_long <- function(all_std_long,
   return(p)
 }
 
-p <- plot_lollipop_long(
-  all_std_long,
-  indicator_pick = "flow8pdelta",
-  dsmodel_pick   = "station",
-  rcp_pick       = "45",
-  period_pick    = "3",
-  indicator_name = "Stream Temperature",
-  indicator_unit = "°C",
-  use_standardized = F,   # use std_value
-  plot_colours = species_palette,  # named vector: c("Coho"="#...", "Chinook"="#...", ...)
-  log_scale = FALSE,
-  threshold_value = NA_real_,
-  show_gcm_points = TRUE
-)
-print(p)
 
 
 
@@ -2325,10 +2310,7 @@ species_category_tile_plot_from_scores <- function(all_std_long,
                                                    dsmodel_pick = NULL,
                                                    gcm_pick = NULL,
                                                    ensemble_regex = "(?i)(ens|ensemble|mmem|multi|mean|avg)") {
-  # ---- Packages ----
-  library(dplyr); library(tidyr); library(stringr)
-  library(ggplot2); library(ggtext); library(patchwork)
-  
+
   # ---- Input checks ----
   req_ind_cols <- c("indicator","SPECIES_NAME","FULL_CU_IN","CVIS_NAME","std_value")
   if (!all(req_ind_cols %in% names(all_std_long))) {
@@ -2603,38 +2585,59 @@ species_category_tile_plot_from_scores <- function(all_std_long,
 }
 
 
-p <- species_category_tile_plot_from_scores(
-  all_std_long,
-  scores_tidy,
-  species_pick = "Chinook",
-  cu_name_col = "CVIS_NAME",
-  indicators_metadata = tbl_indicators,     # must include abbrev + type
-  species_palette = species_palette,
-  brewer_palette = "RdYlGn",
-  palette_direction = -1,
-  rank_method = "sumavgs",                  # or "avgall" or "sumcube"
-  rcp_pick = "45",                         # optional
-  period_pick = "3",                     # optional
-  dsmodel_pick = dsmodel_baseline,          # optional -> applies to all_std_long
-  gcm_pick = NULL                           # only used if ensemble/0 not available
-)
-
-p
 
 
+# 
+# p <- species_category_tile_plot_from_scores(
+#   all_std_long,
+#   scores_tidy,
+#   species_pick = "Chinook",
+#   cu_name_col = "CVIS_NAME",
+#   indicators_metadata = tbl_indicators,     # must include abbrev + type
+#   species_palette = species_palette,
+#   brewer_palette = "RdYlGn",
+#   palette_direction = -1,
+#   rank_method = "sumavgs",                  # or "avgall" or "sumcube"
+#   rcp_pick = "45",                         # optional
+#   period_pick = "3",                     # optional
+#   dsmodel_pick = dsmodel_baseline,          # optional -> applies to all_std_long
+#   gcm_pick = NULL                           # only used if ensemble/0 not available
+# )
+# 
+# p
+# 
+# 
+# 
+# p <- indicator_tile_plot(
+#   all_std_long,
+#   indicators_choose = c("migrTproj","migrQpdelta"),
+#   indicators_metadata = tbl_indicators,
+#   brewer_palette = "RdYlGn",
+#   palette_direction = -1,
+#   plot_colours = species_palette,
+#   rcp_pick = "45",
+#   period_pick = "3",
+#   dsmodel_pick = NULL,           # or dsmodel_baseline
+#   overall_score_cols = c("sumavgs"),   # if such a code exists in your indicator column
+#   category_name = "Migration Indicators (Standardized)"
+# )
+# 
+# p
 
-p <- indicator_tile_plot(
-  all_std_long,
-  indicators_choose = c("migrTproj","migrQpdelta"),
-  indicators_metadata = tbl_indicators,
-  brewer_palette = "RdYlGn",
-  palette_direction = -1,
-  plot_colours = species_palette,
-  rcp_pick = "45",
-  period_pick = "3",
-  dsmodel_pick = NULL,           # or dsmodel_baseline
-  overall_score_cols = c("sumavgs"),   # if such a code exists in your indicator column
-  category_name = "Migration Indicators (Standardized)"
-)
+# 
+# p <- plot_lollipop_long(
+#   all_std_long,
+#   indicator_pick = "flow8pdelta",
+#   dsmodel_pick   = "station",
+#   rcp_pick       = "45",
+#   period_pick    = "3",
+#   indicator_name = "Stream Temperature",
+#   indicator_unit = "°C",
+#   use_standardized = F,   # use std_value
+#   plot_colours = species_palette,  # named vector: c("Coho"="#...", "Chinook"="#...", ...)
+#   log_scale = FALSE,
+#   threshold_value = NA_real_,
+#   show_gcm_points = TRUE
+# )
+# print(p)
 
-p
