@@ -74,9 +74,11 @@ cthr_pick <- "cthr_anad" # cumulative threat type to use for indicator - default
 
 periods_use <- c(0, 3, 5) # period codes to keep (see period_lookup for corresponding years)
 
-#default models to use when combining standardized scores
+# default models to use when combining standardized scores
 dsmodel_baseline <- c("observed", "ENM", "streamdyn", "tscapes", "pcicgrid", "qdm", "CImpact", cthr_pick)
-    #excluded station, bccmssc
+# excluded station, bccmssc
+
+common_gcms <- c("1", "4", "6") # gcms used by PCIC and tscapes models, for sensitivity analysis
 
 # lower and upper quantiles for spatial variation statistics
 qlsp <- 0.1
@@ -122,6 +124,40 @@ ns_start_offset <- 2 # amount of months before peak ocean entry month to include
 ns_end_offset <- 2 # amount of months after peak ocean entry month for calculating nearshore marine indicators
 
 min_gen_red <- 500 # if generational avg spawners is below this value and RapidStatus is None, status will be adjusted to Red
+
+
+# Sensitivity Analysis Configuration --------------------------------------
+
+# Baseline scenario for sensitivity comparisons
+sens_rcp_base <- "45"
+sens_period_base <- "3"
+sens_gcm_base <- "9"
+
+# Default scoring methods for baseline
+sens_method_overall_base <- "catavg"
+sens_method_category_base <- "avg"
+
+# Variation sources for granular analysis (9 total)
+sens_gcms <- c("1", "4", "6")
+sens_scenarios <- list(c("45", "5"), c("85", "3"), c("85", "5"))
+sens_methods <- c("cube", "flag")
+
+# Color palette for the 9 uncertainty sources
+# GCMs: Reds/Oranges, Scenarios: Greens/Blues, Methods: Purples/Browns
+sens_source_palette <- c(
+  "GCM1" = "#e31a1c", "GCM4" = "#ff7f00", "GCM6" = "#fdbf6f",
+  "RCP45_P5" = "#33a02c", "RCP85_P3" = "#1f78b4", "RCP85_P5" = "#a6cee3",
+  "cube" = "#6a3d9a", "flag" = "#b15928"
+)
+
+# Mapping of life stage category codes to descriptive names
+cat_label_map <- c(
+  "fwrs" = "Spawning & Rearing",
+  "migr" = "Upstream Migration",
+  "mar"  = "Nearshore Marine",
+  "dem"  = "Demographics",
+  "gen"  = "Genetics"
+)
 
 
 # Lookup and definition tables --------------------------------------------
@@ -212,12 +248,12 @@ tbl_standardize <- tribble(
 gcm_codes <- tribble(
   ~gcm, ~gcm_name,
   "0",  "historical",
-  "1",  "canesm2",
-  "2",  "csiro",
-  "3",  "gfdl",
-  "4",  "hadgem2",
-  "5",  "miroc",
-  "6",  "mpi",
+  "1",  "canesm2", # PCIC + tscapes
+  "2",  "csiro", # tscapes
+  "3",  "gfdl", # tscapes
+  "4",  "hadgem2", # PCIC + tscapes
+  "5",  "miroc", # tscapes
+  "6",  "mpi", # PCIC + tscapes
   "7",  "access1", # PCIC model
   "8",  "cnrm", # PCIC model
   "9",  "ensemble",

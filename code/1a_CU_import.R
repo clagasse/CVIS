@@ -70,22 +70,40 @@ spp_lookup <- tibble(
 )
 
 
-#--------------------- Up-to-date CU list--------------------------------------
+#--------------------- CUSTOM CU list with FAZ--------------------------------------
 
-# cu_list <- read.csv(file.path(paths$salmon,  "CCVA_CU_List.csv"), skip = 1) %>%
-#   mutate(cuid = as.integer(cuid)) %>%
-#   filter(CU_Type == "Current") %>%
-#   arrange(FULL_CU_IN)
+cvis_cu_list <- read.csv(file.path(paths$salmon, "CCVA_CU_List.csv"), skip = 1) %>%
+  mutate(
+    cuid = as.integer(cuid),
+    FULL_CU_IN = adjust_CU_IN(FULL_CU_IN)
+  ) %>%
+  filter(CU_Type == "Current") %>%
+  arrange(FULL_CU_IN)
 
-# cu_Fr <- cu_list %>%
-#   filter(CU_Area == "FRASER INTERIOR",
-#     str_detect(CU_NAME, "OKANAGAN", negate = TRUE),
-#     str_detect(CU_NAME, "BOUNDARY BAY", negate = TRUE)) %>%
-#   mutate(
-#     CVIS_NAME = str_remove_all(CU_NAME, regex("TIMING", ignore_case = TRUE)) %>%
-#       str_trim()) %>%  # remove extra spaces if any
-#   mutate(CVIS_NAME = paste0(FULL_CU_IN, "_", CVIS_NAME)) %>%
-#   relocate(CVIS_NAME, .after = CU_NAME)
+# add FAZ info to cu_list
+cu_list <- cu_list %>%
+  left_join(select(cvis_cu_list, FULL_CU_IN, FAZ), by = "FULL_CU_IN")
+
+# Create FAZ groups for better visualization (Fraser vs Thompson vs Okanagan)
+cu_list <- cu_list %>%
+  mutate(FAZ_group = case_when(
+    # Wide-range ones with many sub-groups
+    str_count(FAZ, ",") >= 3 ~ "Fraser (Widespread)",
+    # Thompson basin (STh, NTh, LTh)
+    str_detect(FAZ, "NTh|LTh|STh") ~ "Thompson",
+    # Okanagan
+    str_detect(FAZ, "OK") ~ "Okanagan",
+    # Lower Fraser Basins
+    str_detect(FAZ, "LFR|LILL|BB") ~ "Lower Fraser",
+    # Upper and Mid Fraser
+    str_detect(FAZ, "MFR|UFR") ~ "Upper Fraser",
+    # Upper and Mid Fraser
+    str_detect(FAZ, "FRCany") ~ "Fraser Canyon",
+    # Handle missing/empty
+    is.na(FAZ) | FAZ == "" ~ "Unknown",
+    TRUE ~ "Fraser"
+  ))
+
 #
 
 #-------------------- Import WSP Rapid Status Data------------------------------

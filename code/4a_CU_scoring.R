@@ -50,7 +50,7 @@ cols_keep <- c("FULL_CU_IN", "gcm", "gcm_name", "dsmodel", "rcp", "period_code",
 prep_df <- function(df, model_default = "none") {
   if (!"gcm_name" %in% names(df)) df$gcm_name <- NA
   if (!"dsmodel" %in% names(df)) df$dsmodel <- model_default
-  
+
   df %>%
     mutate(
       FULL_CU_IN = as.character(FULL_CU_IN),
@@ -92,15 +92,15 @@ all_std_long <- list()
 for (i in 1:nrow(tbl_standardize)) {
   ind_abbrev <- tbl_standardize$abbrev[i]
   std_params_i <- as.list(tbl_standardize[i, ])
-  
+
   cat("Processing:", ind_abbrev, "\n")
-  
+
   # Check if indicator exists in data
   if (nrow(filter(all_long, indicator == ind_abbrev)) == 0) {
     cat("  No data found for", ind_abbrev, "- skipping.\n")
     next
   }
-  
+
   # Standardize
   std_result <- standardize_long_indicator(
     data = all_long,
@@ -109,7 +109,7 @@ for (i in 1:nrow(tbl_standardize)) {
     std_params = std_params_i,
     calibration_gcm = "9" # Ensemble
   )
-  
+
   all_std_long[[i]] <- std_result
 }
 
@@ -125,20 +125,25 @@ all_std_long <- bind_rows(all_std_long)
 dat <- all_std_long %>%
   filter(dsmodel %in% dsmodel_baseline)
 
-# STATIC: indicators with only baseline rows (used as fallback)
+# STATIC: indicators with only baseline rows (used as fallback for non projected indicators)
 static_tbl <- dat %>%
   filter(gcm == 0, period_code == 0) %>%
   select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, indicator, category, static_value = std_value) %>%
   distinct()
 
+# ENSEMBLE: Ensemble projections (GCM 9) used as preferred fallback for specific GCM projections
+ensemble_tbl <- proj_tbl %>%
+  filter(gcm == "9") %>%
+  select(FULL_CU_IN, rcp, period_code, indicator, ensemble_value = proj_value)
+
 # PROJECTED: everything else (including baseline rows that also have projections, if any)
 proj_tbl <- dat %>%
   filter(!(gcm == 0 & period_code == 0)) %>%
+  filter(gcm %in% c("9", common_gcms)) %>% # filter individual gcm outputs and ensembles that are used across model
   select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, gcm, rcp, period_code,
-         indicator, category,
-         proj_value = std_value
+    indicator, category,
+    proj_value = std_value
   )
-
 
 # CU × GCM × RCP × PERIOD grid (from projections)
 grid_cu_scen <- proj_tbl %>%
@@ -155,15 +160,16 @@ grid_expanded <- grid_cu_scen %>%
 
 vals <- grid_expanded %>%
   left_join(proj_tbl,
-            by = c(
-              "FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME",
-              "gcm", "rcp", "period_code", "indicator", "category"
-            )
+    by = c(
+      "FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME",
+      "gcm", "rcp", "period_code", "indicator", "category"
+    )
   ) %>%
+  left_join(ensemble_tbl, by = c("FULL_CU_IN", "rcp", "period_code", "indicator")) %>%
   left_join(static_tbl,
-            by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "indicator", "category")
+    by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "indicator", "category")
   ) %>%
-  mutate(std_value = dplyr::coalesce(proj_value, static_value))
+  mutate(std_value = dplyr::coalesce(proj_value, ensemble_value, static_value))
 
 
 # now that we have an expanded grid of values covering all gcm/scenario/period combinations
@@ -177,32 +183,32 @@ scores_base <- vals %>%
     a_mar <- mean(std_value[category == "mar"], na.rm = TRUE)
     a_dem <- mean(std_value[category == "dem"], na.rm = TRUE)
     a_gen <- mean(std_value[category == "gen"], na.rm = TRUE)
-    
+
     # Category cube-root of mean of cubes
     c_fwrs <- mean((std_value[category == "fwrs"])^3, na.rm = TRUE)^(1 / 3)
     c_migr <- mean((std_value[category == "migr"])^3, na.rm = TRUE)^(1 / 3)
     c_mar <- mean((std_value[category == "mar"])^3, na.rm = TRUE)^(1 / 3)
     c_dem <- mean((std_value[category == "dem"])^3, na.rm = TRUE)^(1 / 3)
     c_gen <- mean((std_value[category == "gen"])^3, na.rm = TRUE)^(1 / 3)
-    
+
     # Soft Red Flag (hinge soft-count): t0 = 0.33, t1 = 0.66
     # w(s) = 0 if s <= t0; (s - t0)/(t1 - t0) if t0 < s < t1; 1 if s >= t1
     hinge_weight <- function(s, t0 = 0.33, t1 = 0.66) {
       ifelse(s <= t0, 0, ifelse(s >= t1, 1, (s - t0) / (t1 - t0)))
     }
-    
+
     sf_fwrs <- sum(hinge_weight(std_value[category == "fwrs"]), na.rm = TRUE)
     sf_migr <- sum(hinge_weight(std_value[category == "migr"]), na.rm = TRUE)
     sf_mar <- sum(hinge_weight(std_value[category == "mar"]), na.rm = TRUE)
     sf_dem <- sum(hinge_weight(std_value[category == "dem"]), na.rm = TRUE)
     sf_gen <- sum(hinge_weight(std_value[category == "gen"]), na.rm = TRUE)
-    
+
     # Overall metrics
     avg_all <- mean(std_value, na.rm = TRUE) # avg of all indicators
     cat_avgs <- mean(c(a_fwrs, a_migr, a_mar, a_dem, a_gen), na.rm = TRUE) # avg of category averages
     avg_cube <- mean(c(c_fwrs, c_migr, c_mar, c_dem, c_gen), na.rm = TRUE) # avg of cube means
     flag_all <- sum(hinge_weight(std_value), na.rm = TRUE) # total soft-count of red flags
-    
+
     tibble::tibble(
       method = c(rep("avg", 5), rep("cube", 5), rep("flag", 5), "catavg", "avgall", "avgcube", "flag"),
       category = c(
@@ -263,16 +269,16 @@ ranks_within <- scores_base %>%
 # 3) Final tidy table with new 0–100 scores alongside ranks
 scores_tidy <- scores_base %>%
   left_join(score100_cross,
-            by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "gcm", "rcp", "period_code", "method", "category")
+    by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "gcm", "rcp", "period_code", "method", "category")
   ) %>%
   left_join(score100_within,
-            by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "gcm", "rcp", "period_code", "method", "category")
+    by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "gcm", "rcp", "period_code", "method", "category")
   ) %>%
   left_join(ranks_cross,
-            by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "gcm", "rcp", "period_code", "method", "category")
+    by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "gcm", "rcp", "period_code", "method", "category")
   ) %>%
   left_join(ranks_within,
-            by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "gcm", "rcp", "period_code", "method", "category")
+    by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "gcm", "rcp", "period_code", "method", "category")
   ) %>%
   arrange(rcp, period_code, gcm, SPECIES_NAME, FULL_CU_IN, method, category)
 
@@ -300,8 +306,7 @@ ind_avgs_tidy <- all_std_long %>%
 
 # 5. Save outputs ----
 
-write.csv(all_std_long, file.path(paths$output, "all_std_long.csv"))
-write.csv(scores_tidy, file.path(paths$output, "overall_scores.csv"))
-
-# Save as R objects for cleaner ingestion in sensitivity/plotting scripts
+# Save as R objects — primary output for all downstream scripts
 save(all_std_long, scores_tidy, file = file.path(paths$output, "scoring_results.Rdata"))
+
+cat("4a Scoring complete. Results saved to scoring_results.Rdata\n")
