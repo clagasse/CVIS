@@ -93,128 +93,235 @@ plot_std_vs_raw <- function(data,
 
 #-----------------2. lollipop chart of indicator across CUs--------------------
 
-# Function to create a lollipop chart of indicator values across CUs
-plot_lollipop <- function(data,
+# Long format plots -------------------------------------------------------
+
+#' Lollipop plot (long-format) for a single RCP/period with GCM variation
+#' Always shows all CUs; missing data show as blank (no segment/point).
+#'
+#' @param all_std_long  Long-format table with (at least):
+#'   rcp, period_code, indicator, gcm, CVIS_NAME, SPECIES_NAME, FULL_CU_IN,
+#'   (optional) dsmodel, std_value (and optionally raw_value/value for raw plotting)
+#' @param indicator_pick Character; indicator id to plot (e.g., "stream_temp")
+#' @param rcp_pick       RCP value to filter (e.g., "4.5")
+#' @param period_pick    Period code to filter (e.g., "2040")
+#' @param dsmodel_pick   Optional character scalar/vector; if provided, filter to these dsmodel values
+#' @param indicator_name Optional pretty subtitle for indicator
+#' @param indicator_unit Optional y-axis label for raw plots (ignored when standardized)
+#' @param use_standardized Logical; FALSE plots raw on the axis; TRUE plots standardized (default FALSE)
+#' @param plot_colours   Named/unnamed vector; if named, names should match SPECIES_NAME
+#' @param log_scale      Logical; use log10 scale for y
+#' @param threshold_value Numeric; optional horizontal threshold line (NA to skip)
+#' @param show_gcm_points Logical; show per-GCM points in addition to min–max + mean
+#'
+#' @return ggplot object
+plot_lollipop <- function(all_std_long,
                           indicator_pick,
+                          rcp_pick,
+                          period_pick,
+                          dsmodel_pick = NULL,
                           indicator_name = NULL,
                           indicator_unit = NULL,
-                          use_standardized = FALSE, # use raw or transformed (standardized values)
-                          plot_colours = species_palette,
-                          log_scale = FALSE, # use log scale for x axis
-                          threshold_value = NA, # add a vertical line to show a threshold if value exists
-                          multi_rcp = F,
-                          ...) {
-  data_sub <- subset_ind_table(data,
-    indicators_choose = indicator_pick,
-    id_col = "CVIS_NAME",
-    get_raw = !use_standardized,
-    get_std = use_standardized,
-    get_gcm = T,
-    get_spat = T,
-    get_pop = T
-  )
+                          use_standardized = FALSE, # default FALSE (Y uses raw)
+                          plot_colours = c(
+                            "#1b9e77", "#d95f02", "#7570b3", "#66a61e",
+                            "#e6ab02", "#a6761d", "#666666"
+                          ),
+                          log_scale = FALSE,
+                          threshold_value = NA_real_,
+                          show_gcm_points = FALSE) {
+  # ---- CU roster (ensures all CUs are shown regardless of data presence) ----
+  cu_roster <- all_std_long %>%
+    distinct(FULL_CU_IN, SPECIES_NAME, CVIS_NAME)
 
-  plot_data <- rename_ind_table(data_sub,
-    indicator_abbrev = indicator_pick
-  )
-
-  # boolean for whether gcm ranges are in the data
-  has_gcm <- FALSE
-  if (sum(str_detect(names(plot_data), "gcm")) > 0) {
-    # Ensure min/max gcm are not identical to raw/std before enabling
-    if (any(plot_data$min_gcm != plot_data$max_gcm, na.rm = T)) has_gcm <- TRUE
+  # ---- Resolve value column for plotting Y (ranges & center_y) ----
+  val_col <- if (use_standardized) {
+    if (!"std_value" %in% names(all_std_long)) {
+      stop("Column 'std_value' not found in all_std_long.")
+    }
+    "std_value"
+  } else {
+    if ("raw_value" %in% names(all_std_long)) {
+      "raw_value"
+    } else if ("value" %in% names(all_std_long)) {
+      "value"
+    } else {
+      stop("No raw value column found. Provide 'raw_value' or 'value', or set use_standardized = TRUE.")
+    }
   }
 
-  # boolean for whether spatial ranges are in the data
-  has_spat <- FALSE
-  if (sum(str_detect(names(plot_data), "spat")) > 0) has_spat <- TRUE
+  # ---- Filter scenarios/models ----
+  dat_full <- all_std_long %>%
+    filter(
+      .data$indicator == indicator_pick,
+      .data$rcp %in% rcp_pick,
+      .data$period_code %in% period_pick
+    )
 
-  # boolean for whether pop ranges are in the data
-  has_pop <- FALSE
-  if (sum(str_detect(names(plot_data), "pop")) > 0) has_pop <- TRUE
+  if (!is.null(dsmodel_pick) && length(dsmodel_pick) > 0 && "dsmodel" %in% names(dat_full)) {
+    dat_full <- dat_full %>% filter(.data$dsmodel %in% dsmodel_pick)
+  }
 
-  plot_data <- plot_data %>%
-    mutate(id_label = paste0(
-      "<span style='color:", plot_colours[plot_data$sp], "'>",
-      plot_data$id, "</span>"
-    ))
+  # Ensure rcp and dsmodel are factor-like for plotting
+  dat_full <- dat_full %>%
+    mutate(
+      rcp = factor(rcp),
+      dsmodel = if ("dsmodel" %in% names(.)) factor(dsmodel) else factor("default")
+    )
 
-  # Value column to use
-  val_col <- if (use_standardized) "std" else "raw"
+  # Note: even if dat_full is empty, we still want to show all CUs with blanks.
+  if (!"std_value" %in% names(dat_full)) {
+    if (nrow(dat_full) > 0) stop("Column 'std_value' is required for colouring points by standardized score.")
+  }
 
-  p <- ggplot(plot_data, aes(x = id_label))
+  # ---- Reduce to needed columns ----
+  dat <- dat_full %>%
+    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, gcm, rcp, dsmodel,
+      val = dplyr::all_of(val_col),
+      std_val = dplyr::all_of(if ("std_value" %in% names(dat_full)) "std_value" else val_col)
+    )
+
+  # ---- Summaries across GCM per CU/Scenario/Model ----
+  cu_summary <- dat %>%
+    group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, rcp, dsmodel) %>%
+    summarise(
+      n_gcm      = dplyr::n_distinct(gcm[!is.na(val)]),
+      min_gcm    = if (sum(!is.na(val)) > 0) min(val, na.rm = TRUE) else NA_real_,
+      max_gcm    = if (sum(!is.na(val)) > 0) max(val, na.rm = TRUE) else NA_real_,
+      center_y   = if (sum(!is.na(val)) > 0) mean(val, na.rm = TRUE) else NA_real_, # Y position
+      center_std = if (sum(!is.na(std_val)) > 0) mean(std_val, na.rm = TRUE) else NA_real_, # fill colour
+      .groups    = "drop"
+    )
+
+  # ---- Right-join summaries to the full CU roster to ensure all CUs are present ----
+  cu_plot <- cu_roster %>%
+    left_join(cu_summary, by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME"))
+
+  # ---- Build a species -> colour map for labels ----
+  species_levels <- unique(cu_plot$SPECIES_NAME)
+  if (!is.null(names(plot_colours)) && all(species_levels %in% names(plot_colours))) {
+    col_map <- plot_colours[names(plot_colours) %in% species_levels]
+    col_map <- col_map[species_levels]
+  } else {
+    col_map <- setNames(rep(plot_colours, length.out = length(species_levels)), species_levels)
+  }
+
+  # ---- HTML labels coloured by species ----
+  cu_plot <- cu_plot %>%
+    mutate(
+      id_label_html = paste0("<span style='color:", col_map[SPECIES_NAME], "'>", CVIS_NAME, "</span>")
+    )
+
+  # ---- Order by species then FULL_CU_IN (no sorting by value) ----
+  cu_plot <- cu_plot %>%
+    arrange(SPECIES_NAME, FULL_CU_IN, CVIS_NAME) %>%
+    mutate(id_label_html = factor(id_label_html, levels = unique(id_label_html)))
+
+  # ---- Plot ----
+  dodge_width <- 0.8
+  p <- ggplot(cu_plot, aes(x = id_label_html, color = rcp, group = interaction(rcp, dsmodel)))
 
   if (!is.na(threshold_value)) {
-    p <- p + geom_hline(aes(yintercept = threshold_value), linetype = "dashed")
+    p <- p + geom_hline(yintercept = threshold_value, linetype = "dashed", color = "grey30", size = 0.8)
   }
 
-  # Actual plot layers
-  if (has_spat) {
-    p <- p + geom_segment(aes(xend = id_label, y = min_spat, yend = max_spat),
-      color = "darkgrey", linewidth = 2.5
+  # 1. Background "Cloud" for GCM uncertainty (wide grey bar)
+  p <- p +
+    geom_segment(aes(xend = id_label_html, y = min_gcm, yend = max_gcm),
+      color = "grey92", linewidth = 6, alpha = 0.8, na.rm = TRUE,
+      position = position_dodge(width = dodge_width)
     )
-  }
-  if (has_gcm) {
-    p <- p + geom_segment(aes(xend = id_label, y = min_gcm, yend = max_gcm),
-      color = "darkred", linewidth = 1
+
+  # 2. Inner GCM range line (thin line for contrast)
+  p <- p +
+    geom_segment(aes(xend = id_label_html, y = min_gcm, yend = max_gcm),
+      linewidth = 1.5, alpha = 0.8, na.rm = TRUE,
+      position = position_dodge(width = dodge_width)
     )
-  }
-  if (has_pop) {
-    p <- p + geom_segment(aes(xend = id_label, y = min_pop, yend = max_pop),
-      color = "darkgreen", linewidth = 1
-    )
+
+  # Optional: per-GCM points
+  if (isTRUE(show_gcm_points) && nrow(dat) > 0) {
+    p <- p +
+      geom_point(
+        data = dat %>%
+          inner_join(
+            cu_plot %>% select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, id_label_html, rcp, dsmodel),
+            by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "rcp", "dsmodel")
+          ),
+        aes(x = id_label_html, y = val, group = interaction(rcp, dsmodel)),
+        position = position_dodge(width = dodge_width),
+        size = 0.8, alpha = 0.25, inherit.aes = FALSE, color = "black"
+      )
   }
 
-  # Point layer with dynamic fill
-  if (multi_rcp == F) {
-    p <- p + geom_point(aes(y = !!sym(val_col), fill = !!sym(val_col)), shape = 21, color = "black", size = 2.5) +
-      scale_fill_gradient(name = if (use_standardized) "Standardized score" else "Raw score", low = "lightblue", high = "darkblue")
-  }
+  # 3. Lollipop Head (Future ensemble mean color-coded by risk score)
+  p <- p +
+    geom_point(aes(y = center_y, fill = center_std, shape = dsmodel),
+      color = "black", size = 3.2, stroke = 0.8, na.rm = TRUE,
+      position = position_dodge(width = dodge_width)
+    ) +
+    scale_fill_distiller(
+      name = "Standardized Score (Risk Level)",
+      palette = "RdYlGn", direction = -1,
+      limits = c(0, 1), na.value = "transparent"
+    )
 
-  if (log_scale == TRUE) {
+  # Saturated Scenario Colors
+  p <- p +
+    scale_color_manual(
+      name = "Scenario (RCP)",
+      values = c("45" = "darkblue", "85" = "#B22222"), # ForestGreen and FireBrick
+      na.translate = FALSE
+    ) +
+    scale_shape_manual(
+      name = "Downscaling Model",
+      values = c(21, 24, 22, 23, 25),
+      na.translate = FALSE
+    )
+
+  # Axis scale
+  if (isTRUE(log_scale)) {
+    if (any(cu_plot$min_gcm <= 0, na.rm = TRUE)) {
+      warning("log_scale = TRUE but some values are <= 0; those rows will be dropped by scale_y_log10.")
+    }
     p <- p + scale_y_log10()
   }
 
-  if (multi_rcp == T) {
-    p <- p + geom_point(aes(y = !!sym(val_col), fill = rcp), shape = 21, color = "black", size = 2.5) +
-      scale_fill_discrete(name = "RCP")
+  # Labels
+  subtitle_lab <- if (is.null(indicator_name)) indicator_pick else indicator_name
+  y_lab <- if (isTRUE(use_standardized)) {
+    "Standardized score" # no units for standardized
+  } else {
+    if (is.null(indicator_unit) || is.na(indicator_unit) || indicator_unit == "") "Value" else indicator_unit
+  }
+  dsmodel_lab <- if (!is.null(dsmodel_pick) && length(dsmodel_pick) > 0 && "dsmodel" %in% names(dat_full)) {
+    paste(unique(dat_full$dsmodel), collapse = ", ")
+  } else {
+    NA_character_
   }
 
-  # Dummy layers for line segment legend
-  p <- p + geom_segment(aes(x = Inf, xend = Inf, y = Inf, yend = Inf, color = "Spatial Q10-Q90"),
-    linewidth = 2.5, inherit.aes = FALSE
-  ) +
-    geom_segment(aes(x = Inf, xend = Inf, y = Inf, yend = Inf, color = "Climate models Q10-Q90"),
-      linewidth = 1, inherit.aes = FALSE
-    ) +
-    geom_segment(aes(x = Inf, xend = Inf, y = Inf, yend = Inf, color = "Population min-max"),
-      linewidth = 1, inherit.aes = FALSE
-    ) +
-
-    # Manual legend styling for segments
-    scale_color_manual(
-      values = c(
-        "Climate models Q10-Q90" = "darkred",
-        "Spatial Q10-Q90" = "darkgrey",
-        "Population min-max" = "darkgreen"
-      ),
-      name = "Variation"
-    ) +
-
+  p <- p +
     labs(
-      subtitle = indicator_name,
-      fill = if (use_standardized) "Standardized" else "Raw",
-      y = indicator_unit,
-      x = NULL
+      subtitle = subtitle_lab,
+      y = y_lab,
+      x = NULL,
+      caption = paste0(
+        "RCP ", rcp_pick, " • Period ", period_pick,
+        if (!is.na(dsmodel_lab)) paste0(" • dsmodel: ", dsmodel_lab) else "",
+        " — Point = mean across GCMs; Segment = min–max across GCMs",
+        if (!use_standardized) " (Y: raw; colour: standardized)" else " (Y & colour: standardized)"
+      )
     ) +
     coord_flip() +
+    theme_minimal(base_size = 11) +
     theme(
-      axis.text.y = element_markdown(size = 7),
-      legend.position = "right"
+      axis.text.y = ggtext::element_markdown(size = 8.5),
+      legend.position = "right",
+      panel.grid.major.y = element_blank()
     )
 
   return(p)
 }
+
 
 
 
@@ -296,36 +403,60 @@ spatial_indicator_plot <- function(data,
                                    id_col = "FULL_CU_IN",
                                    brewer_palette = "RdYlGn",
                                    palette_direction = -1) {
-  data_sub <- subset_ind_table(data,
-    indicators_choose = indicator_pick,
-    sp_col = sp_col_name,
-    id_col = "FULL_CU_IN",
-    get_raw = !use_standardized,
-    get_std = use_standardized,
-    get_gcm = F
-  )
+  # Filter data to the specified indicator
+  plot_data <- data %>% filter(.data$indicator == indicator_pick)
 
-  plot_data <- rename_ind_table(data_sub,
-    indicator_abbrev = indicator_pick,
-    single_value_col = T
-  )
+  # For GCMs, default to 9 (ensemble mean) or 0 (baseline) or first unique
+  if ("gcm" %in% names(plot_data)) {
+    if (any(plot_data$gcm == "9", na.rm = TRUE)) {
+      plot_data <- plot_data %>% filter(.data$gcm == "9")
+    } else if (any(plot_data$gcm == 0, na.rm = TRUE)) {
+      plot_data <- plot_data %>% filter(.data$gcm == 0)
+    } else {
+      # Take first available GCM per CU to avoid duplication
+      plot_data <- plot_data %>%
+        group_by(FULL_CU_IN) %>%
+        slice(1) %>%
+        ungroup()
+    }
+  }
+
+  value_var <- if (use_standardized) "std_value" else "value"
+
+  # It's possible the data doesn't have the raw 'value' column but was requested
+  if (value_var == "value" && !"value" %in% names(plot_data)) {
+    value_var <- "std_value"
+    warning("Raw value not found in data, falling back to std_value.")
+  }
+
+  plot_data <- plot_data %>%
+    rename(plot_value = !!sym(value_var))
 
   cu_boundary_plot <- cu_boundary %>%
-    left_join(select(plot_data, id, value), by = join_by(!!sym(id_col) == id)) %>%
+    left_join(select(plot_data, !!sym(id_col), plot_value, !!sym(sp_col_name)), by = join_by(!!sym(id_col) == !!sym(id_col))) %>%
     rename(sp_col = !!sym(sp_col_name)) %>%
     filter(
-      !is.na(value),
+      !is.na(plot_value),
       sp_col %in% sp_pick
     )
 
+  if (nrow(cu_boundary_plot) == 0) {
+    p <- ggplot() +
+      geom_sf(data = Fr_basin, colour = "black", fill = NA, alpha = 0.3) +
+      theme_void() +
+      labs(title = paste("No valid data for", indicator_name))
+    return(p)
+  }
+
   p <- ggplot() +
-    geom_sf(data = cu_boundary_plot, aes(fill = value), alpha = 0.3) +
+    geom_sf(data = cu_boundary_plot, aes(fill = plot_value), alpha = 0.3) +
     scale_fill_distiller(palette = brewer_palette, direction = palette_direction) +
     # geom_label(data = cu_boundary_show, aes(label = CUID), size = 2) +
     geom_sf(data = Fr_basin, colour = "black", fill = NA, alpha = 0.3) +
     labs(fill = indicator_pick) +
-    facet_grid(. ~ sp_col) +
+    facet_wrap(~sp_col) +
     coord_sf(datum = NA, expand = FALSE, clip = "on") +
+    theme_void() +
     theme(
       plot.margin   = grid::unit(c(0, 0, 0, 0), "pt"),
       panel.spacing = grid::unit(2, "pt")
@@ -338,75 +469,195 @@ spatial_indicator_plot <- function(data,
 
 # 5. Tile plot of standardized indicator values ---------------------------
 
-indicator_tile_plot <- function(data,
+#' Tile plot of standardized indicator values (long-format, by species)
+#' Selects ensemble or GCM 0 (no averaging across GCMs).
+#'
+#' @param all_std_long       Long-format table with at least:
+#'   rcp, period_code, indicator, CVIS_NAME, SPECIES_NAME, FULL_CU_IN,
+#'   std_value, (optional) gcm, dsmodel, (optional) ensemble (logical)
+#' @param indicators_choose  Character vector of indicator codes to include.
+#' @param indicators_metadata Data frame with columns: abbrev (code), name (description).
+#' @param brewer_palette     RColorBrewer palette name.
+#' @param palette_direction  1 or -1 for palette direction.
+#' @param plot_colours       Named or unnamed vector of species colors; if named, names match SPECIES_NAME.
+#' @param rcp_pick           Optional RCP to filter (e.g., "4.5"). If NULL, use all present.
+#' @param period_pick        Optional period_code to filter (e.g., "2040"). If NULL, use all present.
+#' @param dsmodel_pick       Optional character scalar/vector; filter to these dsmodel(s) if supplied.
+#' @param gcm_pick           Optional scalar/vector; if supplied, filter to these GCM(s) after ensemble/0 fallback.
+#' @param ncol               Columns in patchwork layout (auto-detected if NULL).
+#' @param uniform_height     TRUE forces equal panel heights; FALSE scales by n CUs per species.
+#' @param overall_score_cols Character vector of indicator codes to move to the end (if present).
+#' @param category_name      Optional overall title for the assembled plot.
+#' @param ensemble_regex     Regex pattern for detecting ensemble codes in character `gcm`.
+#'
+#' @return A patchwork ggplot object with one tile panel per species + indicator key.
+indicator_tile_plot <- function(all_std_long,
                                 indicators_choose = c("migrT", "migrQ", "migrA21", "migrdist"),
                                 indicators_metadata = tbl_indicators,
                                 brewer_palette = "RdYlGn",
                                 palette_direction = -1,
                                 plot_colours = species_palette,
+                                rcp_pick = NULL,
+                                period_pick = NULL,
+                                dsmodel_pick = NULL,
+                                gcm_pick = NULL,
                                 ncol = NULL,
                                 uniform_height = FALSE,
-                                overall_score_cols = c("sumavgs"),
-                                category_name = NULL) {
-  data_sub <- subset_ind_table(data,
-    indicators_choose,
-    get_raw = F,
-    get_std = T,
-    get_gcm = F, # ONLY get main stats for tile plot
-    id_col = "CVIS_NAME",
-    rename_cols = F # Keep original names for a moment to pivot correctly
-  )
+                                overall_score_cols = NULL,
+                                category_name = NULL,
+                                ensemble_regex = "(?i)(ens|ensemble|mmem|multi|mean|avg)") {
+  # ---- Basic checks ----
+  req_cols <- c("indicator", "CVIS_NAME", "SPECIES_NAME", "FULL_CU_IN", "std_value")
+  if (!all(req_cols %in% names(all_std_long))) {
+    stop("Missing required columns in 'all_std_long': ", paste(setdiff(req_cols, names(all_std_long)), collapse = ", "))
+  }
 
-  # Prepare data for plotting
-  plot_data <- data_sub %>%
-    pivot_longer(
-      names_to = "indicator",
-      values_to = "value",
-      cols = any_of(names(data_sub)[str_detect(names(data_sub), "std_")])
-    ) %>%
-    mutate(indicator = str_remove(indicator, "^std_")) %>%
-    mutate(indicator = str_remove(indicator, "_mean$|mean$")) %>% # Remove both possible suffixes
-    rename(id = !!sym("CVIS_NAME")) # Rename to match subsequent logic
+  # ---- Filter scenario/model/indicator ----
+  data_f <- all_std_long
 
-  # Reorder indicators to put overall score columns last
+  # Keep only requested indicators (plus any overall codes)
+  keep_codes <- unique(c(indicators_choose, overall_score_cols))
+  if (!is.null(keep_codes)) {
+    data_f <- data_f %>% filter(.data$indicator %in% keep_codes)
+  }
+
+  # Split by indicator to apply dynamic filtering
+  data_list <- split(data_f, data_f$indicator)
+  for (ind in names(data_list)) {
+    df_ind <- data_list[[ind]]
+
+    # Filter rcp
+    if (!is.null(rcp_pick)) {
+      if (any(df_ind$rcp %in% rcp_pick, na.rm = TRUE)) {
+        df_ind <- df_ind %>% filter(rcp %in% rcp_pick)
+      } else if (any(df_ind$rcp %in% c("0", 0), na.rm = TRUE)) {
+        df_ind <- df_ind %>% filter(rcp %in% c("0", 0))
+      }
+    }
+
+    # Filter period_code
+    if (!is.null(period_pick)) {
+      if (any(df_ind$period_code %in% period_pick, na.rm = TRUE)) {
+        df_ind <- df_ind %>% filter(period_code %in% period_pick)
+      } else if (any(df_ind$period_code %in% c("0", 0), na.rm = TRUE)) {
+        df_ind <- df_ind %>% filter(period_code %in% c("0", 0))
+      }
+    }
+
+    # Filter dsmodel
+    if (!is.null(dsmodel_pick) && "dsmodel" %in% names(df_ind) && length(dsmodel_pick) > 0) {
+      if (any(df_ind$dsmodel %in% dsmodel_pick, na.rm = TRUE)) {
+        df_ind <- df_ind %>% filter(dsmodel %in% dsmodel_pick)
+      }
+    }
+
+    data_list[[ind]] <- df_ind
+  }
+
+  data_f <- bind_rows(data_list)
+
+  if (nrow(data_f) == 0L) {
+    stop("No rows after filtering by rcp/period/dsmodel/indicators (even with fallback to 0).")
+  }
+
+  # ---- Select ensemble or GCM 0 (no averaging) ----
+  # Start with all rows; then try to keep ensemble / gcm==0 / gcm_pick.
+  data_s <- data_f
+
+  has_ensemble_col <- "ensemble" %in% names(data_s)
+  has_gcm <- "gcm" %in% names(data_s)
+
+  if (has_ensemble_col && any(data_s$ensemble %in% TRUE, na.rm = TRUE)) {
+    data_s <- data_s %>% filter(.data$ensemble %in% TRUE)
+  } else if (has_gcm) {
+    if (is.numeric(data_s$gcm)) {
+      # Prefer numeric GCM code == 0
+      if (any(data_s$gcm == 0, na.rm = TRUE)) {
+        data_s <- data_s %>% filter(.data$gcm == 0)
+      }
+    } else if (is.character(data_s$gcm)) {
+      # Prefer ensemble-like names by regex
+      if (any(str_detect(data_s$gcm, ensemble_regex), na.rm = TRUE)) {
+        data_s <- data_s %>% filter(str_detect(.data$gcm, ensemble_regex))
+      }
+    }
+  }
+
+  # If user supplied gcm_pick, filter to that (after ensemble/0)
+  if (!is.null(gcm_pick) && has_gcm) {
+    data_s <- data_s %>% filter(.data$gcm %in% gcm_pick)
+  }
+
+  # If multiple GCM rows still exist per CU×indicator, deterministically select the first and warn
+  if (has_gcm) {
+    multi_counts <- data_s %>%
+      group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, indicator) %>%
+      summarise(n_gcm = n_distinct(gcm), .groups = "drop") %>%
+      filter(n_gcm > 1)
+    if (nrow(multi_counts) > 0) {
+      warning(glue::glue("{nrow(multi_counts)} CU×indicator groups had multiple GCM rows after selection; keeping the first deterministically. Consider setting gcm_pick=."))
+      data_s <- data_s %>%
+        arrange(SPECIES_NAME, FULL_CU_IN, CVIS_NAME, indicator, gcm) %>%
+        group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, indicator) %>%
+        slice_head(n = 1) %>%
+        ungroup()
+    }
+  }
+
+  # ---- Prepare plot data (no aggregation) ----
+  plot_data <- data_s %>%
+    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, indicator, value = std_value)
+
+  if (nrow(plot_data) == 0L) {
+    stop("No rows remain after ensemble/GCM selection.")
+  }
+
+  # ---- Indicator order: regular first, overall at end ----
   indicator_order <- unique(plot_data$indicator)
   if (!is.null(overall_score_cols) && length(overall_score_cols) > 0) {
-    # Remove overall score columns from main list
-    regular_indicators <- setdiff(indicator_order, overall_score_cols)
-    # Add them back at the end in the specified order
-    overall_cols_present <- overall_score_cols[overall_score_cols %in% indicator_order]
-    indicator_order <- c(regular_indicators, overall_cols_present)
+    regular_inds <- setdiff(indicator_order, overall_score_cols)
+    overall_present <- overall_score_cols[overall_score_cols %in% indicator_order]
+    indicator_order <- c(regular_inds, overall_present)
   }
-  plot_data <- plot_data %>%
-    mutate(indicator = factor(indicator, levels = indicator_order))
+  plot_data <- plot_data %>% mutate(indicator = factor(indicator, levels = indicator_order))
 
-  # Calculate color scale limits for each indicator based on range across ALL species
+  # ---- Normalize color by indicator (0..1 scale) ----
   indicator_limits <- plot_data %>%
     group_by(indicator) %>%
     summarise(
-      min_val = min(value, na.rm = TRUE),
-      max_val = max(value, na.rm = TRUE),
+      min_val = suppressWarnings(min(value, na.rm = TRUE)),
+      max_val = suppressWarnings(max(value, na.rm = TRUE)),
       .groups = "drop"
+    ) %>%
+    mutate(
+      min_val = ifelse(is.infinite(min_val), NA_real_, min_val),
+      max_val = ifelse(is.infinite(max_val), NA_real_, max_val)
     )
 
-  # Join limits back to plot data
   plot_data <- plot_data %>%
-    left_join(indicator_limits, by = "indicator")
+    left_join(indicator_limits, by = "indicator") %>%
+    mutate(
+      range_ok = !is.na(min_val) & !is.na(max_val) & (max_val > min_val),
+      value_normalized = ifelse(range_ok, (value - min_val) / (max_val - min_val), 0.5)
+    )
 
-  # Create normalized value for color mapping (0 to 1 scale)
+  # ---- Species color mapping for CU labels ----
+  species_levels <- unique(plot_data$SPECIES_NAME)
+  if (!is.null(names(plot_colours)) && all(species_levels %in% names(plot_colours))) {
+    col_map <- plot_colours[names(plot_colours) %in% species_levels]
+    col_map <- col_map[species_levels]
+  } else {
+    col_map <- setNames(rep(plot_colours, length.out = length(species_levels)), species_levels)
+  }
+
   plot_data <- plot_data %>%
     mutate(
-      value_normalized = (value - min_val) / (max_val - min_val)
+      sp = SPECIES_NAME,
+      id = CVIS_NAME,
+      id_label = paste0("<span style='color:", col_map[sp], "'>", id, "</span>")
     )
 
-  # add a label for coloured text using ggtext
-  plot_data <- plot_data %>%
-    mutate(id_label = paste0(
-      "<span style='color:", plot_colours[plot_data$sp], "'>",
-      plot_data$id, "</span>"
-    ))
-
-  # Get species list and count CUs per species
+  # ---- Species list and CU counts ----
   species_list <- unique(plot_data$sp)
   cu_counts <- plot_data %>%
     group_by(sp) %>%
@@ -417,54 +668,46 @@ indicator_tile_plot <- function(data,
     ) %>%
     arrange(match(sp, species_list))
 
-  # Auto-detect ncol if not specified
+  # ---- Auto-detect ncol ----
   if (is.null(ncol)) {
     ncol <- ifelse(length(species_list) == 5, 2, ceiling(sqrt(length(species_list))))
   }
 
-  # Calculate relative heights based on number of CUs
+  # ---- Panel heights ----
   if (!uniform_height) {
     heights <- cu_counts$n_cus
-    heights <- heights / min(heights)
+    heights <- heights / max(1, min(heights, na.rm = TRUE))
     heights <- pmin(heights, 3)
   } else {
     heights <- rep(1, length(species_list))
   }
 
-  # Determine which plots are in the bottom row
+  # ---- Bottom row detection ----
   n_plots <- length(species_list)
   n_rows <- ceiling(n_plots / ncol)
   bottom_row_start <- (n_rows - 1) * ncol + 1
   bottom_row_indices <- bottom_row_start:n_plots
 
-  # Create individual plots for each species
+  # ---- Build per-species subplots ----
   plot_list <- lapply(seq_along(species_list), function(idx) {
     species <- species_list[idx]
     data_sp <- plot_data %>% filter(sp == species)
+
     n_cus <- cu_counts$n_cus[idx]
     cu_name <- cu_counts$cu_name[idx]
-
-    # Check if this plot is in the bottom row
     is_bottom_row <- idx %in% bottom_row_indices
-
-    # Check if this species has only one CU
     is_single_cu <- n_cus == 1
 
-    # Adjust text size based on number of CUs
     y_text_size <- if (n_cus > 15) 7 else if (n_cus > 10) 8 else 9
     tile_text_size <- if (n_cus > 15) 1.8 else if (n_cus > 10) 2 else 2.5
 
-    # Create title
     plot_title <- paste0(species, " (n=", n_cus, ")")
-
-    # Build subplot subtitle (only for single CU species)
     plot_subtitle <- if (is_single_cu) cu_name else NULL
 
     p <- ggplot(data_sp, aes(x = indicator, y = id_label)) +
-      geom_tile(aes(fill = value_normalized), color = "white", linewidth = 0.3) +
-      geom_text(aes(label = sprintf("%.1f", value)),
-        size = tile_text_size,
-        color = "black"
+      geom_tile(aes(fill = value_normalized), color = "white", linewidth = 0.3, na.rm = FALSE) +
+      geom_text(aes(label = ifelse(is.na(value), "", sprintf("%.1f", value))),
+        size = tile_text_size, color = "black", na.rm = TRUE
       ) +
       scale_fill_distiller(
         palette = brewer_palette,
@@ -483,7 +726,6 @@ indicator_tile_plot <- function(data,
       ) +
       labs(y = NULL, x = NULL, title = plot_title)
 
-    # Add subtitle for single CU species
     if (!is.null(plot_subtitle)) {
       p <- p +
         labs(subtitle = plot_subtitle) +
@@ -495,118 +737,69 @@ indicator_tile_plot <- function(data,
         )
     }
 
-    # Handle y-axis text
     if (is_single_cu) {
       p <- p + theme(axis.text.y = element_blank())
     } else {
       p <- p + theme(
-        axis.text.y = element_markdown(size = y_text_size, hjust = 1, margin = margin(r = 2))
+        axis.text.y = ggtext::element_markdown(size = y_text_size, hjust = 1, margin = margin(r = 2))
       )
     }
 
-    # Add vertical line separators before overall score columns
+    # Separator before overall indicator(s)
     if (!is.null(overall_score_cols) && length(overall_score_cols) > 0) {
-      all_indicators <- levels(data_sp$indicator)
-
-      # Find the position where the first overall score column starts
-      first_overall_idx <- which(all_indicators %in% overall_score_cols)[1]
-
+      all_inds <- levels(data_sp$indicator)
+      first_overall_idx <- which(all_inds %in% overall_score_cols)[1]
       if (!is.na(first_overall_idx)) {
-        # Add separator before the first overall score column
-        separator_x <- first_overall_idx - 0.5
-
-        p <- p +
-          geom_vline(
-            xintercept = separator_x,
-            color = "black",
-            linewidth = 1,
-            linetype = "solid"
-          )
-
-        # If there are multiple overall score columns, add separators between them
-        if (length(overall_score_cols) > 1) {
-          overall_positions <- which(all_indicators %in% overall_score_cols)
-
-          # Add separators between consecutive overall score columns
+        p <- p + geom_vline(xintercept = first_overall_idx - 0.5, color = "black", linewidth = 1)
+        overall_positions <- which(all_inds %in% overall_score_cols)
+        if (length(overall_positions) > 1) {
           for (i in 1:(length(overall_positions) - 1)) {
-            separator_x <- overall_positions[i] + 0.5
-
-            p <- p +
-              geom_vline(
-                xintercept = separator_x,
-                color = "grey50",
-                linewidth = 0.5,
-                linetype = "dashed"
-              )
+            p <- p + geom_vline(
+              xintercept = overall_positions[i] + 0.5,
+              color = "grey50", linewidth = 0.5, linetype = "dashed"
+            )
           }
         }
       }
     }
 
-    # Show x-axis labels on bottom row
     if (is_bottom_row) {
       p <- p + theme(
         axis.text.x = element_text(size = 8, angle = 45, hjust = 1, vjust = 1, margin = margin(t = 2))
       )
     } else {
-      p <- p + theme(
-        axis.text.x = element_blank()
-      )
+      p <- p + theme(axis.text.x = element_blank())
     }
 
     return(p)
   })
 
-  # Create indicator legend/key table
-  indicators_in_plot <- indicator_order
-
-  # Match with metadata
+  # ---- Legend (indicator key) ----
+  indicators_in_plot <- as.character(indicator_order)
   legend_data <- indicators_metadata %>%
-    filter(abbrev %in% indicators_in_plot) %>%
+    filter(.data$abbrev %in% indicators_in_plot) %>%
     select(abbrev, name) %>%
     mutate(abbrev = factor(abbrev, levels = indicators_in_plot)) %>%
     arrange(abbrev) %>%
     rename(Code = abbrev, Description = name)
 
-  # Add overall scores if they're not in the indicators metadata
-  if (!is.null(overall_score_cols)) {
-    for (score_col in overall_score_cols) {
-      if (!(score_col %in% legend_data$Code)) {
-        overall_desc <- case_when(
-          score_col == "std_catavgs" ~ "Average Category Averages",
-          score_col == "std_avgall" ~ "Average of All Indicators",
-          score_col == "std_avgcube" ~ "Average of Cubic Means in Categories",
-          score_col == "std_cubefwR" ~ "Cubic Mean - Freshwater Rearing",
-          score_col == "std_avgfwR" ~ "Average - Freshwater Rearing",
-          score_col == "std_cubemigr" ~ "Cubic Mean - Migration",
-          score_col == "std_avgmigr" ~ "Average - Migration",
-          score_col == "std_cubedem" ~ "Cubic Mean - Demographics",
-          score_col == "std_avgdem" ~ "Average - Demographics",
-          score_col == "std_cubemar" ~ "Cubic Mean - Marine",
-          score_col == "std_avgmar" ~ "Average - Marine",
-          score_col == "std_cubegen" ~ "Cubic Mean - Genetics",
-          score_col == "std_avggen" ~ "Average - Genetics",
-          TRUE ~ paste("Overall Score:", score_col)
-        )
-        legend_data <- bind_rows(
-          legend_data,
-          data.frame(Code = score_col, Description = overall_desc)
-        )
+  # Add any overall codes missing in metadata
+  if (!is.null(overall_score_cols) && length(overall_score_cols) > 0) {
+    for (code in overall_score_cols) {
+      if ((code %in% indicators_in_plot) && !(code %in% legend_data$Code)) {
+        legend_data <- bind_rows(legend_data, tibble(Code = code, Description = paste("Overall:", code)))
       }
     }
+    legend_data <- legend_data %>%
+      mutate(Code = factor(Code, levels = indicators_in_plot)) %>%
+      arrange(Code) %>%
+      mutate(Code = as.character(Code))
   }
 
-  # Reorder legend data to match indicator order
-  legend_data <- legend_data %>%
-    mutate(Code = factor(Code, levels = indicators_in_plot)) %>%
-    arrange(Code) %>%
-    mutate(Code = as.character(Code))
-
-  # Create a grob (graphical object) for the legend
-  legend_grob <- tableGrob(
+  legend_grob <- gridExtra::tableGrob(
     legend_data,
     rows = NULL,
-    theme = ttheme_minimal(
+    theme = gridExtra::ttheme_minimal(
       core = list(
         fg_params = list(hjust = 0, x = 0.05, fontsize = 8),
         bg_params = list(fill = "white", col = "grey70", lwd = 0.3)
@@ -618,7 +811,6 @@ indicator_tile_plot <- function(data,
     )
   )
 
-  # Wrap the grob in a ggplot for patchwork compatibility
   legend_plot <- ggplot() +
     annotation_custom(legend_grob) +
     theme_void() +
@@ -628,46 +820,401 @@ indicator_tile_plot <- function(data,
       plot.margin = margin(2, 2, 2, 2)
     )
 
-  # Add legend to plot list
   plot_list <- c(plot_list, list(legend_plot))
 
-  # Combine with patchwork
-  n_rows <- ceiling((n_plots + 1) / ncol)
-
+  # ---- Assemble with patchwork ----
+  n_rows <- ceiling((length(species_list) + 1) / ncol)
   if (!uniform_height) {
     height_matrix <- matrix(c(heights, 0.5), nrow = n_rows, ncol = ncol, byrow = TRUE)
     row_heights <- apply(height_matrix, 1, max, na.rm = TRUE)
-
-    p <- wrap_plots(plot_list, ncol = ncol) +
-      plot_layout(heights = row_heights)
+    p <- wrap_plots(plot_list, ncol = ncol) + plot_layout(heights = row_heights)
   } else {
-    heights_with_legend <- c(rep(1, n_plots), 0.5)
-    p <- wrap_plots(plot_list, ncol = ncol) +
-      plot_layout(heights = heights_with_legend)
+    heights_with_legend <- c(rep(1, length(species_list)), 0.5)
+    p <- wrap_plots(plot_list, ncol = ncol) + plot_layout(heights = heights_with_legend)
   }
 
-  # Add overall title and category name if provided
+  # ---- Title / annotation ----
   if (!is.null(category_name)) {
-    p <- p +
-      plot_annotation(
-        title = category_name,
-        theme = theme(
-          plot.title = element_text(face = "bold", size = 12, hjust = 0.5, margin = margin(b = 10)),
-          plot.margin = margin(5, 5, 5, 5),
-          plot.background = element_rect(fill = "white", color = NA)
-        )
+    p <- p + plot_annotation(
+      title = category_name,
+      theme = theme(
+        plot.title = element_text(face = "bold", size = 12, hjust = 0.5, margin = margin(b = 10)),
+        plot.margin = margin(5, 5, 5, 5),
+        plot.background = element_rect(fill = "white", color = NA)
       )
+    )
   } else {
-    p <- p +
-      plot_annotation(
-        theme = theme(
-          plot.margin = margin(5, 5, 5, 5),
-          plot.background = element_rect(fill = "white", color = NA)
-        )
+    p <- p + plot_annotation(
+      theme = theme(
+        plot.margin = margin(5, 5, 5, 5),
+        plot.background = element_rect(fill = "white", color = NA)
       )
+    )
   }
 
   return(p)
+}
+
+
+
+#' Tile plots (long-format): all indicators by category + category avg (from scores_tidy)
+#' Uses `all_std_long` for per-indicator tiles and `scores_tidy` for category averages & overall metrics.
+#' No averaging across GCMs: selects ensemble -> gcm==0/ensemble-like -> gcm_pick -> first deterministic.
+species_category_tile_plot_from_scores <- function(all_std_long,
+                                                   scores_tidy,
+                                                   species_pick,
+                                                   cu_name_col = "CVIS_NAME",
+                                                   indicators_metadata = tbl_indicators, # must have: abbrev, category
+                                                   species_palette = NULL,
+                                                   brewer_palette = "RdYlGn",
+                                                   palette_direction = -1,
+                                                   rank_method = "sumavgs", # "sumavgs"|"avgall"|"sumcube"
+                                                   show_values = TRUE,
+                                                   sort_by_rank = TRUE,
+                                                   rcp_pick = NULL,
+                                                   period_pick = NULL,
+                                                   dsmodel_pick = NULL,
+                                                   gcm_pick = NULL,
+                                                   ensemble_regex = "(?i)(ens|ensemble|mmem|multi|mean|avg)") {
+  # ---- Input checks ----
+  req_ind_cols <- c("indicator", "SPECIES_NAME", "FULL_CU_IN", "CVIS_NAME", "std_value")
+  if (!all(req_ind_cols %in% names(all_std_long))) {
+    stop("all_std_long is missing: ", paste(setdiff(req_ind_cols, names(all_std_long)), collapse = ", "))
+  }
+  req_score_cols <- c(
+    "FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "gcm", "rcp", "period_code",
+    "method", "category", "score", "rankspecies"
+  )
+  if (!all(req_score_cols %in% names(scores_tidy))) {
+    stop("scores_tidy is missing: ", paste(setdiff(req_score_cols, names(scores_tidy)), collapse = ", "))
+  }
+  if (!cu_name_col %in% names(all_std_long)) {
+    stop(sprintf("Column '%s' not found in all_std_long", cu_name_col))
+  }
+  if (!(rank_method %in% c("sumavgs", "avgall", "sumcube"))) {
+    stop("rank_method must be one of: 'sumavgs','avgall','sumcube'.")
+  }
+  if (is.null(indicators_metadata) ||
+    !all(c("abbrev", "category") %in% names(indicators_metadata))) {
+    stop("Please provide 'indicators_metadata' with columns: 'abbrev' and 'category'.")
+  }
+
+  # ---- Default species palette ----
+  if (is.null(species_palette)) {
+    species_palette <- c(
+      "Chinook" = "#E69F00", "Chum" = "#56B4E9", "Coho" = "#009E73", "Pink" = "#F0E442", "Sockeye" = "#D55E00"
+    )
+  }
+  sp_color <- species_palette[species_pick]
+  if (is.na(sp_color) || is.null(sp_color)) sp_color <- "black"
+
+  # ---- Filter species + scenario ----
+  d_ind <- all_std_long %>% filter(.data$SPECIES_NAME == species_pick)
+  d_scores <- scores_tidy %>% filter(.data$SPECIES_NAME == species_pick)
+
+  # Filter scores normally
+  if (!is.null(rcp_pick)) d_scores <- d_scores %>% filter(.data$rcp == rcp_pick)
+  if (!is.null(period_pick)) d_scores <- d_scores %>% filter(.data$period_code == period_pick)
+
+  # Filter d_ind dynamically by indicator to enable fallback to 0
+  d_ind_list <- split(d_ind, d_ind$indicator)
+  for (ind in names(d_ind_list)) {
+    df_temp <- d_ind_list[[ind]]
+
+    if (!is.null(rcp_pick)) {
+      if (any(df_temp$rcp %in% rcp_pick, na.rm = TRUE)) {
+        df_temp <- df_temp %>% filter(rcp %in% rcp_pick)
+      } else if (any(df_temp$rcp %in% c("0", 0), na.rm = TRUE)) {
+        df_temp <- df_temp %>% filter(rcp %in% c("0", 0))
+      }
+    }
+
+    if (!is.null(period_pick)) {
+      if (any(df_temp$period_code %in% period_pick, na.rm = TRUE)) {
+        df_temp <- df_temp %>% filter(period_code %in% period_pick)
+      } else if (any(df_temp$period_code %in% c("0", 0), na.rm = TRUE)) {
+        df_temp <- df_temp %>% filter(period_code %in% c("0", 0))
+      }
+    }
+
+    if (!is.null(dsmodel_pick) && "dsmodel" %in% names(df_temp) && length(dsmodel_pick) > 0) {
+      if (any(df_temp$dsmodel %in% dsmodel_pick, na.rm = TRUE)) {
+        df_temp <- df_temp %>% filter(dsmodel %in% dsmodel_pick)
+      }
+    }
+
+    d_ind_list[[ind]] <- df_temp
+  }
+
+  d_ind <- bind_rows(d_ind_list)
+
+  if (nrow(d_ind) == 0 || nrow(d_scores) == 0) {
+    stop("No rows after filtering for species / rcp / period (and dsmodel).")
+  }
+
+  # ---- Select ONE row per CU×indicator for indicators (no GCM averaging) ----
+  has_ens_i <- "ensemble" %in% names(d_ind)
+  has_gcm_i <- "gcm" %in% names(d_ind)
+  d_i <- d_ind
+  if (has_ens_i && any(d_i$ensemble %in% TRUE, na.rm = TRUE)) {
+    d_i <- d_i %>% filter(.data$ensemble %in% TRUE)
+  } else if (has_gcm_i) {
+    if (is.numeric(d_i$gcm)) {
+      if (any(d_i$gcm == 0, na.rm = TRUE)) d_i <- d_i %>% filter(.data$gcm == 0)
+    } else if (is.character(d_i$gcm)) {
+      if (any(stringr::str_detect(d_i$gcm, ensemble_regex), na.rm = TRUE)) {
+        d_i <- d_i %>% filter(stringr::str_detect(.data$gcm, ensemble_regex))
+      }
+    }
+  }
+  if (!is.null(gcm_pick) && has_gcm_i) d_i <- d_i %>% filter(.data$gcm %in% gcm_pick)
+
+  # ---- Ensure a single, clean 'category' column on the indicator side ----
+  # If all_std_long already has 'category' for indicators, keep it; otherwise join metadata safely.
+  if (!"category" %in% names(d_i)) {
+    # join metadata but rename meta column to avoid suffixes, then coalesce to a single 'category'
+    meta_map <- indicators_metadata %>%
+      select(indicator = abbrev, category_meta = category)
+    d_i <- d_i %>%
+      left_join(meta_map, by = "indicator") %>%
+      mutate(category = category_meta) %>%
+      select(-category_meta)
+  }
+  # After this point, d_i MUST have 'category'
+  if (!"category" %in% names(d_i)) {
+    stop("Internal error: 'category' column missing after metadata join on indicators.")
+  }
+
+  # Deterministic single row per CU×indicator×category
+  d_i <- d_i %>%
+    arrange(.data$FULL_CU_IN, .data[[cu_name_col]], .data$indicator, .data$category, .data$gcm) %>%
+    group_by(.data$FULL_CU_IN, .data$SPECIES_NAME, .data[[cu_name_col]], .data$indicator, .data$category) %>%
+    slice_head(n = 1) %>%
+    ungroup()
+
+  ind_vals <- d_i %>%
+    transmute(FULL_CU_IN, SPECIES_NAME,
+      cu_lab = .data[[cu_name_col]],
+      indicator, category, value = std_value
+    )
+
+  # ---- Select ONE row per CU×(method,category) for scores_tidy (no GCM averaging) ----
+  has_gcm_s <- "gcm" %in% names(d_scores)
+  d_s <- d_scores
+  if (has_gcm_s) {
+    if (is.numeric(d_s$gcm) && any(d_s$gcm == 0, na.rm = TRUE)) {
+      d_s <- d_s %>% filter(.data$gcm == 0)
+    } else if (!is.null(gcm_pick)) d_s <- d_s %>% filter(.data$gcm %in% gcm_pick)
+  }
+  d_s <- d_s %>%
+    arrange(.data$FULL_CU_IN, .data[[cu_name_col]], .data$method, .data$category, .data$gcm) %>%
+    group_by(.data$FULL_CU_IN, .data$SPECIES_NAME, .data[[cu_name_col]], .data$method, .data$category) %>%
+    slice_head(n = 1) %>%
+    ungroup()
+
+  # ---- Category averages FROM scores_tidy (method == "avg", category in fwrs..gen) ----
+  cat_avgs_from_scores <- d_s %>%
+    filter(.data$method == "avg", .data$category %in% c("fwrs", "migr", "mar", "dem", "gen")) %>%
+    transmute(
+      FULL_CU_IN, SPECIES_NAME,
+      cu_lab = .data[[cu_name_col]],
+      category,
+      indicator = paste0("avg", category), # e.g., "avgfwrs"
+      value = score
+    )
+
+  # ---- Combine per-indicator values with category avg columns ----
+  cat_panels <- bind_rows(ind_vals, cat_avgs_from_scores)
+
+  # ---- Overall metrics FROM scores_tidy ----
+  overall_long <- d_s %>%
+    filter(.data$category == "all", .data$method %in% c("catavg", "avgall", "avgcube")) %>%
+    transmute(
+      FULL_CU_IN, SPECIES_NAME,
+      cu_lab = .data[[cu_name_col]],
+      indicator = dplyr::recode(method,
+        "catavg" = "sumavgs",
+        "avgall" = "avgall",
+        "avgcube" = "sumcube"
+      ),
+      value = score
+    )
+
+  # ---- CU order from rankspecies in scores_tidy (based on chosen rank_method) ----
+  rank_map <- c(sumavgs = "catavg", avgall = "avgall", sumcube = "avgcube")
+  target_method <- unname(rank_map[[rank_method]])
+  ranks <- d_s %>%
+    filter(.data$method == target_method, .data$category == "all") %>%
+    arrange(rankspecies) %>%
+    transmute(cu_lab = .data[[cu_name_col]], rank_within = rankspecies)
+
+  if (nrow(ranks) == 0) {
+    stop("No ranks found in scores_tidy for method=", target_method, " (category == 'all').")
+  }
+
+  cu_order <- ranks$cu_lab
+  cu_labels <- paste0("<span style='color:", sp_color, "'>", cu_order, "</span>")
+
+  # ---- Normalize colour per indicator (0..1) ----
+  norm_by_indicator <- function(df) {
+    lims <- df %>%
+      group_by(indicator) %>%
+      summarise(
+        min_val = suppressWarnings(min(value, na.rm = TRUE)),
+        max_val = suppressWarnings(max(value, na.rm = TRUE)),
+        .groups = "drop"
+      ) %>%
+      mutate(
+        min_val = ifelse(is.infinite(min_val), NA_real_, min_val),
+        max_val = ifelse(is.infinite(max_val), NA_real_, max_val)
+      )
+    df %>%
+      left_join(lims, by = "indicator") %>%
+      mutate(
+        rng_ok = !is.na(min_val) & !is.na(max_val) & (max_val > min_val),
+        value_norm = ifelse(rng_ok, (value - min_val) / (max_val - min_val), 0.5)
+      )
+  }
+
+  cat_panels_norm <- norm_by_indicator(cat_panels) %>%
+    mutate(
+      cu_lab_html = paste0("<span style='color:", sp_color, "'>", cu_lab, "</span>"),
+      cu_lab_html = factor(cu_lab_html, levels = cu_labels)
+    )
+
+  overall_norm <- norm_by_indicator(overall_long) %>%
+    mutate(
+      cu_lab_html = paste0("<span style='color:", sp_color, "'>", cu_lab, "</span>"),
+      cu_lab_html = factor(cu_lab_html, levels = cu_labels),
+      indicator = factor(indicator, levels = c("sumavgs", "avgall", "sumcube"))
+    )
+
+  # ---- Build per-category panel data (EXPLICIT filtering so panels differ) ----
+  build_panel_df <- function(df, code, title) {
+    df_t <- df %>%
+      filter(.data$category == code | .data$indicator == paste0("avg", code))
+    if (nrow(df_t) == 0) {
+      return(NULL)
+    }
+
+    # Put avg<code> last
+    non_avg <- df_t %>%
+      filter(.data$indicator != paste0("avg", code)) %>%
+      pull(indicator) %>%
+      unique()
+    ind_levels <- c(non_avg, paste0("avg", code))
+
+    list(
+      data    = df_t %>% mutate(indicator = factor(indicator, levels = ind_levels)),
+      title   = title
+    )
+  }
+
+  cat_defs <- list(
+    list(code = "fwrs", title = "Freshwater Rearing & Spawning"),
+    list(code = "migr", title = "Upstream Migration"),
+    list(code = "mar", title = "Marine"),
+    list(code = "dem", title = "Demographics"),
+    list(code = "gen", title = "Genetics")
+  )
+  panel_data_list <- lapply(cat_defs, function(def) build_panel_df(cat_panels_norm, def$code, def$title))
+
+  # ---- Plot helper ----
+  make_tile <- function(pdat) {
+    if (is.null(pdat) || is.null(pdat$data) || nrow(pdat$data) == 0) {
+      return(NULL)
+    }
+    dat <- pdat$data
+    p <- ggplot(dat, aes(x = indicator, y = cu_lab_html)) +
+      geom_tile(aes(fill = value_norm), color = "white", linewidth = 0.3, na.rm = FALSE) +
+      {
+        if (isTRUE(show_values)) {
+          geom_text(aes(label = ifelse(is.na(value), "", sprintf("%.2f", value))),
+            size = 2.2, color = "black", na.rm = TRUE
+          )
+        }
+      } +
+      scale_fill_distiller(
+        palette = brewer_palette, direction = palette_direction,
+        na.value = "grey95", limits = c(0, 1)
+      ) +
+      theme_minimal(base_size = 9) +
+      theme(
+        axis.title = element_blank(),
+        axis.text.y = ggtext::element_markdown(size = 8, hjust = 1),
+        axis.text.x = element_text(size = 7, angle = 45, hjust = 1, vjust = 1),
+        legend.position = "none",
+        panel.grid = element_blank(),
+        panel.border = element_rect(color = "grey70", fill = NA, linewidth = 0.5),
+        plot.title = element_text(face = "bold", size = 10, hjust = 0.5),
+        plot.margin = margin(2, 2, 2, 2)
+      ) +
+      labs(title = pdat$title)
+
+    # Vertical separator before the last column if it's avg<code>
+    last_is_avg <- grepl("^avg", tail(levels(dat$indicator), 1))
+    if (isTRUE(last_is_avg)) {
+      p <- p + geom_vline(xintercept = length(levels(dat$indicator)) - 0.5, color = "black", linewidth = 0.8)
+    }
+    p
+  }
+
+  panel_plots <- lapply(panel_data_list, make_tile)
+  panel_plots <- panel_plots[!vapply(panel_plots, is.null, logical(1))]
+
+  # ---- Overall panel ----
+  p_overall <- ggplot(overall_norm, aes(x = indicator, y = cu_lab_html)) +
+    geom_tile(aes(fill = value_norm), color = "white", linewidth = 0.3, na.rm = FALSE) +
+    {
+      if (isTRUE(show_values)) {
+        geom_text(aes(label = ifelse(is.na(value), "", sprintf("%.2f", value))),
+          size = 2.2, color = "black", na.rm = TRUE
+        )
+      }
+    } +
+    scale_fill_distiller(
+      palette = brewer_palette, direction = palette_direction,
+      na.value = "grey95", limits = c(0, 1)
+    ) +
+    theme_minimal(base_size = 9) +
+    theme(
+      axis.title = element_blank(),
+      axis.text.y = ggtext::element_markdown(size = 8, hjust = 1),
+      axis.text.x = element_text(size = 7, angle = 45, hjust = 1, vjust = 1),
+      legend.position = "none",
+      panel.grid = element_blank(),
+      panel.border = element_rect(color = "grey70", fill = NA, linewidth = 0.5),
+      plot.title = element_text(face = "bold", size = 10, hjust = 0.5),
+      plot.margin = margin(2, 2, 2, 2)
+    ) +
+    labs(title = "Overall Vulnerability") +
+    geom_vline(xintercept = 1.5, color = "black", linewidth = 0.8) +
+    geom_vline(xintercept = 2.5, color = "grey50", linewidth = 0.5, linetype = "dashed")
+
+  # ---- Optional: alphabetical order instead of ranks ----
+  if (!isTRUE(sort_by_rank)) {
+    cu_alpha <- d_i %>%
+      distinct(cu_lab = .data[[cu_name_col]]) %>%
+      arrange(cu_lab) %>%
+      pull(cu_lab)
+    cu_labels_alpha <- paste0("<span style='color:", sp_color, "'>", cu_alpha, "</span>")
+    relevel_y <- function(p) p + scale_y_discrete(limits = cu_labels_alpha)
+    panel_plots <- lapply(panel_plots, relevel_y)
+    p_overall <- relevel_y(p_overall)
+  }
+
+  # ---- Combine panels ----
+  plots_all <- c(panel_plots, list(p_overall))
+  combined <- wrap_plots(plots_all, ncol = 2) +
+    plot_annotation(
+      theme = theme(
+        plot.margin = margin(5, 5, 5, 5),
+        # plot.background = element_rect(fill = "white", color = NA)
+      )
+    ) +
+    plot_layout(guides = "collect")
+
+  return(combined)
 }
 
 
@@ -711,24 +1258,69 @@ make_indicator_plots <- function(data,
                                  ind_pick,
                                  tbl = tbl_indicators,
                                  standardized_plots = FALSE,
-                                 make_spatial = TRUE,
+                                 make_spatial = F,
                                  spatial_pal_dir = -1) {
   ind_row <- tbl[tbl$abbrev == ind_pick, ]
 
+  # ---- Lollipop plot (long-format) ----
   p <- plot_lollipop(data,
     indicator_pick = ind_row$abbrev,
     indicator_unit = ind_row$unit,
+    rcp_pick = unique(data$rcp),
+    period_pick = unique(data$period_code),
     use_standardized = standardized_plots
   )
-
-  prs <- plot_std_vs_raw(data,
-    indicator_pick = ind_row$abbrev,
-    indicator_stat = ind_row$stat
-  )
-
   print(p)
 
-  print(prs)
+  # ---- Raw vs Standardized scatter (built directly from long-format columns) ----
+  # all_std_long contains both raw value and std_value columns
+  dat_scatter <- data %>%
+    filter(.data$indicator == ind_pick) %>%
+    filter(!is.na(std_value))
+
+  has_raw <- "value" %in% names(dat_scatter) && any(!is.na(dat_scatter$value))
+
+  if (has_raw && nrow(dat_scatter) > 0) {
+    # for categorical indicators skip histogram
+    include_hist <- !isTRUE(ind_row$stat == "category") &&
+      is.numeric(dat_scatter$value)
+    # Select ensemble / GCM 0 and stat == "mean" for scatter to avoid duplication
+    scatter_dat <- dat_scatter
+    if ("stat" %in% names(scatter_dat) && any(scatter_dat$stat == "mean", na.rm = TRUE)) {
+      scatter_dat <- scatter_dat %>% filter(.data$stat == "mean")
+    }
+    if ("gcm" %in% names(scatter_dat)) {
+      if (any(scatter_dat$gcm == "9", na.rm = TRUE)) {
+        scatter_dat <- scatter_dat %>% filter(.data$gcm == "9")
+      } else if (any(scatter_dat$gcm == 0, na.rm = TRUE)) {
+        scatter_dat <- scatter_dat %>% filter(.data$gcm == 0)
+      }
+    }
+
+    prs <- ggplot(scatter_dat, aes(x = value, y = std_value, color = SPECIES_NAME)) +
+      geom_point(size = 2.5) +
+      scale_color_manual(values = species_palette) +
+      labs(
+        color  = "Species",
+        x      = paste0("Raw (", if (!is.null(ind_row$unit) && !is.na(ind_row$unit)) ind_row$unit else "value", ")"),
+        y      = "Standardized"
+      ) +
+      theme_minimal(base_size = 10)
+
+    if (isTRUE(include_hist)) {
+      p2 <- ggplot(scatter_dat, aes(x = value)) +
+        geom_histogram(bins = 20) +
+        labs(x = "Raw", y = "Count") +
+        theme_minimal(base_size = 9)
+      p3 <- ggplot(scatter_dat, aes(x = std_value)) +
+        geom_histogram(bins = 20) +
+        labs(x = "Standardized", y = "") +
+        theme_minimal(base_size = 9)
+      print(prs / (p2 | p3))
+    } else {
+      print(prs)
+    }
+  }
 
   if (make_spatial == TRUE) {
     pmap <- spatial_indicator_plot(data,
@@ -738,7 +1330,6 @@ make_indicator_plots <- function(data,
       use_standardized = standardized_plots,
       palette_direction = spatial_pal_dir
     )
-
     print(pmap)
   }
 }
@@ -1034,7 +1625,6 @@ species_category_tile_plot <- function(data,
                                        species_palette = NULL,
                                        brewer_palette = "RdYlGn",
                                        palette_direction = -1,
-                                       rank_method = "sumavgs",
                                        show_values = TRUE,
                                        sort_by_rank = TRUE) {
   # Use default species palette if not provided
@@ -1065,19 +1655,6 @@ species_category_tile_plot <- function(data,
   species_color <- species_palette[species_pick]
   if (is.na(species_color)) {
     species_color <- "black" # fallback color
-  }
-
-  # Determine rank column to use
-  rank_col <- paste0("std_rank_", rank_method, "_within")
-
-  if (!rank_col %in% names(data_sp)) {
-    stop(paste("Rank column", rank_col, "not found in data"))
-  }
-
-  # Sort by rank if requested
-  if (sort_by_rank) {
-    data_sp <- data_sp %>%
-      arrange(!!sym(rank_col))
   }
 
   # Define category groupings with ALL indicators in each category
@@ -1730,929 +2307,7 @@ plot_timing_comparison <- function(cu_timing_long,
 
 
 
-# Long format plots -------------------------------------------------------
 
-#' Lollipop plot (long-format) for a single RCP/period with GCM variation
-#' Always shows all CUs; missing data show as blank (no segment/point).
-#'
-#' @param all_std_long  Long-format table with (at least):
-#'   rcp, period_code, indicator, gcm, CVIS_NAME, SPECIES_NAME, FULL_CU_IN,
-#'   (optional) dsmodel, std_value (and optionally raw_value/value for raw plotting)
-#' @param indicator_pick Character; indicator id to plot (e.g., "stream_temp")
-#' @param rcp_pick       RCP value to filter (e.g., "4.5")
-#' @param period_pick    Period code to filter (e.g., "2040")
-#' @param dsmodel_pick   Optional character scalar/vector; if provided, filter to these dsmodel values
-#' @param indicator_name Optional pretty subtitle for indicator
-#' @param indicator_unit Optional y-axis label for raw plots (ignored when standardized)
-#' @param use_standardized Logical; FALSE plots raw on the axis; TRUE plots standardized (default FALSE)
-#' @param plot_colours   Named/unnamed vector; if named, names should match SPECIES_NAME
-#' @param log_scale      Logical; use log10 scale for y
-#' @param threshold_value Numeric; optional horizontal threshold line (NA to skip)
-#' @param show_gcm_points Logical; show per-GCM points in addition to min–max + mean
-#'
-#' @return ggplot object
-plot_lollipop_long <- function(all_std_long,
-                               indicator_pick,
-                               rcp_pick,
-                               period_pick,
-                               dsmodel_pick = NULL,
-                               indicator_name = NULL,
-                               indicator_unit = NULL,
-                               use_standardized = FALSE, # default FALSE (Y uses raw)
-                               plot_colours = c(
-                                 "#1b9e77", "#d95f02", "#7570b3", "#66a61e",
-                                 "#e6ab02", "#a6761d", "#666666"
-                               ),
-                               log_scale = FALSE,
-                               threshold_value = NA_real_,
-                               show_gcm_points = FALSE) {
-  # ---- CU roster (ensures all CUs are shown regardless of data presence) ----
-  cu_roster <- all_std_long %>%
-    distinct(FULL_CU_IN, SPECIES_NAME, CVIS_NAME)
-
-  # ---- Resolve value column for plotting Y (ranges & center_y) ----
-  val_col <- if (use_standardized) {
-    if (!"std_value" %in% names(all_std_long)) {
-      stop("Column 'std_value' not found in all_std_long.")
-    }
-    "std_value"
-  } else {
-    if ("raw_value" %in% names(all_std_long)) {
-      "raw_value"
-    } else if ("value" %in% names(all_std_long)) {
-      "value"
-    } else {
-      stop("No raw value column found. Provide 'raw_value' or 'value', or set use_standardized = TRUE.")
-    }
-  }
-
-  # ---- Filter scenarios/models ----
-  dat_full <- all_std_long %>%
-    filter(
-      .data$indicator == indicator_pick,
-      .data$rcp %in% rcp_pick,
-      .data$period_code %in% period_pick
-    )
-
-  if (!is.null(dsmodel_pick) && length(dsmodel_pick) > 0 && "dsmodel" %in% names(dat_full)) {
-    dat_full <- dat_full %>% filter(.data$dsmodel %in% dsmodel_pick)
-  }
-
-  # Ensure rcp and dsmodel are factor-like for plotting
-  dat_full <- dat_full %>%
-    mutate(
-      rcp = factor(rcp),
-      dsmodel = if ("dsmodel" %in% names(.)) factor(dsmodel) else factor("default")
-    )
-
-  # Note: even if dat_full is empty, we still want to show all CUs with blanks.
-  if (!"std_value" %in% names(dat_full)) {
-    if (nrow(dat_full) > 0) stop("Column 'std_value' is required for colouring points by standardized score.")
-  }
-
-  # ---- Reduce to needed columns ----
-  dat <- dat_full %>%
-    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, gcm, rcp, dsmodel,
-      val = dplyr::all_of(val_col),
-      std_val = dplyr::all_of(if ("std_value" %in% names(dat_full)) "std_value" else val_col)
-    )
-
-  # ---- Summaries across GCM per CU/Scenario/Model ----
-  cu_summary <- dat %>%
-    group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, rcp, dsmodel) %>%
-    summarise(
-      n_gcm      = dplyr::n_distinct(gcm[!is.na(val)]),
-      min_gcm    = if (sum(!is.na(val)) > 0) min(val, na.rm = TRUE) else NA_real_,
-      max_gcm    = if (sum(!is.na(val)) > 0) max(val, na.rm = TRUE) else NA_real_,
-      center_y   = if (sum(!is.na(val)) > 0) mean(val, na.rm = TRUE) else NA_real_, # Y position
-      center_std = if (sum(!is.na(std_val)) > 0) mean(std_val, na.rm = TRUE) else NA_real_, # fill colour
-      .groups    = "drop"
-    )
-
-  # ---- Right-join summaries to the full CU roster to ensure all CUs are present ----
-  cu_plot <- cu_roster %>%
-    left_join(cu_summary, by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME"))
-
-  # ---- Build a species -> colour map for labels ----
-  species_levels <- unique(cu_plot$SPECIES_NAME)
-  if (!is.null(names(plot_colours)) && all(species_levels %in% names(plot_colours))) {
-    col_map <- plot_colours[names(plot_colours) %in% species_levels]
-    col_map <- col_map[species_levels]
-  } else {
-    col_map <- setNames(rep(plot_colours, length.out = length(species_levels)), species_levels)
-  }
-
-  # ---- HTML labels coloured by species ----
-  cu_plot <- cu_plot %>%
-    mutate(
-      id_label_html = paste0("<span style='color:", col_map[SPECIES_NAME], "'>", CVIS_NAME, "</span>")
-    )
-
-  # ---- Order by species then FULL_CU_IN (no sorting by value) ----
-  cu_plot <- cu_plot %>%
-    arrange(SPECIES_NAME, FULL_CU_IN, CVIS_NAME) %>%
-    mutate(id_label_html = factor(id_label_html, levels = unique(id_label_html)))
-
-  # ---- Plot ----
-  dodge_width <- 0.8
-  p <- ggplot(cu_plot, aes(x = id_label_html, color = rcp, group = interaction(rcp, dsmodel)))
-
-  if (!is.na(threshold_value)) {
-    p <- p + geom_hline(yintercept = threshold_value, linetype = "dashed", color = "grey30", size = 0.8)
-  }
-
-  # 1. Background "Cloud" for GCM uncertainty (wide grey bar)
-  p <- p +
-    geom_segment(aes(xend = id_label_html, y = min_gcm, yend = max_gcm),
-      color = "grey92", linewidth = 6, alpha = 0.8, na.rm = TRUE,
-      position = position_dodge(width = dodge_width)
-    )
-
-  # 2. Inner GCM range line (thin line for contrast)
-  p <- p +
-    geom_segment(aes(xend = id_label_html, y = min_gcm, yend = max_gcm),
-      linewidth = 1.5, alpha = 0.8, na.rm = TRUE,
-      position = position_dodge(width = dodge_width)
-    )
-
-  # Optional: per-GCM points
-  if (isTRUE(show_gcm_points) && nrow(dat) > 0) {
-    p <- p +
-      geom_point(
-        data = dat %>%
-          inner_join(
-            cu_plot %>% select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, id_label_html, rcp, dsmodel),
-            by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "rcp", "dsmodel")
-          ),
-        aes(x = id_label_html, y = val, group = interaction(rcp, dsmodel)),
-        position = position_dodge(width = dodge_width),
-        size = 0.8, alpha = 0.25, inherit.aes = FALSE, color = "black"
-      )
-  }
-
-  # 3. Lollipop Head (Future ensemble mean color-coded by risk score)
-  p <- p +
-    geom_point(aes(y = center_y, fill = center_std, shape = dsmodel),
-      color = "black", size = 3.2, stroke = 0.8, na.rm = TRUE,
-      position = position_dodge(width = dodge_width)
-    ) +
-    scale_fill_distiller(
-      name = "Standardized Score (Risk Level)",
-      palette = "RdYlGn", direction = -1,
-      limits = c(0, 1), na.value = "transparent"
-    )
-
-  # Saturated Scenario Colors
-  p <- p +
-    scale_color_manual(
-      name = "Scenario (RCP)",
-      values = c("45" = "darkblue", "85" = "#B22222"), # ForestGreen and FireBrick
-      na.translate = FALSE
-    ) +
-    scale_shape_manual(
-      name = "Downscaling Model",
-      values = c(21, 24, 22, 23, 25),
-      na.translate = FALSE
-    )
-
-  # Axis scale
-  if (isTRUE(log_scale)) {
-    if (any(cu_plot$min_gcm <= 0, na.rm = TRUE)) {
-      warning("log_scale = TRUE but some values are <= 0; those rows will be dropped by scale_y_log10.")
-    }
-    p <- p + scale_y_log10()
-  }
-
-  # Labels
-  subtitle_lab <- if (is.null(indicator_name)) indicator_pick else indicator_name
-  y_lab <- if (isTRUE(use_standardized)) {
-    "Standardized score" # no units for standardized
-  } else {
-    if (is.null(indicator_unit) || is.na(indicator_unit) || indicator_unit == "") "Value" else indicator_unit
-  }
-  dsmodel_lab <- if (!is.null(dsmodel_pick) && length(dsmodel_pick) > 0 && "dsmodel" %in% names(dat_full)) {
-    paste(unique(dat_full$dsmodel), collapse = ", ")
-  } else {
-    NA_character_
-  }
-
-  p <- p +
-    labs(
-      subtitle = subtitle_lab,
-      y = y_lab,
-      x = NULL,
-      caption = paste0(
-        "RCP ", rcp_pick, " • Period ", period_pick,
-        if (!is.na(dsmodel_lab)) paste0(" • dsmodel: ", dsmodel_lab) else "",
-        " — Point = mean across GCMs; Segment = min–max across GCMs",
-        if (!use_standardized) " (Y: raw; colour: standardized)" else " (Y & colour: standardized)"
-      )
-    ) +
-    coord_flip() +
-    theme_minimal(base_size = 11) +
-    theme(
-      axis.text.y = ggtext::element_markdown(size = 8.5),
-      legend.position = "right",
-      panel.grid.major.y = element_blank()
-    )
-
-  return(p)
-}
-
-
-
-
-#' Tile plot of standardized indicator values (long-format, by species)
-#' Selects ensemble or GCM 0 (no averaging across GCMs).
-#'
-#' @param all_std_long       Long-format table with at least:
-#'   rcp, period_code, indicator, CVIS_NAME, SPECIES_NAME, FULL_CU_IN,
-#'   std_value, (optional) gcm, dsmodel, (optional) ensemble (logical)
-#' @param indicators_choose  Character vector of indicator codes to include.
-#' @param indicators_metadata Data frame with columns: abbrev (code), name (description).
-#' @param brewer_palette     RColorBrewer palette name.
-#' @param palette_direction  1 or -1 for palette direction.
-#' @param plot_colours       Named or unnamed vector of species colors; if named, names match SPECIES_NAME.
-#' @param rcp_pick           Optional RCP to filter (e.g., "4.5"). If NULL, use all present.
-#' @param period_pick        Optional period_code to filter (e.g., "2040"). If NULL, use all present.
-#' @param dsmodel_pick       Optional character scalar/vector; filter to these dsmodel(s) if supplied.
-#' @param gcm_pick           Optional scalar/vector; if supplied, filter to these GCM(s) after ensemble/0 fallback.
-#' @param ncol               Columns in patchwork layout (auto-detected if NULL).
-#' @param uniform_height     TRUE forces equal panel heights; FALSE scales by n CUs per species.
-#' @param overall_score_cols Character vector of indicator codes to move to the end (if present).
-#' @param category_name      Optional overall title for the assembled plot.
-#' @param ensemble_regex     Regex pattern for detecting ensemble codes in character `gcm`.
-#'
-#' @return A patchwork ggplot object with one tile panel per species + indicator key.
-indicator_tile_plot <- function(all_std_long,
-                                indicators_choose = c("migrT", "migrQ", "migrA21", "migrdist"),
-                                indicators_metadata = tbl_indicators,
-                                brewer_palette = "RdYlGn",
-                                palette_direction = -1,
-                                plot_colours = species_palette,
-                                rcp_pick = NULL,
-                                period_pick = NULL,
-                                dsmodel_pick = NULL,
-                                gcm_pick = NULL,
-                                ncol = NULL,
-                                uniform_height = FALSE,
-                                overall_score_cols = NULL,
-                                category_name = NULL,
-                                ensemble_regex = "(?i)(ens|ensemble|mmem|multi|mean|avg)") {
-  # ---- Basic checks ----
-  req_cols <- c("indicator", "CVIS_NAME", "SPECIES_NAME", "FULL_CU_IN", "std_value")
-  if (!all(req_cols %in% names(all_std_long))) {
-    stop("Missing required columns in 'all_std_long': ", paste(setdiff(req_cols, names(all_std_long)), collapse = ", "))
-  }
-
-  # ---- Filter scenario/model/indicator ----
-  data_f <- all_std_long
-  if (!is.null(rcp_pick)) data_f <- data_f %>% filter(.data$rcp == rcp_pick)
-  if (!is.null(period_pick)) data_f <- data_f %>% filter(.data$period_code == period_pick)
-  if (!is.null(dsmodel_pick) && "dsmodel" %in% names(data_f) && length(dsmodel_pick) > 0) {
-    data_f <- data_f %>% filter(.data$dsmodel %in% dsmodel_pick)
-  }
-
-  # Keep only requested indicators (plus any overall codes)
-  keep_codes <- unique(c(indicators_choose, overall_score_cols))
-  if (!is.null(keep_codes)) {
-    data_f <- data_f %>% filter(.data$indicator %in% keep_codes)
-  }
-
-  if (nrow(data_f) == 0L) {
-    stop("No rows after filtering by rcp/period/dsmodel/indicators.")
-  }
-
-  # ---- Select ensemble or GCM 0 (no averaging) ----
-  # Start with all rows; then try to keep ensemble / gcm==0 / gcm_pick.
-  data_s <- data_f
-
-  has_ensemble_col <- "ensemble" %in% names(data_s)
-  has_gcm <- "gcm" %in% names(data_s)
-
-  if (has_ensemble_col && any(data_s$ensemble %in% TRUE, na.rm = TRUE)) {
-    data_s <- data_s %>% filter(.data$ensemble %in% TRUE)
-  } else if (has_gcm) {
-    if (is.numeric(data_s$gcm)) {
-      # Prefer numeric GCM code == 0
-      if (any(data_s$gcm == 0, na.rm = TRUE)) {
-        data_s <- data_s %>% filter(.data$gcm == 0)
-      }
-    } else if (is.character(data_s$gcm)) {
-      # Prefer ensemble-like names by regex
-      if (any(str_detect(data_s$gcm, ensemble_regex), na.rm = TRUE)) {
-        data_s <- data_s %>% filter(str_detect(.data$gcm, ensemble_regex))
-      }
-    }
-  }
-
-  # If user supplied gcm_pick, filter to that (after ensemble/0)
-  if (!is.null(gcm_pick) && has_gcm) {
-    data_s <- data_s %>% filter(.data$gcm %in% gcm_pick)
-  }
-
-  # If multiple GCM rows still exist per CU×indicator, deterministically select the first and warn
-  if (has_gcm) {
-    multi_counts <- data_s %>%
-      group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, indicator) %>%
-      summarise(n_gcm = n_distinct(gcm), .groups = "drop") %>%
-      filter(n_gcm > 1)
-    if (nrow(multi_counts) > 0) {
-      warning(glue::glue("{nrow(multi_counts)} CU×indicator groups had multiple GCM rows after selection; keeping the first deterministically. Consider setting gcm_pick=."))
-      data_s <- data_s %>%
-        arrange(SPECIES_NAME, FULL_CU_IN, CVIS_NAME, indicator, gcm) %>%
-        group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, indicator) %>%
-        slice_head(n = 1) %>%
-        ungroup()
-    }
-  }
-
-  # ---- Prepare plot data (no aggregation) ----
-  plot_data <- data_s %>%
-    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, indicator, value = std_value)
-
-  if (nrow(plot_data) == 0L) {
-    stop("No rows remain after ensemble/GCM selection.")
-  }
-
-  # ---- Indicator order: regular first, overall at end ----
-  indicator_order <- unique(plot_data$indicator)
-  if (!is.null(overall_score_cols) && length(overall_score_cols) > 0) {
-    regular_inds <- setdiff(indicator_order, overall_score_cols)
-    overall_present <- overall_score_cols[overall_score_cols %in% indicator_order]
-    indicator_order <- c(regular_inds, overall_present)
-  }
-  plot_data <- plot_data %>% mutate(indicator = factor(indicator, levels = indicator_order))
-
-  # ---- Normalize color by indicator (0..1 scale) ----
-  indicator_limits <- plot_data %>%
-    group_by(indicator) %>%
-    summarise(
-      min_val = suppressWarnings(min(value, na.rm = TRUE)),
-      max_val = suppressWarnings(max(value, na.rm = TRUE)),
-      .groups = "drop"
-    ) %>%
-    mutate(
-      min_val = ifelse(is.infinite(min_val), NA_real_, min_val),
-      max_val = ifelse(is.infinite(max_val), NA_real_, max_val)
-    )
-
-  plot_data <- plot_data %>%
-    left_join(indicator_limits, by = "indicator") %>%
-    mutate(
-      range_ok = !is.na(min_val) & !is.na(max_val) & (max_val > min_val),
-      value_normalized = ifelse(range_ok, (value - min_val) / (max_val - min_val), 0.5)
-    )
-
-  # ---- Species color mapping for CU labels ----
-  species_levels <- unique(plot_data$SPECIES_NAME)
-  if (!is.null(names(plot_colours)) && all(species_levels %in% names(plot_colours))) {
-    col_map <- plot_colours[names(plot_colours) %in% species_levels]
-    col_map <- col_map[species_levels]
-  } else {
-    col_map <- setNames(rep(plot_colours, length.out = length(species_levels)), species_levels)
-  }
-
-  plot_data <- plot_data %>%
-    mutate(
-      sp = SPECIES_NAME,
-      id = CVIS_NAME,
-      id_label = paste0("<span style='color:", col_map[sp], "'>", id, "</span>")
-    )
-
-  # ---- Species list and CU counts ----
-  species_list <- unique(plot_data$sp)
-  cu_counts <- plot_data %>%
-    group_by(sp) %>%
-    summarise(
-      n_cus = n_distinct(id_label),
-      cu_name = if (n_distinct(id_label) == 1) first(id) else NA_character_,
-      .groups = "drop"
-    ) %>%
-    arrange(match(sp, species_list))
-
-  # ---- Auto-detect ncol ----
-  if (is.null(ncol)) {
-    ncol <- ifelse(length(species_list) == 5, 2, ceiling(sqrt(length(species_list))))
-  }
-
-  # ---- Panel heights ----
-  if (!uniform_height) {
-    heights <- cu_counts$n_cus
-    heights <- heights / max(1, min(heights, na.rm = TRUE))
-    heights <- pmin(heights, 3)
-  } else {
-    heights <- rep(1, length(species_list))
-  }
-
-  # ---- Bottom row detection ----
-  n_plots <- length(species_list)
-  n_rows <- ceiling(n_plots / ncol)
-  bottom_row_start <- (n_rows - 1) * ncol + 1
-  bottom_row_indices <- bottom_row_start:n_plots
-
-  # ---- Build per-species subplots ----
-  plot_list <- lapply(seq_along(species_list), function(idx) {
-    species <- species_list[idx]
-    data_sp <- plot_data %>% filter(sp == species)
-
-    n_cus <- cu_counts$n_cus[idx]
-    cu_name <- cu_counts$cu_name[idx]
-    is_bottom_row <- idx %in% bottom_row_indices
-    is_single_cu <- n_cus == 1
-
-    y_text_size <- if (n_cus > 15) 7 else if (n_cus > 10) 8 else 9
-    tile_text_size <- if (n_cus > 15) 1.8 else if (n_cus > 10) 2 else 2.5
-
-    plot_title <- paste0(species, " (n=", n_cus, ")")
-    plot_subtitle <- if (is_single_cu) cu_name else NULL
-
-    p <- ggplot(data_sp, aes(x = indicator, y = id_label)) +
-      geom_tile(aes(fill = value_normalized), color = "white", linewidth = 0.3, na.rm = FALSE) +
-      geom_text(aes(label = ifelse(is.na(value), "", sprintf("%.1f", value))),
-        size = tile_text_size, color = "black", na.rm = TRUE
-      ) +
-      scale_fill_distiller(
-        palette = brewer_palette,
-        direction = palette_direction,
-        na.value = "grey95",
-        limits = c(0, 1)
-      ) +
-      theme_minimal(base_size = 9) +
-      theme(
-        axis.title = element_blank(),
-        legend.position = "none",
-        panel.grid = element_blank(),
-        panel.border = element_rect(color = "grey70", fill = NA, linewidth = 0.3),
-        plot.title = element_text(face = "bold", size = 10, hjust = 0, margin = margin(b = 1)),
-        plot.margin = margin(2, 2, 2, 2)
-      ) +
-      labs(y = NULL, x = NULL, title = plot_title)
-
-    if (!is.null(plot_subtitle)) {
-      p <- p +
-        labs(subtitle = plot_subtitle) +
-        theme(
-          plot.subtitle = element_text(
-            size = 8, hjust = 0, margin = margin(b = 2),
-            color = plot_colours[species]
-          )
-        )
-    }
-
-    if (is_single_cu) {
-      p <- p + theme(axis.text.y = element_blank())
-    } else {
-      p <- p + theme(
-        axis.text.y = ggtext::element_markdown(size = y_text_size, hjust = 1, margin = margin(r = 2))
-      )
-    }
-
-    # Separator before overall indicator(s)
-    if (!is.null(overall_score_cols) && length(overall_score_cols) > 0) {
-      all_inds <- levels(data_sp$indicator)
-      first_overall_idx <- which(all_inds %in% overall_score_cols)[1]
-      if (!is.na(first_overall_idx)) {
-        p <- p + geom_vline(xintercept = first_overall_idx - 0.5, color = "black", linewidth = 1)
-        overall_positions <- which(all_inds %in% overall_score_cols)
-        if (length(overall_positions) > 1) {
-          for (i in 1:(length(overall_positions) - 1)) {
-            p <- p + geom_vline(
-              xintercept = overall_positions[i] + 0.5,
-              color = "grey50", linewidth = 0.5, linetype = "dashed"
-            )
-          }
-        }
-      }
-    }
-
-    if (is_bottom_row) {
-      p <- p + theme(
-        axis.text.x = element_text(size = 8, angle = 45, hjust = 1, vjust = 1, margin = margin(t = 2))
-      )
-    } else {
-      p <- p + theme(axis.text.x = element_blank())
-    }
-
-    return(p)
-  })
-
-  # ---- Legend (indicator key) ----
-  indicators_in_plot <- as.character(indicator_order)
-  legend_data <- indicators_metadata %>%
-    filter(.data$abbrev %in% indicators_in_plot) %>%
-    select(abbrev, name) %>%
-    mutate(abbrev = factor(abbrev, levels = indicators_in_plot)) %>%
-    arrange(abbrev) %>%
-    rename(Code = abbrev, Description = name)
-
-  # Add any overall codes missing in metadata
-  if (!is.null(overall_score_cols) && length(overall_score_cols) > 0) {
-    for (code in overall_score_cols) {
-      if ((code %in% indicators_in_plot) && !(code %in% legend_data$Code)) {
-        legend_data <- bind_rows(legend_data, tibble(Code = code, Description = paste("Overall:", code)))
-      }
-    }
-    legend_data <- legend_data %>%
-      mutate(Code = factor(Code, levels = indicators_in_plot)) %>%
-      arrange(Code) %>%
-      mutate(Code = as.character(Code))
-  }
-
-  legend_grob <- gridExtra::tableGrob(
-    legend_data,
-    rows = NULL,
-    theme = gridExtra::ttheme_minimal(
-      core = list(
-        fg_params = list(hjust = 0, x = 0.05, fontsize = 8),
-        bg_params = list(fill = "white", col = "grey70", lwd = 0.3)
-      ),
-      colhead = list(
-        fg_params = list(fontface = "bold", fontsize = 9),
-        bg_params = list(fill = "grey90", col = "grey70", lwd = 0.3)
-      )
-    )
-  )
-
-  legend_plot <- ggplot() +
-    annotation_custom(legend_grob) +
-    theme_void() +
-    labs(title = "Indicator Key") +
-    theme(
-      plot.title = element_text(face = "bold", size = 10, hjust = 0, margin = margin(b = 5)),
-      plot.margin = margin(2, 2, 2, 2)
-    )
-
-  plot_list <- c(plot_list, list(legend_plot))
-
-  # ---- Assemble with patchwork ----
-  n_rows <- ceiling((length(species_list) + 1) / ncol)
-  if (!uniform_height) {
-    height_matrix <- matrix(c(heights, 0.5), nrow = n_rows, ncol = ncol, byrow = TRUE)
-    row_heights <- apply(height_matrix, 1, max, na.rm = TRUE)
-    p <- wrap_plots(plot_list, ncol = ncol) + plot_layout(heights = row_heights)
-  } else {
-    heights_with_legend <- c(rep(1, length(species_list)), 0.5)
-    p <- wrap_plots(plot_list, ncol = ncol) + plot_layout(heights = heights_with_legend)
-  }
-
-  # ---- Title / annotation ----
-  if (!is.null(category_name)) {
-    p <- p + plot_annotation(
-      title = category_name,
-      theme = theme(
-        plot.title = element_text(face = "bold", size = 12, hjust = 0.5, margin = margin(b = 10)),
-        plot.margin = margin(5, 5, 5, 5),
-        plot.background = element_rect(fill = "white", color = NA)
-      )
-    )
-  } else {
-    p <- p + plot_annotation(
-      theme = theme(
-        plot.margin = margin(5, 5, 5, 5),
-        plot.background = element_rect(fill = "white", color = NA)
-      )
-    )
-  }
-
-  return(p)
-}
-
-
-#' Tile plots (long-format): all indicators by category + category avg (from scores_tidy)
-#' Uses `all_std_long` for per-indicator tiles and `scores_tidy` for category averages & overall metrics.
-#' No averaging across GCMs: selects ensemble -> gcm==0/ensemble-like -> gcm_pick -> first deterministic.
-species_category_tile_plot_from_scores <- function(all_std_long,
-                                                   scores_tidy,
-                                                   species_pick,
-                                                   cu_name_col = "CVIS_NAME",
-                                                   indicators_metadata = tbl_indicators, # must have: abbrev, category
-                                                   species_palette = NULL,
-                                                   brewer_palette = "RdYlGn",
-                                                   palette_direction = -1,
-                                                   rank_method = "sumavgs", # "sumavgs"|"avgall"|"sumcube"
-                                                   show_values = TRUE,
-                                                   sort_by_rank = TRUE,
-                                                   rcp_pick = NULL,
-                                                   period_pick = NULL,
-                                                   dsmodel_pick = NULL,
-                                                   gcm_pick = NULL,
-                                                   ensemble_regex = "(?i)(ens|ensemble|mmem|multi|mean|avg)") {
-  # ---- Input checks ----
-  req_ind_cols <- c("indicator", "SPECIES_NAME", "FULL_CU_IN", "CVIS_NAME", "std_value")
-  if (!all(req_ind_cols %in% names(all_std_long))) {
-    stop("all_std_long is missing: ", paste(setdiff(req_ind_cols, names(all_std_long)), collapse = ", "))
-  }
-  req_score_cols <- c(
-    "FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "gcm", "rcp", "period_code",
-    "method", "category", "score", "rankspecies"
-  )
-  if (!all(req_score_cols %in% names(scores_tidy))) {
-    stop("scores_tidy is missing: ", paste(setdiff(req_score_cols, names(scores_tidy)), collapse = ", "))
-  }
-  if (!cu_name_col %in% names(all_std_long)) {
-    stop(sprintf("Column '%s' not found in all_std_long", cu_name_col))
-  }
-  if (!(rank_method %in% c("sumavgs", "avgall", "sumcube"))) {
-    stop("rank_method must be one of: 'sumavgs','avgall','sumcube'.")
-  }
-  if (is.null(indicators_metadata) ||
-    !all(c("abbrev", "category") %in% names(indicators_metadata))) {
-    stop("Please provide 'indicators_metadata' with columns: 'abbrev' and 'category'.")
-  }
-
-  # ---- Default species palette ----
-  if (is.null(species_palette)) {
-    species_palette <- c(
-      "Chinook" = "#E69F00", "Chum" = "#56B4E9", "Coho" = "#009E73", "Pink" = "#F0E442", "Sockeye" = "#D55E00"
-    )
-  }
-  sp_color <- species_palette[species_pick]
-  if (is.na(sp_color) || is.null(sp_color)) sp_color <- "black"
-
-  # ---- Filter species + scenario ----
-  d_ind <- all_std_long %>% filter(.data$SPECIES_NAME == species_pick)
-  d_scores <- scores_tidy %>% filter(.data$SPECIES_NAME == species_pick)
-
-  if (!is.null(rcp_pick)) {
-    d_ind <- d_ind %>% filter(.data$rcp == rcp_pick)
-    d_scores <- d_scores %>% filter(.data$rcp == rcp_pick)
-  }
-  if (!is.null(period_pick)) {
-    d_ind <- d_ind %>% filter(.data$period_code == period_pick)
-    d_scores <- d_scores %>% filter(.data$period_code == period_pick)
-  }
-  if (!is.null(dsmodel_pick) && "dsmodel" %in% names(d_ind) && length(dsmodel_pick) > 0) {
-    d_ind <- d_ind %>% filter(.data$dsmodel %in% dsmodel_pick)
-  }
-  if (nrow(d_ind) == 0 || nrow(d_scores) == 0) {
-    stop("No rows after filtering for species / rcp / period (and dsmodel).")
-  }
-
-  # ---- Select ONE row per CU×indicator for indicators (no GCM averaging) ----
-  has_ens_i <- "ensemble" %in% names(d_ind)
-  has_gcm_i <- "gcm" %in% names(d_ind)
-  d_i <- d_ind
-  if (has_ens_i && any(d_i$ensemble %in% TRUE, na.rm = TRUE)) {
-    d_i <- d_i %>% filter(.data$ensemble %in% TRUE)
-  } else if (has_gcm_i) {
-    if (is.numeric(d_i$gcm)) {
-      if (any(d_i$gcm == 0, na.rm = TRUE)) d_i <- d_i %>% filter(.data$gcm == 0)
-    } else if (is.character(d_i$gcm)) {
-      if (any(stringr::str_detect(d_i$gcm, ensemble_regex), na.rm = TRUE)) {
-        d_i <- d_i %>% filter(stringr::str_detect(.data$gcm, ensemble_regex))
-      }
-    }
-  }
-  if (!is.null(gcm_pick) && has_gcm_i) d_i <- d_i %>% filter(.data$gcm %in% gcm_pick)
-
-  # ---- Ensure a single, clean 'category' column on the indicator side ----
-  # If all_std_long already has 'category' for indicators, keep it; otherwise join metadata safely.
-  if (!"category" %in% names(d_i)) {
-    # join metadata but rename meta column to avoid suffixes, then coalesce to a single 'category'
-    meta_map <- indicators_metadata %>%
-      select(indicator = abbrev, category_meta = category)
-    d_i <- d_i %>%
-      left_join(meta_map, by = "indicator") %>%
-      mutate(category = category_meta) %>%
-      select(-category_meta)
-  }
-  # After this point, d_i MUST have 'category'
-  if (!"category" %in% names(d_i)) {
-    stop("Internal error: 'category' column missing after metadata join on indicators.")
-  }
-
-  # Deterministic single row per CU×indicator×category
-  d_i <- d_i %>%
-    arrange(.data$FULL_CU_IN, .data[[cu_name_col]], .data$indicator, .data$category, .data$gcm) %>%
-    group_by(.data$FULL_CU_IN, .data$SPECIES_NAME, .data[[cu_name_col]], .data$indicator, .data$category) %>%
-    slice_head(n = 1) %>%
-    ungroup()
-
-  ind_vals <- d_i %>%
-    transmute(FULL_CU_IN, SPECIES_NAME,
-      cu_lab = .data[[cu_name_col]],
-      indicator, category, value = std_value
-    )
-
-  # ---- Select ONE row per CU×(method,category) for scores_tidy (no GCM averaging) ----
-  has_gcm_s <- "gcm" %in% names(d_scores)
-  d_s <- d_scores
-  if (has_gcm_s) {
-    if (is.numeric(d_s$gcm) && any(d_s$gcm == 0, na.rm = TRUE)) {
-      d_s <- d_s %>% filter(.data$gcm == 0)
-    } else if (!is.null(gcm_pick)) d_s <- d_s %>% filter(.data$gcm %in% gcm_pick)
-  }
-  d_s <- d_s %>%
-    arrange(.data$FULL_CU_IN, .data[[cu_name_col]], .data$method, .data$category, .data$gcm) %>%
-    group_by(.data$FULL_CU_IN, .data$SPECIES_NAME, .data[[cu_name_col]], .data$method, .data$category) %>%
-    slice_head(n = 1) %>%
-    ungroup()
-
-  # ---- Category averages FROM scores_tidy (method == "avg", category in fwrs..gen) ----
-  cat_avgs_from_scores <- d_s %>%
-    filter(.data$method == "avg", .data$category %in% c("fwrs", "migr", "mar", "dem", "gen")) %>%
-    transmute(
-      FULL_CU_IN, SPECIES_NAME,
-      cu_lab = .data[[cu_name_col]],
-      category,
-      indicator = paste0("avg", category), # e.g., "avgfwrs"
-      value = score
-    )
-
-  # ---- Combine per-indicator values with category avg columns ----
-  cat_panels <- bind_rows(ind_vals, cat_avgs_from_scores)
-
-  # ---- Overall metrics FROM scores_tidy ----
-  overall_long <- d_s %>%
-    filter(.data$category == "all", .data$method %in% c("catavg", "avgall", "avgcube")) %>%
-    transmute(
-      FULL_CU_IN, SPECIES_NAME,
-      cu_lab = .data[[cu_name_col]],
-      indicator = dplyr::recode(method,
-        "catavg" = "sumavgs",
-        "avgall" = "avgall",
-        "avgcube" = "sumcube"
-      ),
-      value = score
-    )
-
-  # ---- CU order from rankspecies in scores_tidy (based on chosen rank_method) ----
-  rank_map <- c(sumavgs = "catavg", avgall = "avgall", sumcube = "avgcube")
-  target_method <- unname(rank_map[[rank_method]])
-  ranks <- d_s %>%
-    filter(.data$method == target_method, .data$category == "all") %>%
-    arrange(rankspecies) %>%
-    transmute(cu_lab = .data[[cu_name_col]], rank_within = rankspecies)
-
-  if (nrow(ranks) == 0) {
-    stop("No ranks found in scores_tidy for method=", target_method, " (category == 'all').")
-  }
-
-  cu_order <- ranks$cu_lab
-  cu_labels <- paste0("<span style='color:", sp_color, "'>", cu_order, "</span>")
-
-  # ---- Normalize colour per indicator (0..1) ----
-  norm_by_indicator <- function(df) {
-    lims <- df %>%
-      group_by(indicator) %>%
-      summarise(
-        min_val = suppressWarnings(min(value, na.rm = TRUE)),
-        max_val = suppressWarnings(max(value, na.rm = TRUE)),
-        .groups = "drop"
-      ) %>%
-      mutate(
-        min_val = ifelse(is.infinite(min_val), NA_real_, min_val),
-        max_val = ifelse(is.infinite(max_val), NA_real_, max_val)
-      )
-    df %>%
-      left_join(lims, by = "indicator") %>%
-      mutate(
-        rng_ok = !is.na(min_val) & !is.na(max_val) & (max_val > min_val),
-        value_norm = ifelse(rng_ok, (value - min_val) / (max_val - min_val), 0.5)
-      )
-  }
-
-  cat_panels_norm <- norm_by_indicator(cat_panels) %>%
-    mutate(
-      cu_lab_html = paste0("<span style='color:", sp_color, "'>", cu_lab, "</span>"),
-      cu_lab_html = factor(cu_lab_html, levels = cu_labels)
-    )
-
-  overall_norm <- norm_by_indicator(overall_long) %>%
-    mutate(
-      cu_lab_html = paste0("<span style='color:", sp_color, "'>", cu_lab, "</span>"),
-      cu_lab_html = factor(cu_lab_html, levels = cu_labels),
-      indicator = factor(indicator, levels = c("sumavgs", "avgall", "sumcube"))
-    )
-
-  # ---- Build per-category panel data (EXPLICIT filtering so panels differ) ----
-  build_panel_df <- function(df, code, title) {
-    df_t <- df %>%
-      filter(.data$category == code | .data$indicator == paste0("avg", code))
-    if (nrow(df_t) == 0) {
-      return(NULL)
-    }
-
-    # Put avg<code> last
-    non_avg <- df_t %>%
-      filter(.data$indicator != paste0("avg", code)) %>%
-      pull(indicator) %>%
-      unique()
-    ind_levels <- c(non_avg, paste0("avg", code))
-
-    list(
-      data    = df_t %>% mutate(indicator = factor(indicator, levels = ind_levels)),
-      title   = title
-    )
-  }
-
-  cat_defs <- list(
-    list(code = "fwrs", title = "Freshwater Rearing & Spawning"),
-    list(code = "migr", title = "Upstream Migration"),
-    list(code = "mar", title = "Marine"),
-    list(code = "dem", title = "Demographics"),
-    list(code = "gen", title = "Genetics")
-  )
-  panel_data_list <- lapply(cat_defs, function(def) build_panel_df(cat_panels_norm, def$code, def$title))
-
-  # ---- Plot helper ----
-  make_tile <- function(pdat) {
-    if (is.null(pdat) || is.null(pdat$data) || nrow(pdat$data) == 0) {
-      return(NULL)
-    }
-    dat <- pdat$data
-    p <- ggplot(dat, aes(x = indicator, y = cu_lab_html)) +
-      geom_tile(aes(fill = value_norm), color = "white", linewidth = 0.3, na.rm = FALSE) +
-      {
-        if (isTRUE(show_values)) {
-          geom_text(aes(label = ifelse(is.na(value), "", sprintf("%.2f", value))),
-            size = 2.2, color = "black", na.rm = TRUE
-          )
-        }
-      } +
-      scale_fill_distiller(
-        palette = brewer_palette, direction = palette_direction,
-        na.value = "grey95", limits = c(0, 1)
-      ) +
-      theme_minimal(base_size = 9) +
-      theme(
-        axis.title = element_blank(),
-        axis.text.y = ggtext::element_markdown(size = 8, hjust = 1),
-        axis.text.x = element_text(size = 7, angle = 45, hjust = 1, vjust = 1),
-        legend.position = "none",
-        panel.grid = element_blank(),
-        panel.border = element_rect(color = "grey70", fill = NA, linewidth = 0.5),
-        plot.title = element_text(face = "bold", size = 10, hjust = 0.5),
-        plot.margin = margin(2, 2, 2, 2)
-      ) +
-      labs(title = pdat$title)
-
-    # Vertical separator before the last column if it's avg<code>
-    last_is_avg <- grepl("^avg", tail(levels(dat$indicator), 1))
-    if (isTRUE(last_is_avg)) {
-      p <- p + geom_vline(xintercept = length(levels(dat$indicator)) - 0.5, color = "black", linewidth = 0.8)
-    }
-    p
-  }
-
-  panel_plots <- lapply(panel_data_list, make_tile)
-  panel_plots <- panel_plots[!vapply(panel_plots, is.null, logical(1))]
-
-  # ---- Overall panel ----
-  p_overall <- ggplot(overall_norm, aes(x = indicator, y = cu_lab_html)) +
-    geom_tile(aes(fill = value_norm), color = "white", linewidth = 0.3, na.rm = FALSE) +
-    {
-      if (isTRUE(show_values)) {
-        geom_text(aes(label = ifelse(is.na(value), "", sprintf("%.2f", value))),
-          size = 2.2, color = "black", na.rm = TRUE
-        )
-      }
-    } +
-    scale_fill_distiller(
-      palette = brewer_palette, direction = palette_direction,
-      na.value = "grey95", limits = c(0, 1)
-    ) +
-    theme_minimal(base_size = 9) +
-    theme(
-      axis.title = element_blank(),
-      axis.text.y = ggtext::element_markdown(size = 8, hjust = 1),
-      axis.text.x = element_text(size = 7, angle = 45, hjust = 1, vjust = 1),
-      legend.position = "none",
-      panel.grid = element_blank(),
-      panel.border = element_rect(color = "grey70", fill = NA, linewidth = 0.5),
-      plot.title = element_text(face = "bold", size = 10, hjust = 0.5),
-      plot.margin = margin(2, 2, 2, 2)
-    ) +
-    labs(title = "Overall Vulnerability") +
-    geom_vline(xintercept = 1.5, color = "black", linewidth = 0.8) +
-    geom_vline(xintercept = 2.5, color = "grey50", linewidth = 0.5, linetype = "dashed")
-
-  # ---- Optional: alphabetical order instead of ranks ----
-  if (!isTRUE(sort_by_rank)) {
-    cu_alpha <- d_i %>%
-      distinct(cu_lab = .data[[cu_name_col]]) %>%
-      arrange(cu_lab) %>%
-      pull(cu_lab)
-    cu_labels_alpha <- paste0("<span style='color:", sp_color, "'>", cu_alpha, "</span>")
-    relevel_y <- function(p) p + scale_y_discrete(limits = cu_labels_alpha)
-    panel_plots <- lapply(panel_plots, relevel_y)
-    p_overall <- relevel_y(p_overall)
-  }
-
-  # ---- Combine panels ----
-  plots_all <- c(panel_plots, list(p_overall))
-  combined <- wrap_plots(plots_all, ncol = 2) +
-    plot_annotation(
-      theme = theme(
-        plot.margin = margin(5, 5, 5, 5),
-        # plot.background = element_rect(fill = "white", color = NA)
-      )
-    ) +
-    plot_layout(guides = "collect")
-
-  return(combined)
-}
 
 
 
@@ -2695,18 +2350,18 @@ species_category_tile_plot_from_scores <- function(all_std_long,
 # p
 
 #
-p <- plot_lollipop_long(
-  all_std_long,
-  indicator_pick = "flow8pdelta",
-  dsmodel_pick   = "station",
-  rcp_pick = c("45"),
-  period_pick = "3",
-  indicator_name = "Stream Temperature",
-  indicator_unit = "°C",
-  use_standardized = F, # use std_value
-  plot_colours = species_palette, # named vector: c("Coho"="#...", "Chinook"="#...", ...)
-  log_scale = FALSE,
-  threshold_value = NA_real_,
-  show_gcm_points = TRUE
-)
-print(p)
+# p <- plot_lollipop(
+#   all_std_long,
+#   indicator_pick = "flow18pdelta",
+#   dsmodel_pick   = "streamdyn",
+#   rcp_pick = c("45"),
+#   period_pick = "3",
+#   #indicator_name = "Stream Temperature",
+#   #indicator_unit = "°C",
+#   use_standardized = F, # use std_value
+#   plot_colours = species_palette, # named vector: c("Coho"="#...", "Chinook"="#...", ...)
+#   log_scale = FALSE,
+#   threshold_value = NA_real_,
+#   show_gcm_points = TRUE
+# )
+# print(p)

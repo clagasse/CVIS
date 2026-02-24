@@ -13,7 +13,13 @@ library(here)
 setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
 
-grouping_vars_pick <- c("rcp", "period_code", "dsmodel")
+# ---- Baseline Settings for Scaling ----
+# If you want to standardize scores and ranges relative to a specific baseline setup,
+# set these variables. If NA, ranges will be calculated dynamically for each group.
+scale_baseline_rcp <- "45" # e.g. "45"
+scale_baseline_period <- NA # e.g. "3"
+
+grouping_vars_pick <- c("period_code", "dsmodel")
 
 # Helper to find latest file by pattern
 get_latest_file <- function(path, pattern) {
@@ -104,10 +110,13 @@ for (i in 1:nrow(tbl_standardize)) {
   # Standardize
   std_result <- standardize_long_indicator(
     data = all_long,
+    grouping_vars = grouping_vars_pick,
     indicator_pick = ind_abbrev,
     std_fun = tbl_standardize$std_fun[i],
     std_params = std_params_i,
-    calibration_gcm = "9" # Ensemble
+    calibration_gcm = "9", # Ensemble
+    baseline_rcp = scale_baseline_rcp,
+    baseline_period = scale_baseline_period
   )
 
   all_std_long[[i]] <- std_result
@@ -131,11 +140,6 @@ static_tbl <- dat %>%
   select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, indicator, category, static_value = std_value) %>%
   distinct()
 
-# ENSEMBLE: Ensemble projections (GCM 9) used as preferred fallback for specific GCM projections
-ensemble_tbl <- proj_tbl %>%
-  filter(gcm == "9") %>%
-  select(FULL_CU_IN, rcp, period_code, indicator, ensemble_value = proj_value)
-
 # PROJECTED: everything else (including baseline rows that also have projections, if any)
 proj_tbl <- dat %>%
   filter(!(gcm == 0 & period_code == 0)) %>%
@@ -144,6 +148,11 @@ proj_tbl <- dat %>%
     indicator, category,
     proj_value = std_value
   )
+
+# ENSEMBLE: Ensemble projections (GCM 9) used as preferred fallback for specific GCM projections
+ensemble_tbl <- proj_tbl %>%
+  filter(gcm == "9") %>%
+  select(FULL_CU_IN, rcp, period_code, indicator, ensemble_value = proj_value)
 
 # CU × GCM × RCP × PERIOD grid (from projections)
 grid_cu_scen <- proj_tbl %>%
@@ -228,29 +237,67 @@ scores_base <- vals %>%
   ungroup() %>%
   mutate(score = ifelse(is.nan(score), NA_real_, score))
 
-# Helper for 0–100 scaling with NA-safe behavior
+# Helper for 0-100 scaling with NA-safe behavior
 scale_0_100 <- function(x) {
   mn <- suppressWarnings(min(x, na.rm = TRUE))
   mx <- suppressWarnings(max(x, na.rm = TRUE))
   if (!is.finite(mn) || !is.finite(mx) || mx <= mn) {
-    return(rep(NA_real_, length(x))) # constant or all-NA → no scale
+    return(rep(NA_real_, length(x))) # constant or all-NA -> no scale
   }
   (x - mn) / (mx - mn) * 100
 }
 
-# Cross-species 0–100 within (rcp, period_code, gcm, method, category)
+# Cross-species 0-100 within
 score100_cross <- scores_base %>%
-  group_by(rcp, period_code, gcm, method, category) %>%
-  mutate(score100_all = scale_0_100(score)) %>%
-  ungroup() %>%
-  select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, gcm, rcp, period_code, method, category, score100_all)
+  filter(category == "all")
 
-# Within-species 0–100 within (SPECIES_NAME, rcp, period_code, gcm, method, category)
+if (!is.na(scale_baseline_rcp) && !is.na(scale_baseline_period)) {
+  bounds_cross <- score100_cross %>%
+    filter(rcp == scale_baseline_rcp, period_code == scale_baseline_period) %>%
+    group_by(gcm, method, category) %>%
+    summarise(
+      mn = suppressWarnings(min(score, na.rm = TRUE)),
+      mx = suppressWarnings(max(score, na.rm = TRUE)),
+      .groups = "drop"
+    )
+
+  score100_cross <- score100_cross %>%
+    left_join(bounds_cross, by = c("gcm", "method", "category")) %>%
+    mutate(score100_all = if_else(!is.finite(mn) | !is.finite(mx) | mx <= mn, NA_real_, (score - mn) / (mx - mn) * 100)) %>%
+    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, gcm, rcp, period_code, method, category, score100_all)
+} else {
+  score100_cross <- score100_cross %>%
+    group_by(rcp, period_code, gcm, method, category) %>%
+    mutate(score100_all = scale_0_100(score)) %>%
+    ungroup() %>%
+    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, gcm, rcp, period_code, method, category, score100_all)
+}
+
+# Within-species 0-100
 score100_within <- scores_base %>%
-  group_by(SPECIES_NAME, rcp, period_code, gcm, method, category) %>%
-  mutate(score100_species = scale_0_100(score)) %>%
-  ungroup() %>%
-  select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, gcm, rcp, period_code, method, category, score100_species)
+  filter(category == "all")
+
+if (!is.na(scale_baseline_rcp) && !is.na(scale_baseline_period)) {
+  bounds_within <- score100_within %>%
+    filter(rcp == scale_baseline_rcp, period_code == scale_baseline_period) %>%
+    group_by(SPECIES_NAME, gcm, method, category) %>%
+    summarise(
+      mn = suppressWarnings(min(score, na.rm = TRUE)),
+      mx = suppressWarnings(max(score, na.rm = TRUE)),
+      .groups = "drop"
+    )
+
+  score100_within <- score100_within %>%
+    left_join(bounds_within, by = c("SPECIES_NAME", "gcm", "method", "category")) %>%
+    mutate(score100_species = if_else(!is.finite(mn) | !is.finite(mx) | mx <= mn, NA_real_, (score - mn) / (mx - mn) * 100)) %>%
+    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, gcm, rcp, period_code, method, category, score100_species)
+} else {
+  score100_within <- score100_within %>%
+    group_by(SPECIES_NAME, rcp, period_code, gcm, method, category) %>%
+    mutate(score100_species = scale_0_100(score)) %>%
+    ungroup() %>%
+    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, gcm, rcp, period_code, method, category, score100_species)
+}
 
 
 # ---- Existing ranks (keep if you still want them) ----
@@ -310,3 +357,17 @@ ind_avgs_tidy <- all_std_long %>%
 save(all_std_long, scores_tidy, file = file.path(paths$output, "scoring_results.Rdata"))
 
 cat("4a Scoring complete. Results saved to scoring_results.Rdata\n")
+
+
+
+scores_sub <- filter(
+  scores_tidy,
+  period_code == "3",
+  category == "fwrs",
+  gcm == "9",
+  method == "avg"
+)
+
+
+ggplot(scores_tidy) +
+  geom_boxplot(aes(x = rcp, y = score100_all))

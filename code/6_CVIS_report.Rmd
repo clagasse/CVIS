@@ -21,11 +21,24 @@ csl: canadian-journal-of-fisheries-and-aquatic-sciences.csl
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = F, warning = F, message = F, results = 'asis')
+knitr::opts_chunk$set(echo = F, warning = F, message = F, results = "asis")
+
+# Base setup
+source(here::here("code", "0_setup.R"))
+load(file.path(paths$output, "scoring_results.Rdata"))
+load(file.path(paths$params, "indicator_tables.Rdata"))
 
 default_rcp <- "45"
-default_period <- 3
+default_period <- "3"
+default_gcm <- "9"
+# dsmodel_baseline <- c("station", "vicgl", "tscapes", "ensemble")
 
+report_dat <- all_std_long %>%
+  filter(
+    dsmodel %in% dsmodel_baseline,
+    period_code %in% periods_use,
+    rcp %in% rcp_vec
+  )
 ```
 
 # Introduction
@@ -47,15 +60,13 @@ By quantifying multiple mechanisms of climate vulnerability across a large basin
 The CVIS framework consists of 17 quantitative indicators (Table 1) classified into five categories based on mechanism and life-stage: freshwater spawning and rearing, upstream migration, nearshore marine, demographics, and genetics. Every indicator uses a quantitative metric, such as the mean stream temperature or percent change in flow, to represent risk. The indicator approach allows for flexibility in inputs and metrics of risk; various model types can be used to derive statistical summaries of risk depending on the mechanism to assess. Variation and uncertainty in indicator values are represented using 80% quantile ranges of global climate models where relevant.
 
 ```{r}
-
 tbl_ind_report %>%
   gt() %>%
   tab_header("Table 1 - Vulnerability Indicators") %>%
   tab_options(
-    table.font.size = "small",           # Reduce overall font size
-    data_row.padding = px(1),           # Minimize padding between rows
+    table.font.size = "small", # Reduce overall font size
+    data_row.padding = px(1), # Minimize padding between rows
   )
-
 ```
 
 The framework focuses on CUs of Pacific salmon as the assessment unit. As the unit of biodiversity for Pacific salmon in Canada, CUs represent groupings based on life history characteristics, freshwater and marine adaptive zones, and genetic structure [@Holtby2007]. The number of populations and spatial distribution of CUs is variable, with some CUs representing just a single population with fewer than a thousand spawners per year while other CUs include dozens of populations and millions of spawners per year on average. Despite this variability, conservation at the CU level is critical for maintaining biodiversity under the Wild Salmon Policy, and the CU is an important unit for assessment that is used to determine aggregate stock status [@csas2024].
@@ -101,24 +112,24 @@ Variation in environmental change indicators for each CU was summarized across g
 For additional description of indicator see [A.1 Projected August stream temperature (tw8proj)](#a1.-projected-august-stream-temperature-tw8proj)
 
 ```{r projT plots}
-#fw_indicators <- tbl_indicators$abbrev[tbl_indicators$type %in% c("fwR")]
+# fw_indicators <- tbl_indicators$abbrev[tbl_indicators$type %in% c("fwR")]
 
-for(rcp_pick in unique(all_flat_std$rcp))
+for (rcp_pick in rcp_vec)
 {
-  
   cat("#### ", rcp_pick, "\n\n", sep = "")
-  
-  filter_std <- all_flat_std %>%
-    filter(rcp == rcp_pick, 
-           period_code == 3)
-  
-  make_indicator_plots(filter_std, 
-                       ind_pick = "tw8proj")
- 
-  cat("\n\n")
-  
-}
 
+  filter_std <- report_dat %>%
+    filter(
+      rcp == rcp_pick,
+      period_code == default_period
+    )
+
+  make_indicator_plots(filter_std,
+    ind_pick = "tw8proj"
+  )
+
+  cat("\n\n")
+}
 ```
 
 ### ii. Rate of change in August temperature (tw8rate) {.tabset .tabset-pills}
@@ -127,22 +138,23 @@ for(rcp_pick in unique(all_flat_std$rcp))
 
 For additional description of indicator see [A.2 Rate of increase in August stream temperature (tw8rate)](#a.2-rate-of-increase-in-august-stream-temperature-tw8rate)
 
-```{r}
-
-for(rcp_pick in unique(all_flat_std$rcp))
+```{r projrate}
+for (rcp_pick in rcp_vec)
 {
-  
   cat("#### ", rcp_pick, "\n\n", sep = "")
-  
-  filter_std <- all_flat_std %>%
-    filter(rcp == rcp_pick, 
-           period_code == 3)
-  
-  make_indicator_plots(filter_std, 
-                       ind_pick = "tw8rate")
- 
+
+  filter_std <- report_dat %>%
+    filter(
+      rcp == rcp_pick,
+      period_code == default_period,
+      dsmodel %in% dsmodel_baseline
+    )
+
+  make_indicator_plots(filter_std,
+    ind_pick = "tw8rate"
+  )
+
   cat("\n\n")
-  
 }
 ```
 
@@ -153,22 +165,23 @@ for(rcp_pick in unique(all_flat_std$rcp))
 For additional description of indicator see [A.3 Proportional decrease in August flows (lowQpdelta)](#a.3-proportional-decrease-in-august-flows-lowqpdelta)
 
 ```{r}
-
-for(rcp_pick in unique(all_flat_std$rcp))
+for (rcp_pick in rcp_vec)
 {
-  
   cat("#### ", rcp_pick, "\n\n", sep = "")
-  
-  filter_std <- all_flat_std %>%
-    filter(rcp == rcp_pick, 
-           period_code == 3)
-  
-  make_indicator_plots(filter_std, 
-                       ind_pick = "lowQpdelta",
-                       spatial_pal_dir = 1)
- 
+
+  filter_std <- report_dat %>%
+    filter(
+      rcp == rcp_pick,
+      period_code == default_period,
+      dsmodel %in% dsmodel_baseline
+    )
+
+  make_indicator_plots(filter_std,
+    ind_pick = "flow8pdelta",
+    spatial_pal_dir = 1
+  )
+
   cat("\n\n")
-  
 }
 ```
 
@@ -179,21 +192,22 @@ Metric: The change in average flow for the months of November, December and Janu
 For additional description of indicator see [A.4 Proportional increase in November to January flows (highQpdelta)](#a.4-proportional-increase-in-november-to-january-flows-highqpdelta)
 
 ```{r}
-
-for(rcp_pick in unique(all_flat_std$rcp))
+for (rcp_pick in rcp_vec)
 {
-  
   cat("#### ", rcp_pick, "\n\n", sep = "")
-  
-  filter_std <- all_flat_std %>%
-    filter(rcp == rcp_pick, 
-           period_code == 3)
-  
-  make_indicator_plots(filter_std, 
-                       ind_pick = "highQpdelta")
- 
+
+  filter_std <- report_dat %>%
+    filter(
+      rcp == rcp_pick,
+      period_code == default_period,
+      dsmodel %in% dsmodel_baseline
+    )
+
+  make_indicator_plots(filter_std,
+    ind_pick = "flow18pdelta"
+  )
+
   cat("\n\n")
-  
 }
 ```
 
@@ -204,22 +218,23 @@ for(rcp_pick in unique(all_flat_std$rcp))
 For additional description of indicator see [A.5 Ecological Niche Model change in habitat favourability (favchange)](#a.5-ecological-niche-model-change-in-habitat-favourability-favchange)
 
 ```{r}
-
-for(rcp_pick in unique(all_flat_std$rcp))
+for (rcp_pick in rcp_vec)
 {
-  
   cat("#### ", rcp_pick, "\n\n", sep = "")
-  
-  filter_std <- all_flat_std %>%
-    filter(rcp == rcp_pick, 
-           period_code == 3)
-  
-  make_indicator_plots(filter_std, 
-                       ind_pick = "favchange",
-                       spatial_pal_dir = 1)
- 
+
+  filter_std <- report_dat %>%
+    filter(
+      rcp == rcp_pick,
+      period_code == default_period,
+      dsmodel %in% dsmodel_baseline
+    )
+
+  make_indicator_plots(filter_std,
+    ind_pick = "favchange",
+    spatial_pal_dir = 1
+  )
+
   cat("\n\n")
-  
 }
 ```
 
@@ -231,14 +246,9 @@ For additional description of indicator see [A.6 Cumulative threats to stream ha
 
 ```{r}
 
-filter_std <- all_flat_std %>%
-    filter(rcp == default_rcp, 
-           period_code == default_period)
-  
-make_indicator_plots(filter_std, 
-                       ind_pick = "CT")
- 
-
+make_indicator_plots(report_dat,
+  ind_pick = "cthr"
+)
 ```
 
 ### vii. Freshwater residency time
@@ -249,13 +259,10 @@ For additional description of indicator see [A.7 Freshwater residency time (fwre
 
 ```{r}
 
-filter_std <- all_flat_std %>%
-    filter(rcp == default_rcp, 
-           period_code == default_period)
-  
-make_indicator_plots(filter_std, 
-                       ind_pick = "fwres",
-                     make_spatial = F)
+make_indicator_plots(report_dat,
+  ind_pick = "fwres",
+  make_spatial = F
+)
 ```
 
 # Upstream Migration
@@ -280,22 +287,22 @@ To estimate temperatures and flow during upstream migration, an upstream movemen
 For additional description of indicator see [A.8 Projected temperature during upstream migration (migrT)](#a.8-projected-temperature-during-upstream-migration-migrt)
 
 ```{r}
-
-for(rcp_pick in unique(all_flat_std$rcp))
+for (rcp_pick in rcp_vec)
 {
-  
   cat("#### ", rcp_pick, "\n\n", sep = "")
-  
-  filter_std <- all_flat_std %>%
-    filter(rcp == rcp_pick, 
-           period_code == 3)
-  
-  make_indicator_plots(filter_std, 
-                       ind_pick = "migrT",
-                       make_spatial = F)
- 
+
+  filter_std <- report_dat %>%
+    filter(
+      rcp == rcp_pick,
+      period_code == default_period
+    )
+
+  make_indicator_plots(filter_std,
+    ind_pick = "migrTproj",
+    make_spatial = F
+  )
+
   cat("\n\n")
-  
 }
 ```
 
@@ -306,22 +313,22 @@ for(rcp_pick in unique(all_flat_std$rcp))
 For additional description of indicator see [A.9 Proportional change in flow during upstream migration (migrQ)](#a.9-proportional-change-in-flow-during-upstream-migration-migrq)
 
 ```{r}
-
-for(rcp_pick in unique(all_flat_std$rcp))
+for (rcp_pick in rcp_vec)
 {
-  
   cat("#### ", rcp_pick, "\n\n", sep = "")
-  
-  filter_std <- all_flat_std %>%
-    filter(rcp == rcp_pick, 
-           period_code == 3)
-  
-  make_indicator_plots(filter_std, 
-                       ind_pick = "migrQ",
-                       make_spatial = F)
- 
+
+  filter_std <- report_dat %>%
+    filter(
+      rcp == rcp_pick,
+      period_code == default_period
+    )
+
+  make_indicator_plots(filter_std,
+    ind_pick = "migrQpdelta",
+    make_spatial = F
+  )
+
   cat("\n\n")
-  
 }
 ```
 
@@ -333,22 +340,11 @@ For additional description of indicator see [A.10 Upstream migration distance (m
 
 ```{r}
 
-for(rcp_pick in unique(all_flat_std$rcp))
-{
-  
-  cat("#### ", rcp_pick, "\n\n", sep = "")
-  
-  filter_std <- all_flat_std %>%
-    filter(rcp == rcp_pick, 
-           period_code == 3)
-  
-  make_indicator_plots(filter_std, 
-                       ind_pick = "migrdist",
-                       make_spatial = F)
- 
-  cat("\n\n")
-  
-}
+make_indicator_plots(report_dat,
+                     ind_pick = "migrdist",
+                     make_spatial = F
+)
+
 ```
 
 # Nearshore Marine
@@ -380,23 +376,23 @@ The spatial domain over which SSTs were averaged was the Strait of Georgia marin
 For additional description of indicator see [A.11 Projected nearshore sea surface temperature (SSTproj)](#a.11-projected-nearshore-sea-surface-temperature-sstproj)
 
 ```{r}
-
-for(rcp_pick in unique(all_flat_std$rcp))
+for (rcp_pick in rcp_vec)
 {
-  
   cat("#### ", rcp_pick, "\n\n", sep = "")
-  
-  filter_std <- all_flat_std %>%
-    filter(rcp == rcp_pick, 
-           period_code == 3)
-  
-  make_indicator_plots(filter_std, 
-                       ind_pick = "SSTproj",
-                       standardized_plots = F,
-                       make_spatial = F)
- 
+
+  filter_std <- report_dat %>%
+    filter(
+      rcp == rcp_pick,
+      period_code == default_period
+    )
+
+  make_indicator_plots(filter_std,
+    ind_pick = "SSTproj",
+    standardized_plots = F,
+    make_spatial = F
+  )
+
   cat("\n\n")
-  
 }
 ```
 
@@ -407,23 +403,23 @@ for(rcp_pick in unique(all_flat_std$rcp))
 For additional description of indicator see [A.12 Rate of increase in nearshore sea surface temperatures (SSTrate)](#a.12-rate-of-increase-in-nearshore-sea-surface-temperatures-sstrate)
 
 ```{r}
-
-for(rcp_pick in unique(all_flat_std$rcp))
+for (rcp_pick in rcp_vec)
 {
-  
   cat("#### ", rcp_pick, "\n\n", sep = "")
-  
-  filter_std <- all_flat_std %>%
-    filter(rcp == rcp_pick, 
-           period_code == 3)
-  
-  make_indicator_plots(filter_std, 
-                       ind_pick = "SSTrate",
-                       standardized_plots = F,
-                       make_spatial = F)
- 
+
+  filter_std <- report_dat %>%
+    filter(
+      rcp == rcp_pick,
+      period_code == default_period
+    )
+
+  make_indicator_plots(filter_std,
+    ind_pick = "SSTrate",
+    standardized_plots = F,
+    make_spatial = F
+  )
+
   cat("\n\n")
-  
 }
 ```
 
@@ -435,15 +431,11 @@ For additional description of indicator see [A.13 Cumulative impacts to nearshor
 
 ```{r}
 
-  filter_std <- all_flat_std %>%
-    filter(rcp == "45", 
-           period_code == 3)
-  
-  make_indicator_plots(filter_std, 
-                       ind_pick = "CImpact",
-                       standardized_plots = F,
-                       make_spatial = F)
-
+make_indicator_plots(report_dat,
+  ind_pick = "CImpact",
+  standardized_plots = F,
+  make_spatial = F
+)
 ```
 
 # Demographics
@@ -464,19 +456,13 @@ For additional description of indicator see [A.14 Conservation status (CUstatus)
 
 ```{r}
 
+make_indicator_plots(report_dat,
+  ind_pick = "CUstatus",
+  standardized_plots = T,
+  make_spatial = F
+)
 
-  
-  filter_std <- all_flat_std %>%
-    filter(rcp == "45", 
-           period_code == 3)
-  
-  make_indicator_plots(filter_std, 
-                       ind_pick = "CUstatus",
-                       standardized_plots = T,
-                       make_spatial = F)
- 
-  cat("\n\n")
-  
+cat("\n\n")
 ```
 
 ### ii. Recent generational average of spawners (CUnmat)
@@ -487,18 +473,13 @@ For additional description of indicator see [A.15 Recent generational average of
 
 ```{r}
 
-  filter_std <- all_flat_std %>%
-    filter(rcp == "45", 
-           period_code == 3)
-  
-  make_indicator_plots(filter_std, 
-                       ind_pick = "CUnmat",
-                       standardized_plots = F,
-                       make_spatial = F)
- 
-  cat("\n\n")
-  
+make_indicator_plots(report_dat,
+  ind_pick = "CUnmat",
+  standardized_plots = F,
+  make_spatial = F
+)
 
+cat("\n\n")
 ```
 
 # Genetics
@@ -520,14 +501,13 @@ Measures of genetic diversity and genomic offset are not comparable across speci
 For additional description of indicator see [A.16 Heterozygosity (hetzyg)](#a.16-heterozygosity-hetzyg)
 
 ```{r}
-  filter_std <- all_flat_std %>%
-    filter(rcp == "45", 
-           period_code == 3)
-  
-  make_indicator_plots(filter_std, 
-                       ind_pick = "hetzyg",
-                       standardized_plots = F,
-                       make_spatial = F)
+
+
+make_indicator_plots(report_dat,
+  ind_pick = "hetzyg",
+  standardized_plots = F,
+  make_spatial = F
+)
 ```
 
 ### ii. Genomic offset
@@ -537,14 +517,13 @@ For additional description of indicator see [A.16 Heterozygosity (hetzyg)](#a.16
 For additional description of indicator see [A.17 Genomic offset (genoff)](#a.17-genomic-offset-genoff)
 
 ```{r}
-  filter_std <- all_flat_std %>%
-    filter(rcp == "45", 
-           period_code == 3)
-  
-  make_indicator_plots(filter_std, 
-                       ind_pick = "genoff",
-                       standardized_plots = F,
-                       make_spatial = F)
+
+
+make_indicator_plots(report_dat,
+  ind_pick = "genoff",
+  standardized_plots = F,
+  make_spatial = F
+)
 ```
 
 # Overall Vulnerability
@@ -558,57 +537,46 @@ For the CVIS framework, we explore four different methods that represent alterna
 ### Category Scores {.tabset .tabset-pills}
 
 ```{r fw-indicators, fig.width=12, fig.height=10, dpi=300, out.width="100%", fig.cap="Freshwater spawning and rearing vulnerability indicators across Fraser River salmon conservation units."}
-
 for (category_pick in unique(tbl_indicators$long_type))
 {
   cat("#### ", category_pick, "\n\n", sep = "")
-  
-  type_pick <- tbl_indicators$type[tbl_indicators$long_type == category_pick][1]
-  score_pick <- paste0("std_avg", type_pick)
-  
-  filter_combined <- combined_scores_std %>%
-    filter(rcp == default_rcp,
-           period_code == default_period)
-  
+
+  type_pick <- tbl_indicators$category[tbl_indicators$long_type == category_pick][1]
+
   fw_p <- indicator_tile_plot(
-    filter_combined, 
-    indicators_choose = c(tbl_indicators$abbrev[tbl_indicators$type == type_pick], score_pick),
+    all_std_long,
+    indicators_choose = tbl_indicators$abbrev[tbl_indicators$category == type_pick],
     indicators_metadata = tbl_indicators,
-    overall_score_col = score_pick
+    rcp_pick = default_rcp,
+    period_pick = as.character(default_period),
+    dsmodel_pick = dsmodel_baseline
   )
   print(fw_p)
   cat("\n\n")
-  
 }
 ```
 
 ### Species Scores {.tabset .tabset-pills}
 
 ```{r species scores, fig.width=10, fig.height=8, dpi=300, out.width="100%"}
-
 for (species_pick in unique(cu_run$SPECIES_NAME))
 {
-
   cat("#### ", species_pick, "\n\n", sep = "")
 
-  filter_combined <- combined_scores_std %>%
-    filter(rcp == default_rcp,
-           period_code == default_period)
-  
-  p <- species_category_tile_plot(
-    data = filter_combined,
+  p <- species_category_tile_plot_from_scores(
+    all_std_long = all_std_long,
+    scores_tidy = scores_tidy,
     species_pick = species_pick,
     species_palette = species_palette,
     indicators_metadata = tbl_indicators,
-    rank_method = "catavgs",
-    sort_by_rank = TRUE
+    rcp_pick = default_rcp,
+    period_pick = as.character(default_period),
+    dsmodel_pick = dsmodel_baseline
   )
-  
+
   print(p)
   cat("\n\n")
-
 }
-
 ```
 
 ### Total Scores {.tabset .tabset-pills}
@@ -616,80 +584,288 @@ for (species_pick in unique(cu_run$SPECIES_NAME))
 The following plots show total scores and CU vulnerability ranks across indicators.
 
 ```{r combined scores, fig.width=10, fig.height=8, dpi=300, out.width="100%"}
-
-for (rcp_pick in unique(combined_scores_std$rcp))
+for (rcp_pick in unique(scores_tidy$rcp))
 {
-
   cat("#### ", rcp_pick, "\n\n", sep = "")
 
-  filter_combined <- combined_scores_std %>%
-    filter(rcp == rcp_pick,
-           period_code == 3)
+  # Format scores_tidy to work with indicator_tile_plot
+  cat_scores_as_ind <- scores_tidy %>%
+    filter(
+      rcp == rcp_pick, period_code == default_period,
+      method == "avg", category %in% c("fwrs", "migr", "mar", "dem", "gen")
+    ) %>%
+    mutate(indicator = paste0("avg_", category), std_value = score)
 
-  p <- indicator_tile_plot(filter_combined,
-                     indicators_choose = c("std_avgfwR", "std_avgmigr", "std_avgmar", "std_avgdem", "std_avggen",
-                                           "std_rank_catavgs_cross"),
-                     overall_score_col = "std_rank_catavgs_cross",
-                     category_name = "Average vulnerability by category and total vulnerability")
+  overall_scores_as_ind <- scores_tidy %>%
+    filter(
+      rcp == rcp_pick, period_code == default_period,
+      method == "catavg", category == "all"
+    ) %>%
+    mutate(indicator = "catavg", std_value = score)
+
+  combined_for_tile <- bind_rows(cat_scores_as_ind, overall_scores_as_ind)
+
+  # For GCMs, default to 9 (ensemble mean)
+  if ("gcm" %in% names(combined_for_tile)) {
+    combined_for_tile <- combined_for_tile %>% filter(gcm == "9" | gcm == 0 | gcm == min(gcm))
+  }
+
+  p <- indicator_tile_plot(combined_for_tile,
+    indicators_choose = c("avg_fwrs", "avg_migr", "avg_mar", "avg_dem", "avg_gen", "catavg"),
+    overall_score_cols = "catavg",
+    category_name = "Average vulnerability by category and total vulnerability"
+  )
 
   print(p)
   cat("\n\n")
-
 }
-
 ```
 
 # Sensitivity Analysis
 
-### Correlation of indicators {.tabset .tabset-pills}
+One test for the utility of an indicator is the correlation with other indicator values, and how uncertainty propagates from models into vulnerability rankings. Here we present granular uncertainty and multivariate risk profile analysis.
 
-One test for the utility of an indicator is the correlation with other indicator values. The plot below shows correlation of raw indicator values, where higher correlation among indicators indicates potential overlap in the vulnerability mechanism or information being evaluated.
+```{r load_sens_data, include=FALSE}
+library(reshape2)
+library(patchwork)
+# Load new Rdata objects
+load(file.path(paths$output, "sensitivity_analysis_4b_directional.Rdata"))
+load(file.path(paths$output, "risk_drivers_4d.Rdata"))
 
-```{r correlation, results = 'asis'}
+# Unpack results
+contributions <- sensitivity_analysis_4b_directional$contributions
+mrd_stats <- sensitivity_analysis_4b_directional$mrd_stats
+cor_list <- sensitivity_analysis_4b_directional$cor_matrix
+categories <- sensitivity_analysis_4b_directional$categories
 
-#exclude marine indicators
-cor_indicators <- tbl_indicators$abbrev[tbl_indicators$type %in% c("fwR",  "migr","mar", "dem", "gen")]  
+red_flag_summary <- risk_drivers_4d$red_flag_summary
+variation_summary <- risk_drivers_4d$variation_summary
+pca_output <- risk_drivers_4d$pca_output
+pca_result <- risk_drivers_4d$pca_result
 
-for (rcp_pick in unique(all_flat_std$rcp)) {    cat("#### ", rcp_pick, "\n\n", sep = "")    
-  
-  filter_std <- all_flat_std %>%     
-    filter(rcp == rcp_pick,       
-           period_code == 3)     
-  cor_data <- get_correlation_matrix(filter_std,   
-                                     indicators_choose = cor_indicators,   
-                                     use_standardized = T)      
-  
-  corrplot(cor_data,  method = 'pie', tl.col = "black")
-  #print(p)      
-  
-  cat("\n\n")    }
-
-
+source_colors <- sens_source_palette
 ```
 
-### Scoring Methods {.tabset .tabset-pills}
+### Granular Uncertainty Contributions {.tabset .tabset-pills}
 
-The three methods used for calculating total scores and ranks are:\
-sumavgs - sum of the average score for each category/life stage\
-avgall - average of all standardized indicator values sumcube - sum of the cubic mean score for each life stage and category
+#### Relative Contribution
+```{r relative_contribution, fig.width=10, fig.height=6, dpi=300, out.width="100%"}
+prop_long <- contributions %>%
+  select(FULL_CU_IN, category, starts_with("prop_")) %>%
+  pivot_longer(cols = starts_with("prop_"), names_to = "source", values_to = "proportion") %>%
+  mutate(source = str_remove(source, "prop_"))
 
-```{r, fig.width=10, fig.height=8, dpi=300, out.width="100%"}
-for (rcp_pick in unique(combined_scores_std$rcp))
-{
+prop_summary <- prop_long %>%
+  group_by(category, source) %>%
+  summarise(mean_prop = mean(proportion, na.rm = TRUE), .groups = "drop")
 
-  cat("#### ", rcp_pick, "\n\n", sep = "")
+p_prop <- ggplot(prop_summary, aes(x = category, y = mean_prop, fill = source)) +
+  geom_bar(stat = "identity", position = "stack") +
+  scale_fill_manual(values = source_colors) +
+  labs(
+    title = "Mean Relative Contribution of Uncertainty Sources",
+    subtitle = "Average across all CUs per category",
+    x = "Evaluation Category",
+    y = "Proportion of Total Absolute Deviation",
+    fill = "Uncertainty Source"
+  ) +
+  theme_cvis() +
+  coord_flip()
 
-  filter_combined <- combined_scores_std %>%
-    filter(rcp == rcp_pick,
-           period_code == 3)
+print(p_prop)
+```
 
-   p <- indicator_tile_plot(filter_combined,
-                     indicators_choose = c("std_rank_catavgs_cross", "std_rank_avgcube_cross", "std_rank_avgall_cross"),
-                     category_name = "Comparison of overall vulnerability by scoring method")
+#### Directional Influence
+```{r directional_influence, fig.width=14, fig.height=9, dpi=300, out.width="100%"}
+raw_long <- contributions %>%
+  select(FULL_CU_IN, category, starts_with("raw_dev_")) %>%
+  pivot_longer(cols = starts_with("raw_dev_"), names_to = "source", values_to = "raw_deviation") %>%
+  mutate(source = str_remove(source, "raw_dev_"))
 
+p_direction <- ggplot(raw_long, aes(x = source, y = raw_deviation, fill = source)) +
+  geom_boxplot(alpha = 0.7, outlier.size = 0.5) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
+  facet_wrap(~category) +
+  scale_fill_manual(values = source_colors) +
+  labs(
+    title = "Directional Influence of Scenarios and Methods",
+    subtitle = "Distribution of (Scenario Score - Baseline Score) across CUs",
+    x = "Variation Source",
+    y = "Score Change (Directional)",
+    fill = "Source"
+  ) +
+  theme_cvis() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+print(p_direction)
+```
+
+#### Mean Rank Displacement
+```{r mean_rank_displacement, fig.width=12, fig.height=8, dpi=300, out.width="100%"}
+p_mrd <- ggplot(mrd_stats, aes(x = reorder(source, MRD), y = MRD, fill = source)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~category, scales = "free_x") +
+  scale_fill_manual(values = source_colors) +
+  labs(
+    title = "Mean Rank Displacement",
+    subtitle = "Average shift in vulnerability rank compared to baseline",
+    x = "Scenario Shift",
+    y = "Mean Displacement (Ranks)",
+    fill = "Source"
+  ) +
+  theme_cvis() +
+  coord_flip()
+
+print(p_mrd)
+```
+
+### Risk Profile Drivers {.tabset .tabset-pills}
+
+#### PCA Risk Profile
+```{r pca_risk_profile, fig.width=11, fig.height=8, dpi=300, out.width="100%"}
+loadings <- as.data.frame(pca_result$rotation[, 1:2])
+loadings$indicator <- rownames(loadings)
+
+scale_fact <- max(abs(pca_output$PC1)) / max(abs(loadings$PC1)) * 0.7
+loadings <- loadings %>%
+  mutate(
+    x_end = PC1 * scale_fact,
+    y_end = PC2 * scale_fact
+  )
+
+p_base_pca <- ggplot(pca_output, aes(x = PC1, y = PC2)) +
+  geom_text(aes(label = FULL_CU_IN), size = 2.2, vjust = 1.6, alpha = 0.5, fontface = "bold") +
+  geom_segment(
+    data = loadings %>% filter(abs(PC1) > 0.15 | abs(PC2) > 0.15),
+    aes(x = 0, y = 0, xend = x_end, yend = y_end),
+    arrow = arrow(length = unit(0.2, "cm")), color = "grey40"
+  ) +
+  geom_text(
+    data = loadings %>% filter(abs(PC1) > 0.15 | abs(PC2) > 0.15),
+    aes(x = x_end * 1.1, y = y_end * 1.1, label = indicator),
+    size = 3.5, color = "black", fontface = "bold"
+  ) +
+  labs(
+    subtitle = paste(
+      "Variance Explained: PC1 =",
+      round(pca_result$sdev[1]^2 / sum(pca_result$sdev^2) * 100, 1), "% | PC2 =",
+      round(pca_result$sdev[2]^2 / sum(pca_result$sdev^2) * 100, 1), "%"
+    ),
+    x = "PC1", y = "PC2"
+  ) +
+  theme_cvis()
+
+p_pca_clusters <- p_base_pca +
+  geom_point(aes(color = cluster, shape = SPECIES_NAME), size = 3, alpha = 0.7) +
+  scale_color_brewer(palette = "Set1", name = "Risk Cluster") +
+  labs(title = "CU Risk Profile PCA - Clusters")
+
+print(p_pca_clusters)
+```
+
+#### Red Flag Frequency
+```{r red_flag_freq, fig.width=10, fig.height=7, dpi=300, out.width="100%"}
+p_drivers <- ggplot(
+  red_flag_summary %>% head(15),
+  aes(x = reorder(name, n_red_flags), y = n_red_flags, fill = category)
+) +
+  geom_col() +
+  geom_text(aes(label = paste0(round(pct_red_flag * 100), "%")),
+    hjust = -0.1, size = 3, fontface = "bold"
+  ) +
+  coord_flip(clip = "off") +
+  scale_fill_scico_d(palette = "roma", name = "Category") +
+  labs(
+    title = "Red Flag Frequency by Indicator",
+    subtitle = paste0("Number of CUs where indicator exceeds red flag threshold (score >= 0.66)"),
+    x = NULL, y = "Count of CUs with Red Flag"
+  ) +
+  theme_cvis() +
+  theme(plot.margin = margin(5, 40, 5, 5))
+
+print(p_drivers)
+```
+
+
+### Indicator Variation Propagation {.tabset .tabset-pills}
+
+```{r indicator_variation_plots, fig.width=14, fig.height=10, dpi=300, out.width="100%"}
+rcp_ref <- "45"
+period_ref <- "0"
+
+baseline_vals <- all_std_long %>%
+  filter(
+    rcp == rcp_ref, period_code == period_ref, gcm == "9",
+    dsmodel %in% dsmodel_baseline
+  ) %>%
+  group_by(indicator) %>%
+  summarise(baseline_mean = mean(std_value, na.rm = TRUE), .groups = "drop")
+
+future_dat <- all_std_long %>%
+  filter(
+    gcm == "9", period_code != "0",
+    dsmodel %in% dsmodel_baseline
+  )
+
+future_agg <- future_dat %>%
+  group_by(indicator, category, rcp, period_code) %>%
+  summarise(
+    mean = mean(std_value, na.rm = TRUE),
+    qlowgcm = quantile(std_value, qlgcm, na.rm = TRUE),
+    qhighgcm = quantile(std_value, qhgcm, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+plot_dat <- future_agg %>%
+  left_join(baseline_vals, by = "indicator") %>%
+  mutate(
+    scenario_label = paste0("RCP ", rcp, " P", period_code),
+    direction = if_else(mean > baseline_mean, "High Risk", "Low Risk")
+  ) %>%
+  filter(!is.na(qlowgcm) | !is.na(qhighgcm))
+
+categories_to_plot <- unique(plot_dat$category)
+
+colors_lolli <- c(
+  "GCM Range" = "grey85",
+  "RCP 45" = "#33a02c",
+  "RCP 85" = "#e31a1c"
+)
+
+for (cat in categories_to_plot) {
+  cat_dat <- plot_dat %>% filter(category == cat)
+  cat_desc <- cat_label_map[cat]
+  if (is.na(cat_desc) || is.null(cat_desc)) cat_desc <- cat
+
+  p <- ggplot(cat_dat, aes(y = scenario_label)) +
+    geom_segment(aes(x = qlowgcm, xend = qhighgcm, yend = scenario_label),
+      color = colors_lolli["GCM Range"], linewidth = 6, alpha = 0.6
+    ) +
+    geom_vline(aes(xintercept = baseline_mean), linetype = "dashed", color = "grey40") +
+    geom_segment(aes(x = baseline_mean, xend = mean, yend = scenario_label, color = rcp),
+      linewidth = 1.2
+    ) +
+    geom_point(aes(x = mean, fill = rcp), shape = 21, size = 4, color = "white", stroke = 1) +
+    facet_wrap(~indicator, scales = "free_x", ncol = 3) +
+    scale_color_manual(values = c("45" = colors_lolli["RCP 45"], "85" = colors_lolli["RCP 85"])) +
+    scale_fill_manual(values = c("45" = colors_lolli["RCP 45"], "85" = colors_lolli["RCP 85"])) +
+    labs(
+      title = paste0("Indicator Uncertainty Propagation: ", cat_desc),
+      subtitle = "Lollipops: Change from baseline mean; Grey bars: 10th-90th GCM Range",
+      x = "Raw Indicator Value (Physical Units)",
+      y = "Future Scenario",
+      fill = "Scenario (RCP)", color = "Scenario (RCP)"
+    ) +
+    theme_cvis() +
+    theme(
+      strip.text = element_text(face = "bold"),
+      legend.position = "bottom",
+      panel.grid.major.y = element_line(color = "grey95")
+    )
+
+  cat("#### ", cat_desc, "\n\n", sep = "")
   print(p)
   cat("\n\n")
-
 }
 ```
 

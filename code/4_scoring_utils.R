@@ -469,82 +469,6 @@ rename_ind_table <- function(data,
 }
 
 
-standardize_indicator <- function(data,
-                                  indicator_pick,
-                                  std_fun = "linear_std",
-                                  std_params = NA,
-                                  gcm_range_suffix = c("qlowgcm", "qhighgcm"),
-                                  use_gcm_range = FALSE) {
-  stat_suffix <- "mean"
-  id_col <- "FULL_CU_IN"
-  species_col <- "SPECIES_NAME"
-  range_type <- std_params$range_type
-
-  # take column names that contain prefix with model type
-  cols_sub <- names(data)[str_detect(names(data), indicator_pick)]
-
-  # take names with prefix that also contain stat suffix
-  stat_col <- cols_sub[str_detect(cols_sub, paste0(stat_suffix, "$"))] # must end with mean
-  min_gcmcol <- cols_sub[str_detect(cols_sub, paste0(gcm_range_suffix[1], collapse = "|"))]
-  max_gcmcol <- cols_sub[str_detect(cols_sub, paste0(gcm_range_suffix[2], collapse = "|"))]
-
-  # some indicators don't have a mean, just the raw value. in that case, use the abbreviation
-  if (length(stat_col) == 0) stat_col <- cols_sub
-
-  data <- select(
-    data,
-    all_of(c(id_col, species_col, stat_col, min_gcmcol, max_gcmcol, "rcp", "period_code"))
-  )
-
-  # # Select columns
-  # select_cols <- c(id_col, stat_col, min_gcmcol, max_gcmcol, "rcp", "period_code")
-  # if (range_type == "species") select_cols <- c(select_cols, species_col)
-  # data <- select(data, all_of(select_cols))
-
-  # Build grouping dynamically
-  grouping_vars <- c("rcp", "period_code")
-  if (range_type == "species") grouping_vars <- c(grouping_vars, species_col)
-
-
-
-  if (length(min_gcmcol) == 1 && length(max_gcmcol) == 1 && use_gcm_range == TRUE) {
-    # put gcm lows and highs and mean into one column
-    data_long <- pivot_longer(data,
-      cols = starts_with(indicator_pick),
-      names_prefix = paste0(indicator_pick, "_")
-    )
-
-    data_std <- data_long %>%
-      group_by(across(all_of(grouping_vars))) %>%
-      reframe(
-        FULL_CU_IN = FULL_CU_IN,
-        std = do.call(std_fun, c(list(value), std_params)),
-        name = name
-      ) %>%
-      pivot_wider(
-        names_from = name,
-        values_from = std,
-        names_prefix = paste0(indicator_pick, "_")
-      )
-  } else {
-    data_std <- data %>%
-      group_by(across(all_of(grouping_vars))) %>%
-      reframe(
-        FULL_CU_IN = FULL_CU_IN,
-        !!stat_col := do.call(std_fun, c(list(!!sym(stat_col)), std_params))
-      )
-
-    if (range_type == "all") {
-      data_std <- left_join(data_std,
-        select(data, all_of(c(id_col, species_col))),
-        by = id_col,
-        multiple = "first"
-      )
-    }
-  }
-
-  return(data_std)
-}
 
 # New function for standardizing long format data
 standardize_long_indicator <- function(data,
@@ -553,9 +477,11 @@ standardize_long_indicator <- function(data,
                                        std_fun = "linear_std",
                                        std_params = NA,
                                        calibration_gcm = "9", # Ensemble mean GCM code
-                                       grouping_vars = grouping_vars_pick, #variables to group when determining std ranges 
+                                       grouping_vars, # variables to group when determining std ranges
                                        id_col = "FULL_CU_IN",
-                                       species_col = "SPECIES_NAME") {
+                                       species_col = "SPECIES_NAME",
+                                       baseline_rcp = NA,
+                                       baseline_period = NA) {
   range_type <- std_params$range_type
 
   # Filter for the specific indicator
@@ -583,6 +509,13 @@ standardize_long_indicator <- function(data,
     grouping_vars <- c(grouping_vars, species_col)
   }
 
+  if (!is.na(baseline_rcp)) {
+    grouping_vars <- setdiff(grouping_vars, "rcp")
+  }
+  if (!is.na(baseline_period)) {
+    grouping_vars <- setdiff(grouping_vars, "period_code")
+  }
+
   # 1. Identify Calibration Data (Ensemble Mean) for Range Determination
   # We typically use the target_stat (e.g. "mean") of the ensemble (gcm=9) to determine range.
   calibration_data <- data_sub %>%
@@ -591,10 +524,17 @@ standardize_long_indicator <- function(data,
       stat == target_stat
     )
 
+  if (!is.na(baseline_rcp)) {
+    calibration_data <- calibration_data %>% filter(rcp == baseline_rcp | is.na(rcp))
+  }
+  if (!is.na(baseline_period)) {
+    calibration_data <- calibration_data %>% filter(period_code == baseline_period | is.na(period_code))
+  }
+
   # Check if calibration data exists
   if (nrow(calibration_data) == 0) {
     # If no ensemble mean, try using all data (maybe gcm is NA or different structure?)
-    warning(paste("No calibration data (gcm =", calibration_gcm, ", stat =", target_stat, ") found for:", indicator_pick, ". Using all data for range."))
+    warning(paste("No calibration data (calibration criteria not met) found for:", indicator_pick, ". Using all data for range."))
     calibration_data <- data_sub
   }
 
