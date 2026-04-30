@@ -25,15 +25,57 @@ library(ggspatial)
 source(file.path(here(), "code", "4_scoring_utils.R"))
 source(file.path(here(), "code", "5a_plots_CU.R"))
 
-# Assumes these objects exist from running 4a_CU_scoring.R:
-# - all_flat_std
-# - combined_scores_std
-# - cu_run
-# - tbl_indicators
-# - cu_timing_Fr
-# - cu_timing_long
-# - status_data
-# - recent_status
+# Load Data
+# Try to load from output CSVs if not already in environment
+if (!exists("all_std_long")) {
+  data_path <- file.path(here(), "output", "all_indicators_std_long.csv")
+  if (file.exists(data_path)) {
+    all_std_long <- read.csv(data_path)
+    # Ensure columns match expectations for get_CU_indicators
+    # The CSV might store numeric columns as correct types, but check if factor conversion needed
+  } else {
+    warning("all_indicators_std_long.csv not found. Please run 4a_CU_scoring.R")
+  }
+}
+
+if (!exists("scores_long")) {
+  data_path <- file.path(here(), "output", "combined_scores_long.csv")
+  if (file.exists(data_path)) {
+    scores_long <- read.csv(data_path)
+  } else {
+    warning("combined_scores_long.csv not found. Please run 4a_CU_scoring.R")
+  }
+}
+
+# Load Metadata if needed (cu_run, tbl_indicators)
+if (!exists("cu_run")) {
+  # Try to source setup or load from file if available?
+  # Ideally source 0_setup.R but that might re-load everything.
+  # For now, assume setup is run or load cu_list_CVIS.csv if critical.
+  # But let's stick to the script assumption for now, just handling the new outputs.
+}
+
+if (!exists("fw_all")) {
+  # Try to find latest file
+  fw_path <- file.path(here(), "output", "fw_rearing_indicators.Rdata") # Try default name?
+
+  if (!file.exists(fw_path)) {
+    # Look for pattern in output folder
+    fw_files <- list.files(file.path(here(), "output"), pattern = "fw_rearing_indicators.Rdata", full.names = TRUE)
+    if (length(fw_files) > 0) {
+      # Sort by mtime
+      file_info <- file.info(fw_files)
+      latest_file <- rownames(file_info)[which.max(file_info$mtime)]
+      load(latest_file) # loads fw_all, ss_all
+    }
+  } else {
+    load(fw_path)
+  }
+}
+
+# Alias for compatibility if code uses old names
+if (exists("all_std_long")) all_flat_std <- all_std_long
+if (exists("scores_long")) combined_scores_std <- scores_long
 
 ################################################################################
 # UI
@@ -41,18 +83,17 @@ source(file.path(here(), "code", "5a_plots_CU.R"))
 
 ui <- dashboardPage(
   skin = "blue",
-
   dashboardHeader(title = "CVIS Explorer", titleWidth = 250),
-
   dashboardSidebar(
-    collapsed = FALSE,  # Open at startup
+    collapsed = FALSE, # Open at startup
     sidebarMenu(
       id = "tabs",
       menuItem("About", tabName = "about", icon = icon("info-circle")),
       menuItem("Overview", tabName = "overview", icon = icon("dashboard")),
       menuItem("Demographics", tabName = "demographics", icon = icon("users")),
       menuItem("Timing", tabName = "timing", icon = icon("calendar")),
-      menuItem("Spawning & Rearing", tabName = "spawning_menu", icon = icon("water"),
+      menuItem("Spawning & Rearing",
+        tabName = "spawning_menu", icon = icon("water"),
         menuSubItem("Stream Access", tabName = "spawning_access"),
         menuSubItem("Hydrology", tabName = "spawning_hydro"),
         menuSubItem("Flow", tabName = "spawning_flow"),
@@ -60,28 +101,33 @@ ui <- dashboardPage(
         menuSubItem("ENM", tabName = "spawning_enm"),
         menuSubItem("Threats", tabName = "spawning_threats")
       ),
-      menuItem("Migration", tabName = "migration_menu", icon = icon("route"),
+      menuItem("Migration",
+        tabName = "migration_menu", icon = icon("route"),
         menuSubItem("Path", tabName = "migration_path"),
         menuSubItem("Timing - Migration", tabName = "migration_timing")
       ),
-      menuItem("Marine", tabName = "marine_menu", icon = icon("ship"),
+      menuItem("Marine",
+        tabName = "marine_menu", icon = icon("ship"),
         menuSubItem("SST", tabName = "marine_sst"),
         menuSubItem("Impacts", tabName = "marine_impacts")
       )
     )
   ),
-
   dashboardBody(
 
     # Control panel at top
     fluidRow(
       style = "background-color: #ecf0f5; padding: 10px 15px; margin-bottom: 15px; border-bottom: 2px solid #d2d6de;",
-      column(12,
+      column(
+        12,
         selectInput("cu_select", "Conservation Unit:",
-          choices = setNames(cu_run$FULL_CU_IN,
-            paste0(cu_run$CU_NAME, " (", cu_run$SPECIES_NAME, ")")),
+          choices = setNames(
+            cu_run$FULL_CU_IN,
+            paste0(cu_run$CU_NAME, " (", cu_run$SPECIES_NAME, ")")
+          ),
           selected = cu_run$FULL_CU_IN[1],
-          width = "100%")
+          width = "100%"
+        )
       )
     ),
 
@@ -93,24 +139,21 @@ ui <- dashboardPage(
         .migration-row { background-color: #eff6ff; }
       "))
     ),
-
     tabItems(
 
       # ABOUT TAB
       tabItem(
         tabName = "about",
-
         fluidRow(
-          box(width = 12,
+          box(
+            width = 12,
             title = "About CVIS Explorer",
             status = "info",
             solidHeader = TRUE,
             p("This application explores climate vulnerability indicator data for conservation units (CUs) in the Fraser Basin.
               Use the top drop-down menu to select a CU and then navigate using the left-hand menu to view maps and summaries of indicator
               data for the CU."),
-            p(strong("Warning: Loading data for CUs with large CU boundaries may take a while (particularly Fraser Pinks).")
-            ),
-
+            p(strong("Warning: Loading data for CUs with large CU boundaries may take a while (particularly Fraser Pinks).")),
             h4("Indicator Categories"),
             tags$ul(
               tags$li(strong("Freshwater Spawning and Rearing:"), " Environmental change to streams, cumulative
@@ -122,14 +165,12 @@ ui <- dashboardPage(
               tags$li(strong("Demographics:"), " Conservation status and recent spawner abundance"),
               tags$li(strong("Genetics:"), " Heterozygosity and genomic offset measures (not currently shown in app)")
             ),
-
             h4("Default Parameters"),
             p("All indicators are displayed using:"),
             tags$ul(
               tags$li(strong("RCP 4.5:"), " Representative Concentration Pathway 4.5 (moderate emissions scenario)"),
               tags$li(strong("Time Period:"), " Mid-Century (2041-2060)")
             ),
-
             h4("Data Quality"),
             div(
               class = "alert alert-warning",
@@ -140,7 +181,7 @@ ui <- dashboardPage(
                   are under active development and have not been peer-reviewed. Results should be interpreted
                   with caution and are intended for exploratory analysis only. Please contact the authors before
                   citing or using this information in any formal capacity.")
-            ),
+            )
           )
         )
       ),
@@ -148,9 +189,9 @@ ui <- dashboardPage(
       # OVERVIEW TAB
       tabItem(
         tabName = "overview",
-
         fluidRow(
-          box(width = 12,
+          box(
+            width = 12,
             title = "All Climate Vulnerability Indicators",
             status = "primary",
             solidHeader = TRUE,
@@ -158,338 +199,366 @@ ui <- dashboardPage(
               style = "margin: 5px 0 10px 0; color: #666; font-size: 12px;",
               "Summary of all climate vulnerability indicators for the selected conservation unit. Green shading indicates values below species average (lower risk), while red indicates values above species average (higher risk)."
             ),
-            reactableOutput("comprehensive_indicators_table"))
+            reactableOutput("comprehensive_indicators_table")
+          )
         )
       ),
 
       # DEMOGRAPHICS TAB
       tabItem(
         tabName = "demographics",
-
         fluidRow(
-          box(width = 12, title = "Demographic Indicators Summary",
+          box(
+            width = 12, title = "Demographic Indicators Summary",
             status = "info", solidHeader = TRUE,
             tags$p(
               style = "margin: 5px 0 10px 0; color: #666; font-size: 12px;",
               "Recent conservation status and number of mature individuals indicator values."
             ),
-            reactableOutput("demographics_indicators_table"))
+            reactableOutput("demographics_indicators_table")
+          )
         ),
-
         fluidRow(
-          box(width = 12, title = "Spawner Abundance Time Series",
+          box(
+            width = 12, title = "Spawner Abundance Time Series",
             status = "primary", solidHeader = TRUE,
             tags$p(
               style = "margin: 5px 0 10px 0; color: #666; font-size: 12px;",
               "Time series of annual spawner abundance (blue line) and generational geometric average (red line). Points at bottom indicate Wild Salmon Policy status assessment (Red/Amber/Green) with shape indicating data quality confidence."
             ),
-            plotOutput("abundance_plot", height = "500px"))
+            plotOutput("abundance_plot", height = "500px")
+          )
         )
       ),
 
       # TIMING TAB
       tabItem(
         tabName = "timing",
-
         fluidRow(
-          box(width = 12, title = "Life History Timing",
+          box(
+            width = 12, title = "Life History Timing",
             status = "success", solidHeader = TRUE,
             tags$p(
               style = "margin: 5px 0 10px 0; color: #666; font-size: 12px;",
               "Life stage timing throughout the year showing spawning, upstream migration, ocean entry, and juvenile freshwater migration periods. Shaded areas indicate periods used for calculating specific vulnerability indicators. Point size represents data quality (larger = LOWER quality)."
             ),
-            plotOutput("timing_plot", height = "400px"))
+            plotOutput("timing_plot", height = "400px")
+          )
         )
       ),
 
       # SPAWNING ACCESS TAB
       tabItem(
         tabName = "spawning_access",
-
         fluidRow(
-          box(width = 12, title = "CU Location",
+          box(
+            width = 12, title = "CU Location",
             status = "primary", solidHeader = TRUE,
             tags$p(
               style = "margin: 5px 0 10px 0; color: #666; font-size: 12px;",
               "Geographic location of the selected conservation unit (green) relative to all Fraser River basin conservation units (grey outlines)."
             ),
-            plotOutput("boundary_highlight_plot", height = "400px"))
+            plotOutput("boundary_highlight_plot", height = "400px")
+          )
         ),
-
         fluidRow(
-          box(width = 12, title = "Stream Statistics",
+          box(
+            width = 12, title = "Stream Statistics",
             status = "info", solidHeader = TRUE,
             tags$p(
               style = "margin: 5px 0 10px 0; color: #666; font-size: 12px;",
               "Summary statistics for accessible stream habitat within the conservation unit boundary based on BC Fishpass habitat potential models."
             ),
-            gt_output("stream_stats_table"))
+            gt_output("stream_stats_table")
+          )
         ),
-
         fluidRow(
-          box(width = 12, title = "Accessible Stream Network",
+          box(
+            width = 12, title = "Accessible Stream Network",
             status = "primary", solidHeader = TRUE,
             tags$p(
               style = "margin: 5px 0 10px 0; color: #666; font-size: 12px;",
               "Accessible streams only with coloring indicating BC Fishpass modelled habitat potential and NuSEDS spawning site locations within the conservation unit boundary."
             ),
-            plotOutput("accessibility_plot", height = "600px"))
+            plotOutput("accessibility_plot", height = "600px")
+          )
         )
       ),
 
       # SPAWNING HYDROLOGY TAB
       tabItem(
         tabName = "spawning_hydro",
-
         fluidRow(
-          box(width = 12, title = "Hydrologic Regime Coverage",
+          box(
+            width = 12, title = "Hydrologic Regime Coverage",
             status = "info", solidHeader = TRUE,
             tags$p(
               style = "margin: 5px 0 10px 0; color: #666; font-size: 12px;",
               "Proportion of CU boundary classified by hydrologic regime type using method described in Ruzzante et al 2025.
               prop_coverage indicates proportion of CU boundary within gauged watersheds"
             ),
-            gt_output("hydro_stats_table"))
+            gt_output("hydro_stats_table")
+          )
         ),
-
         fluidRow(
-          box(width = 12, title = "Hydrologic Regime Map",
+          box(
+            width = 12, title = "Hydrologic Regime Map",
             status = "primary", solidHeader = TRUE,
             tags$p(
               style = "margin: 5px 0 10px 0; color: #666; font-size: 12px;",
               "Map of hydrologic regime zones and flow gauge locations within the CU boundary using method described in Ruzzante et al 2025."
             ),
-            plotOutput("hydro_regime_plot", height = "600px"))
+            plotOutput("hydro_regime_plot", height = "600px")
+          )
         )
       ),
 
       # SPAWNING FLOW TAB
       tabItem(
         tabName = "spawning_flow",
-
         fluidRow(
-          box(width = 12, title = "Flow Indicators Summary",
+          box(
+            width = 12, title = "Flow Indicators Summary",
             status = "info", solidHeader = TRUE,
             tags$p(
               style = "margin: 5px 0 10px 0; color: #666; font-size: 12px;",
               "Projected changes in stream flow during the month of August (lowQpdelta) and Nov - Jan (highQpdelta) for RCP 4.5, 2041-2060."
             ),
-            reactableOutput("flow_indicators_table"))
+            reactableOutput("flow_indicators_table")
+          )
         ),
-
         fluidRow(
-          box(width = 12, title = "Change in August Flow",
+          box(
+            width = 12, title = "Change in August Flow",
             status = "warning", solidHeader = TRUE,
             tags$p(
               style = "margin: 5px 0 10px 0; color: #666; font-size: 12px;",
               "Projected proportional change in August stream flows. Negative values indicate flow reductions relative to historic period."
             ),
-            plotOutput("august_flow_plot", height = "650px"))
+            plotOutput("august_flow_plot", height = "650px")
+          )
         ),
-
         fluidRow(
-          box(width = 12, title = "Change in Nov-Jan Flow",
+          box(
+            width = 12, title = "Change in Nov-Jan Flow",
             status = "info", solidHeader = TRUE,
             tags$p(
               style = "margin: 5px 0 10px 0; color: #666; font-size: 12px;",
               "Projected proportional change in winter flows (November-January). Positive values indicate flow increases relative to historic period."
             ),
-            plotOutput("winter_flow_plot", height = "650px"))
+            plotOutput("winter_flow_plot", height = "650px")
+          )
         )
       ),
 
       # SPAWNING TEMP TAB
       tabItem(
         tabName = "spawning_temp",
-
         fluidRow(
-          box(width = 12, title = "Temperature Indicators Summary",
+          box(
+            width = 12, title = "Temperature Indicators Summary",
             status = "info", solidHeader = TRUE,
             tags$p(
               style = "margin: 5px 0 10px 0; color: #666; font-size: 12px;",
               "Stream temperature indicators: projected August temperature (tw8proj) and rate of change in August temperature (tw8rate)."
             ),
-            reactableOutput("temp_indicators_table"))
+            reactableOutput("temp_indicators_table")
+          )
         ),
-
         fluidRow(
-          box(width = 12, title = "Projected August Stream Temperature",
+          box(
+            width = 12, title = "Projected August Stream Temperature",
             status = "danger", solidHeader = TRUE,
             tags$p(
               style = "margin: 5px 0 10px 0; color: #666; font-size: 12px;",
               "Projected mean August stream temperature (2041-2060, RCP 4.5)"
             ),
-            plotOutput("temp_plot", height = "650px"))
+            plotOutput("temp_plot", height = "650px")
+          )
         ),
-
         fluidRow(
-          box(width = 12, title = "Rate of Temperature Change",
+          box(
+            width = 12, title = "Rate of Temperature Change",
             status = "warning", solidHeader = TRUE,
             tags$p(
               style = "margin: 5px 0 10px 0; color: #666; font-size: 12px;",
               "Rate of change in August stream temperature from baseline (1981-2000) to mid-century (2041-2060)"
             ),
-            plotOutput("temp_rate_plot", height = "650px"))
+            plotOutput("temp_rate_plot", height = "650px")
+          )
         )
       ),
 
       # SPAWNING ENM TAB
       tabItem(
         tabName = "spawning_enm",
-
         fluidRow(
-          box(width = 12, title = "ENM Indicators Summary",
+          box(
+            width = 12, title = "ENM Indicators Summary",
             status = "info", solidHeader = TRUE,
             tags$p(
               style = "margin: 5px 0 10px 0; color: #666; font-size: 12px;",
               "Indicator value of changes in habitat favourability (favchange) from Environmental Niche Models."
             ),
-            reactableOutput("enm_indicators_table"))
+            reactableOutput("enm_indicators_table")
+          )
         ),
-
         fluidRow(
-          box(width = 12, title = "ENM Habitat Favourability",
+          box(
+            width = 12, title = "ENM Habitat Favourability",
             status = "success", solidHeader = TRUE,
             tags$p(
               style = "margin: 5px 0 10px 0; color: #666; font-size: 12px;",
               "Projected habitat favourability (2041-2060, RCP 4.5). Values range from 0 (unfavourable) to 1 (highly favourable) based on projected environmental conditions."
             ),
-            plotOutput("enm_plot", height = "650px"))
+            plotOutput("enm_plot", height = "650px")
+          )
         ),
-
         fluidRow(
-          box(width = 12, title = "Change in Favourability",
+          box(
+            width = 12, title = "Change in Favourability",
             status = "info", solidHeader = TRUE,
             tags$p(
               style = "margin: 5px 0 10px 0; color: #666; font-size: 12px;",
               "Change in habitat favourability from baseline to mid-century. Negative values indicate decreased favourability, positive values indicate improving conditions."
             ),
-            plotOutput("enm_diff_plot", height = "650px"))
+            plotOutput("enm_diff_plot", height = "650px")
+          )
         )
       ),
 
       # SPAWNING THREATS TAB
       tabItem(
         tabName = "spawning_threats",
-
         fluidRow(
-          box(width = 12, title = "Cumulative Threats Indicator Summary",
+          box(
+            width = 12, title = "Cumulative Threats Indicator Summary",
             status = "info", solidHeader = TRUE,
             tags$p(
               style = "margin: 5px 0 10px 0; color: #666; font-size: 12px;",
               "Indicator of cumulative threat score (CT) representing anthropogenic stressors to stream habitat."
             ),
-            reactableOutput("threats_indicators_table"))
+            reactableOutput("threats_indicators_table")
+          )
         ),
-
         fluidRow(
-          box(width = 12, title = "Cumulative Threats to Stream Habitat",
+          box(
+            width = 12, title = "Cumulative Threats to Stream Habitat",
             status = "danger", solidHeader = TRUE,
             tags$p(
               style = "margin: 5px 0 10px 0; color: #666; font-size: 12px;",
               "Cumulative threat score combining nine anthropogenic stressor categories. Higher values represent higher threats."
             ),
-            plotOutput("ct_plot", height = "650px"))
+            plotOutput("ct_plot", height = "650px")
+          )
         )
       ),
 
       # MIGRATION PATH TAB
       tabItem(
         tabName = "migration_path",
-
         fluidRow(
-          box(width = 12, title = "Migration Indicators Summary",
+          box(
+            width = 12, title = "Migration Indicators Summary",
             status = "info", solidHeader = TRUE,
             tags$p(
               style = "margin: 5px 0 10px 0; color: #666; font-size: 12px;",
               "Indicators representing temperature and flow conditions and migration distance from ocean to spawning grounds."
             ),
-            reactableOutput("migration_indicators_table"))
+            reactableOutput("migration_indicators_table")
+          )
         ),
-
         fluidRow(
-          box(width = 12, title = "Migration Route",
+          box(
+            width = 12, title = "Migration Route",
             status = "primary", solidHeader = TRUE,
             tags$p(
               style = "margin: 5px 0 10px 0; color: #666; font-size: 12px;",
               "Migration route from river mouth to NuSEDS spawning sites used to calculate indicators, coloured by channel width."
             ),
-            plotOutput("migration_path_plot", height = "700px"))
+            plotOutput("migration_path_plot", height = "700px")
+          )
         )
       ),
 
       # MIGRATION TIMING TAB
       tabItem(
         tabName = "migration_timing",
-
         fluidRow(
-          box(width = 12, title = "Migration Timing and Temperature",
+          box(
+            width = 12, title = "Migration Timing and Temperature",
             status = "warning", solidHeader = TRUE,
             tags$p(
               style = "margin: 5px 0 10px 0; color: #666; font-size: 12px;",
               "Daily projected stream temperatures during upstream migration period. Vertical dashed lines show run timing start/end (blue) and spawn timing start/peak (red). Shaded areas show 10th-90th percentile range across climate models."
             ),
-            plotOutput("migration_timing_plot", height = "500px"))
+            plotOutput("migration_timing_plot", height = "500px")
+          )
         )
       ),
 
       # MARINE SST TAB
       tabItem(
         tabName = "marine_sst",
-
         fluidRow(
-          box(width = 12, title = "Sea Surface Temperature Indicators Summary",
+          box(
+            width = 12, title = "Sea Surface Temperature Indicators Summary",
             status = "info", solidHeader = TRUE,
             tags$p(
               style = "margin: 5px 0 10px 0; color: #666; font-size: 12px;",
               "Nearshore marine indicators related to sea surface temperature, the projected SST during the ocean entry period (SSTproj), and the rate of change in SST (SSTrate) relative to the baseline period."
             ),
-            reactableOutput("sst_indicators_table"))
+            reactableOutput("sst_indicators_table")
+          )
         ),
-
         fluidRow(
-          box(width = 12, title = "Marine Adaptive Zone",
+          box(
+            width = 12, title = "Marine Adaptive Zone",
             status = "info", solidHeader = TRUE,
             tags$p(
               style = "margin: 5px 0 10px 0; color: #666; font-size: 12px;",
               "Marine Adaptive Zone (green) representing the nearshore rearing area used for marine indicator calculations."
             ),
-            plotOutput("maz_boundary_plot", height = "400px"))
+            plotOutput("maz_boundary_plot", height = "400px")
+          )
         ),
-
         fluidRow(
-          box(width = 12, title = "Projected Sea Surface Temperature",
+          box(
+            width = 12, title = "Projected Sea Surface Temperature",
             status = "danger", solidHeader = TRUE,
             tags$p(
               style = "margin: 5px 0 10px 0; color: #666; font-size: 12px;",
               "Projected sea surface temperature during the period surround peak ocean entry (2041-2060, RCP 4.5)."
             ),
-            plotOutput("sst_plot", height = "600px"))
+            plotOutput("sst_plot", height = "600px")
+          )
         )
       ),
 
       # MARINE IMPACTS TAB
       tabItem(
         tabName = "marine_impacts",
-
         fluidRow(
-          box(width = 12, title = "Marine Cumulative Impacts Indicator Summary",
+          box(
+            width = 12, title = "Marine Cumulative Impacts Indicator Summary",
             status = "info", solidHeader = TRUE,
             tags$p(
               style = "margin: 5px 0 10px 0; color: #666; font-size: 12px;",
               "Indicator for cumulative impact score (CImpact) for nearshore marine habitats within the marine adaptive zone."
             ),
-            reactableOutput("impacts_indicators_table"))
+            reactableOutput("impacts_indicators_table")
+          )
         ),
-
         fluidRow(
-          box(width = 12, title = "Cumulative Impacts on Marine Habitat",
+          box(
+            width = 12, title = "Cumulative Impacts on Marine Habitat",
             status = "warning", solidHeader = TRUE,
             tags$p(
               style = "margin: 5px 0 10px 0; color: #666; font-size: 12px;",
               "Cumulative impact score combining stressors including aquaculture, fishing, invasive species, pollution, and shipping. Higher values indicate a higher impact score."
             ),
-            plotOutput("marine_impacts_plot", height = "600px"))
+            plotOutput("marine_impacts_plot", height = "600px")
+          )
         )
       )
     )
@@ -517,12 +586,15 @@ create_indicator_reactable <- function(df, indicator_codes) {
       m <- max(abs(x), na.rm = TRUE)
       if (is.infinite(m) || is.na(m) || m == 0) 1 else m
     },
-    error = function(e) 1)
+    error = function(e) 1
+  )
 
   # Color function for CU score vs Species score
   cu_z_cell <- function(value, index, name) {
     sp <- tbl_view[["Species score"]][index]
-    if (is.na(value) || is.na(sp)) return("NA")
+    if (is.na(value) || is.na(sp)) {
+      return("NA")
+    }
     diff <- value - sp
     intensity <- min(1, abs(diff) / diff_max)
     alpha <- 0.15 + 0.40 * intensity
@@ -554,19 +626,16 @@ create_indicator_reactable <- function(df, indicator_codes) {
     striped = FALSE,
     compact = TRUE,
     pagination = FALSE,
-
     defaultColDef = colDef(
       minWidth = 70,
       headerVAlign = "center",
       vAlign = "center"
     ),
-
     theme = reactableTheme(
       borderColor = "#e5e7eb",
       stripedColor = "#f9fafb",
       highlightColor = "#eef2ff"
     ),
-
     columnGroups = list(
       colGroup(
         name = "Standardized Scores",
@@ -581,7 +650,6 @@ create_indicator_reactable <- function(df, indicator_codes) {
         columns = intersect(c("Species Mean", "All Species Mean"), names(tbl_view))
       )
     ),
-
     columns = list(
       `Indicator Type` = colDef(width = 140),
       `Indicator Code` = colDef(width = 115),
@@ -605,10 +673,12 @@ server <- function(input, output, session) {
   # Reactive data for selected CU
   cu_data <- reactive({
     req(input$cu_select)
-    all_flat_std %>%
-      filter(FULL_CU_IN == input$cu_select,
+    all_std_long %>%
+      filter(
+        FULL_CU_IN == input$cu_select,
         rcp == "45",
-        period_code == "3")
+        period_code == "3"
+      )
   })
 
   # Reactive data for indicator table (formatted for display)
@@ -616,17 +686,19 @@ server <- function(input, output, session) {
     req(input$cu_select)
 
     # Get all indicator data for the selected CU (using default RCP 4.5 and period 3)
-    cu_all_raw <- get_CU_indicators(all_flat_std,
+    cu_all_raw <- get_CU_indicators(all_std_long,
       cu_i = input$cu_select,
       use_standardized = FALSE,
       period_pick = "3",
-      RCP_pick = "45")
+      RCP_pick = "45"
+    )
 
-    cu_all_std <- get_CU_indicators(all_flat_std,
+    cu_all_std <- get_CU_indicators(all_std_long,
       cu_i = input$cu_select,
       use_standardized = TRUE,
       period_pick = "3",
-      RCP_pick = "45")
+      RCP_pick = "45"
+    )
 
     df <- cu_all_raw %>%
       left_join(cu_all_std, join_by(FULL_CU_IN, rcp, period_code, indicator)) %>%
@@ -701,7 +773,8 @@ server <- function(input, output, session) {
       mutate(model_rs = if_else(is.na(model_rs), FALSE, model_rs)) %>%
       mutate(model_rs = factor(model_rs,
         levels = c(TRUE, FALSE),
-        labels = c("1-SPAWNING/REARING", "2-NOT SPAWNING/REARING")))
+        labels = c("1-SPAWNING/REARING", "2-NOT SPAWNING/REARING")
+      ))
 
     acc_sp_cu <- fw_sp_cu %>%
       filter(model_access_salmon %in% c("OBSERVED", "INFERRED"))
@@ -739,12 +812,15 @@ server <- function(input, output, session) {
         m <- max(abs(x), na.rm = TRUE)
         if (is.infinite(m) || is.na(m) || m == 0) 1 else m
       },
-      error = function(e) 1)
+      error = function(e) 1
+    )
 
     # Color function for CU score vs Species score
     cu_z_cell <- function(value, index, name) {
       sp <- tbl_view[["Species score"]][index]
-      if (is.na(value) || is.na(sp)) return("NA")
+      if (is.na(value) || is.na(sp)) {
+        return("NA")
+      }
       diff <- value - sp
       intensity <- min(1, abs(diff) / diff_max)
       alpha <- 0.15 + 0.40 * intensity
@@ -778,19 +854,16 @@ server <- function(input, output, session) {
       pagination = FALSE,
       defaultSorted = "Indicator Type",
       defaultSortOrder = "asc",
-
       defaultColDef = colDef(
         minWidth = 70,
         headerVAlign = "center",
         vAlign = "center"
       ),
-
       theme = reactableTheme(
         borderColor = "#e5e7eb",
         stripedColor = "#f9fafb",
         highlightColor = "#eef2ff"
       ),
-
       columnGroups = list(
         colGroup(
           name = "Standardized Scores",
@@ -805,7 +878,6 @@ server <- function(input, output, session) {
           columns = intersect(c("Species Mean", "All Species Mean"), names(tbl_view))
         )
       ),
-
       columns = list(
         `Indicator Type` = colDef(width = 100),
         `Indicator Code` = colDef(width = 115),
@@ -818,7 +890,6 @@ server <- function(input, output, session) {
         `Species Mean` = colDef(width = 95, format = colFormat(digits = 2, separators = TRUE), na = "NA"),
         `All Species Mean` = colDef(width = 95, format = colFormat(digits = 2, separators = TRUE), na = "NA")
       ),
-
       rowClass = function(index, name) {
         ind <- tbl_view[["Indicator Code"]][index]
         if (!is.null(ind) && ind %in% c("tw8proj", "tw8rate", "SSTproj", "SSTrate")) {
@@ -874,11 +945,14 @@ server <- function(input, output, session) {
   output$stream_stats_table <- render_gt({
     req(input$cu_select)
 
-    cu_i <- input$cu_select
-    fwR_cu <- fwR_all[[cu_i]]
+  output$stream_stats_table <- render_gt({
+    req(input$cu_select)
 
-    if (!is.null(fwR_cu$streams)) {
-      fwR_cu$streams %>%
+    cu_i <- input$cu_select
+    fwR_cu <- fw_all %>% filter(FULL_CU_IN == cu_i)
+
+    if (nrow(fwR_cu) > 0) {
+      fwR_cu %>%
         select(c(
           total_length_acc, n_streams, proportion_rear,
           proportion_spawn, proportion_rs,
@@ -929,10 +1003,14 @@ server <- function(input, output, session) {
     p <- p +
       geom_sf(data = spatial$nuseds, aes(fill = SPECIES), alpha = 0.6) +
       geom_sf(data = st_zm(spatial$fw_sp), aes(color = model_rs)) +
-      coord_sf(xlim = st_bbox(spatial$boundary)[c(1, 3)],
-        ylim = st_bbox(spatial$boundary)[c(2, 4)]) +
-      labs(colour = "BC FishPass",
-        fill = "NUSEDS sites")
+      coord_sf(
+        xlim = st_bbox(spatial$boundary)[c(1, 3)],
+        ylim = st_bbox(spatial$boundary)[c(2, 4)]
+      ) +
+      labs(
+        colour = "BC FishPass",
+        fill = "NUSEDS sites"
+      )
 
     print(p)
   })
@@ -985,17 +1063,22 @@ server <- function(input, output, session) {
         }
 
         p <- p +
-          coord_sf(xlim = st_bbox(spatial$boundary)[c(1, 3)],
-            ylim = st_bbox(spatial$boundary)[c(2, 4)]) +
-          labs(fill = "Hydrologic regime",
-            color = "Flow Gauge")
+          coord_sf(
+            xlim = st_bbox(spatial$boundary)[c(1, 3)],
+            ylim = st_bbox(spatial$boundary)[c(2, 4)]
+          ) +
+          labs(
+            fill = "Hydrologic regime",
+            color = "Flow Gauge"
+          )
 
         print(p)
       },
       error = function(e) {
         plot(1, type = "n", axes = FALSE, xlab = "", ylab = "")
         text(1, 1, paste("Hydrologic data not available\n", e$message), cex = 0.8)
-      })
+      }
+    )
   })
 
   # SPAWNING FLOW OUTPUTS
@@ -1011,19 +1094,22 @@ server <- function(input, output, session) {
       {
         spatial <- cu_spatial()
 
-        stream_indicator_plot(spatial$acc_sp, spatial$boundary, spatial$lakes, Tw_stations = NULL,
+        stream_indicator_plot(spatial$acc_sp, spatial$boundary, spatial$lakes,
+          Tw_stations = NULL,
           variable = "qpdelta_flow_8_45_3",
           plot_title = "Change in August Flow - 2041-2060",
           unit_label = "Proportional Change",
           xlim = c(-1, 0),
           scico_palette = "lajolla",
           palette_direction = 1,
-          temp_stations = FALSE)
+          temp_stations = FALSE
+        )
       },
       error = function(e) {
         plot(1, type = "n", axes = FALSE, xlab = "", ylab = "")
         text(1, 1, paste("Error:\n", e$message), cex = 0.8)
-      })
+      }
+    )
   })
 
   output$winter_flow_plot <- renderPlot({
@@ -1033,19 +1119,22 @@ server <- function(input, output, session) {
       {
         spatial <- cu_spatial()
 
-        stream_indicator_plot(spatial$acc_sp, spatial$boundary, spatial$lakes, Tw_stations = NULL,
+        stream_indicator_plot(spatial$acc_sp, spatial$boundary, spatial$lakes,
+          Tw_stations = NULL,
           variable = "qpdelta_flow_18_45_3",
           plot_title = "Change in Nov-Jan Flow - 2041-2060",
           unit_label = "Proportional Change",
           xlim = c(0, 1),
           scico_palette = "lajolla",
           palette_direction = -1,
-          temp_stations = FALSE)
+          temp_stations = FALSE
+        )
       },
       error = function(e) {
         plot(1, type = "n", axes = FALSE, xlab = "", ylab = "")
         text(1, 1, paste("Error:\n", e$message), cex = 0.8)
-      })
+      }
+    )
   })
 
   # SPAWNING TEMP OUTPUTS
@@ -1067,12 +1156,14 @@ server <- function(input, output, session) {
           unit_label = "Temperature (°C)",
           scico_palette = "roma",
           palette_direction = -1,
-          temp_stations = TRUE)
+          temp_stations = TRUE
+        )
       },
       error = function(e) {
         plot(1, type = "n", axes = FALSE, xlab = "", ylab = "")
         text(1, 1, paste("Error:\n", e$message), cex = 0.8)
-      })
+      }
+    )
   })
 
   output$temp_rate_plot <- renderPlot({
@@ -1088,12 +1179,14 @@ server <- function(input, output, session) {
           unit_label = "°C per decade",
           scico_palette = "roma",
           palette_direction = -1,
-          temp_stations = TRUE)
+          temp_stations = TRUE
+        )
       },
       error = function(e) {
         plot(1, type = "n", axes = FALSE, xlab = "", ylab = "")
         text(1, 1, paste("Error:\n", e$message), cex = 0.8)
-      })
+      }
+    )
   })
 
   # SPAWNING ENM OUTPUTS
@@ -1109,7 +1202,8 @@ server <- function(input, output, session) {
       {
         spatial <- cu_spatial()
 
-        stream_indicator_plot(spatial$fw_sp, spatial$boundary, spatial$lakes, Tw_stations = NULL,
+        stream_indicator_plot(spatial$fw_sp, spatial$boundary, spatial$lakes,
+          Tw_stations = NULL,
           variable = "fav_45",
           plot_title = "ENM Favourability - 2041-2060",
           unit_label = "Favourability",
@@ -1117,12 +1211,14 @@ server <- function(input, output, session) {
           xlim = c(0, 1),
           scico_palette = "managua",
           palette_direction = -1,
-          temp_stations = FALSE)
+          temp_stations = FALSE
+        )
       },
       error = function(e) {
         plot(1, type = "n", axes = FALSE, xlab = "", ylab = "")
         text(1, 1, paste("Error:\n", e$message), cex = 0.8)
-      })
+      }
+    )
   })
 
   output$enm_diff_plot <- renderPlot({
@@ -1132,7 +1228,8 @@ server <- function(input, output, session) {
       {
         spatial <- cu_spatial()
 
-        stream_indicator_plot(spatial$fw_sp, spatial$boundary, spatial$lakes, Tw_stations = NULL,
+        stream_indicator_plot(spatial$fw_sp, spatial$boundary, spatial$lakes,
+          Tw_stations = NULL,
           variable = "favchange_45",
           plot_title = "Change in ENM Favourability - 1981-2000 to 2041-2060",
           unit_label = "Change in Favourability",
@@ -1140,12 +1237,14 @@ server <- function(input, output, session) {
           xlim = c(-1, 1),
           scico_palette = "berlin",
           palette_direction = -1,
-          temp_stations = FALSE)
+          temp_stations = FALSE
+        )
       },
       error = function(e) {
         plot(1, type = "n", axes = FALSE, xlab = "", ylab = "")
         text(1, 1, paste("Error:\n", e$message), cex = 0.8)
-      })
+      }
+    )
   })
 
   # SPAWNING THREATS OUTPUT
@@ -1161,18 +1260,21 @@ server <- function(input, output, session) {
       {
         spatial <- cu_spatial()
 
-        stream_indicator_plot(spatial$acc_sp, spatial$boundary, spatial$lakes, Tw_stations = NULL,
+        stream_indicator_plot(spatial$acc_sp, spatial$boundary, spatial$lakes,
+          Tw_stations = NULL,
           variable = "ct_anad",
           plot_title = "Cumulative Threats to Stream Habitat",
           unit_label = "Cumulative Threat Score",
           scico_palette = "lajolla",
           palette_direction = -1,
-          temp_stations = FALSE)
+          temp_stations = FALSE
+        )
       },
       error = function(e) {
         plot(1, type = "n", axes = FALSE, xlab = "", ylab = "")
         text(1, 1, paste("Error:\n", e$message), cex = 0.8)
-      })
+      }
+    )
   })
 
   # MIGRATION OUTPUTS
@@ -1191,7 +1293,8 @@ server <- function(input, output, session) {
       migration_path_plot(migr_cu, spatial$nuseds, spatial$boundary,
         colour_var = "channel_width",
         colour_label = "Channel Width (m)",
-        plot_title = paste0("Migration Distance: ", round(cu_data()$migrdist[1], 0), " km"))
+        plot_title = paste0("Migration Distance: ", round(cu_data()$migrdist[1], 0), " km")
+      )
     }
   })
 
@@ -1202,7 +1305,8 @@ server <- function(input, output, session) {
 
     migr_timing_plot(migrT_rcps, input$cu_select, cu_timing_i,
       rcp = "45",
-      period_choose = c("1981-2010", "2041-2060"))
+      period_choose = c("1981-2010", "2041-2060")
+    )
   })
 
   # MARINE OUTPUTS
@@ -1221,29 +1325,36 @@ server <- function(input, output, session) {
     req(input$cu_select)
 
     cu_mar <- mar_all_flat %>%
-      filter(FULL_CU_IN == input$cu_select,
+      filter(
+        FULL_CU_IN == input$cu_select,
         rcp == "45",
-        period_code == "3")
+        period_code == "3"
+      )
 
     if (nrow(cu_mar) > 0) {
-      months_include <- seq(from = cu_mar$ns_timing_start[1],
+      months_include <- seq(
+        from = cu_mar$ns_timing_start[1],
         to = cu_mar$ns_timing_end[1],
-        by = 1)
+        by = 1
+      )
 
       SST_cu_sp <- get_spatial_var(CMIP6_SST,
         months = months_include,
         period_pick = 3,
-        rcp_pick = "45")
+        rcp_pick = "45"
+      )
 
       MAZ_cu <- MAZ %>% filter(MAZ_Acrony == cu_mar$MAZ[1])
 
-      marine_indicator_plot(SST_cu_sp, MAZ_sp = MAZ_cu,
+      marine_indicator_plot(SST_cu_sp,
+        MAZ_sp = MAZ_cu,
         var = "SST_oe",
         unit_label = "Temperature (°C)",
         plot_title = "Projected SST - 2041-2060, RCP 4.5",
         scico_palette = "roma",
         palette_direction = -1,
-        palette_limits = c(9, 16))
+        palette_limits = c(9, 16)
+      )
     }
   })
 
@@ -1260,13 +1371,15 @@ server <- function(input, output, session) {
     CI_cu <- CImpact_points %>% filter(MAZ_Acrony == maz_name)
     MAZ_cu <- MAZ %>% filter(MAZ_Acrony == maz_name)
 
-    marine_indicator_plot(CI_cu, MAZ_sp = MAZ_cu,
+    marine_indicator_plot(CI_cu,
+      MAZ_sp = MAZ_cu,
       var = "Cumul_Impact_ALL",
       unit_label = "Cumulative Impact Score",
       plot_title = "Cumulative Impacts on Marine Habitat",
       scico_palette = "lajolla",
       palette_direction = -1,
-      palette_limits = c(NA, NA))
+      palette_limits = c(NA, NA)
+    )
   })
 }
 

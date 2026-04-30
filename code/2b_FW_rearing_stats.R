@@ -38,6 +38,37 @@ load(file.path(paths$fw, "Statistical_flow_projections.Rds"))
 # load flow stations spatial objects  (watershed_flow, stations_flow, stations_stats)
 load(file.path(paths$fw, "flow_gauge_data.Rdata"))
 
+# load PCIC grid data for alternative temperature indicators
+PCIC_file_loc <- file.path(paths$climate, "PCIC_averaged", "combined")
+
+cat("Pre-loading PCIC data for tw8 indicators...\n")
+load_aug_pcic <- function(rcp_val) {
+  file_name <- paste0("daily_rcp", rcp_val, ".nc")
+  pcic <- read_mdim(file.path(PCIC_file_loc, file_name))
+
+  # Ensure we have the right attribute. If multiple, it might be a dimension.
+  if ("variable" %in% names(st_dimensions(pcic))) {
+    pcic <- pcic %>% filter(variable == "waterTemperature")
+  }
+
+  pcic <- mutate(pcic, waterTemperature = waterTemperature - 273.15)
+
+  # Get August indices (days 213 to 243)
+  # filter by index on the time dimension
+  aug_stars <- pcic %>%
+    slice(time, 213:243) %>%
+    st_apply(MARGIN = c("x", "y", "period", "model"), mean, na.rm = TRUE)
+
+  return(aug_stars)
+}
+
+PCIC_aug_45 <- load_aug_pcic("45")
+PCIC_aug_85 <- load_aug_pcic("85")
+# PCIC_aug is [x, y, period, model]. PCIC_base should be [x, y].
+PCIC_base <- PCIC_aug_45 %>%
+  slice(period, 1) %>%
+  slice(model, 1)
+
 
 # set common length column name.  bc fishpass uses length_metre for segments
 if (base_network == "tscapes") {
@@ -203,6 +234,153 @@ stream_env_stats <- function(
     dplyr::ungroup()
 
   return(Ts_long)
+}
+
+
+#---- 3.1b stream pcic stats function----
+
+stream_pcic_env_stats <- function(
+    fw_models_cu,
+    PCIC_aug, # stars object [x, y, period, model] for a single RCP
+    PCIC_base, # stars object [x, y] to use for spatial intersection
+    rcp_val = "45",
+    indicator = "tw8proj",
+    historical_period = "1981-2010",
+    model_rs = model_rs_pick,
+    qlowsp = qlsp,
+    qhighsp = qhsp) {
+  # Parse indicator
+  m <- stringr::str_match(indicator, "^(.*?)(proj|rate|pdelta)$")
+  base_ind <- m[1, 2] # "tw8"
+  kind <- m[1, 3] # "proj", "rate", "pdelta"
+
+  # Subset streams
+  if (isTRUE(model_rs)) {
+    fw_models_cu <- fw_models_cu[fw_models_cu$model_rs == TRUE, ]
+  }
+
+  # Return empty tibble with correct schema if no streams
+  if (nrow(fw_models_cu) == 0) {
+    return(tibble(
+      gcm = integer(), gcm_name = character(), dsmodel = character(),
+      rcp = integer(), period_code = integer(), indicator = character(),
+      stat = character(), value = numeric()
+    ))
+  }
+
+  # Transform points to match PCIC grid CRS
+  stream_pts <- st_centroid(fw_models_cu) %>%
+    st_transform(st_crs(PCIC_aug))
+
+  # Efficiently extract all values at once
+  # st_extract for multi-dim stars returns a stars object where dimensions are point, period, model
+  extracted <- st_extract(PCIC_aug, stream_pts)
+
+  # Convert to long format for easier processing
+  # 'long=TRUE' preserves dimension names and values
+  all_cell_vals <- as.data.frame(extracted, long = TRUE)
+
+  # Join with segment weights based on the point index
+  # as.data.frame for st_extract output usually names the first column 'point'
+  # or 'geometry'. If it's a geometry column, we map it back to indices.
+  pt_col <- if ("point" %in% names(all_cell_vals)) "point" else names(all_cell_vals)[1]
+
+  if (inherits(all_cell_vals[[pt_col]], "sfc")) {
+    # Match geometries back to the original points to get indices
+    all_cell_vals$pt_id <- match(all_cell_vals[[pt_col]], st_geometry(stream_pts))
+  } else {
+    all_cell_vals$pt_id <- as.integer(all_cell_vals[[pt_col]])
+  }
+
+  all_cell_vals <- all_cell_vals %>%
+    left_join(
+      tibble::tibble(
+        pt_id = 1:nrow(fw_models_cu),
+        weight = fw_models_cu$length_metre
+      ),
+      by = "pt_id"
+    ) %>%
+    filter(!is.na(weight))
+
+  # Calculate values per (period, model)
+  res <- all_cell_vals %>%
+    group_by(period, model) %>%
+    summarise(
+      mean_val = wmean(waterTemperature, weight, na.rm = TRUE),
+      qlow_val = wqt(waterTemperature, weight, prob = qlowsp, na.rm = TRUE),
+      qhigh_val = wqt(waterTemperature, weight, prob = qhighsp, na.rm = TRUE),
+      total_length = sum(weight, na.rm = TRUE),
+      n_cells = n(),
+      .groups = "drop"
+    )
+
+  # Get historical reference
+  hist_vals <- res %>%
+    filter(period == historical_period) %>%
+    select(model, histT = mean_val)
+
+  # Calculate final indicator value based on kind
+  out_long <- res %>%
+    left_join(hist_vals, by = "model") %>%
+    mutate(period_code = case_when(
+      period == "1981-2010" ~ 0,
+      period == "2021-2040" ~ 2,
+      period == "2041-2060" ~ 3,
+      period == "2061-2080" ~ 4,
+      period == "2081-2099" ~ 5,
+      TRUE ~ NA_real_
+    )) %>%
+    filter(!is.na(period_code)) %>%
+    mutate(decade_interval = decade_calc("0", period_pick = as.character(period_code))) %>%
+    mutate(
+      mean = if (kind == "proj") {
+        mean_val
+      } else if (kind == "rate") {
+        (mean_val - histT) / decade_interval
+      } else if (kind == "pdelta") {
+        (mean_val - histT) / histT
+      } else {
+        NA_real_
+      },
+      qlowsp = if (kind == "proj") {
+        qlow_val
+      } else if (kind == "rate") {
+        (qlow_val - histT) / decade_interval
+      } else if (kind == "pdelta") {
+        (qlow_val - histT) / histT
+      } else {
+        NA_real_
+      },
+      qhighsp = if (kind == "proj") {
+        qhigh_val
+      } else if (kind == "rate") {
+        (qhigh_val - histT) / decade_interval
+      } else if (kind == "pdelta") {
+        (qhigh_val - histT) / histT
+      } else {
+        NA_real_
+      }
+    ) %>%
+    # Pivot to long format stats
+    pivot_longer(
+      cols = c(n_cells, total_length, mean, qlowsp, qhighsp),
+      names_to = "stat",
+      values_to = "value"
+    ) %>%
+    mutate(stat = if_else(stat == "n_cells", "nsegments", stat)) %>%
+    mutate(stat = if_else(stat == "total_length", "length", stat)) %>%
+    mutate(
+      dsmodel = "pcicgrid",
+      indicator = indicator,
+      rcp = if_else(period_code == 0, 0, as.integer(rcp_val))
+    ) %>%
+    # GCM lookup
+    mutate(gcm_name = str_to_lower(str_replace(model, "[-\\.].*$", ""))) %>%
+    left_join(gcm_codes, by = "gcm_name") %>%
+    mutate(gcm = as.integer(gcm)) %>%
+    select(gcm, gcm_name, dsmodel, rcp, period_code, indicator, stat, value)
+
+  return(out_long)
 }
 
 
@@ -558,7 +736,6 @@ regime_stats <- function(watershed_flow, cu_boundary_i) {
 }
 
 
-
 # ---- 4. Calculate stream network CU indicators----
 
 for (i in 1:n.CUs) {
@@ -586,20 +763,37 @@ for (i in 1:n.CUs) {
 
   # get cu FW timing info
   fw_timing_i <- cu_timing_Fr[cu_timing_Fr$FULL_CU_IN == cu_i, ] %>%
-    select(oe_age, sp_peak, oe_peak, peak_sp_to_oe)
+    select(oe_age, sp_peak, oe_peak, fwres_mean)
 
   #----create subsetted data tables for each model
-  fw_models_cu <- fw_models[stream_cu_sub, ] %>%
-    mutate(
-      model_rs = if_any(all_of(model_h_pick), ~ . == TRUE),
-      model_spawning = if_any(all_of(model_s_pick), ~ . == TRUE)
-    ) %>%
-    mutate(model_rs = if_else(is.na(model_rs), FALSE, model_rs))
+  fw_models_cu <- fw_models[stream_cu_sub, ]
 
+  # Select reachable habitat (model_rs)
+  avail_h_cols <- intersect(model_h_pick, names(fw_models_cu))
+  if (length(avail_h_cols) > 0) {
+    fw_models_cu$model_rs <- rowSums(st_drop_geometry(fw_models_cu)[, avail_h_cols, drop = FALSE], na.rm = TRUE) > 0
+  } else {
+    fw_models_cu$model_rs <- FALSE
+  }
+
+  # Select spawning habitat
+  avail_s_cols <- intersect(model_s_pick, names(fw_models_cu))
+  if (length(avail_s_cols) > 0) {
+    fw_models_cu$model_spawning <- rowSums(st_drop_geometry(fw_models_cu)[, avail_s_cols, drop = FALSE], na.rm = TRUE) > 0
+  } else {
+    fw_models_cu$model_spawning <- FALSE
+  }
+
+  # Select rearing habitat
   if (sp_pick %in% c("ck", "co", "sk")) {
-    fw_models_cu <- mutate(fw_models_cu,
-      model_rearing = if_any(all_of(model_r_pick), ~ . == TRUE)
-    )
+    avail_r_cols <- intersect(model_r_pick, names(fw_models_cu))
+    if (length(avail_r_cols) > 0) {
+      fw_models_cu$model_rearing <- rowSums(st_drop_geometry(fw_models_cu)[, avail_r_cols, drop = FALSE], na.rm = TRUE) > 0
+    } else {
+      fw_models_cu$model_rearing <- FALSE
+    }
+  } else {
+    fw_models_cu$model_rearing <- FALSE
   }
 
   # get flow stations within each CU boundary
@@ -655,6 +849,18 @@ for (i in 1:n.CUs) {
       .keep_all = TRUE
     )
 
+  # 1b) PCIC Stream env — tw8rate
+  fwTrate_pcic_i <- bind_rows(
+    stream_pcic_env_stats(fw_models_cu, PCIC_aug_45, PCIC_base, rcp_val = "45", indicator = "tw8rate"),
+    stream_pcic_env_stats(fw_models_cu, PCIC_aug_85, PCIC_base, rcp_val = "85", indicator = "tw8rate")
+  ) %>%
+    mutate(FULL_CU_IN = cu_i, .before = 1) %>%
+    {
+      d <- .
+      if (nrow(d) > 0) bind_rows(d, compute_gcm_quantiles_long(d)) else d
+    } %>%
+    dplyr::distinct(FULL_CU_IN, dsmodel, indicator, rcp, period_code, stat, gcm, .keep_all = TRUE)
+
   # 2) Stream env — tw8proj
   fwTproj_i <- stream_env_stats(
     st_drop_geometry(fw_models_cu),
@@ -672,6 +878,18 @@ for (i in 1:n.CUs) {
       FULL_CU_IN, dsmodel, indicator, rcp, period_code, stat, gcm,
       .keep_all = TRUE
     )
+
+  # 2b) PCIC Stream env — tw8proj
+  fwTproj_pcic_i <- bind_rows(
+    stream_pcic_env_stats(fw_models_cu, PCIC_aug_45, PCIC_base, rcp_val = "45", indicator = "tw8proj"),
+    stream_pcic_env_stats(fw_models_cu, PCIC_aug_85, PCIC_base, rcp_val = "85", indicator = "tw8proj")
+  ) %>%
+    mutate(FULL_CU_IN = cu_i, .before = 1) %>%
+    {
+      d <- .
+      if (nrow(d) > 0) bind_rows(d, compute_gcm_quantiles_long(d)) else d
+    } %>%
+    dplyr::distinct(FULL_CU_IN, dsmodel, indicator, rcp, period_code, stat, gcm, .keep_all = TRUE)
 
   # proportional difference in flows during low flow month (August)
   fwQlow_i <- stream_env_stats(st_drop_geometry(fw_models_cu),
@@ -735,6 +953,8 @@ for (i in 1:n.CUs) {
   fw_all_i <- stack_long_stats(
     fwTrate_i,
     fwTproj_i,
+    fwTrate_pcic_i,
+    fwTproj_pcic_i,
     fwQlow_i,
     fwQhigh_i,
     wp_i,

@@ -44,7 +44,7 @@ wqt <- function(x, length_metre, prob = 0.025, na.rm = TRUE) {
 standardize_long_stats <- function(df) {
   # Required columns in the final stack
   cols <- c("FULL_CU_IN", "gcm", "gcm_name", "dsmodel", "rcp", "period_code",
-            "indicator", "stat", "value")
+            "indicator", "stat", "value", "category")
   
   # Add any missing columns as NA
   for (nm in cols) {
@@ -62,7 +62,8 @@ standardize_long_stats <- function(df) {
       period_code = as.integer(period_code),
       indicator   = as.character(indicator),
       stat        = as.character(stat),
-      value       = as.numeric(value)
+      value       = as.numeric(value),
+      category    = as.character(category)
     ) %>%
     select(all_of(cols))
 }

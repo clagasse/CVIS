@@ -23,14 +23,15 @@ Fr_basin <- filter(basins, BASIN == "FRASER")
 
 # freshwater stream subsets by CU boundary
 load(file.path(paths$fw, "fw_streampicks_tscapes.Rdata"))
-# freshwater stream indicator statistics
-load(file.path(paths$fw, "fw_rearing_indicators.Rdata"))
 # migration paths
 load(file.path(paths$fw, "fw_upstream_paths.Rdata"))
+
+# freshwater stream indicator statistics
+#load(file.path(paths$fw, "fw_rearing_indicators.Rdata"))
 # migration indicators
-load(file.path(paths$fw, "migr_stats.Rdata"))
+#load(file.path(paths$fw, "migr_stats.Rdata"))
 # marine indicators
-load(file.path(paths$marine, "marine_stats.Rds"))
+#load(file.path(paths$marine, "marine_stats.Rds"))
 
 # spatial models
 # stream model outputs for freshwater spawning and rearing indicators

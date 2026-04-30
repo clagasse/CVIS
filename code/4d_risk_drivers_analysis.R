@@ -27,7 +27,9 @@ dynamic_dat <- all_std_long %>%
         rcp == cat_rcp,
         period_code == cat_period,
         gcm == cat_gcm,
-        dsmodel %in% dsmodel_baseline
+        # Join with tbl_standardize to identify the specific baseline model for each indicator
+        left_join(tbl_standardize %>% select(abbrev, dsmodel_baseline_ind = dsmodel_baseline), by = c("indicator" = "abbrev")) %>%
+        filter(dsmodel == dsmodel_baseline_ind)
     )
 
 # Get static indicators (those with period_code 0 and gcm 0)
@@ -36,7 +38,9 @@ static_dat <- all_std_long %>%
     filter(
         period_code == 0,
         gcm == 0,
-        dsmodel %in% dsmodel_baseline
+        # Join with tbl_standardize to identify the specific baseline model for each indicator
+        left_join(tbl_standardize %>% select(abbrev, dsmodel_baseline_ind = dsmodel_baseline), by = c("indicator" = "abbrev")) %>%
+        filter(dsmodel == dsmodel_baseline_ind)
     ) %>%
     select(FULL_CU_IN, indicator, static_value = std_value)
 

@@ -54,7 +54,13 @@ cu_list <- crosswalk %>%
   select(-starts_with("DU")) %>%
   mutate(
     CVIS_NAME = str_remove_all(CU_COMMON_NAME, regex("TIMING", ignore_case = TRUE)) %>%
-      str_trim()
+      str_trim(),
+    # clean up SMU names by trimming salmon and "- "and making normal case
+    SMU_SIMPLE = str_remove_all(SMU_NAME, regex("SALMON", ignore_case = TRUE)) %>%
+      str_remove_all(" - ") %>%
+      str_trim() %>%
+      str_to_title()
+      
   ) %>% # remove extra spaces if any
   mutate(CVIS_NAME = paste0(FULL_CU_IN, "_", CVIS_NAME)) %>%
   relocate(CVIS_NAME, contains("CU"))
@@ -303,39 +309,6 @@ cu_timing_long <- cu_timing_Fr %>%
 # add freshwater residence timing indicators to cu_list
 cu_list <- cu_list %>%
   left_join(select(cu_timing, FULL_CU_IN, fwres_mean), join_by(FULL_CU_IN))
-
-# Import preliminary genetics data ----------------------------------------
-
-## Data provided by Tim Healy, not for further distribution at this time
-genetics_sk <- read_csv(file.path(paths$salmon, "Genetics", "sockeye_genomicoffsets_heterozygosity.csv"))
-genetics_ck <- read_csv(file.path(paths$salmon, "Genetics", "chinook_genomicoffsets_heterozygosity.csv"))
-
-# combine and make CU abbreviation field consistent, at population level
-genetics_pop <- bind_rows(genetics_sk, genetics_ck) %>%
-  rename(
-    FULL_CU_IN = cu,
-    genoff = go85,
-    hetzyg = het
-  ) %>%
-  mutate(FULL_CU_IN = adjust_CU_IN(FULL_CU_IN))
-
-# aggregate populations at the cu level by taking the average
-genetics_cu <- genetics_pop %>%
-  group_by(FULL_CU_IN) %>%
-  summarize(
-    n_pop_genetics = n(),
-    genoff_mean = mean(genoff, na.rm = T),
-    genoff_popmin = min(genoff, na.rm = T),
-    genoff_popmax = max(genoff, na.rm = T),
-    hetzyg_mean = mean(hetzyg, na.rm = T),
-    hetzyg_popmin = min(hetzyg, na.rm = T),
-    hetzyg_popmax = max(hetzyg, na.rm = T)
-  )
-
-# join to cu_list
-cu_list <- cu_list %>%
-  left_join(genetics_cu, join_by(FULL_CU_IN))
-
 
 
 # Subset CUs to run for analysis based on settings ----------------------------------

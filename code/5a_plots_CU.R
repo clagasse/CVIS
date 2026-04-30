@@ -340,14 +340,14 @@ stream_indicator_plot <- function(fwModels,
   y_pos <- max(ggplot_build(h1)$data[[1]]$count, na.rm = TRUE) * 1.05
   # add mean value line and label
   h1 <- h1 +
-    geom_vline(aes(xintercept = mean(!!var_sym, na.rm = TRUE)),
-      color = "red", linetype = "dashed"
-    ) +
-    annotate("text",
-      x = mean(fwModels[[variable]], na.rm = TRUE),
-      y = y_pos,
-      label = "mean"
-    ) +
+    # geom_vline(aes(xintercept = mean(!!var_sym, na.rm = TRUE)),
+    #   color = "red", linetype = "dashed"
+    # ) +
+    # annotate("text",
+    #   x = mean(fwModels[[variable]], na.rm = TRUE),
+    #   y = y_pos,
+    #   label = "mean"
+    # ) +
     theme_void() +
     theme(
       axis.line.x = element_line(color = "black"),
@@ -361,6 +361,7 @@ stream_indicator_plot <- function(fwModels,
   }
 
   p1 / h1 + plot_layout(heights = c(4, 1))
+  
 }
 
 
@@ -1014,50 +1015,56 @@ MAZ_boundary_highlight <- function(MAZ,
 
 # X. Testing plot functions -----------------------------------------------
 #
-# cu_i <- "CK-03"
-#
-# cu_i <- cu_run$FULL_CU_IN[i]
+# cu_i <- "CO-47"
+# 
+# #cu_i <- cu_run$FULL_CU_IN[i]
 # cu_run_i <- cu_run[cu_run$FULL_CU_IN == cu_i, ]
 # sp_pick <- cu_run$spp[cu_run$FULL_CU_IN == cu_i] # species abbr
 # sp_pick_bcfp <- spp_lookup$spp_abr_bcfp[spp_lookup$spp_abr == sp_pick]
-#
+# 
 # cu_timing_i <- cu_timing_Fr %>% filter(FULL_CU_IN == cu_i)
-#
+# 
 # cu_boundary_i <- cu_boundary[cu_boundary$FULL_CU_IN == cu_i, ]
-#
+# 
+# #Lakes within CU boundary (for plotting)
+# temp <- unlist(st_intersects(cu_boundary_i, lakes_Fr))
+# lakes_cu <- lakes_Fr[temp,]
+# 
 # # # subset nuseds observations
 # # nuseds_cu <- nuseds_Fr[nuseds_Fr$FULL_CU_IN == cu_i, ]
 # #
 # # subset migration path
 # migr_cu <- migr_list[[cu_i]]
-#
-# # stream_cu_sub <- stream_cu_picks[, colnames(stream_cu_picks) == cu_i]
-#
-# # fwModels_cu <- fwModels[stream_cu_sub, ] %>%
-# #   rename(keep_model_spawning = contains(paste0("model_spawning_", sp_pick_bcfp)),
-# #     keep_model_rearing  = contains(paste0("model_rearing_", sp_pick_bcfp))) %>%
-# #   mutate(model_rs = if_any(starts_with("keep_model"), ~ . == TRUE)) %>% # get boolean for model spawning and rearing
-# #   mutate(model_rs = factor(model_rs, levels = c(TRUE, FALSE),
-# #     labels = c("1-SPAWNING/REARING", "2-ACCESSIBLE"))) %>%
-# #   select(-starts_with(c("model_spawning", "model_rearing", "known_rearing", "known_spawning")))
-# #
-# #
-# # cu_timing_long_i <- cu_timing_long[cu_timing_long$FULL_CU_IN == cu_i, ]
-# # cu_timing_i <- cu_timing_Fr[cu_timing_Fr$FULL_CU_IN == cu_i, ]
-# #
-# #
+# 
+# stream_cu_sub <- stream_cu_picks[, colnames(stream_cu_picks) == cu_i]
+# 
+# fwModels_cu <- fw_models[stream_cu_sub, ] %>%
+#   rename(keep_model_spawning = contains(paste0("model_spawning_", sp_pick_bcfp)),
+#     keep_model_rearing  = contains(paste0("model_rearing_", sp_pick_bcfp))) %>%
+#   mutate(model_rs = if_any(starts_with("keep_model"), ~ . == TRUE)) %>% # get boolean for model spawning and rearing
+#   mutate(model_rs = factor(model_rs, levels = c(TRUE, FALSE),
+#     labels = c("1-SPAWNING/REARING", "2-ACCESSIBLE"))) %>%
+#   select(-starts_with(c("model_spawning", "model_rearing", "known_rearing", "known_spawning")))
+# 
+# 
+# cu_timing_long_i <- cu_timing_long[cu_timing_long$FULL_CU_IN == cu_i, ]
+# cu_timing_i <- cu_timing_Fr[cu_timing_Fr$FULL_CU_IN == cu_i, ]
+# 
+# 
 # # stream_accessible_plot(fwModels_cu,
+# #                        lakes_cu,
 # #   nuseds_cu,
 # #   cu_boundary_i)
-# #
-# # stream_indicator_plot(fwModels_cu,
-# #   cu_boundary_i,
-# #   variable = "Tw8_9_45_3",
-# #   unit_label = "Degrees C",
-# #   plot_title = "August temperature 2041-2060",
-# #   scico_palette = "roma",
-# #   palette_direction = -1)
-# #
+# 
+# stream_indicator_plot(fwModels_cu,
+#   cu_boundary_i,
+#   lakes_cu,
+#   variable = "tw8_9_45_3", 
+#   #plot_title = "Change in August flow - 2041-2060",
+#   unit_label = "°C",
+#   scico_palette = "roma",
+#   palette_direction = -1)
+#
 #
 # # migr_UFR <- filter(migr_cu, watershed_group_code == "UFRA")
 # #

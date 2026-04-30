@@ -472,6 +472,7 @@ rename_ind_table <- function(data,
 
 # New function for standardizing long format data
 standardize_long_indicator <- function(data,
+                                       calibration_data = NULL,
                                        indicator_pick,
                                        target_stat = "mean",
                                        std_fun = "linear_std",
@@ -516,26 +517,38 @@ standardize_long_indicator <- function(data,
     grouping_vars <- setdiff(grouping_vars, "period_code")
   }
 
-  # 1. Identify Calibration Data (Ensemble Mean) for Range Determination
-  # We typically use the target_stat (e.g. "mean") of the ensemble (gcm=9) to determine range.
-  calibration_data <- data_sub %>%
-    filter(
-      gcm == calibration_gcm,
-      stat == target_stat
-    )
-
-  if (!is.na(baseline_rcp)) {
-    calibration_data <- calibration_data %>% filter(rcp == baseline_rcp | is.na(rcp))
-  }
-  if (!is.na(baseline_period)) {
-    calibration_data <- calibration_data %>% filter(period_code == baseline_period | is.na(period_code))
+  # 1. Identify Calibration Data for Range Determination
+  use_custom_calib <- FALSE
+  if (!is.null(calibration_data)) {
+    calib_subset <- calibration_data %>%
+      filter(indicator == indicator_pick, stat == target_stat)
+    
+    if (nrow(calib_subset) > 0) {
+      use_custom_calib <- TRUE
+      calibration_data_final <- calib_subset
+    }
   }
 
-  # Check if calibration data exists
-  if (nrow(calibration_data) == 0) {
-    # If no ensemble mean, try using all data (maybe gcm is NA or different structure?)
-    warning(paste("No calibration data (calibration criteria not met) found for:", indicator_pick, ". Using all data for range."))
-    calibration_data <- data_sub
+  if (!use_custom_calib) {
+    # Default logic (subsetting from data_sub)
+    calibration_data_final <- data_sub %>%
+      filter(
+        gcm == calibration_gcm,
+        stat == target_stat
+      )
+
+    if (!is.na(baseline_rcp)) {
+      calibration_data_final <- calibration_data_final %>% filter(rcp == baseline_rcp | is.na(rcp))
+    }
+    if (!is.na(baseline_period)) {
+      calibration_data_final <- calibration_data_final %>% filter(period_code == baseline_period | is.na(period_code))
+    }
+
+    # Check if default calibration data exists
+    if (nrow(calibration_data_final) == 0) {
+      warning(paste("No default calibration data (calibration criteria not met) found for:", indicator_pick, ". Using all data for range."))
+      calibration_data_final <- data_sub
+    }
   }
 
   # 2. Calculate Standardization Parameters (xmin, xmax) per group
@@ -547,6 +560,8 @@ standardize_long_indicator <- function(data,
     use_95 <- if (!is.null(current_params$use_95)) current_params$use_95 else TRUE
 
     p_out <- current_params
+    val <- val[!is.na(val)]
+    if (length(val) == 0) return(tibble(xmin_calib = NA_real_, xmax_calib = NA_real_))
 
     if (is.na(current_params$xmax)) {
       p_out$xmax <- max(val, na.rm = TRUE)
@@ -560,31 +575,29 @@ standardize_long_indicator <- function(data,
   }
 
   # Calculate params for each group
-  calibration_params <- calibration_data %>%
+  calibration_params <- calibration_data_final %>%
     group_by(across(all_of(grouping_vars))) %>%
     summarise(params = list(get_group_params(value, std_params)), .groups = "drop") %>%
     unnest(params)
+
+  # Match column types to prevent dplyr join errors if custom calibration data uses different types (e.g. character vs factor)
+  for (gv in grouping_vars) {
+    if (gv %in% names(calibration_params) && gv %in% names(data_sub)) {
+      if (is.factor(data_sub[[gv]])) {
+        calibration_params[[gv]] <- factor(calibration_params[[gv]], levels = levels(data_sub[[gv]]))
+      } else if (is.character(data_sub[[gv]])) {
+        calibration_params[[gv]] <- as.character(calibration_params[[gv]])
+      } else if (is.numeric(data_sub[[gv]])) {
+        calibration_params[[gv]] <- as.numeric(calibration_params[[gv]])
+      }
+    }
+  }
 
   # 3. Join Parameters back to Full Data (all GCMs, all stats)
   data_stding <- data_sub %>%
     left_join(calibration_params, by = grouping_vars)
 
   # 4. Apply Standardization
-
-  data_std <- data_stding %>%
-    # Rowwise or grouped application?
-    # Since params are in columns xmin_calib, xmax_calib, we can just apply rowwise or mapped.
-    # Grouping isn't strictly necessary if we have the params on each row, but might be safer for some logic.
-    mutate(
-      std_value = {
-        # Create a list of arguments for the function specific to each row/group?
-        # Actually, since we have vectors of xmin/xmax, we can't easily use do.call with vector args if the function expects single scalars.
-        # But wait, linear_std/etc loops over x.
-        # If we group by the calibration grouping vars again, xmin/xmax are constant within group.
-        NULL
-      }
-    )
-
   # Let's use grouping to ensure constant params for the block passed to std_fun
   data_std <- data_stding %>%
     group_by(across(all_of(grouping_vars))) %>%
@@ -806,3 +819,59 @@ rank_scores <- function(data, score_col, group_cols, rank_col = "score_rank", de
 
 # test <- subset_ind_table(all_flat,
 #   indicators_choose = c("Tw8rate", "Tw8proj", "CUstatus"))
+
+# Hinge weight function
+hinge_weight <- function(s, t0 = 0.33, t1 = 0.66) {
+  ifelse(s <= t0, 0, ifelse(s >= t1, 1, (s - t0) / (t1 - t0)))
+}
+
+# Calculate combined/aggregated portfolio scores
+calculate_combined_scores <- function(data) {
+  data %>%
+    reframe({
+      # Category averages
+      a_fwrs <- mean(std_value[category == "fwrs"], na.rm = TRUE)
+      a_migr <- mean(std_value[category == "migr"], na.rm = TRUE)
+      a_mar <- mean(std_value[category == "mar"], na.rm = TRUE)
+      a_dem <- mean(std_value[category == "dem"], na.rm = TRUE)
+      a_gen <- mean(std_value[category == "gen"], na.rm = TRUE)
+
+      # Category cube-root of mean of cubes
+      c_fwrs <- mean((std_value[category == "fwrs"])^3, na.rm = TRUE)^(1 / 3)
+      c_migr <- mean((std_value[category == "migr"])^3, na.rm = TRUE)^(1 / 3)
+      c_mar <- mean((std_value[category == "mar"])^3, na.rm = TRUE)^(1 / 3)
+      c_dem <- mean((std_value[category == "dem"])^3, na.rm = TRUE)^(1 / 3)
+      c_gen <- mean((std_value[category == "gen"])^3, na.rm = TRUE)^(1 / 3)
+
+      # Red flag counts per category (soft counts)
+      sf_fwrs <- sum(hinge_weight(std_value[category == "fwrs"]), na.rm = TRUE)
+      sf_migr <- sum(hinge_weight(std_value[category == "migr"]), na.rm = TRUE)
+      sf_mar <- sum(hinge_weight(std_value[category == "mar"]), na.rm = TRUE)
+      sf_dem <- sum(hinge_weight(std_value[category == "dem"]), na.rm = TRUE)
+      sf_gen <- sum(hinge_weight(std_value[category == "gen"]), na.rm = TRUE)
+
+      # Overall metrics
+      avg_all <- mean(std_value, na.rm = TRUE) # avg of all indicators
+      cat_avgs <- mean(c(a_fwrs, a_migr, a_mar, a_dem, a_gen), na.rm = TRUE) # avg of category averages
+      avg_cube <- mean(c(c_fwrs, c_migr, c_mar, c_dem, c_gen), na.rm = TRUE) # avg of cube means
+      flag_all <- sum(hinge_weight(std_value), na.rm = TRUE) # total soft-count of red flags
+
+      tibble::tibble(
+        method = c(rep("avg", 5), rep("cube", 5), rep("flag", 5), "catavg", "avgall", "avgcube", "flag"),
+        category = c(
+          "fwrs", "migr", "mar", "dem", "gen",
+          "fwrs", "migr", "mar", "dem", "gen",
+          "fwrs", "migr", "mar", "dem", "gen",
+          "all", "all", "all", "all"
+        ),
+        score = c(
+          a_fwrs, a_migr, a_mar, a_dem, a_gen,
+          c_fwrs, c_migr, c_mar, c_dem, c_gen,
+          sf_fwrs, sf_migr, sf_mar, sf_dem, sf_gen,
+          cat_avgs, avg_all, avg_cube, flag_all
+        )
+      )
+    }) %>%
+    ungroup() %>%
+    mutate(score = ifelse(is.nan(score), NA_real_, score))
+}

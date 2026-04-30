@@ -32,9 +32,10 @@ period_ref <- "0"
 
 # 1a. Extract Baseline Reference Values (ensemble mean per indicator, averaged across CUs)
 baseline_vals <- all_std_long %>%
+    left_join(tbl_standardize %>% select(abbrev, dsmodel_baseline_ind = dsmodel_baseline), by = c("indicator" = "abbrev")) %>%
     filter(
         rcp == rcp_ref, period_code == period_ref, gcm == "9",
-        dsmodel %in% dsmodel_baseline
+        dsmodel == dsmodel_baseline_ind
     ) %>%
     group_by(indicator) %>%
     summarise(baseline_mean = mean(std_value, na.rm = TRUE), .groups = "drop")
@@ -42,9 +43,10 @@ baseline_vals <- all_std_long %>%
 # 1b. Extract Future Variation Data
 # Ensemble model (GCM 9) has std_value per rcp/period
 future_dat <- all_std_long %>%
+    left_join(tbl_standardize %>% select(abbrev, dsmodel_baseline_ind = dsmodel_baseline), by = c("indicator" = "abbrev")) %>%
     filter(
         gcm == "9", period_code != "0",
-        dsmodel %in% dsmodel_baseline
+        dsmodel == dsmodel_baseline_ind
     )
 
 # Aggregate future ensemble mean across all CUs

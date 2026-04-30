@@ -34,8 +34,9 @@ default_gcm <- "9"
 # dsmodel_baseline <- c("station", "vicgl", "tscapes", "ensemble")
 
 report_dat <- all_std_long %>%
+  left_join(tbl_standardize %>% select(abbrev, dsmodel_baseline_ind = dsmodel_baseline), by = c("indicator" = "abbrev")) %>%
   filter(
-    dsmodel %in% dsmodel_baseline,
+    dsmodel == dsmodel_baseline_ind,
     period_code %in% periods_use,
     rcp %in% rcp_vec
   )
@@ -60,13 +61,31 @@ By quantifying multiple mechanisms of climate vulnerability across a large basin
 The CVIS framework consists of 17 quantitative indicators (Table 1) classified into five categories based on mechanism and life-stage: freshwater spawning and rearing, upstream migration, nearshore marine, demographics, and genetics. Every indicator uses a quantitative metric, such as the mean stream temperature or percent change in flow, to represent risk. The indicator approach allows for flexibility in inputs and metrics of risk; various model types can be used to derive statistical summaries of risk depending on the mechanism to assess. Variation and uncertainty in indicator values are represented using 80% quantile ranges of global climate models where relevant.
 
 ```{r}
+
+
 tbl_ind_report %>%
-  gt() %>%
-  tab_header("Table 1 - Vulnerability Indicators") %>%
+  arrange(Category) %>%               # ensure groups are contiguous
+  gt(groupname_col = "Category") %>%  # turn Category into row-group headers
+  # Make the header (column labels) bold
+  tab_style(
+    style = cell_text(weight = "bold", align = "center"),
+    locations = cells_column_labels()
+  ) %>%
+  # Center the row-group headers
+  tab_style(
+    style = cell_text(align = "center"),
+    locations = cells_row_groups()
+  ) %>%
   tab_options(
-    table.font.size = "small", # Reduce overall font size
-    data_row.padding = px(1), # Minimize padding between rows
+    table.font.size = "small",
+    data_row.padding = px(1),
+    row_group.padding = px(2),
+    row_group.border.top.color = "gray75",
+    row_group.border.bottom.color = "gray75"
   )
+
+
+
 ```
 
 The framework focuses on CUs of Pacific salmon as the assessment unit. As the unit of biodiversity for Pacific salmon in Canada, CUs represent groupings based on life history characteristics, freshwater and marine adaptive zones, and genetic structure [@Holtby2007]. The number of populations and spatial distribution of CUs is variable, with some CUs representing just a single population with fewer than a thousand spawners per year while other CUs include dozens of populations and millions of spawners per year on average. Despite this variability, conservation at the CU level is critical for maintaining biodiversity under the Wild Salmon Policy, and the CU is an important unit for assessment that is used to determine aggregate stock status [@csas2024].

@@ -63,8 +63,8 @@ CU_exclude <- c(
   "CK-01", # exclude okanagan Chinook
   "CK-02", # exclude boundary bay Chinook
   "SEL-01-01", # okanagan sockeye
-  "SER-03"
-) # Widgeon  (throws errors)
+  "SER-02" # Widgeon  (throws errors)
+)
 species_include <- c("Chinook", "Coho", "Sockeye", "Chum", "Pink")
 CU_type_include <- c("Current") # only include Current CUs, exclude extirpated ones
 
@@ -113,7 +113,7 @@ status_map <- c(Green = 1, Amber = 2, Red = 3)
 
 # choose method for determining nearshore residency period for marine indicators
 # static = same months used for all CUs,  peak_offset = offsets from peak ocean entry month used
-ns_time_method <- switch(2,
+ns_time_method <- switch(1,
   "static",
   "peak_offset"
 )
@@ -123,7 +123,7 @@ ns_end_static <- 7 # for static method, end month included
 ns_start_offset <- 2 # amount of months before peak ocean entry month to include when calculating nearshore marine indicators
 ns_end_offset <- 2 # amount of months after peak ocean entry month for calculating nearshore marine indicators
 
-min_gen_red <- 500 # if generational avg spawners is below this value and RapidStatus is None, status will be adjusted to Red
+min_gen_red <- 1000 # if generational avg spawners is below this value and RapidStatus is None, status will be adjusted to Red
 
 
 # Sensitivity Analysis Configuration --------------------------------------
@@ -140,14 +140,16 @@ sens_method_category_base <- "avg"
 # Variation sources for granular analysis (9 total)
 sens_gcms <- c("1", "4", "6")
 sens_scenarios <- list(c("45", "5"), c("85", "3"), c("85", "5"))
-sens_methods <- c("cube", "flag")
+sens_methods <- c("cube", "flag", "avgcube", "avgall")
 
-# Color palette for the 9 uncertainty sources
-# GCMs: Reds/Oranges, Scenarios: Greens/Blues, Methods: Purples/Browns
+# Color palette for the uncertainty sources
+# GCMs: Reds/Oranges, Scenarios: Greens/Blues, Methods: Purples/Browns, Models: Pinks/Golds
 sens_source_palette <- c(
-  "GCM1" = "#e31a1c", "GCM4" = "#ff7f00", "GCM6" = "#fdbf6f",
-  "RCP45_P5" = "#33a02c", "RCP85_P3" = "#1f78b4", "RCP85_P5" = "#a6cee3",
-  "cube" = "#6a3d9a", "flag" = "#b15928"
+  "GCM1" = "#e31a1c", "GCM4" = "#ff7f00", "GCM6" = "#fdbf6f", "GCM" = "#e31a1c", "gcm" = "#e31a1c",
+  "RCP45_P5" = "#33a02c", "RCP85_P3" = "#1f78b4", "RCP85_P5" = "#a6cee3", "Scenario" = "#1f78b4", "scenario" = "#1f78b4",
+  "cube" = "#6a3d9a", "flag" = "#b15928", "avgcube" = "#cab2d6", "avgall" = "#fb9a99",
+  "qdm" = "#db7093", "bccmssc" = "#daa520", "streamdyn" = "#4682b4", "tscapes" = "#d2b48c",
+  "pcicgrid" = "#e7298a", "station" = "#7570b3", "model" = "#8dd3c7", "Model" = "#8dd3c7"
 )
 
 # Mapping of life stage category codes to descriptive names
@@ -194,21 +196,21 @@ period_lookup <- tribble(
 # table of indicator abbreviations and full names
 tbl_indicators <- tribble(
   ~abbrev, ~category, ~long_type, ~std_fun, ~unit, ~name,
-  "favchange", "fwrs", "Freshwater Spawning and Rearing", "invlinear_std", "Favourability", "ENM Change in Favourability",
-  "cthr", "fwrs", "Freshwater Spawning and Rearing", "linear_std", "Threat score", "Cumulative threats to freshwater habitat",
-  "tw8rate", "fwrs", "Freshwater Spawning and Rearing", "linear_std", "Temperature change per decade (°C)", "Rate of change in August Temperature",
-  "tw8proj", "fwrs", "Freshwater Spawning and Rearing", "exponential_std", "Temperature (°C)", "Projected August Temperature",
-  "flow8pdelta", "fwrs", "Freshwater Spawning and Rearing", "decay_std", "Proportion change from baseline", "Proportional change in August flow",
-  "flow18pdelta", "fwrs", "Freshwater Spawning and Rearing", "exponential_std", "Proportion change from baseline", "Proportional change in Nov-Jan flow",
-  "fwres", "fwrs", "Freshwater Spawning and Rearing", "step_std", "Number of days", "Freshwater residency time",
-  "migrTproj", "migr", "Upstream Migration", "exponential_std", "Temperature (°C)", "Projected temperature during upstream migration",
+  "favchange", "fwrs", "Freshwater", "invlinear_std", "Favourability", "Ecological Niche Model Change in favourability from baseline",
+  "cthr", "fwrs", "Freshwater", "linear_std", "Threat score", "Standardized cumulative threats to freshwater streams",
+  "tw8rate", "fwrs", "Freshwater", "linear_std", "Temperature change per decade (°C)", "Rate of change in August Temperature (°C/decade)",
+  "tw8proj", "fwrs", "Freshwater", "exponential_std", "Temperature (°C)", "Projected August Temperature (°C)",
+  "flow8pdelta", "fwrs", "Freshwater", "decay_std", "Proportion change from baseline", "Proportional change in August flow from baseline",
+  "flow18pdelta", "fwrs", "Freshwater", "exponential_std", "Proportion change from baseline", "Proportional change in Nov-Jan flow from baseline",
+  "fwres", "fwrs", "Freshwater", "step_std", "Number of days", "Freshwater residency time (days)",
+  "migrTproj", "migr", "Upstream Migration", "exponential_std", "Temperature (°C)", "Projected temperature during upstream migration (°C)",
   "migrQpdelta", "migr", "Upstream Migration", "decay_std", "Proportion change", "Proportional change in discharge during upstream migration",
-  "migrdist", "migr", "Upstream Migration", "linear_std", "Kilometres", "Length of upstream migration",
-  "SSTproj", "mar", "Nearshore Marine", "exponential_std", "Temperature (°C)", "Projected nearshore SST during ocean entry",
-  "SSTrate", "mar", "Nearshore Marine", "linear_std", "Temperature change per decade (°C)", "Rate of change in nearshore SST",
+  "migrdist", "migr", "Upstream Migration", "linear_std", "Kilometres", "Length of upstream migration (km)",
+  "SSTproj", "mar", "Nearshore Marine", "exponential_std", "Temperature (°C)", "Projected nearshore SST during ocean entry (°C)",
+  "SSTrate", "mar", "Nearshore Marine", "linear_std", "Temperature change per decade (°C)", "Rate of change in nearshore SST (°C/decade)",
   "CImpact", "mar", "Nearshore Marine", "linear_std", "Threat score", "Cumulative impacts to marine nearshore habitat",
-  "CUstatus", "dem", "Demographics", "cat_std", "Status", "WSP status",
-  "CUnmat", "dem", "Demographics", "decay_std", "Number of spawners", "Number of mature individuals",
+  "CUstatus", "dem", "Demographics", "cat_std", "Status", "Wild Salmon Policy CU status",
+  "CUnmat", "dem", "Demographics", "decay_std", "Number of spawners", "Number of mature individuals (spawners)",
   "hetzyg", "gen", "Genetics", "invlinear_std", "Heterozygosity", "Genetic heterozygosity",
   "genoff", "gen", "Genetics", "linear_std", "Genomic offset", "Genomic offset"
 )
@@ -222,25 +224,27 @@ tbl_ind_report <- tbl_indicators %>%
     Description = name
   )
 
+
+
 tbl_standardize <- tribble(
-  ~abbrev, ~category, ~std_fun, ~range_type, ~lambda, ~xmin, ~xmax,
-  "favchange", "fwrs", "invlinear_std", "all", NA, -0.2, 0,
-  "cthr", "fwrs", "linear_std", "all", NA, 0, 2.5,
-  "tw8rate", "fwrs", "linear_std", "all", NA, 0.3, 0.7,
-  "tw8proj", "fwrs", "exponential_std", "all", 3, 15, 21,
-  "flow8pdelta", "fwrs", "decay_std", "all", 3, -0.45, 0,
-  "flow18pdelta", "fwrs", "exponential_std", "all", 3, 0, 0.5,
-  "fwres", "fwrs", "step_std", "all", NA, NA, NA,
-  "migrTproj", "migr", "exponential_std", "all", 3, 15, 21,
-  "migrQpdelta", "migr", "decay_std", "all", 3, 0, 0,
-  "migrdist", "migr", "linear_std", "all", NA, NA, NA,
-  "SSTproj", "mar", "exponential_std", "all", 3, 8, 18,
-  "SSTrate", "mar", "linear_std", "all", NA, 0.1, 0.3,
-  "CImpact", "mar", "linear_std", "all", NA, NA, NA,
-  "CUstatus", "dem", "cat_std", "all", NA, NA, NA,
-  "CUnmat", "dem", "decay_std", "all", 3, 0, 10000,
-  "hetzyg", "gen", "invlinear_std", "species", NA, NA, NA,
-  "genoff", "gen", "linear_std", "species", NA, NA, NA
+  ~abbrev, ~category, ~std_fun, ~range_type, ~lambda, ~xmin, ~xmax, ~dsmodel_baseline,
+  "favchange", "fwrs", "invlinear_std", "all", NA, NA, 0, "ENM",
+  "cthr", "fwrs", "linear_std", "all", NA, 0, NA, "cthr_anad",
+  "tw8rate", "fwrs", "linear_std", "all", NA, NA, NA, "tscapes",
+  "tw8proj", "fwrs", "exponential_std", "all", 3, 15, NA, "tscapes",
+  "flow8pdelta", "fwrs", "decay_std", "all", 3, NA, 0, "streamdyn",
+  "flow18pdelta", "fwrs", "exponential_std", "all", 3, 0, NA, "streamdyn",
+  "fwres", "fwrs", "step_std", "all", NA, NA, NA, "observed",
+  "migrTproj", "migr", "exponential_std", "all", 3, 15, NA, "pcicgrid",
+  "migrQpdelta", "migr", "decay_std", "all", 3, 0, 0, "pcicgrid",
+  "migrdist", "migr", "linear_std", "all", NA, NA, NA, "observed",
+  "SSTproj", "mar", "exponential_std", "all", 3, NA, NA, "qdm",
+  "SSTrate", "mar", "linear_std", "all", NA, NA, NA, "qdm",
+  "CImpact", "mar", "linear_std", "all", NA, NA, NA, "CImpact",
+  "CUstatus", "dem", "cat_std", "all", NA, NA, NA, "observed",
+  "CUnmat", "dem", "decay_std", "all", 3, 0, 10000, "observed",
+  "hetzyg", "gen", "invlinear_std", "species", NA, NA, NA, "observed",
+  "genoff", "gen", "linear_std", "species", NA, NA, NA, "observed"
 )
 
 
@@ -343,3 +347,33 @@ source(here("code", "5b_plots_compare.R"))
 
 # load CU tables
 source(here("code", "1a_CU_import.R")) # CU table
+source(here("code", "1f_genetics_import.R"))
+
+#-------------------------------------------------------------------------
+# Dynamic SMU Palette Definition
+#-------------------------------------------------------------------------
+# Created following 1a_CU_import.R to ensure cu_run is loaded
+if (exists("cu_run")) {
+  smu_colors <- character()
+  for (sp in unique(cu_run$SPECIES_NAME)) {
+    base_col <- species_palette[as.character(sp)]
+    smus <- unique(cu_run$SMU_SIMPLE[cu_run$SPECIES_NAME == sp])
+    # Handle possible NAs
+    smus <- smus[!is.na(smus)]
+    n_smus <- length(smus)
+
+    if (n_smus == 1) {
+      cols <- base_col
+      names(cols) <- smus
+      smu_colors <- c(smu_colors, cols)
+    } else if (n_smus > 1) {
+      ramp <- colorRampPalette(c("white", base_col, "black"))
+      cols <- ramp(n_smus + 4)[3:(n_smus + 2)]
+      names(cols) <- smus
+      smu_colors <- c(smu_colors, cols)
+    }
+  }
+  smu_palette <- smu_colors
+} else {
+  smu_palette <- character() # Fallback
+}
