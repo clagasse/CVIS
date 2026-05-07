@@ -205,7 +205,7 @@ tbl_indicators <- tribble(
   "fwres", "fwrs", "Freshwater", "step_std", "Number of days", "Freshwater residency time (days)",
   "migrTproj", "migr", "Upstream Migration", "exponential_std", "Temperature (°C)", "Projected temperature during upstream migration (°C)",
   "migrQpdelta", "migr", "Upstream Migration", "decay_std", "Proportion change", "Proportional change in discharge during upstream migration",
-  "migrdist", "migr", "Upstream Migration", "linear_std", "Kilometres", "Length of upstream migration (km)",
+  "migrdist", "migr", "Upstream Migration", "linear_std", "Metres", "Length of upstream migration (km)",
   "SSTproj", "mar", "Nearshore Marine", "exponential_std", "Temperature (°C)", "Projected nearshore SST during ocean entry (°C)",
   "SSTrate", "mar", "Nearshore Marine", "linear_std", "Temperature change per decade (°C)", "Rate of change in nearshore SST (°C/decade)",
   "CImpact", "mar", "Nearshore Marine", "linear_std", "Threat score", "Cumulative impacts to marine nearshore habitat",

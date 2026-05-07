@@ -8,6 +8,7 @@
 #
 ################################################################################
 
+# 1. Setup and Import ----
 library(here)
 setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
@@ -27,9 +28,7 @@ load(file.path(paths$output, "indicator_sensitivity_summary.Rdata")) # loads sco
 # Shared Colors
 source_colors <- sens_source_palette
 
-#-------------------------------------------------------------------------
-# 1. Indicator-Level Sensitivity (Environmental Uncertainty)
-#-------------------------------------------------------------------------
+# 2. Indicator-Level Sensitivity (Environmental Uncertainty) ----
 cat("Plotting Indicator-Level Sensitivity...\n")
 
 # Use reformatted summary from 4c
@@ -50,41 +49,83 @@ p_ind_sens <- ggplot(ind_sens_summary, aes(x = reorder(indicator, mean_abs_dev, 
 ggsave(file.path(sens_fig_path, "indicator_level_sensitivity.png"), p_ind_sens, width = 12, height = 8)
 
 # 1b. Indicator Shift Plot (Baseline to Future)
-cat("Plotting Indicator Directional Shift Details...\n")
+cat("Plotting Indicator Directional Shift Violins...\n")
 
-# Prepare data for plotting baseline vs scenario values
-ind_shift_dat <- ind_sens_summary %>%
+# A. Re-calculate absolute raw values for each CU across all relevant sources
+ind_shift_cus <- overall_sensitivity$indicator_metrics %>%
+    filter(FULL_CU_IN != "ALL") %>%
+    # Calculations for absolute values relative to the baseline
     mutate(
-        scen_mean = base_mean + mean_raw_dev,
-        scen_q10 = base_mean + q10_raw_dev,
-        scen_q90 = base_mean + q90_raw_dev
-    )
+        val_Baseline = base_raw_mean,
+        val_GCM1 = base_raw_mean + raw_dev_GCM1,
+        val_GCM4 = base_raw_mean + raw_dev_GCM4,
+        val_GCM6 = base_raw_mean + raw_dev_GCM6,
+        val_RCP45_P5 = base_raw_mean + raw_dev_RCP45_P5,
+        val_RCP85_P3 = base_raw_mean + raw_dev_RCP85_P3,
+        val_RCP85_P5 = base_raw_mean + raw_dev_RCP85_P5,
+        val_Model = base_raw_mean + raw_dev_Model
+    ) %>%
+    select(FULL_CU_IN, indicator, category, base_raw_mean, starts_with("val_")) %>%
+    # Pivot to long format for source
+    pivot_longer(
+        cols = starts_with("val_"),
+        names_to = "source",
+        names_prefix = "val_",
+        values_to = "val"
+    ) %>%
+    # A. Remove rows where source variation does not apply (NAs preserved from 4b)
+    filter(!is.na(val)) %>%
+    # B. Stricter filter: Remove sources that are EXACT duplicates of Baseline for a given indicator
+    # (Happens if missing scenario data was coalesced to 0 or if the indicator is static for that source)
+    group_by(indicator, source) %>%
+    mutate(has_variation = source == "Baseline" | any(abs(val - base_raw_mean) > 1e-10, na.rm = TRUE)) %>%
+    filter(has_variation) %>%
+    # C. Only keep indicators that have at least one non-baseline source left
+    group_by(indicator) %>%
+    filter(n_distinct(source) > 1) %>%
+    ungroup() %>%
+    mutate(source = factor(source, levels = rev(c("Baseline", "GCM1", "GCM4", "GCM6", "RCP45_P5", "RCP85_P3", "RCP85_P5", "Model"))))
 
-p_shift <- ggplot(ind_shift_dat, aes(y = source, color = source)) +
-    # Add Baseline reference line
-    geom_vline(aes(xintercept = base_mean), linetype = "dashed", color = "grey30", alpha = 0.6) +
-    # Points and Error bars for Scenarios
-    geom_pointrange(aes(x = scen_mean, xmin = scen_q10, xmax = scen_q90), 
-                    size = 0.6, fatten = 4) +
-    facet_wrap(~indicator, scales = "free_x", ncol = 3) +
-    scale_color_manual(values = source_colors, na.value = "grey50", guide = "none") +
+# B. Calculate single reference mean per indicator for the dashed line
+baseline_refs <- ind_shift_cus %>%
+    group_by(indicator) %>%
+    summarise(ref_mean = mean(base_raw_mean, na.rm = TRUE), .groups = "drop")
+
+# C. Create label map with units for facets
+ind_label_units <- tbl_indicators %>%
+    mutate(facet_label = paste0(abbrev, "\n(", unit, ")")) %>%
+    select(abbrev, facet_label) %>%
+    tibble::deframe()
+
+# Expanded color palette
+shift_colors <- c("Baseline" = "black", source_colors)
+
+p_shift <- ggplot(ind_shift_cus, aes(y = source, x = val, fill = source, color = source)) +
+    # Add Static Baseline reference line (centered on overall indicator mean)
+    geom_vline(data = baseline_refs, aes(xintercept = ref_mean), linetype = "dashed", color = "grey30", alpha = 0.6) +
+    # Violins showing the distribution shift
+    geom_violin(alpha = 0.7, scale = "width", draw_quantiles = c(0.25, 0.5, 0.75), linewidth = 0.6) +
+    facet_wrap(~indicator, scales = "free_x", ncol = 5, labeller = labeller(indicator = ind_label_units)) +
+    scale_fill_manual(values = shift_colors, na.value = "grey50", guide = "none") +
+    scale_color_manual(values = shift_colors, na.value = "grey50", guide = "none") +
     labs(
-        title = "Indicator Shifts: Baseline vs Climate/Model Scenarios",
-        subtitle = "Points show mean raw value across CUs; error bars show 10th-90th percentile spread.\nDashed line represents the categorical baseline mean.",
-        x = "Raw Indicator Value",
-        y = "Variation Source"
+        title = NULL,
+        subtitle = NULL,
+        x = "Raw Indicator Value (units vary)",
+        y = "Source of variation"
     ) +
     theme_cvis() +
-    theme(strip.text = element_text(face = "bold", size = 10))
+    theme(
+        strip.text = element_text(face = "bold", size = 8.5),
+        axis.text.y = element_text(size = 8)
+    )
 
-ggsave(file.path(sens_fig_path, "indicator_directional_shifts.png"), p_shift, width = 15, height = 18)
+ggsave(file.path(sens_fig_path, "indicator_directional_shifts_violin.png"), p_shift, width = 18, height = 12)
 
-#-------------------------------------------------------------------------
-# 2. Overall Vulnerability Deviations (Directional)
-#-------------------------------------------------------------------------
+# 3. Overall Vulnerability Deviations (Directional) ----
 cat("Plotting Overall Vulnerability Directional Impacts...\n")
 
-# Still use wide deviations for the boxplot to show distribution across CUs
+# Clean and filter the deviation data
 dev_raw <- overall_sensitivity$deviations %>%
     select(FULL_CU_IN, category, starts_with("raw_dev_")) %>%
     pivot_longer(cols = starts_with("raw_dev_"), names_to = "source_label", values_to = "raw_deviation") %>%
@@ -98,34 +139,54 @@ dev_raw <- overall_sensitivity$deviations %>%
             TRUE ~ "Other"
         ),
         source = case_when(
-            source_type == "GCM" ~ str_remove(source_label, "^GCM"),
-            source_type == "Scenario" ~ str_remove(source_label, "^RCP"),
             source_type == "Method" ~ str_remove(source_label, "^Method_"),
-            source_type == "Model" ~ "Model",
             TRUE ~ source_label
         )
     )
 
-p_dev <- ggplot(dev_raw, aes(x = source, y = raw_deviation, fill = source)) +
-    geom_boxplot(alpha = 0.7, outlier.size = 0.5) +
+# 2a. Overall Vulnerability Pane
+p_dev_all <- dev_raw %>%
+    filter(category == "all", source != "cube") %>%
+    ggplot(aes(x = source, y = raw_deviation, fill = source)) +
+    geom_violin(alpha = 0.8, draw_quantiles = c(0.25, 0.5, 0.75), linewidth = 1.1) +
     geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
-    facet_wrap(~category, scales = "free_x") +
     scale_fill_manual(values = source_colors, na.value = "grey50", guide = "none") +
     labs(
-        title = "Directional Influence of Uncertainty on Vulnerability Scores",
-        subtitle = "Distribution of (Scenario Score - Baseline Score) across CUs",
-        x = "Variation Source",
-        y = "Score Change (Raw Deviation)",
-        fill = "Source"
+        title = "Influence of Uncertainty on Overall Vulnerability",
+        x = NULL,
+        y = "Score Change (Raw Deviation)"
     ) +
     theme_cvis() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-ggsave(file.path(sens_fig_path, "overall_vulnerability_deviations.png"), p_dev, width = 12, height = 8)
+# 2b. Category-Level Panes (subsetted)
+target_cats <- c("fwrs", "migr", "gen")
+p_dev_cats <- dev_raw %>%
+    filter(category %in% target_cats, !source %in% c("avgall", "avgcube")) %>%
+    ggplot(aes(x = source, y = raw_deviation, fill = source)) +
+    geom_violin(alpha = 0.8, draw_quantiles = c(0.25, 0.5, 0.75), linewidth = 1, scale = "width") +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
+    facet_wrap(~category, scales = "free_x", labeller = labeller(category = cat_label_map)) +
+    scale_fill_manual(values = source_colors, na.value = "grey50", guide = "none") +
+    labs(
+        title = "Category-Level Score Sensitivity",
+        x = "Variation Source",
+        y = "Score Change (Raw Deviation)"
+    ) +
+    theme_cvis() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-#-------------------------------------------------------------------------
-# 3. Mean Rank Displacement (Relative Vulnerability Impacts)
-#-------------------------------------------------------------------------
+# Combine using patchwork
+p_dev_combined <- p_dev_all / p_dev_cats + plot_layout(heights = c(1, 1.2)) +
+    plot_annotation(
+        title = "Directional Influence of Uncertainty on Vulnerability Scores",
+        subtitle = "Distribution of (Scenario Score - Baseline Score) across CUs; Bolder lines indicate median and quartiles",
+        theme = theme(plot.title = element_text(face = "bold", size = 16))
+    )
+
+ggsave(file.path(sens_fig_path, "overall_vulnerability_deviations.png"), p_dev_combined, width = 12, height = 10)
+
+# 4. Mean Rank Displacement (Relative Vulnerability Impacts) ----
 cat("Plotting Mean Rank Displacement...\n")
 
 # Score-level global summary (Overall per variation source)
@@ -180,9 +241,7 @@ p_ind_mrd <- ggplot(ind_sens_summary, aes(x = reorder(indicator, mrd, mean), y =
 
 ggsave(file.path(sens_fig_path, "indicator_rank_displacement.png"), p_ind_mrd, width = 12, height = 8)
 
-#-------------------------------------------------------------------------
-# 4. Jackknife Leverage Analysis (Indicator & Category Importance)
-#-------------------------------------------------------------------------
+# 5. Jackknife Leverage Analysis (Indicator & Category Importance) ----
 cat("Plotting Jackknife Influence...\n")
 
 influence_summary <- overall_sensitivity$influence_summary # loads from 4b
@@ -191,16 +250,17 @@ influence_summary <- overall_sensitivity$influence_summary # loads from 4b
 jack_global <- influence_summary %>%
     filter((method == "avgall" | method == "avg_all") & SPECIES_NAME == "ALL")
 
-p_jack <- ggplot(jack_global, aes(x = reorder(excluded_element, mean_abs_dev), y = mean_abs_dev, fill = parent_category)) +
-    geom_col() +
+p_jack <- ggplot(jack_global, aes(x = reorder(excluded_element, mean_abs_dev), y = mean_raw_dev, color = parent_category)) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+    geom_pointrange(aes(ymin = q10_raw_dev, ymax = q90_raw_dev), size = 0.6) +
     coord_flip() +
     facet_wrap(~excluded_type, scales = "free_y", ncol = 1) +
-    scale_fill_scico_d(palette = "roma", name = "Parent Category") +
+    scale_color_scico_d(palette = "roma", name = "Parent Category") +
     labs(
-        title = "Leverage on Overall Vulnerability",
-        subtitle = "Mean absolute deviation in overall vulnerability when removing an element (Jackknife effect)",
+        title = "Jackknife Influence on Overall Vulnerability",
+        subtitle = "Mean raw deviation in vulnerability score (0-100 scale) when removing an element.\nLines show 10th-90th percentile range across CUs. Negative = Risk Driver.",
         x = "Excluded Element (Indicator or Category)",
-        y = "Mean Absolute Score Deviation"
+        y = "Raw Score Deviation (jk_score - base_score)"
     ) +
     theme_cvis()
 
@@ -209,24 +269,23 @@ ggsave(file.path(sens_fig_path, "jackknife_leverage_overall.png"), p_jack, width
 jack_species <- influence_summary %>%
     filter((method == "avgall" | method == "avg_all") & SPECIES_NAME != "ALL")
 
-p_jack_sp <- ggplot(jack_species, aes(x = reorder(excluded_element, mean_abs_dev), y = mean_abs_dev, fill = parent_category)) +
-    geom_col() +
+p_jack_sp <- ggplot(jack_species, aes(x = reorder(excluded_element, mean_abs_dev), y = mean_raw_dev, color = parent_category)) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+    geom_pointrange(aes(ymin = q10_raw_dev, ymax = q90_raw_dev), size = 0.4) +
     coord_flip() +
     facet_grid(SPECIES_NAME ~ excluded_type, scales = "free_y") +
-    scale_fill_scico_d(palette = "roma", name = "Parent Category") +
+    scale_color_scico_d(palette = "roma", name = "Parent Category") +
     labs(
-        title = "Leverage on Overall Vulnerability by Species",
-        subtitle = "Mean absolute deviation in overall vulnerability when removing an element",
+        title = "Jackknife Influence by Species",
+        subtitle = "Mean raw deviation in vulnerability score when removing an element.",
         x = "Excluded Element",
-        y = "Mean Absolute Score Deviation"
+        y = "Raw Score Deviation"
     ) +
     theme_cvis()
 
 ggsave(file.path(sens_fig_path, "jackknife_leverage_species.png"), p_jack_sp, width = 14, height = 12)
 
-#-------------------------------------------------------------------------
-# 5. Rank Consistency (Correlation Heatmap)
-#-------------------------------------------------------------------------
+# 6. Rank Consistency (Correlation Heatmap) ----
 cat("Plotting Correlation Heatmap...\n")
 
 # Use matrix from 4c
@@ -248,7 +307,7 @@ p_cor <- ggplot(cor_melted, aes(Var1, Var2, fill = value)) +
 
 ggsave(file.path(sens_fig_path, "rank_correlation_heat_all.png"), p_cor, width = 8, height = 7)
 
-#----------------6. Indicator Correlations (Redundancy)----------------
+# 7. Indicator Correlations (Redundancy) ----
 cat("Plotting Indicator Redundancy (Corrplot)...\n")
 
 png(file.path(sens_fig_path, "indicator_redundancy_corrplot.png"), width = 1000, height = 1000, res = 120)
@@ -264,5 +323,146 @@ corrplot(cor_matrix_ind,
 
 dev.off()
 
-#-------------------------------------------------------------------------
-cat("Sensitivity plots saved to output/figures/sensitivity_analysis/\n")
+# 8. Vulnerability Score Sensitivity Summary Table (Manuscript) ----
+cat("Generating vulnerability score sensitivity summary table...\n")
+
+# Prepare the data for a wide table (Category x Source Metrics)
+# We focus on the global results (all CUs) and key representative sources
+target_v_sources <- c(
+  "GCM1", "GCM4", "GCM6", 
+  "RCP85_P3", "RCP45_P5", 
+  "cube"
+)
+
+score_table_wide <- score_sens_summary %>%
+  filter(SPECIES_NAME == "ALL") %>%
+  mutate(table_source = case_when(
+    source == "GCM1" ~ "GCM1",
+    source == "GCM4" ~ "GCM4",
+    source == "GCM6" ~ "GCM6",
+    source == "RCP85_P3" ~ "RCP85",
+    source == "RCP45_P5" ~ "Period5",
+    source == "cube" ~ "Method",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(table_source)) %>%
+  # Keep only the requested metrics
+  select(category, table_source, mean_abs_dev, q10_abs_dev, q90_abs_dev, spearman_corr) %>%
+  pivot_wider(
+    id_cols = category,
+    names_from = table_source,
+    values_from = c(mean_abs_dev, q10_abs_dev, q90_abs_dev, spearman_corr),
+    names_glue = "{table_source}_{.value}"
+  )
+
+# Add descriptive labels and sort rows (Overall first, then categories)
+score_gt_data <- score_table_wide %>%
+  mutate(
+    category_label = if_else(category == "all", "OVERALL VULNERABILITY", cat_label_map[category]),
+    order = if_else(category == "all", 0, 1)
+  ) %>%
+  arrange(order, category_label) %>%
+  select(category_label, everything(), -category, -order) %>%
+  # Round for the manuscript
+  mutate(across(where(is.numeric), ~ round(., 2)))
+
+# Create gt table
+score_sens_gt <- score_gt_data %>%
+  gt() %>%
+  tab_header(
+    title = md("**Vulnerability Score Sensitivity Analysis Summary**"),
+    subtitle = "Absolute Score Deviations and Rank Consistency (Spearman Rho) compared to Baseline"
+  ) %>%
+  cols_label(
+    category_label = "Vulnerability Category",
+    ends_with("mean_abs_dev") ~ "Mean",
+    ends_with("q10_abs_dev") ~ "q10",
+    ends_with("q90_abs_dev") ~ "q90",
+    ends_with("spearman_corr") ~ "Rho"
+  ) %>%
+  # Group by source using spanners
+  tab_spanner(label = "GCM 1", columns = starts_with("GCM1")) %>%
+  tab_spanner(label = "GCM 4", columns = starts_with("GCM4")) %>%
+  tab_spanner(label = "GCM 6", columns = starts_with("GCM6")) %>%
+  tab_spanner(label = "RCP 8.5", columns = starts_with("RCP85")) %>%
+  tab_spanner(label = "Period 5", columns = starts_with("Period5")) %>%
+  tab_spanner(label = "Scoring (Cube)", columns = starts_with("Method")) %>%
+  # Style
+  tab_options(
+    table.font.size = px(11),
+    column_labels.font.weight = "bold",
+    table.width = pct(100),
+    data_row.padding = px(4)
+  ) %>%
+  opt_stylize(style = 1, color = "gray")
+
+# 9. Indicator XY Sensitivity Plot (Raw vs. Standardized) ----
+cat("Plotting Indicator XY Sensitivity (Raw vs. Standardized)...\n")
+
+# Reconstruct absolute raw and std values from deviations in indicator_metrics
+# Focus on individual CUs (not the 'ALL' summary row)
+ind_xy_dat <- overall_sensitivity$indicator_metrics %>%
+  filter(FULL_CU_IN != "ALL") %>%
+  # Filter to indicators that actually have GCM variation (not static)
+  # Look for non-zero mean absolute deviation for GCMs
+  filter(!is.na(abs_std_dev_GCM1)) %>%
+  # Calculations for absolute values relative to the baseline
+  mutate(
+    # Baseline
+    valraw_Baseline = base_raw_mean,
+    valstd_Baseline = base_std_mean,
+    # GCMs
+    valraw_GCM1 = base_raw_mean + raw_dev_GCM1,
+    valstd_GCM1 = base_std_mean + std_dev_GCM1,
+    valraw_GCM4 = base_raw_mean + raw_dev_GCM4,
+    valstd_GCM4 = base_std_mean + std_dev_GCM4,
+    valraw_GCM6 = base_raw_mean + raw_dev_GCM6,
+    valstd_GCM6 = base_std_mean + std_dev_GCM6,
+    # Model variants
+    valraw_Model = base_raw_mean + raw_dev_Model,
+    valstd_Model = base_std_mean + std_dev_Model
+  ) %>%
+  select(FULL_CU_IN, SPECIES_NAME, category, indicator, starts_with("valraw_"), starts_with("valstd_")) %>%
+  # Pivot to long format for source
+  pivot_longer(
+    cols = starts_with("valraw_") | starts_with("valstd_"),
+    names_to = c(".value", "source"),
+    names_sep = "_"
+  ) %>%
+  rename(raw = valraw, std = valstd) %>%
+  # Filter out Model rows if there was no model variation for that indicator
+  filter(!is.na(raw))
+
+# Define shapes and colors for sources
+source_shapes <- c("Baseline" = 16, "GCM1" = 17, "GCM4" = 18, "GCM6" = 15, "Model" = 13)
+xy_colors <- c("Baseline" = "black", source_colors)
+
+# Plotting XY distribution
+p_xy <- ggplot(ind_xy_dat, aes(x = raw, y = std, color = source, shape = source)) +
+  # Individual CU points
+  geom_point(alpha = 0.3, size = 1.2) +
+  # Ellipses to circle the distribution for each source
+  stat_ellipse(aes(group = source), level = 0.90, linetype = "dashed", linewidth = 0.4) +
+  # Large points for the mean of each source
+  stat_summary(fun = mean, geom = "point", size = 4, alpha = 1, stroke = 1.5) +
+  # Facet by indicator since raw units and ranges vary
+  facet_wrap(~indicator, scales = "free", ncol = 4) +
+  scale_color_manual(values = xy_colors) +
+  scale_shape_manual(values = source_shapes) +
+  labs(
+    title = "Indicator Sensitivity: Raw vs. Standardized Risk Response",
+    subtitle = "Points show CUs across GCM & Model variations; Large points show the mean result. Ellipses span 90% of CU distribution.",
+    x = "Raw Indicator Value (standardized units vary by indicator)",
+    y = "Standardized Risk Score (0-1)",
+    color = "Source of variation",
+    shape = "Source of variation"
+  ) +
+  theme_cvis() +
+  theme(
+    legend.position = "bottom",
+    strip.text = element_text(size = 8)
+  )
+
+ggsave(file.path(sens_fig_path, "indicator_xy_sensitivity_gcm_model.png"), p_xy, width = 16, height = 12)
+
+cat("Sensitivity plots and summary tables saved to output/figures/sensitivity_analysis/\n")

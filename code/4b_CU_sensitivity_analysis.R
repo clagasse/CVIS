@@ -7,16 +7,13 @@
 #
 #  For each indicator and overall score we calculate the raw and absolute deviation in
 #  standardized value/score
-
-
+#
 # Dimensions of variation: GCMs (1, 4, 6), RCP/Period (45/5, 85/3, 85/5), Methods (avgall, cube, flag)
 # Categories: all, fwrs, migr, mar
 #
 # Metrics:
 # - Raw Deviation: (score - baseline) captures directionality
 # - Absolute Deviation: abs(raw_dev) used for identifying main drivers
-
-
 #
 ####
 
@@ -125,8 +122,8 @@ ind_dev_wide <- ind_dev_long %>%
         names_from = source,
         values_from = c(raw_dev, std_dev, abs_raw_dev, abs_std_dev),
         names_glue = "{.value}_{source}"
-    ) %>%
-    mutate(across(starts_with("raw_dev_") | starts_with("std_dev_") | starts_with("abs_"), ~ coalesce(., 0)))
+    )
+    # Note: We no longer coalesce to 0 here to allow filtering of non-applicable sources in plots
 
 # Repeat across all CUs to get an average
 # Put all results in a dataframe with a row summarizing these metrics for each indicator/CU
@@ -189,25 +186,47 @@ all_models <- mult_model_inds_df %>%
     pull(dsmodel) %>%
     unique()
 
-# Helper for 0-100 scaling across a vector of values (matching 4a approach)
-scale_0_100 <- function(x) {
-    mn <- suppressWarnings(min(x, na.rm = TRUE))
-    mx <- suppressWarnings(max(x, na.rm = TRUE))
-    if (!is.finite(mn) || !is.finite(mx) || mx <= mn) {
-        return(rep(NA_real_, length(x))) # constant or all-NA -> no scale
-    }
-    (x - mn) / (mx - mn) * 100
-}
+# Map each model variant to the categories it actually affects
+model_cat_relevance <- mult_model_inds_df %>%
+    filter(dsmodel %in% all_models) %>%
+    distinct(dsmodel, category) %>%
+    rename(source = dsmodel)
 
-# Calculate scores for EACH dsmodel variation (baseline scenario)
+# Identify baseline scores and bounds for sensitivity comparison
+dat <- scores_tidy %>%
+    filter(category %in% relevant_categories) %>%
+    mutate(
+        rcp = as.character(rcp),
+        period_code = as.character(period_code),
+        gcm = as.character(gcm)
+    )
+
+# Calculate fixed scaling bounds based on the baseline scenario
+# These bounds ensure that deviations in sensitivity iterations are on the same CU-scale as the report
+sens_bounds <- dat %>%
+    filter(rcp == sens_rcp_base, period_code == sens_period_base, gcm == sens_gcm_base) %>%
+    group_by(category, method) %>%
+    summarise(
+        mn = min(score, na.rm = TRUE),
+        mx = max(score, na.rm = TRUE),
+        .groups = "drop"
+    )
+
+# Define Baselines per category
+baselines <- dat %>%
+    filter(rcp == sens_rcp_base, period_code == sens_period_base, gcm == sens_gcm_base) %>%
+    filter((category == "all" & method == sens_method_overall_base) | (category != "all" & method == sens_method_category_base)) %>%
+    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, category, base_score = score100_all, base_rank = rankall)
+
+if (nrow(baselines) == 0) stop("Baseline scenarios not found in data.")
+
+# Calculate scores for EACH dsmodel variation (baseline scenario, using fixed bounds)
 model_variants <- list()
 for (mod in all_models) {
-    # Check if this model variant actually differs from the ensemble mean
     mod_dat <- mult_model_inds_df %>%
         filter(rcp == sens_rcp_base, period_code == sens_period_base, gcm == sens_gcm_base) %>%
         group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, category, indicator) %>%
         summarise(
-            # Use specific model 'mod' if exists, else use the specific baseline model for THIS indicator
             std_value = if (any(dsmodel == mod)) {
                 std_value[dsmodel == mod][1]
             } else {
@@ -216,13 +235,12 @@ for (mod in all_models) {
             .groups = "drop"
         )
 
-    # Only proceed if data exists
     if (nrow(mod_dat) > 0) {
         mod_scores <- mod_dat %>%
             group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME) %>%
             calculate_combined_scores() %>%
-            group_by(category, method) %>%
-            mutate(score100_all = scale_0_100(score)) %>%
+            left_join(sens_bounds, by = c("category", "method")) %>%
+            mutate(score100_all = if_else(!is.na(mx) & !is.na(mn) & mx > mn, (score - mn) / (mx - mn) * 100, score * 100)) %>%
             ungroup() %>%
             mutate(source = mod)
 
@@ -235,28 +253,10 @@ if (length(model_variants) > 0) {
 } else {
     model_variants_df <- tibble(
         FULL_CU_IN = character(), SPECIES_NAME = character(), CVIS_NAME = character(),
-        category = character(), method = character(), score = numeric(), source = character()
+        category = character(), method = character(), score = numeric(), source = character(),
+        score100_all = numeric()
     )
 }
-
-
-dat <- scores_tidy %>%
-    filter(category %in% relevant_categories) %>%
-    mutate(
-        rcp = as.character(rcp),
-        period_code = as.character(period_code),
-        gcm = as.character(gcm)
-    )
-
-
-# Define Baselines per category
-# Overall ('all') uses sens_method_overall_base, while lifestages use sens_method_category_base
-baselines <- dat %>%
-    filter(rcp == sens_rcp_base, period_code == sens_period_base, gcm == sens_gcm_base) %>%
-    filter((category == "all" & method == sens_method_overall_base) | (category != "all" & method == sens_method_category_base)) %>%
-    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, category, base_score = score100_all, base_rank = rankall)
-
-if (nrow(baselines) == 0) stop("Baseline scenarios not found in data.")
 
 # Helper function to calculate raw and absolute deviation from baseline
 calc_devs <- function(df, baseline_df) {
@@ -303,8 +303,12 @@ for (cat in relevant_categories) {
     # 2.4 Model Deviations
     mod_dev <- tibble()
     if (nrow(model_variants_df) > 0) {
+        # Identify models relevant to this specific category
+        # Overall ('all') considers all project models; lifestages only consider models applied to their indicators
+        rel_mods <- if (cat == "all") all_models else model_cat_relevance$source[model_cat_relevance$category == cat]
+
         mod_dev <- model_variants_df %>%
-            filter(category == cat, method == b_method) %>%
+            filter(category == cat, method == b_method, source %in% rel_mods) %>%
             calc_devs(cat_baseline) %>%
             mutate(source = "Model") %>%
             group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, category, base_score, base_rank, source) %>%
@@ -352,10 +356,7 @@ all_devs_wide <- all_devs_wide %>%
 #----5. Jackknife Leverage Analysis----
 cat("\nPerforming Jackknife (Leave-one-out) Leverage Analysis...\n")
 
-# Hinge weight function
-hinge_weight <- function(s, t0 = 0.33, t1 = 0.66) {
-    ifelse(s <= t0, 0, ifelse(s >= t1, 1, (s - t0) / (t1 - t0)))
-}
+# (hinge_weight now in 4_scoring_utils.R)
 
 # Recreate the 'filled' indicator values for the baseline scenario using specific baseline models
 jk_dat <- all_std_long %>%
@@ -387,11 +388,26 @@ baseline_vals <- jk_inds_per_cu %>%
     summarise(std_value = mean(std_value, na.rm = TRUE), .groups = "drop") %>%
     mutate(std_value = ifelse(is.nan(std_value), NA_real_, std_value))
 
-# Calculate actual baseline scores
-baseline_scores <- baseline_vals %>%
+# Calculate actual baseline scores (0-1 scale first)
+baseline_scores_raw <- baseline_vals %>%
     group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME) %>%
-    calculate_combined_scores() %>%
-    rename(base_score = score)
+    calculate_combined_scores()
+
+# Determine fixed scaling bounds based ON THE FULL BASELINE
+# This matches the logic in 4a where scores are scaled relative to the baseline distribution
+jk_bounds <- baseline_scores_raw %>%
+    group_by(method, category) %>%
+    summarise(
+        mn = suppressWarnings(min(score, na.rm = TRUE)),
+        mx = suppressWarnings(max(score, na.rm = TRUE)),
+        .groups = "drop"
+    )
+
+# Scale the baseline itself using these bounds
+baseline_scores <- baseline_scores_raw %>%
+    left_join(jk_bounds, by = c("method", "category")) %>%
+    mutate(base_score_100 = if_else(mx > mn, (score - mn) / (mx - mn) * 100, score * 100)) %>%
+    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, method, category, base_score_100)
 
 # Jackknife Loop
 unique_indicators <- sort(unique(baseline_vals$indicator))
@@ -426,11 +442,13 @@ for (cat_group in unique_categories) {
 
 jackknife_all <- bind_rows(jackknife_results)
 
-# Calculate deviations from full-indicator baseline
+# Calculate deviations using FIXED baseline bounds for scaling
 jackknife_analysis <- jackknife_all %>%
+    left_join(jk_bounds, by = c("method", "category")) %>%
+    mutate(jk_score_100 = if_else(mx > mn, (score - mn) / (mx - mn) * 100, score * 100)) %>%
     left_join(baseline_scores, by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "method", "category")) %>%
     mutate(
-        raw_dev = score - base_score,
+        raw_dev = jk_score_100 - base_score_100,
         abs_dev = abs(raw_dev)
     )
 
@@ -449,9 +467,13 @@ jackknife_joined <- jackknife_analysis %>%
 influence_global <- jackknife_joined %>%
     group_by(excluded_element, excluded_type, parent_category, method, category) %>%
     summarise(
-        mean_abs_dev = mean(abs_dev, na.rm = TRUE),
-        max_abs_dev = max(abs_dev, na.rm = TRUE),
         mean_raw_dev = mean(raw_dev, na.rm = TRUE),
+        q10_raw_dev  = quantile(raw_dev, 0.1, na.rm = TRUE),
+        q90_raw_dev  = quantile(raw_dev, 0.9, na.rm = TRUE),
+        mean_abs_dev = mean(abs_dev, na.rm = TRUE),
+        q10_abs_dev  = quantile(abs_dev, 0.1, na.rm = TRUE),
+        q90_abs_dev  = quantile(abs_dev, 0.9, na.rm = TRUE),
+        max_abs_dev  = max(abs_dev, na.rm = TRUE),
         .groups = "drop"
     ) %>%
     mutate(SPECIES_NAME = "ALL")
@@ -460,9 +482,13 @@ influence_global <- jackknife_joined %>%
 influence_species <- jackknife_joined %>%
     group_by(SPECIES_NAME, excluded_element, excluded_type, parent_category, method, category) %>%
     summarise(
-        mean_abs_dev = mean(abs_dev, na.rm = TRUE),
-        max_abs_dev = max(abs_dev, na.rm = TRUE),
         mean_raw_dev = mean(raw_dev, na.rm = TRUE),
+        q10_raw_dev  = quantile(raw_dev, 0.1, na.rm = TRUE),
+        q90_raw_dev  = quantile(raw_dev, 0.9, na.rm = TRUE),
+        mean_abs_dev = mean(abs_dev, na.rm = TRUE),
+        q10_abs_dev  = quantile(abs_dev, 0.1, na.rm = TRUE),
+        q90_abs_dev  = quantile(abs_dev, 0.9, na.rm = TRUE),
+        max_abs_dev  = max(abs_dev, na.rm = TRUE),
         .groups = "drop"
     )
 

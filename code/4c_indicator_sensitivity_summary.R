@@ -17,6 +17,9 @@ source(file.path(here(), "code", "0_setup.R"))
 # Load outputs from 4b (Indicator metrics and sensitivity analysis)
 load(file.path(paths$output, "sensitivity_analysis.Rdata")) # loads overall_sensitivity
 
+# Load outputs from 4b (Indicator metrics and sensitivity analysis)
+load(file.path(paths$output, "sensitivity_analysis.Rdata")) # loads overall_sensitivity
+
 # Extract indicator_metrics (contains deviations for each CU and indicator)
 indicator_metrics <- overall_sensitivity$indicator_metrics
 
@@ -81,6 +84,8 @@ for (ind in unique(cu_metrics$indicator)) {
       category = cat_val,
       indicator = ind,
       base_mean = mean(baseline_vals, na.rm = TRUE),
+      base_q10  = quantile(baseline_vals, 0.1, na.rm = TRUE),
+      base_q90  = quantile(baseline_vals, 0.9, na.rm = TRUE),
       source_type = source_type,
       source = source_nm,
       n_cus = length(na.omit(raw_vals)),
@@ -101,6 +106,8 @@ for (ind in unique(cu_metrics$indicator)) {
 ind_sens_summary <- bind_rows(ind_summary_list) %>%
   # Filter out sources with no influence for this indicator
   filter(mean_abs_dev != 0)
+
+# ... (calculations above in 4c)
 
 
 #----4. Integrated Score Sensitivity Summary (Deviations + Ranks) ----
@@ -210,21 +217,14 @@ cor_matrices <- cor_matrix_list
 
 #----5. Export Results----
 
-# Save as R object for downstream use
+# Save as R object for downstream use in 5c
 save(
   ind_sens_summary,
+  ind_summary_list,
   score_sens_summary,
   cor_matrices,
   file = file.path(paths$output, "indicator_sensitivity_summary.Rdata")
 )
-
-# Save as CSVs for quick inspection
-write_csv(ind_sens_summary, file = file.path(paths$output, "indicator_sensitivity_summary.csv"))
-write_csv(score_sens_summary, file = file.path(paths$output, "score_sensitivity_summary.csv"))
-
-cat("Script 4c complete.\n")
-cat("Indicator summary: output/indicator_sensitivity_summary.csv\n")
-cat("Score summary:     output/score_sensitivity_summary.csv\n")
 
 
 #----6. Example Check----

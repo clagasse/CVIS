@@ -1,6 +1,6 @@
 ################################################################################
 #
-# 5e_plots_indicator_variation.R
+# 5c_plots_indicator_variation.R
 #
 # Visualizes uncertainty propagation for individual indicators (raw values)
 # using a LOLLIPOP style based on script 5a:
@@ -131,4 +131,120 @@ for (cat in categories_to_plot) {
     ggsave(file.path(fig_path, fname), p, width = 14, height = 10)
 }
 
-cat("Visualizations complete. Lollipop plots saved in output/figures/indicator_uncertainty/\n")
+#----------------3. Manuscript Summary Table----------------
+cat("Generating manuscript-ready summary table of indicator sensitivity...\n")
+
+# Load sensitivity summary data from 4c
+load(file.path(paths$output, "indicator_sensitivity_summary.Rdata"))
+
+# 3a. Prepare baseline means for all indicators (including non-climate ones)
+# We use the same baseline logic as 4b/4c
+baseline_means <- all_std_long %>%
+  filter(rcp %in% c("0", sens_rcp_base),
+         period_code %in% c("0", sens_period_base),
+         gcm %in% c("0", "9", sens_gcm_base)) %>%
+  left_join(tbl_standardize %>% select(abbrev, dsmodel_baseline_ind = dsmodel_baseline), by = c("indicator" = "abbrev")) %>%
+  filter(dsmodel == dsmodel_baseline_ind) %>%
+  filter(stat == "mean") %>%
+  group_by(indicator) %>%
+  summarise(Baseline_Mean = mean(as.numeric(value), na.rm = TRUE), .groups = "drop")
+
+# 3b. Re-map source names for the table columns
+# Period 5 is the shift from P3 to P5 under RCP 45
+# RCP85 is the shift from RCP 45 to 85 under Period 3
+ind_sens_table_long <- ind_sens_summary %>%
+  mutate(table_source = case_when(
+    source == "GCM1" ~ "GCM1",
+    source == "GCM4" ~ "GCM4",
+    source == "GCM6" ~ "GCM6",
+    source == "RCP85_P3" ~ "RCP85",
+    source == "RCP45_P5" ~ "Period5",
+    source == "Model" ~ "Model",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(table_source))
+
+# Pivot to wide format with raw deviation and MRD columns
+ind_sens_table_wide <- ind_sens_table_long %>%
+  select(indicator, table_source, mean_raw_dev, mrd) %>%
+  pivot_wider(
+    names_from = table_source,
+    values_from = c(mean_raw_dev, mrd),
+    names_glue = "{table_source}_{.value}"
+  ) %>%
+  rename_with(~ str_replace(., "mean_raw_dev", "raw"), contains("mean_raw_dev"))
+
+# Calculate GCM spread (q10 and q90) across the individual GCM means for each indicator
+gcm_spread <- ind_sens_summary %>%
+  filter(source_type == "GCM") %>%
+  group_by(indicator) %>%
+  summarise(
+    GCM_q10 = quantile(mean_raw_dev, 0.1, na.rm = TRUE),
+    GCM_q90 = quantile(mean_raw_dev, 0.9, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# 3c. Combine into final wide summary table
+indicator_sensitivity_table <- tbl_indicators %>%
+  select(indicator = abbrev) %>%
+  left_join(baseline_means, by = "indicator") %>%
+  left_join(ind_sens_table_wide, by = "indicator") %>%
+  left_join(gcm_spread, by = "indicator") %>%
+  select(
+    indicator,
+    Baseline_Mean,
+    any_of(c("GCM1_raw", "GCM1_mrd", "GCM4_raw", "GCM4_mrd", "GCM6_raw", "GCM6_mrd",
+             "RCP85_raw", "RCP85_mrd", "Period5_raw", "Period5_mrd", 
+             "Model_raw", "Model_mrd", "GCM_q10", "GCM_q90"))
+  )
+
+# 3d. Format as gt table for manuscript
+gt_data <- indicator_sensitivity_table %>%
+  left_join(tbl_indicators %>% select(indicator = abbrev, name, category_code = category), by = "indicator") %>%
+  mutate(category = cat_label_map[category_code]) %>%
+  select(category, indicator, name, Baseline_Mean, everything(), -category_code) %>%
+  mutate(across(where(is.numeric), ~ round(., 2)))
+
+ind_sens_gt <- gt_data %>%
+  group_by(category) %>%
+  gt(rowname_col = "indicator") %>%
+  tab_header(
+    title = md("**Summary of Indicator Sensitivity Analysis**"),
+    subtitle = "Mean Raw Deviation and Mean Rank Displacement (MRD) from Baseline"
+  ) %>%
+  cols_label(
+    name = "Indicator Description",
+    Baseline_Mean = "Baseline",
+    GCM1_raw = "Raw", GCM1_mrd = "MRD",
+    GCM4_raw = "Raw", GCM4_mrd = "MRD",
+    GCM6_raw = "Raw", GCM6_mrd = "MRD",
+    RCP85_raw = "Raw", RCP85_mrd = "MRD",
+    Period5_raw = "Raw", Period5_mrd = "MRD",
+    Model_raw = "Raw", Model_mrd = "MRD",
+    GCM_q10 = "q10", GCM_q90 = "q90"
+  ) %>%
+  tab_spanner(label = "GCM 1", columns = starts_with("GCM1")) %>%
+  tab_spanner(label = "GCM 4", columns = starts_with("GCM4")) %>%
+  tab_spanner(label = "GCM 6", columns = starts_with("GCM6")) %>%
+  tab_spanner(label = "RCP 8.5", columns = starts_with("RCP85")) %>%
+  tab_spanner(label = "Period 5", columns = starts_with("Period5")) %>%
+  tab_spanner(label = "Model", columns = starts_with("Model")) %>%
+  tab_spanner(label = "GCM Spread", columns = c("GCM_q10", "GCM_q90")) %>%
+  fmt_missing(everything(), missing_text = "—") %>%
+  tab_options(
+    table.font.size = px(11),
+    column_labels.font.weight = "bold",
+    row_group.font.weight = "bold",
+    table.width = pct(100),
+    data_row.padding = px(3)
+  ) %>%
+  opt_stylize(style = 6, color = "gray")
+
+# 3e. Save Outputs
+cat("Saving sensitivity table to output directory...\n")
+write_csv(indicator_sensitivity_table, file.path(paths$output, "Table_Indicator_Sensitivity.csv"))
+gtsave(ind_sens_gt, file.path(paths$output, "Table_Indicator_Sensitivity.html"))
+
+if (interactive()) print(ind_sens_gt)
+
+cat("Script 5c complete. Plots and summary table generated.\n")

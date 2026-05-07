@@ -47,9 +47,9 @@ genetics_long <- genetics_cu %>%
     values_to = "value"
   ) %>%
   mutate(
-    gcm         = 0L,
+    gcm         = if_else(indicator == "genoff", 9L, 0L),
     rcp         = if_else(as.character(rcp) == "", "0", rcp),
-    period_code = 0L,
+    period_code = if_else(indicator == "genoff", 3L, 0L),
     dsmodel     = "observed"
   ) %>%
   left_join(select(tbl_indicators, abbrev, category), join_by(indicator == abbrev))

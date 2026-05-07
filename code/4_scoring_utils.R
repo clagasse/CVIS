@@ -821,6 +821,17 @@ rank_scores <- function(data, score_col, group_cols, rank_col = "score_rank", de
 #   indicators_choose = c("Tw8rate", "Tw8proj", "CUstatus"))
 
 # Hinge weight function
+# helper function for 0-100 scaling across a vector of values
+scale_0_100 <- function(x) {
+  mn <- suppressWarnings(min(x, na.rm = TRUE))
+  mx <- suppressWarnings(max(x, na.rm = TRUE))
+  if (!is.finite(mn) || !is.finite(mx) || mx <= mn) {
+    return(rep(NA_real_, length(x))) # constant or all-NA -> no scale
+  }
+  (x - mn) / (mx - mn) * 100
+}
+
+
 hinge_weight <- function(s, t0 = 0.33, t1 = 0.66) {
   ifelse(s <= t0, 0, ifelse(s >= t1, 1, (s - t0) / (t1 - t0)))
 }

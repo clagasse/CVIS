@@ -193,15 +193,7 @@ scores_base <- vals %>%
   group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, gcm, rcp, period_code) %>%
   calculate_combined_scores()
 
-# Helper for 0-100 scaling with NA-safe behavior
-scale_0_100 <- function(x) {
-  mn <- suppressWarnings(min(x, na.rm = TRUE))
-  mx <- suppressWarnings(max(x, na.rm = TRUE))
-  if (!is.finite(mn) || !is.finite(mx) || mx <= mn) {
-    return(rep(NA_real_, length(x))) # constant or all-NA -> no scale
-  }
-  (x - mn) / (mx - mn) * 100
-}
+# (scale_0_100 now in 4_scoring_utils.R)
 
 # Cross-species 0-100 within
 score100_cross <- scores_base

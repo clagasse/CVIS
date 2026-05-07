@@ -129,9 +129,10 @@ plot_lollipop <- function(all_std_long,
                           log_scale = FALSE,
                           threshold_value = NA_real_,
                           show_gcm_points = FALSE) {
+  require(ggtext)
   # ---- CU roster (ensures all CUs are shown regardless of data presence) ----
   cu_roster <- all_std_long %>%
-    distinct(FULL_CU_IN, SPECIES_NAME, CVIS_NAME)
+    distinct(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, SMU_SIMPLE)
 
   # ---- Resolve value column for plotting Y (ranges & center_y) ----
   val_col <- if (use_standardized) {
@@ -175,14 +176,14 @@ plot_lollipop <- function(all_std_long,
 
   # ---- Reduce to needed columns ----
   dat <- dat_full %>%
-    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, gcm, rcp, dsmodel,
+    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, SMU_SIMPLE, gcm, rcp, dsmodel,
       val = dplyr::all_of(val_col),
       std_val = dplyr::all_of(if ("std_value" %in% names(dat_full)) "std_value" else val_col)
     )
 
   # ---- Summaries across GCM per CU/Scenario/Model ----
   cu_summary <- dat %>%
-    group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, rcp, dsmodel) %>%
+    group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, SMU_SIMPLE, rcp, dsmodel) %>%
     summarise(
       n_gcm      = dplyr::n_distinct(gcm[!is.na(val)]),
       min_gcm    = if (sum(!is.na(val)) > 0) min(val, na.rm = TRUE) else NA_real_,
@@ -194,26 +195,31 @@ plot_lollipop <- function(all_std_long,
 
   # ---- Right-join summaries to the full CU roster to ensure all CUs are present ----
   cu_plot <- cu_roster %>%
-    left_join(cu_summary, by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME"))
+    left_join(cu_summary, by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "SMU_SIMPLE"))
 
-  # ---- Build a species -> colour map for labels ----
-  species_levels <- unique(cu_plot$SPECIES_NAME)
-  if (!is.null(names(plot_colours)) && all(species_levels %in% names(plot_colours))) {
-    col_map <- plot_colours[names(plot_colours) %in% species_levels]
-    col_map <- col_map[species_levels]
+  # ---- HTML labels coloured by SMU (matching indicator_cu_tile_plot) ----
+  # Pre-calculate colors to avoid length mismatch errors in case_when
+  smu_col_vec <- if (exists("smu_palette")) {
+    smu_palette[as.character(cu_plot$SMU_SIMPLE)]
   } else {
-    col_map <- setNames(rep(plot_colours, length.out = length(species_levels)), species_levels)
+    rep(NA_character_, nrow(cu_plot))
   }
-
-  # ---- HTML labels coloured by species ----
+  
+  sp_col_vec <- if (exists("species_palette")) {
+    species_palette[as.character(cu_plot$SPECIES_NAME)]
+  } else {
+    rep(NA_character_, nrow(cu_plot))
+  }
+  
   cu_plot <- cu_plot %>%
     mutate(
-      id_label_html = paste0("<span style='color:", col_map[SPECIES_NAME], "'>", CVIS_NAME, "</span>")
+      label_color = coalesce(as.character(smu_col_vec), as.character(sp_col_vec), "#666666"),
+      id_label_html = paste0("<span style='color:", label_color, "'>", CVIS_NAME, "</span>")
     )
 
   # ---- Order by species then FULL_CU_IN (no sorting by value) ----
   cu_plot <- cu_plot %>%
-    arrange(SPECIES_NAME, FULL_CU_IN, CVIS_NAME) %>%
+    arrange(SPECIES_NAME, SMU_SIMPLE, FULL_CU_IN, CVIS_NAME) %>%
     mutate(id_label_html = factor(id_label_html, levels = unique(id_label_html)))
 
   # ---- Plot ----
@@ -223,13 +229,6 @@ plot_lollipop <- function(all_std_long,
   if (!is.na(threshold_value)) {
     p <- p + geom_hline(yintercept = threshold_value, linetype = "dashed", color = "grey30", size = 0.8)
   }
-
-  # 1. Background "Cloud" for GCM uncertainty (wide grey bar)
-  p <- p +
-    geom_segment(aes(xend = id_label_html, y = min_gcm, yend = max_gcm),
-      color = "grey92", linewidth = 6, alpha = 0.8, na.rm = TRUE,
-      position = position_dodge(width = dodge_width)
-    )
 
   # 2. Inner GCM range line (thin line for contrast)
   p <- p +
@@ -261,23 +260,26 @@ plot_lollipop <- function(all_std_long,
       position = position_dodge(width = dodge_width)
     ) +
     scale_fill_distiller(
-      name = "Standardized Score (Risk Level)",
-      palette = "RdYlGn", direction = -1,
+      name = "Standardized Score",
+      palette = "Blues", direction = 1,
       limits = c(0, 1), na.value = "transparent"
     )
 
-  # Saturated Scenario Colors
-  p <- p +
-    scale_color_manual(
-      name = "Scenario (RCP)",
-      values = c("45" = "darkblue", "85" = "#B22222"), # ForestGreen and FireBrick
-      na.translate = FALSE
-    ) +
-    scale_shape_manual(
-      name = "Downscaling Model",
-      values = c(21, 24, 22, 23, 25),
-      na.translate = FALSE
-    )
+  # # Saturated Scenario Colors - supporting both "45"/"85" and "4.5"/"8.5" formats
+  # p <- p +
+  #   scale_color_manual(
+  #     name = "Scenario (RCP)",
+  #     values = c(
+  #       "45" = "darkblue", "4.5" = "darkblue", 
+  #       "85" = "#B22222", "8.5" = "#B22222"
+  #     ),
+  #     na.translate = FALSE
+  #   ) +
+  #   scale_shape_manual(
+  #     name = "Downscaling Model",
+  #     values = c(21, 24, 22, 23, 25),
+  #     na.translate = FALSE
+  #   )
 
   # Axis scale
   if (isTRUE(log_scale)) {
@@ -295,7 +297,7 @@ plot_lollipop <- function(all_std_long,
     if (is.null(indicator_unit) || is.na(indicator_unit) || indicator_unit == "") {
       "Value"
     } else {
-      paste0("Value (", indicator_unit, ")")
+      paste0(indicator_unit)
     }
   }
   dsmodel_lab <- if (!is.null(dsmodel_pick) && length(dsmodel_pick) > 0 && "dsmodel" %in% names(dat_full)) {
@@ -313,7 +315,8 @@ plot_lollipop <- function(all_std_long,
     coord_flip() +
     theme_minimal(base_size = 11) +
     theme(
-      axis.text.y = ggtext::element_markdown(size = 8.5),
+      axis.text.y = ggtext::element_markdown(size = 7.5, vjust = 0.5),
+      axis.text.y.left = ggtext::element_markdown(size = 7.5, vjust = 0.5),
       legend.position = "right",
       panel.grid.major.y = element_blank()
     )
@@ -1269,7 +1272,8 @@ make_indicator_plots <- function(data,
                                  tbl = tbl_indicators,
                                  standardized_plots = FALSE,
                                  make_spatial = F,
-                                 spatial_pal_dir = -1) {
+                                 spatial_pal_dir = -1,
+                                 log_scale = FALSE) {
   ind_row <- tbl[tbl$abbrev == ind_pick, ]
 
   # ---- Lollipop plot (long-format) ----
@@ -1278,7 +1282,8 @@ make_indicator_plots <- function(data,
     indicator_unit = ind_row$unit,
     rcp_pick = unique(data$rcp),
     period_pick = unique(data$period_code),
-    use_standardized = standardized_plots
+    use_standardized = standardized_plots,
+    log_scale = log_scale
   )
   print(p)
 
