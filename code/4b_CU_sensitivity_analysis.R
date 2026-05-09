@@ -1,21 +1,16 @@
-####
+################################################################################
 #
 # 4b_CU_sensitivity_analysis.R
 #
-#  Calculate sensitivity metrics for the indicator scores and overall vulnerability
-#  estimated in 4a relative to a baseline scenario (RCP 45, mid-century, ensemble mean by default)
+# CU-Level Sensitivity Engine:
+# 1. Calculates directional and absolute deviations in vulnerability scores 
+#    across climate scenarios (GCM/RCP), time periods, and downscaling methods.
+# 2. Performs Jackknife (Leave-one-out) analysis to quantify the influence of 
+#    individual indicators and categories on overall results.
+# 3. Quantifies rank stability (Mean Rank Displacement) for each CU across variations.
+# 4. Generates baseline-relative metrics for all environmental drivers.
 #
-#  For each indicator and overall score we calculate the raw and absolute deviation in
-#  standardized value/score
-#
-# Dimensions of variation: GCMs (1, 4, 6), RCP/Period (45/5, 85/3, 85/5), Methods (avgall, cube, flag)
-# Categories: all, fwrs, migr, mar
-#
-# Metrics:
-# - Raw Deviation: (score - baseline) captures directionality
-# - Absolute Deviation: abs(raw_dev) used for identifying main drivers
-#
-####
+################################################################################
 
 #----1. Setup and Import----
 library(here)
@@ -88,7 +83,7 @@ ind_scen_dev <- map_dfr(sens_scenarios, function(s) {
         )
 })
 
-# 2.3 Model Deviations for indicators
+# 2.3 dsmethod Deviations for indicators
 # Only for indicators with > 1 model available in dsmodel_baseline
 ind_model_dev <- all_std_long %>%
     filter(stat == "mean") %>%
@@ -108,7 +103,7 @@ ind_model_dev <- all_std_long %>%
         across(c(raw_dev, std_dev, abs_raw_dev, abs_std_dev), ~ mean(., na.rm = TRUE)),
         .groups = "drop"
     ) %>%
-    mutate(source = "Model") %>%
+    mutate(source = "dsmethod") %>%
     select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, category, indicator, source, raw_dev, std_dev, abs_raw_dev, abs_std_dev)
 
 ind_dev_long <- bind_rows(
@@ -152,11 +147,14 @@ ind_all_summary <- ind_all_summary %>%
     left_join(base_all_summary, by = c("category", "indicator"))
 
 # Add baseline rank per indicator/category for MRD calculation in 4c
+# Calculated BOTH globally and separately within each SPECIES_NAME
 ind_baseline_ranks <- ind_baseline %>%
     group_by(category, indicator) %>%
-    mutate(base_rank = rank(base_raw_mean, ties.method = "average", na.last = "keep")) %>%
+    mutate(base_rank_all = rank(base_raw_mean, ties.method = "average", na.last = "keep")) %>%
+    group_by(category, indicator, SPECIES_NAME) %>%
+    mutate(base_rank_sp = rank(base_raw_mean, ties.method = "average", na.last = "keep")) %>%
     ungroup() %>%
-    select(FULL_CU_IN, category, indicator, base_rank)
+    select(FULL_CU_IN, category, indicator, base_rank_all, base_rank_sp)
 
 # Combine results into one dataframe
 indicator_metrics <- bind_rows(ind_cu_summary, ind_all_summary) %>%
@@ -212,11 +210,14 @@ sens_bounds <- dat %>%
         .groups = "drop"
     )
 
-# Define Baselines per category
+# Define Baselines per category using pre-calculated ranks from 4a
 baselines <- dat %>%
     filter(rcp == sens_rcp_base, period_code == sens_period_base, gcm == sens_gcm_base) %>%
     filter((category == "all" & method == sens_method_overall_base) | (category != "all" & method == sens_method_category_base)) %>%
-    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, category, base_score = score100_all, base_rank = rankall)
+    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, SMU_SIMPLE, category, 
+           base_score = score100_all, 
+           base_rank_all = rankall, 
+           base_rank_sp = rankspecies)
 
 if (nrow(baselines) == 0) stop("Baseline scenarios not found in data.")
 
@@ -225,7 +226,7 @@ model_variants <- list()
 for (mod in all_models) {
     mod_dat <- mult_model_inds_df %>%
         filter(rcp == sens_rcp_base, period_code == sens_period_base, gcm == sens_gcm_base) %>%
-        group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, category, indicator) %>%
+        group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, SMU_SIMPLE, category, indicator) %>%
         summarise(
             std_value = if (any(dsmodel == mod)) {
                 std_value[dsmodel == mod][1]
@@ -237,10 +238,17 @@ for (mod in all_models) {
 
     if (nrow(mod_dat) > 0) {
         mod_scores <- mod_dat %>%
-            group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME) %>%
+            group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, SMU_SIMPLE) %>%
             calculate_combined_scores() %>%
             left_join(sens_bounds, by = c("category", "method")) %>%
-            mutate(score100_all = if_else(!is.na(mx) & !is.na(mn) & mx > mn, (score - mn) / (mx - mn) * 100, score * 100)) %>%
+            mutate(
+                score100_all = if_else(!is.na(mx) & !is.na(mn) & mx > mn, (score - mn) / (mx - mn) * 100, score * 100)
+            ) %>%
+            # Calculate ranks properly grouped by method and category
+            group_by(category, method) %>%
+            mutate(rankall = rank(score, ties.method = "average")) %>%
+            group_by(category, method, SPECIES_NAME) %>%
+            mutate(rankspecies = rank(score, ties.method = "average")) %>%
             ungroup() %>%
             mutate(source = mod)
 
@@ -252,19 +260,22 @@ if (length(model_variants) > 0) {
     model_variants_df <- bind_rows(model_variants)
 } else {
     model_variants_df <- tibble(
-        FULL_CU_IN = character(), SPECIES_NAME = character(), CVIS_NAME = character(),
+        FULL_CU_IN = character(), SPECIES_NAME = character(), CVIS_NAME = character(), SMU_SIMPLE = character(),
         category = character(), method = character(), score = numeric(), source = character(),
-        score100_all = numeric()
+        score100_all = numeric(), rankall = numeric(), rankspecies = numeric()
     )
 }
 
 # Helper function to calculate raw and absolute deviation from baseline
+# Uses ranks from the dataframe (which come from scores_tidy for GCM/RCP scenarios)
 calc_devs <- function(df, baseline_df) {
     df %>%
-        left_join(baseline_df, by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "category")) %>%
+        left_join(baseline_df, by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "SMU_SIMPLE", "category")) %>%
         mutate(
             raw_dev = score100_all - base_score,
-            abs_dev = abs(raw_dev)
+            abs_dev = abs(raw_dev),
+            rank_diff_all = abs(base_rank_all - rankall),
+            rank_diff_sp = abs(base_rank_sp - rankspecies)
         )
 }
 
@@ -281,7 +292,8 @@ for (cat in relevant_categories) {
     gcm_dev <- cat_dat %>%
         filter(rcp == sens_rcp_base, period_code == sens_period_base, method == b_method, gcm %in% gcm_sources) %>%
         calc_devs(cat_baseline) %>%
-        select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, category, base_score, base_rank, source = gcm, raw_dev, abs_dev) %>%
+        select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, SMU_SIMPLE, category, base_score, base_rank_all, base_rank_sp, 
+               source = gcm, raw_dev, abs_dev, rank_diff_all, rank_diff_sp, rankall, rankspecies) %>%
         mutate(source = paste0("GCM", source))
 
     # 2.2 RCP/Period Deviations
@@ -289,7 +301,8 @@ for (cat in relevant_categories) {
         cat_dat %>%
             filter(rcp == s[1], period_code == s[2], gcm == sens_gcm_base, method == b_method) %>%
             calc_devs(cat_baseline) %>%
-            select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, category, base_score, base_rank, raw_dev, abs_dev) %>%
+            select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, SMU_SIMPLE, category, base_score, base_rank_all, base_rank_sp, 
+                   raw_dev, abs_dev, rank_diff_all, rank_diff_sp, rankall, rankspecies) %>%
             mutate(source = paste0("RCP", s[1], "_P", s[2]))
     })
 
@@ -297,26 +310,27 @@ for (cat in relevant_categories) {
     m_dev <- cat_dat %>%
         filter(rcp == sens_rcp_base, period_code == sens_period_base, gcm == sens_gcm_base, method %in% method_sources) %>%
         calc_devs(cat_baseline) %>%
-        select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, category, base_score, base_rank, source = method, raw_dev, abs_dev) %>%
+        select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, SMU_SIMPLE, category, base_score, base_rank_all, base_rank_sp, 
+               source = method, raw_dev, abs_dev, rank_diff_all, rank_diff_sp, rankall, rankspecies) %>%
         mutate(source = paste0("Method_", source))
 
-    # 2.4 Model Deviations
+    # 2.4 dsmethod Deviations
     mod_dev <- tibble()
     if (nrow(model_variants_df) > 0) {
         # Identify models relevant to this specific category
-        # Overall ('all') considers all project models; lifestages only consider models applied to their indicators
         rel_mods <- if (cat == "all") all_models else model_cat_relevance$source[model_cat_relevance$category == cat]
 
         mod_dev <- model_variants_df %>%
             filter(category == cat, method == b_method, source %in% rel_mods) %>%
             calc_devs(cat_baseline) %>%
-            mutate(source = "Model") %>%
-            group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, category, base_score, base_rank, source) %>%
+            mutate(source = "dsmethod") %>%
+            group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, SMU_SIMPLE, category, base_score, base_rank_all, base_rank_sp, source) %>%
             summarise(
-                across(c(raw_dev, abs_dev), ~ mean(., na.rm = TRUE)),
+                across(c(raw_dev, abs_dev, rank_diff_all, rank_diff_sp, rankall, rankspecies), ~ mean(., na.rm = TRUE)),
                 .groups = "drop"
             ) %>%
-            select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, category, base_score, base_rank, source, raw_dev, abs_dev)
+            select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, SMU_SIMPLE, category, base_score, base_rank_all, base_rank_sp, 
+                   source, raw_dev, abs_dev, rank_diff_all, rank_diff_sp, rankall, rankspecies)
     }
 
     all_devs_list[[cat]] <- bind_rows(gcm_dev, scen_dev, m_dev, mod_dev)
@@ -328,10 +342,10 @@ all_devs_long <- bind_rows(all_devs_list)
 all_devs_wide <- all_devs_long %>%
     pivot_wider(
         names_from = source,
-        values_from = c(raw_dev, abs_dev),
+        values_from = c(raw_dev, abs_dev, rank_diff_all, rank_diff_sp, rankall, rankspecies),
         names_glue = "{.value}_{source}"
     ) %>%
-    mutate(across(starts_with("raw_dev_") | starts_with("abs_dev_"), ~ coalesce(., 0)))
+    mutate(across(starts_with("raw_dev_") | starts_with("abs_dev_") | starts_with("rank_diff_") | starts_with("rankall_") | starts_with("rankspecies_"), ~ coalesce(., 0)))
 
 # # Calculate proportions based on ABSOLUTE deviations
 # abs_cols <- names(all_devs_wide)[startsWith(names(all_devs_wide), "abs_dev_")]
@@ -494,8 +508,45 @@ influence_species <- jackknife_joined %>%
 
 influence_summary <- bind_rows(influence_global, influence_species)
 
+#----6. Species-Level Summaries----
+cat("\nCalculating species-level sensitivity summaries...\n")
 
-#----6. Indicator correlation----
+# Summary of overall score sensitivity per species
+species_score_summary <- all_devs_long %>%
+    group_by(SPECIES_NAME, category, source) %>%
+    summarise(
+        n_cus = n(),
+        mean_raw_dev = mean(raw_dev, na.rm = TRUE),
+        mean_abs_dev = mean(abs_dev, na.rm = TRUE),
+        mrd_all = mean(rank_diff_all, na.rm = TRUE),
+        mrd_sp = mean(rank_diff_sp, na.rm = TRUE),
+        .groups = "drop"
+    )
+
+# Summary of overall score sensitivity GLOBALLY (across all species)
+global_score_summary <- all_devs_long %>%
+    group_by(category, source) %>%
+    summarise(
+        SPECIES_NAME = "ALL",
+        n_cus = n(),
+        mean_raw_dev = mean(raw_dev, na.rm = TRUE),
+        mean_abs_dev = mean(abs_dev, na.rm = TRUE),
+        mrd_all = mean(rank_diff_all, na.rm = TRUE),
+        mrd_sp = NA_real_, # Not applicable for global
+        .groups = "drop"
+    )
+
+# Summary of indicator-level metrics per species
+ind_species_summary <- ind_dev_long %>%
+    left_join(ind_baseline, by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "category", "indicator")) %>%
+    group_by(SPECIES_NAME, category, indicator, source) %>%
+    summarise(
+        mean_raw_dev = mean(raw_dev, na.rm = TRUE),
+        mean_std_dev = mean(std_dev, na.rm = TRUE),
+        .groups = "drop"
+    )
+
+#----7. Indicator correlation----
 cat("\nAnalyzing Indicator Redundancy (Collinearity)...\n")
 
 # Pivot wide for correlation
@@ -511,7 +562,7 @@ cat(paste0("Numeric indicator columns for correlation: ", ncol(dat_wide), "\n"))
 cor_matrix <- cor(dat_wide, method = "pearson", use = "pairwise.complete.obs")
 
 
-#----7. Save Outputs----
+#----8. Save Outputs----
 
 cat("\nSaving sensitivity results...\n")
 
@@ -521,6 +572,10 @@ overall_sensitivity <- list(
     categories = relevant_categories,
     jackknife_results = jackknife_analysis,
     influence_summary = influence_summary,
+    species_score_summary = species_score_summary,
+    global_score_summary = global_score_summary,
+    score_sensitivity_summary = bind_rows(global_score_summary, species_score_summary),
+    species_indicator_summary = ind_species_summary,
     correlation_indicators = cor_matrix
 )
 

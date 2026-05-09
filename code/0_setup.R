@@ -149,7 +149,7 @@ sens_source_palette <- c(
   "RCP45_P5" = "#33a02c", "RCP85_P3" = "#1f78b4", "RCP85_P5" = "#a6cee3", "Scenario" = "#1f78b4", "scenario" = "#1f78b4",
   "cube" = "#6a3d9a", "flag" = "#b15928", "avgcube" = "#cab2d6", "avgall" = "#fb9a99",
   "qdm" = "#db7093", "bccmssc" = "#daa520", "streamdyn" = "#4682b4", "tscapes" = "#d2b48c",
-  "pcicgrid" = "#e7298a", "station" = "#7570b3", "model" = "#8dd3c7", "Model" = "#8dd3c7"
+  "pcicgrid" = "#e7298a", "station" = "#7570b3", "model" = "#8dd3c7", "dsmethod" = "#8dd3c7"
 )
 
 # Mapping of life stage category codes to descriptive names

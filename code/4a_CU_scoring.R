@@ -1,11 +1,14 @@
-####
+################################################################################
 #
 # 4a_CU_scoring.R
 #
-# 1 - get indicator values for each CU (Long Format)
-# 2 - standardize indicators using ensemble-based ranges
-# 3 - calculate combined scores and ranks
-# 4 - export long and wide format results
+# Core Vulnerability Scoring Engine:
+# 1. Aggregates all environmental and demographic indicators (FW, Migration, Marine, etc.)
+# 2. Standardizes indicator values (0-1) using scenario-specific ranges (GCM/RCP/Period)
+# 3. Calculates multi-scale vulnerability scores (raw, 0-100 regional, 0-100 species)
+# 4. Generates initial CU-level vulnerability ranks
+#
+################################################################################
 
 #----1. Setup and import----
 library(here)
@@ -18,7 +21,7 @@ source(file.path(here(), "code", "0_setup.R"))
 scale_baseline_rcp <- NA # e.g. "45"
 scale_baseline_period <- NA # e.g. "3"
 
-grouping_vars_pick <- c("rcp", "period_code", "dsmodel")
+grouping_vars_pick <- c("gcm", "rcp", "period_code", "dsmodel")
 
 # Helper to find latest file by pattern
 get_latest_file <- function(path, pattern) {

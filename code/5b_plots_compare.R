@@ -276,7 +276,7 @@ plot_lollipop <- function(all_std_long,
   #     na.translate = FALSE
   #   ) +
   #   scale_shape_manual(
-  #     name = "Downscaling Model",
+  #     name = "Downscaling method",
   #     values = c(21, 24, 22, 23, 25),
   #     na.translate = FALSE
   #   )
@@ -2169,7 +2169,7 @@ plot_maz_lollipop <- function(maz_all,
       na.translate = FALSE
     ) +
     scale_shape_manual(
-      name = "Downscaling Model",
+      name = "Downscaling method",
       values = c(21, 24, 22, 23, 25),
       na.translate = FALSE
     )

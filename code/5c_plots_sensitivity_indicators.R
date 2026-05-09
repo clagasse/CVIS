@@ -1,6 +1,6 @@
 ################################################################################
 #
-# 5c_plots_sensitivity_indicators.R
+# 5c_plots_indicator_variation.R
 #
 # Indicator Sensitivity Visualizations:
 # 1. Quantifies indicator-level sensitivity (Mean Absolute Deviation) 
