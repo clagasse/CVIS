@@ -1,16 +1,35 @@
-################################################################################
+# ==============================================================================
+# CVIS Core Vulnerability Scoring Engine (4a_CU_scoring.R)
 #
-# 4a_CU_scoring.R
+# Description:
+#   Aggregates all CVIS environmental, genetic, and demographic indicators
+#   (Freshwater Spawning/Rearing, Upstream Migration, Nearshore Marine, Demographics,
+#   and Genetics). Standardizes indicators to a 0-1 scale using scenario-specific
+#   ranges and computes combined vulnerability scores and ranks (both regional
+#   and species-specific).
 #
-# Core Vulnerability Scoring Engine:
-# 1. Aggregates all environmental and demographic indicators (FW, Migration, Marine, etc.)
-# 2. Standardizes indicator values (0-1) using scenario-specific ranges (GCM/RCP/Period)
-# 3. Calculates multi-scale vulnerability scores (raw, 0-100 regional, 0-100 species)
-# 4. Generates initial CU-level vulnerability ranks
+# Workflow Steps:
+#   1. Load setup environment and configure baseline ranges.
+#   2. Load and prep indicators from all domains (FW, migration, marine, genetics, demographics).
+#   3. Standardize indicator values using standard scaling functions.
+#   4. Reconstruct static and projected indicator scenarios.
+#   5. Calculate combined multi-scale scores (0-100 regional, 0-100 species) and ranks.
+#   6. Save output datasets to output/.
 #
-################################################################################
+# Inputs:
+#   - processed_data/freshwater/fw_rearing_indicators.Rdata
+#   - processed_data/freshwater/migr_stats.Rdata
+#   - processed_data/marine/marine_stats.Rdata
+#   - genetics and demographic tables (via 0_setup.R)
+#
+# Outputs:
+#   - output/scoring_results.Rdata
+#
+# Dependencies:
+#   - Requires indicators from FW, migration, and marine stages to be completed.
+# ==============================================================================
 
-#----1. Setup and import----
+# ==================== 1. Setup and Environment ====================
 library(here)
 setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
@@ -94,7 +113,7 @@ all_long <- select(cu_run, FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, 
 calibration_input <- maz_all
 
 
-#---- 2. Calculate standardized scores----
+# ==================== 2. Calculate Standardized Scores ====================
 
 all_std_long <- list()
 
@@ -134,7 +153,7 @@ test_mar <- filter(
 )
 
 
-# 3.  Scoring and ranks across indicators----
+# ==================== 3. Scoring and Ranks Across Indicators ====================
 
 ## first we need to make sure that indicators without projections (e.g. status)
 # get applied when calculating scores for each rcp/gcm/scenario combination
@@ -279,7 +298,7 @@ scores_tidy <- scores_base %>%
   ) %>%
   arrange(rcp, period_code, gcm, SPECIES_NAME, FULL_CU_IN, method, category)
 
-# 4. Averaging scores ----
+# ==================== 4. Averaging Scores ====================
 
 # 1) Score averages (from scores_tidy)
 # scores_tidy has at least: rcp, period_code, method, category, score
@@ -301,7 +320,7 @@ ind_avgs_tidy <- all_std_long %>%
   select(rcp, period_code, method, category, mean_value)
 
 
-# 5. Save outputs ----
+# ==================== 5. Save Outputs ====================
 
 # Save as R objects — primary output for all downstream scripts
 save(all_std_long, scores_tidy, file = file.path(paths$output, "scoring_results.Rdata"))

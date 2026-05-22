@@ -1,57 +1,41 @@
-# ----------3b_standardize_marine_grid.R----------
-
-# Inputs (with R code names):
-#   3a1/Surface data: Spatial data frames of each models monthly surface estimates of each variable with centroid points (e.g. NEP_SST);
-# 3a2/CI points: CI centroid points ("CI_points")
-# Masks: Polygon Mask shape files (e.g. "NEP_mask")
-# MAZ: Polygons of marine adaptive zones ("MAZ")
-# Input locations (with file names):
-#   3a1/Surface data: Saved as .gdb to model specific folders in 0_data_climate (e.g. "NEP36_MonthlyData.gdb")
-# 3a2/CI points: "\OneDrive - DFO-MPO\0_data_spatial\CumulativeImpacts\CI_points.gdb"
-# Masks: located in model specific folders in 0_data_climate (e.g. "NEP_mask.shp") and the EEZ layer is located in 0_data_spatial/BC_EEZ/BC_EEZ.shp
-# MAZ: OneDrive - DFO-MPO\0_data_spatial\MAZ\MAZ_Final.shp"
-# Outputs:
-# 	3b1/Standardized Surface data: Standarized vector grids with model surface data and CI data, cropped to the extent of each model, and contain a column referencing the MAZ each cell overlaps with (e.g. "NEP_SST_cropped")
-# Output locations:
-# 	3b1/Standardized Surface data: Saved to "\OneDrive - DFO-MPO\0_data_climate\Standardized_Marine_data" (e.g. "NEP_SST_cropped")
+# ==============================================================================
+# CVIS Marine Grid Standardization (3d_marine_grid_standardize.R)
 #
-# This code takes the spatial data frames with all model points created in the
-# first part of code (e.g. BCCM_SST), interpolates the points to a standard grid,
-# crop the grids to the extent of the model using masks, and join the resulting
-# grids to MAZ polygons.
-# The 3b code follows these steps:
-# 1) Load the surface data (3a1), CI points(3a2), and masks/extent polygons
-# 2) Load an interpolation fuction ("point2rast") and associated function ("nnfit") from PACEA
-# 3) Interpolate the surface data using the nearest neighbour interpolation "point2rast" function.
-#    Specify parameters so that a maximum of 4 neighbours are considered, cell size is equal
-#    to that of the original netCDF file, and the extent is similar to that of the original NetCDF points.
-#        Resolution of original models:
-#          BCCM:  3km
-#         NEP36: 3km
-#          SSC:   0.5km
-#           CI:    1km
-# 4) Resample the interpolated surfaces to a standarized grid based on the BCCM model.The BCCM model
-#    was used as the standard as it has the broadest resolution (3km). The nearest neighbour method
-#    was used in the resample function because we wanted local values to have the greatest influence.
-# 5) The resampled surface data are masked with model-specific masks and converted into a spatial feature object. These objects are named with and ending of "_cropped" (e.g. "NEP_SST_cropped").
-# 6) The "_cropped" spatial feature objects are joined to MAZ polygons so they gain a new column called "MAZ_Acrony" containing the MAZ acronmym that each grid cell overlaps.
-# 7) Save the "_cropped" data to "\OneDrive - DFO-MPO\0_data_climate\Standardized_Marine_data" (e.g. "NEP_SST_cropped.gdb")
+# Description:
+#   Interpolates scattered point climate estimates (BCCM, NEP36, SalishSeaCast, 
+#   Cumulative Impacts) onto standardized spatial grids, crops them to model-specific 
+#   extents using bounding polygon masks, intersects cells with Marine Adaptive Zones 
+#   (MAZ), and combines regional grids into unified BC coast SST and SSS databases.
+#
+# Workflow Steps:
+#   1. Load setup environment and load climate point data/spatial bounding polygons.
+#   2. Define nearest-neighbour interpolation function (point2rast).
+#   3. Interpolate point variables (SST, SSS, SSPH, Cumulative Impacts) to rasters.
+#   4. Resample rasters to a standard 3km BCCM resolution grid, mask, and join to MAZ.
+#   5. Combine SalishSeaCast, HOTSSea, and BCCM grids into unified coastal SST and SSS grids.
+#
+# Inputs:
+#   - Processed point datasets (.gdb) under Standardized_Marine_data/Points/
+#   - Spatial bounding boxes and mask shapefiles under paths$spatial
+#
+# Outputs:
+#   - Standardized cropped vector grids (.gdb) under Standardized_Marine_data/Grid/
+#   - Unified BC coast grids (SST_bc_coast.gdb, SSS_bc_coast.gdb) under Standardized_Marine_data/Grid/
+#
+# Dependencies:
+#   - Requires 0_setup.R and 3_marine_utils.R.
+# ==============================================================================
 
-
-
-# working with NetCDFs
+# ==================== 1. Setup & Load Climate Data ====================
 library(ncdf4)
 library(ncmeta)
 library(abind)
 library(concaveman)
-
-# other
-# install_github("pbs-assess/pacea")
 library(pacea)
-
 library(here)
-here()
-source(here("code", "0_setup.R"))
+
+setwd(here())
+source(file.path(here(), "code", "0_setup.R"))
 source(file.path(code_root, "3_marine_utils.R"))
 
 
@@ -122,7 +106,7 @@ CI_mask <- read_sf(file.path(paths$spatial, "CumulativeImpacts", "CI_mask.shp"))
 MAZ <- read_sf(file.path(paths$spatial, "MAZ", "MAZ_Final.shp")) %>% st_transform(, crs = "EPSG:3005")     # MAZ polygons to join to completed grid
 MAZ$MAZ_Acrony <- as.factor(MAZ$MAZ_Acrony) # Change MAZ acronym variable to a factor variable
 
-#----------Interpolation Function ---------
+# ==================== 2. Define Interpolation Functions ====================
 point2rast <- function(data, spatobj, loc = c("x", "y"), cellsize, nnmax = 4,
                        as = c("SpatRast", "SpatVect")) {
 
@@ -213,7 +197,7 @@ nnfit <- function(x, r, loc, coords, nnmax) {
   return(as.vector(nn$var1.pred))
 }
 
-# ---------INTERPOLATE-----------------------------------
+# ==================== 3. Interpolate Point Data to Rasters ====================
 # Interpolate climate data using the PACEA nearest neighbour interpolation function, point2rast
 # Establish parameters of point2rast function
 llnames <- c("x", "y")
@@ -291,7 +275,7 @@ hotssea_interpolation <- point2rast(data = hotssea_SST,
   as = "SpatRast")
 
 
-#---------- Resample, Mask, Join, and Save --------------
+# ==================== 4. Resample, Mask, Join to MAZ & Export Grids ====================
 BCCM_SST_cropped <- BCCM_SST_interpolation %>%      # BCCM doesn't need to be resampled as we are converting the other grids to its resolution
   mask(BCCM_mask2) %>%                              # Mask the raster. if you end code here it is a spatraster
   stars::st_as_stars() %>%                         # These two lines turn it into raster into a vector grid
@@ -382,7 +366,7 @@ hotssea_cropped <- hotssea_interpolation %>%
     "hotssea_SST_cropped.gdb"), driver = "OpenFileGDB", append = FALSE)
 
 
-#------------- Combine objects into a single spatial grid for each attribute
+# ==================== 5. Combine Regional Grids into Unified Coast Grids ====================
 
 ## SST - use hotssea for historic and SSC for projections in GStr, use BCCM everywhere else
 SSC_SST_cropped <- st_read(file.path(paths$climate, "Standardized_Marine_data", "Grid", "SSC_SST_cropped.gdb"))

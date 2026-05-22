@@ -1,19 +1,34 @@
-#---- 1. Overview and setup ----
+# ==============================================================================
+# CVIS Freshwater Rearing Statistics (2b_FW_rearing_stats.R)
 #
-# 2b_FW_rearing_stats.R
+# Description:
+#   Loads stream-level climate and stressor models (August stream temperature,
+#   water temperature grid, cumulative threats, low/high flow, ecological niche
+#   models) and calculates summary statistics of climate indicators relevant to
+#   freshwater spawning and rearing. Statistics are aggregated for each CU using
+#   weighted means based on stream segment length.
 #
-# This code loads stream-level climate and stressor models processed in 2a_FW_data_process.R
-# and calculates summary statistics of climate indicators relevant to spawning and rearing.
-# Statistics are calculated for each CU based on accessible streams with intrinsic habitat
-# potential in the CU boundary, based on BC Fishpass models.
-# An object with subsetted streams within each CU from 2b_FW_boundary_subset.R is required.
-# Models currently included within stream stats include
-# tw8 - Thermalscape August stream temperature
-# fwQ - stream network flow derived from PCIC grid model
-# ct - cumulative threats model
-# st8 - statistical model of August flow at hydrological stations (Ruzzante in prep)
-# ENM - ecological niche model of habitat favourability
+# Workflow Steps:
+#   1. Load setup, dependencies, and reference spatial objects/models.
+#   2. Load PCIC temperature netcdf models.
+#   3. Define indicators, weighted functions, and statistical calculation steps.
+#   4. Loop through CUs to calculate and stack rearing indicators.
+#   5. Save the output dataset to processed_data/freshwater/.
+#
+# Inputs:
+#   - processed_data/freshwater/fw_streampicks_tscapes.Rdata (subsetted streams)
+#   - processed_data/freshwater/fw_models_tscapes.Rds (stream network model values)
+#   - processed_data/freshwater/Statistical_flow_projections.Rds (flow projections)
+#   - processed_data/freshwater/flow_gauge_data.Rdata (watershed flow/station locations)
+#
+# Outputs:
+#   - processed_data/freshwater/[date]_fw_rearing_indicators.Rdata
+#
+# Dependencies:
+#   - Requires 2a_FW_boundary_subset.R to have been executed.
+# ==============================================================================
 
+# ==================== 1. Setup and Environment ====================
 library(here)
 setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
@@ -24,7 +39,7 @@ model_rs_pick <- case_when(
 )
 
 
-#---- 2. load spatial objects ----
+# ==================== 2. Load Spatial Objects & Models ====================
 
 # load CU stream selections - for subsetting when calculating statistics
 load(file.path(paths$fw, "fw_streampicks_tscapes.Rdata"))
@@ -86,7 +101,7 @@ if (base_network == "bcfpa") {
 }
 
 
-#---- 3. Functions for indicators ----
+# ==================== 3. Helper Functions for Indicators ====================
 
 # summary functions
 stream_BCFP_stats <- function(streams) {
@@ -736,7 +751,7 @@ regime_stats <- function(watershed_flow, cu_boundary_i) {
 }
 
 
-# ---- 4. Calculate stream network CU indicators----
+# ==================== 4. Calculate CU-Level Stream Network Indicators ====================
 
 for (i in 1:n.CUs) {
   #---- a. subset CU data ----
@@ -963,7 +978,8 @@ for (i in 1:n.CUs) {
 fw_all <- fw_all %>%
   mutate(category = "fwrs")
 
-#---- 6. Write files----
+# ==================== 5. Save Outputs ====================
 
-# Save both the list format (for backwards compatibility) and the combined data frame
 save(fw_all, ss_all, file = file.path(paths$fw, paste0(today, "_fw_rearing_indicators.Rdata")))
+save(fw_all, ss_all, file = file.path(paths$fw, "fw_rearing_indicators.Rdata"))
+save(fw_all, ss_all, file = file.path(paths$output, "fw_rearing_indicators.Rdata"))

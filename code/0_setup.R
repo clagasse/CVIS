@@ -1,9 +1,30 @@
-#----------------- 0_setup.R -------------------------------
-# load libraries, set paths, load utility functions and tables
-# select CUs to run for analysis
-# used in all scripts in the CVIS package
+# ==============================================================================
+# CVIS Environment Setup & Configuration (0_setup.R)
+#
+# Description:
+#   Sets up the global environment for the Climate Vulnerability Indicator Suite
+#   (CVIS). Configures folder paths, sets analysis options (CUs to run, models,
+#   GCM quantiles), defines indicator translation/standardization lookup tables,
+#   establishes the custom CVIS ggplot theme, and sources utility and plotting scripts.
+#
+# Workflow Steps:
+#   1. Load required spatial, plotting, and data packages.
+#   2. Set directory paths and analysis parameters.
+#   3. Define indicators, scaling ranges, and GCM models.
+#   4. Define CVIS ggplot theme and color palettes.
+#   5. Source all helper scripts and CU import databases.
+#
+# Inputs:
+#   - None
+#
+# Outputs:
+#   - Configured global variables and helper functions in R environment
+#
+# Dependencies:
+#   - Executed as the first step in all CVIS scripts.
+# ==============================================================================
 
-# ------------ setup WD and load key libraries---------------------
+# ==================== 1. Setup and Libraries ====================
 
 library(here)
 
@@ -33,29 +54,37 @@ formals(read_csv)$show_col_types <- F # use read_csv quietly
 
 `%notin%` <- Negate(`%in%`) # function that is opposite of %in%
 
-#--------------- Directory setup
+# ==================== 2. Directory Setup ====================
 # setwd("C:/Users/LAGASSEC/OneDrive - DFO-MPO/0.Workspace/CVIS")
 
 today <- Sys.Date()
 
 # Set file paths
+# Default PCIC NetCDF folder root (checks for local D:/ drive first, falls back to sibling data dir)
+pcic_data_root <- if (dir.exists("D:/PCIC/fraser")) {
+  "D:/PCIC/fraser"
+} else {
+  file.path(here(".."), "0_data_climate", "PCIC")
+}
+
 paths <- list(
   climate = file.path(here(".."), "0_data_climate"),
   spatial = file.path(here(".."), "0_data_spatial"),
-  salmon = file.path(here(".."), "0_data_salmon"),
-  fw = here("processed_data", "freshwater"),
-  marine = here("processed_data", "marine"),
-  output = here("output"),
-  CU = here("processed_data", "CU"),
+  salmon  = file.path(here(".."), "0_data_salmon"),
+  pcic    = pcic_data_root,
+  fw      = here("processed_data", "freshwater"),
+  marine  = here("processed_data", "marine"),
+  output  = here("output"),
+  CU      = here("processed_data", "CU"),
   figures = here("output", "figures"),
   reports = here("reports"),
-  code = here("code"),
-  params = here("processed_data", "params")
+  code    = here("code"),
+  params  = here("processed_data", "params")
 )
 
 
 
-# Analysis configurations -------------------------------------------------
+# ==================== 3. Analysis Configurations ====================
 
 # CUs to subset
 DFO_area_include <- c("FRASER AND INTERIOR")
@@ -126,7 +155,7 @@ ns_end_offset <- 2 # amount of months after peak ocean entry month for calculati
 min_gen_red <- 1000 # if generational avg spawners is below this value and RapidStatus is None, status will be adjusted to Red
 
 
-# Sensitivity Analysis Configuration --------------------------------------
+# ==================== 4. Sensitivity Analysis Configuration ====================
 
 # Baseline scenario for sensitivity comparisons
 sens_rcp_base <- "45"
@@ -162,7 +191,7 @@ cat_label_map <- c(
 )
 
 
-# Lookup and definition tables --------------------------------------------
+# ==================== 5. Lookup & Definition Tables ====================
 
 # translation table between periods
 ## note that not all periods are exactly the same among data sets, but average year is close
@@ -267,7 +296,7 @@ gcm_codes <- tribble(
 
 save(tbl_indicators, tbl_standardize, tbl_ind_report, file = file.path(paths$params, "indicator_tables.Rdata"))
 
-# ggplot custom theme -----------------------------------------------------
+# ==================== 6. ggplot Custom Theme ====================
 
 theme_cvis <- function(base_size = 14) {
   theme_bw(base_size = base_size) %+replace%
@@ -296,7 +325,7 @@ theme_set(theme_cvis())
 
 
 
-# Color palettes ----------------------------------------------------------
+# ==================== 7. Color Palettes ====================
 
 ## color palette function
 get_scico_palette <- function(data, column, palette_name = "berlin") {
@@ -331,7 +360,7 @@ indicator_palette <- c(
 )
 
 
-# Run utility and plot scripts --------------------------------------------
+# ==================== 8. Load Sourced Scripts & Data ====================
 
 # load CU boundaries
 load(file.path(paths$fw, "cu_boundary.Rds"))
@@ -349,9 +378,7 @@ source(here("code", "5b_plots_compare.R"))
 source(here("code", "1a_CU_import.R")) # CU table
 source(here("code", "1f_genetics_import.R"))
 
-#-------------------------------------------------------------------------
-# Dynamic SMU Palette Definition
-#-------------------------------------------------------------------------
+# ==================== 9. Dynamic SMU Palette Definition ====================
 # Created following 1a_CU_import.R to ensure cu_run is loaded
 if (exists("cu_run")) {
   smu_colors <- character()

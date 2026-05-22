@@ -1,15 +1,36 @@
-## 2x_FW_PCIC_period_average.R
-# script to import full daily time series of PCIC VIC-GL model
-# and create daily and monthly averages across 20-30 year time periods
-
-# outputs are saved into the PCIC_processed folder for further analysis
-#####################################################################
+# ==============================================================================
+# CVIS PCIC Period Averages Calculation (1c_FW_PCIC_period_average.R)
+#
+# Description:
+#   Imports raw daily climate time series from the PCIC VIC-GL hydrological model.
+#   Aggregates these daily grids into daily and monthly averages mapped across 20-30
+#   year climatological time periods (periods 0 to 5, spanning 1981 to 2099).
+#
+# Workflow Steps:
+#   1. Load setup environment and configuration variables.
+#   2. Define grid dimensions and target periods lookup table.
+#   3. Define monthly/daily aggregation functions and locate files.
+#   4. Loop through models, read daily water temperature and discharge NetCDFs.
+#   5. Aggregate cell values for each time period and compile.
+#   6. Save period-averaged monthly and daily NetCDF grids to processed_data/.
+#
+# Inputs:
+#   - Raw PCIC netcdf files in D:/PCIC/fraser/
+#
+# Outputs:
+#   - processed_data/climate/PCIC_processed/monthly_[model_name].nc
+#   - processed_data/climate/PCIC_processed/daily_[model_name].nc
+#
+# Dependencies:
+#   - Requires 0_setup.R.
+# ==============================================================================
 
 library(here)
 setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
 
-PCIC_file_loc <- file.path("D:", "PCIC", "fraser")
+# ==================== 2. Configure Dimensions & Time Periods ====================
+PCIC_file_loc <- paths$pcic
 x_dim_max <- 176 #number of x grid cells  used when importing ncdf file
 y_dim_max <- 128 #number of y grid cells 
 
@@ -24,6 +45,7 @@ time_periods <- tribble(
   2081, 2099, 5
 )
 
+# ==================== 3. Define Aggregation Functions & Find Models ====================
 #function for aggregating by month of year - see https://github.com/r-spatial/stars/issues/134
 by_month <- function(x) {
   as.factor(month(x))
@@ -47,6 +69,7 @@ PCIC_file_models <- lapply(PCIC_models, function(m) {
 
 #length(PCIC_file_models)
 #iterate over each group of model runs, creating output combining discharge and waterTemp
+# ==================== 4. Loop Through Models and Process Daily/Monthly Averages ====================
 for(i in 1:length(PCIC_file_models)) {
   
   models_pick <- PCIC_file_models[[i]]
@@ -132,7 +155,7 @@ for(i in 1:length(PCIC_file_models)) {
     gc()
   }
   
-  #write averaged monthly and daily outputs for each model run to a file
+  # ==================== 5. Save Outputs ====================
   m_out <- paste0("monthly_", output_name)
   d_out <- paste0("daily_", output_name)
   

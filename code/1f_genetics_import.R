@@ -1,14 +1,35 @@
-### 1f_genetics_import.R
+# ==============================================================================
+# CVIS Genetics Data Import (1f_genetics_import.R)
+#
+# Description:
+#   Imports and processes genomic offset and genetic heterozygosity data for sockeye,
+#   coho, and chinook populations. Aggregates population-level metrics to the
+#   Conservation Unit (CU) level by taking the mean across constituent populations.
+#
+# Workflow Steps:
+#   1. Load raw genetics population-level spreadsheet.
+#   2. Aggregate genomic offset (RCP 45 and 85) and heterozygosity metrics by CU.
+#   3. Reformat metrics into a long-form table.
+#   4. Tag scenarios (RCP, period, downscaling model).
+#   5. Save the processed genetics long table to processed_data/CU/.
+#
+# Inputs:
+#   - 0_data_salmon/Genetics/offset_het_imputed_dat_sockeye_coho_chinook Mar2026.csv
+#
+# Outputs:
+#   - processed_data/CU/genetics_dat.Rds
+#
+# Dependencies:
+#   - Executed via 0_setup.R during initialization.
+# ==============================================================================
 
-## import and process genomic offset and heterozygosity data
-
-# Import preliminary genetics data ----------------------------------------
+# ==================== 1. Setup and Environment ====================
 
 ## Data provided by Tim Healy, not for further distribution at this time
 # genetics_sk <- read_csv(file.path(paths$salmon, "Genetics", "sockeye_genomicoffsets_heterozygosity.csv"))
 # genetics_ck <- read_csv(file.path(paths$salmon, "Genetics", "chinook_genomicoffsets_heterozygosity.csv"))
 
-#read population level data
+# ==================== 2. Read Population Level Data ====================
 genetics_pop <- read_csv(file.path(paths$salmon, "Genetics","offset_het_imputed_dat_sockeye_coho_chinook Mar2026.csv")) %>%
   rename(
     FULL_CU_IN = CU,
@@ -17,7 +38,7 @@ genetics_pop <- read_csv(file.path(paths$salmon, "Genetics","offset_het_imputed_
   mutate(FULL_CU_IN = adjust_CU_IN(FULL_CU_IN))
 
 
-# aggregate populations at the cu level by taking the average
+# ==================== 3. Aggregate Populations to CU Level ====================
 genetics_cu <- genetics_pop %>%
   group_by(species, FULL_CU_IN) %>%
   summarize(
@@ -57,8 +78,10 @@ genetics_long <- genetics_cu %>%
 
 min_go85 <- quantile(genetics_cu$genoff_85_mean)
 
-ggplot() +
-  geom_boxplot(data = genetics_cu, aes(y = genoff_45_mean, colour = species))
+if (interactive()) {
+  ggplot() +
+    geom_boxplot(data = genetics_cu, aes(y = genoff_45_mean, colour = species))
+}
 
 
 save(genetics_long, file = file.path(paths$CU, "genetics_dat.Rds"))

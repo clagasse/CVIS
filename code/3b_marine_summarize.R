@@ -1,9 +1,28 @@
-####  3b_marine_summarize
+# ==============================================================================
+# CVIS Marine Data Summarization (3b_marine_summarize.R)
 #
-# Import processed marine data from 3a_marine_data_import
-# and summarize averages over selected time periods
-# Point data are used to preserve native resolutions of data sets
-
+# Description:
+#   Loads processed marine point files and aggregates them into monthly averages
+#   over specific historical and projected periods (mid-century, end-of-century).
+#   Reshapes and combines regional ocean model outputs (SSC & BCCM) into uniform datasets.
+#
+# Workflow Steps:
+#   1. Load setup environment and configuration values.
+#   2. Define period-averaging and dataset-reshaping functions.
+#   3. Summarize CMIP6 climate models.
+#   4. Summarize regional models (HOTSSEA, SalishSeaCast, BCCM) and cumulative impacts.
+#   5. Combine SalishSeaCast (for GStr/SFj) and BCCM (for other zones) into unified matrices.
+#   6. Save period-summarized RDS files to processed_data/marine/.
+#
+# Inputs:
+#   - processed_data/marine/ points databases in Standardized_Marine_data/Points/
+#
+# Outputs:
+#   - processed_data/marine/CMIP6_SST_periods.Rds, ROM_SST.Rds, ROM_SSS.Rds, etc.
+#
+# Dependencies:
+#   - Requires 3a_marine_data_import.R to have been executed.
+# ==============================================================================
 
 library(here)
 setwd(here())
@@ -20,7 +39,7 @@ p5_start <- period_lookup$start_year[period_lookup$model == "CMIP6_SST" & period
 p5_end <- period_lookup$end_year[period_lookup$model == "CMIP6_SST" & period_lookup$period_code == 5]
 
 
-#---------1. Import----------------------------------
+# ==================== 1. Setup and Environmental Context ====================
 # BCCM model can be pulled from two sources - Pacea and .shp file provided by Angelica Pena
 #  Use .shp file in this script
 
@@ -33,7 +52,7 @@ p5_end <- period_lookup$end_year[period_lookup$model == "CMIP6_SST" & period_loo
 
 
 
-# Helper functions -------------------------------------------------
+# ==================== 2. Helper Functions ====================
 
 # function to take average SST across all years of a period
 summarize_SST_timeseries <- function(CMIP_file_loc = file.path(paths$climate, "Standardized_Marine_data", "Points"),
@@ -88,13 +107,13 @@ reshape_ROM <- function(data,
 
 
 
-# MAZ ---------------------------------------------------------------------
+# ==================== 3. Save Marine Adaptive Zones (MAZ) ====================
 
 # save MAZ object to Rds file
 save(MAZ, file = file.path(paths$marine, "MAZ.Rds"))
 
 
-# CMIP6 -------------------------------------------------------------------
+# ==================== 4. Summarize CMIP6 Projected SST ====================
 
 
 CMIP_periods <- period_lookup[period_lookup$model == "CMIP6_SST", ]
@@ -128,7 +147,7 @@ CMIP6_SST <- CMIP_45_SST %>%
 save(CMIP6_SST, file = file.path(paths$marine, "CMIP6_SST_periods.Rds"))
 
 
-# HOTSSEA model summary ---------------------------------------------------
+# ==================== 5. Summarize HOTSSEA Historical SST ====================
 
 # HOTSSea SST historical output (1980-2018)
 hotssea_SST <- read_sf(file.path(
@@ -150,7 +169,7 @@ save(hotssea_SST_period, file = file.path(paths$marine, "HOTSSEA_SST_periods.Rds
 
 
 
-# Cumulative Impacts model -----------------------------------------------
+# ==================== 6. Summarize Cumulative Impacts Points ====================
 
 CImpact_points <- read_sf(
   file.path(
@@ -166,7 +185,7 @@ save(CImpact_points, file = file.path(paths$marine, "CImpact_points.Rds"))
 
 
 
-# SalishSeaCast -----------------------------------------------------------
+# ==================== 7. Summarize SalishSeaCast ROM SST and SSS ====================
 
 # SST
 SSC_SST_points <- st_read(file.path(
@@ -198,7 +217,7 @@ save(SSC_SSS, file = file.path(paths$marine, "SSC_SSS_periods.Rds"))
 
 
 
-# BCCM --------------------------------------------------------------------
+# ==================== 8. Summarize BCCM ROM SST, SSS, and SSPH ====================
 
 BCCM_SST_points  <- read_sf(
   file.path(
@@ -247,7 +266,7 @@ save(BCCM_SSPH, file = file.path(paths$marine, "BCCM_SSPH_periods.Rds"))
 
 
 
-# Combine SSC and BCCM ROMs -----------------------------------------------
+# ==================== 9. Combine ROM Datasets (SSC & BCCM) ====================
 
 # use Salish Sea Cast for GStr and SFj. Use BCCM for other MAZs
 

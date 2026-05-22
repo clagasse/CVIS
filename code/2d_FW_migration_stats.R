@@ -1,29 +1,32 @@
-# 2e_FW_migration_stats.R
+# ==============================================================================
+# CVIS Freshwater Migration Statistics (2d_FW_migration_stats.R)
 #
-#  Summarize upstream migration indicators from PCIC model outputs
+# Description:
+#   Loads stream-level migration paths and PCIC climate grids, and calculates
+#   upstream migration exposure indicators (water temperature and discharge changes)
+#   for each salmon CU. Uses a dynamic temporal migration window based on run timing
+#   and spawning peak dates.
 #
-#  1) import PCIC outputs of ensemble and model averages, averaged over each time period
-#  2) import CU paths with downstream distances
-#  3) for each CU, use a moving migration window to subset the migration path:
-#         a. Day 1 = run timing start, begin within 100km of the river mouth
-#         b. spawn timing start = the date when the migration window reaches spawning sites
-#         c. front migration movement rate = distance to spawning sites/
-#                                         (# days between spawn timing start and run timing start)
-#         d. tail migration movement rate = distance to spawning sites/
-#                                    (# days between spawn timing peak and run timing end)
-#         e. Final day = spawn timing peak date
-#  4) Determine PCIC grid cells overlapping with migration window streams for each day of run
-#  5) Calculate weighting for each path segment using proportion of spawning sites it leads to
-# i.e. stream segments shared by all sites have weighting of 1,
-# terminal stream segments leading to one of many spawning sites have lower weighting
-#  6) take mean and quantiles of temperature and discharge for PCIC grid cells across spatial dimensions
-# subsetting only segments within the moving migration timing window
-#  7) For each CU, summarize temperature and discharge indicators across time, GCMs and RCPs
-#       a. Time series of daily mean, q10 and q90 across GCMs for each period and RCP
-#       b. Average, q10 and q90 temp or discharge across time series by period and RCP
-#       c. Mean, q10 and q90 proportion of spatial extent above 19 degree or 21 degree threshold temp for each period, RCP
+# Workflow Steps:
+#   1. Load setup environment and configuration values.
+#   2. Load CU paths spatial metadata and PCIC daily netcdf databases.
+#   3. Define moving timing-window exposure helper functions.
+#   4. Iterate through RCP scenarios and CUs to map spatial grid cell exposure.
+#   5. Aggregate daily, decadal, and GCM uncertainty statistics.
+#   6. Save output datasets to processed_data/freshwater/.
+#
+# Inputs:
+#   - processed_data/freshwater/fw_upstream_paths.Rdata (migration paths by CU)
+#   - PCIC climate databases (daily netcdfs) in 0_data_climate/PCIC_averaged/combined/
+#
+# Outputs:
+#   - processed_data/freshwater/[date]_migr_stats.Rdata
+#
+# Dependencies:
+#   - Requires 2c_FW_upstream_paths.R to have been executed.
+# ==============================================================================
 
-#--------- 0. setup -----------------------------
+# ==================== 1. Setup and Environment ====================
 
 library(here)
 setwd(here())
@@ -38,7 +41,7 @@ rcp_iter <- c("45", "85")
 #name of downscale model type
 dsmodel_name <- "pcicgrid"
 
-#--------- 1. import spatial objects ---------------------
+# ==================== 2. Load Spatial Objects ====================
 # load CU paths
 load(file.path(paths$fw, "fw_upstream_paths.Rdata"))
 
@@ -47,7 +50,7 @@ PCIC_file_loc <- file.path(paths$climate, "PCIC_averaged", "combined")
 
 
 
-#--------------------- 2. Functions for indicators -----------------------------------
+# ==================== 3. Helper Functions for Indicators ====================
 
 
 #function to get an index of which streams to include for each day of the year based on upstream migration distance
@@ -207,7 +210,7 @@ summarize_attribute <- function(data,
 }
 
 
-# 3. get stats ------------------------------------------------------------
+# ==================== 4. Calculate Upstream Migration Stats ====================
 
 cu_migr_stats <- list() # list to store cu migration characteristics
 migrT_rcps <- list()  # list to store temperature results
@@ -466,9 +469,10 @@ migr_all <- migr_all %>%
   mutate(category = "migr")
 
 
-#save output
 save(migr_all, cu_migr_timing, migr_daily_all,
   file = file.path(paths$fw, paste0(today, "_migr_stats.Rdata")))
+save(migr_all, cu_migr_timing, migr_daily_all,
+  file = file.path(paths$fw, "migr_stats.Rdata"))
 
 
 

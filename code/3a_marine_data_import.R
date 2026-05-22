@@ -1,45 +1,35 @@
+# ==============================================================================
+# CVIS Marine Data Import & Preparation (3a_marine_data_import.R)
 #
-#---------3a_marine_data_import:
-
-# Inputs (with R code names):
-#   NetCDFs: Original Model NetCDF files for salinity, temperature and pH (e.g. "NEP_SST_45");
-# CI model: Original Cumulative Impact model (e.g. "CI")
-# Masks: Polygon Mask shape files (e.g. "NEP_mask")
-# MAZ: Polygons of marine adaptive zones ("MAZ")
-# Input locations (with file names):
-#   NetCDFs: located in model specific folders in 0_data_climate (e.g. "NEP36_MonthlyData.gdb")
-# CI model:OneDrive - DFO-MPO\0_data_spatial\Cumulative_Impacts_Pacfic_Canada.gdb
-# Masks: located in model specific folders in 0_data_climate (e.g. "NEP_mask.shp")
-# MAZ: OneDrive - DFO-MPO\0_data_spatial\MAZ\MAZ_Final.shp"
+# Description:
+#   Opens NEP36, SalishSeaCast, and BCCM climate model NetCDFs, extracts monthly 
+#   averages of surface variables (SST, SSS, SSpH) for historical and future periods, 
+#   projects them to BC Albers (EPSG:3005), intersects/masks points to the EEZ/MAZ, 
+#   and loads/saves HOTSSea and CMIP6 SST projections.
+#
+# Workflow Steps:
+#   1. Load setup environment and configuration variables.
+#   2. Load and process NEP36 temperature, salinity, and pH NetCDF files.
+#   3. Load, format, and filter SalishSeaCast temperature and salinity NetCDFs.
+#   4. Load and process BCCM NetCDFs (SST, SSS, SSPH) and output surface point GDBs.
+#   5. Load Cumulative Impacts spatial data and extract centroids.
+#   6. Mask model points, intersect with Marine Adaptive Zones (MAZ), and export subset point GDBs.
+#   7. Load and process HOTSSea model data using pacea.
+#   8. Load and process CMIP6 high resolution SST NetCDF projections.
+#
+# Inputs:
+#   - Model NetCDF datasets in paths$climate
+#   - Cumulative Impacts GDB: paths$spatial/Cumulative_Impacts_Pacfic_Canada.gdb
+#   - Marine Adaptive Zones (MAZ) Final shapefile: paths$spatial/MAZ/MAZ_Final.shp
 #
 # Outputs:
-# 	3a1/Surface data: Spatial data frames of each models monthly surface estimates of each variable with centroid points (e.g. 'NEP_SST');
-# 	3a2/CI points: CI centroid points ("CI_points")
-# 	3a3/Subset surface data: 3a1 masked to only include points with high confidence inside the EEZ and has a additional column (compared to containing the MAZ Acronym each point falls withing (e.g. "NEP_SST_sub")
-# Output locations
-# 	3a1/Surface data: Saved as .gdb to model specific folders in 0_data_climate (e.g. "NEP36_MonthlyData.gdb")
-# 	3a2/CI points: "\OneDrive - DFO-MPO\0_data_spatial\CumulativeImpacts\CI_points.gdb"
-# 	3a3/Subset surface data: All saved to "OneDrive - DFO-MPO\0_data_climate\Standardized_Marine_data\" (e.g. "BCCM_SSPH_sub.gdb")
+#   - Processed point databases (.gdb) under paths$climate and paths$spatial
 #
-#
-# The first part of this code opens NEP 36, SSC, and BCCM NetCDFs, extracts monthly averages of surface variables
-# for the historic and future time periods, and recombines the monthly averages in new spatial data frames with
-# surface data (3a1). The surface spatial data frames (3a1) have point data representing cell centroids from the
-# original NetCDF files. The surface variables included are SST and SSS for all three models and SSpH for NEP36
-# and BCCM. The column names specify the variable/time period/month following a naming convention of
-# Variable_TimePeriod_Month. For example "SST_H_06" column refers to the SST estimate for the Historic
-# period for the month of June. The column named "SSPH_F_03" refers to SSpH in the future time period for March.
-#
-# SSC data required further formatting steps due to the zeros included in the original data.
-#  When mapped, the SSC points that fell on land had zeros across all monthly average columns.
-# These zeros were turned into "NA" values so the interpolation in code 3b would not incorporate these values.
-#
-# Time Period description
-# NEP36: historic 1986-2005, future 2046-2065
-# BCCM: historic 1981-2010, future 2041-2070
-# SSC: historic 1986-2005, future 2046-2065
-#
-#-------------SETUP ----------------------
+# Dependencies:
+#   - Requires 0_setup.R.
+# ==============================================================================
+
+# ==================== 1. Setup & Environment ====================
 library(here)
 here()
 source(here("code", "0_setup.R"))
@@ -73,9 +63,8 @@ pacman::p_load(pacea)
 
 
 
-#------------ LOAD NEP Temperature DATA ----------
+# ==================== 2. NEP36 Data Import ====================
 # Load NEP 36 temperature data
-NEP_T_H <- nc_open(file.path(paths$climate, "NEP36_MonthlyData", "NEP36-CanOE_temp_historical_1986-2005_monthly.nc"))
 NEP_T_H <- nc_open(file.path(paths$climate, "NEP36_MonthlyData", "NEP36-CanOE_temp_historical_1986-2005_monthly.nc"))
 NEP_T_45 <- nc_open(file.path(paths$climate, "NEP36_MonthlyData", "NEP36-CanOE_temp_RCP45_2046-2065_monthly.nc"))
 NEP_T_85 <- nc_open(file.path(paths$climate, "NEP36_MonthlyData", "NEP36-CanOE_temp_RCP85_2046-2065_monthly.nc"))
@@ -168,8 +157,7 @@ rm(T45, TH, T85,
   SST_85_07, SST_85_08, SST_85_09, SST_85_10, SST_85_11, SST_85_12)
 
 
-#------------ LOAD NEP Salinity DATA -----------
-# Load NEP 36 temperature data
+# Load NEP 36 salinity data
 NEP_S_H <- nc_open(file.path(paths$climate, "NEP36_MonthlyData", "NEP36-CanOE_salt_historical_1986-2005_monthly.nc"))
 NEP_S_45 <- nc_open(file.path(paths$climate, "NEP36_MonthlyData", "NEP36-CanOE_salt_RCP45_2046-2065_monthly.nc"))
 
@@ -227,8 +215,7 @@ rm(SH, S45,
   SSS_45_01, SSS_45_02, SSS_45_03, SSS_45_04, SSS_45_05, SSS_45_06,
   SSS_45_07, SSS_45_08, SSS_45_09, SSS_45_10, SSS_45_11, SSS_45_12)
 
-#------------ LOAD NEP PH data ----------
-# Load NEP 36 temperature data
+# Load NEP 36 pH data
 NEP_PH_H <- nc_open(file.path(paths$climate, "NEP36_MonthlyData", "NEP36-CanOE_PH_historical_1986-2005_monthly.nc"))
 NEP_PH_45 <- nc_open(file.path(paths$climate, "NEP36_MonthlyData", "NEP36-CanOE_PH_RCP45_2046-2065_monthly.nc"))
 
@@ -292,7 +279,7 @@ sf::st_write(NEP_SSPH, file.path(paths$climate, "NEP36_MonthlyData", "NEPmonthly
 
 
 
-#------------ LOAD SSC temperature and salinity data --------
+# ==================== 3. SalishSeaCast Data Import ====================
 # list variables
 # nc_vars(file.path(paths$climate, "SalishSeaCast_MonthlyData", "SalishSeaCast-VNR033_1d_grid_T_mean12_4.5_2046-65.nc"))
 # NOTE: NO PH Data yet, could ask Amber for it
@@ -398,7 +385,7 @@ SSC_SST <- SSC_SST %>% mutate_if(is.numeric, ~ na_if(., 0)) %>%
 SSC_SSS <- SSC_SSS %>% mutate_if(is.numeric, ~ na_if(., 0)) %>%
   sf::st_write(file.path(paths$climate, "SalishSeaCast_MonthlyData",  "SSCmonthly_SSS.gdb"), driver = "OpenFileGDB", append = FALSE)
 
-#------------ LOAD BCCM surface data ---------
+# ==================== 4. BCCM Data Import ====================
 BCCM_85_SST <- read_ncdf(file.path(paths$climate, "BCCM", "bcc42_bioNew_can85_2046to2065_monSST.nc"), proxy = FALSE, var = c("lat_rho", "lon_rho", "temp", "months"), make_time = TRUE)
 BCCM_45_SST <- read_ncdf(file.path(paths$climate, "BCCM", "bcc42_bioNew_can45_2046to2065_monSST.nc"), proxy = FALSE, var = c("lat_rho", "lon_rho", "temp", "months"), make_time = TRUE)
 BCCM_Hist_SST <- read_ncdf(file.path(paths$climate, "BCCM", "bcc42_bioNew_his_1986to2005_monSST.nc"), proxy = FALSE, var = c("lat_rho", "lon_rho", "temp", "months"),  make_time = TRUE)
@@ -592,7 +579,7 @@ rm(BCCM_45_SSS, BCCM_45_SST, BCCM_45_SSPH, BCCM_85_SSS, BCCM_85_SST, BCCM_85_SSP
   SSPH_85_01, SSPH_85_02, SSPH_85_03, SSPH_85_04, SSPH_85_05, SSPH_85_06,
   SSPH_85_07, SSPH_85_08, SSPH_85_09, SSPH_85_10, SSPH_85_11, SSPH_85_12)
 
-#------------ Load Cumulative Impacts Data ---------
+# ==================== 5. Cumulative Impacts Centroids ====================
 CI <- read_sf(file.path(paths$spatial, "Cumulative_Impacts_Pacfic_Canada.gdb"))
 CI <- st_transform(CI, crs = "EPSG:3005")
 # calculate centroids of CI polygon grid
@@ -604,7 +591,7 @@ sf::st_write(CImpact_points, file.path(paths$spatial, "CumulativeImpacts", "CI_p
 
 
 
-#------------ Mask model points and Join to MAZ ----------
+# ==================== 6. Masking & Marine Adaptive Zones Intersect ====================
 # Load and transform masking polygons and MAZ polygons
 BCCM_mask <- read_sf(file.path(paths$climate, "BCCM", "BCCM_mask.shp")) %>% st_transform(crs = "EPSG:3005")
 SSC_mask <- read_sf(file.path(paths$climate, "SalishSeaCast_MonthlyData", "SSC_mask.shp")) %>% st_transform(crs = "EPSG:3005")
@@ -657,7 +644,7 @@ CI_points_sub <- st_join(CI_points, left = FALSE, MAZ["MAZ_Acrony"]) %>%
 
 
 
-#------------- HOTSSea model --------------------------
+# ==================== 7. HOTSSea Model Processing ====================
 
 # use PacEA package to load
 # most processing is already done but need to join to MAZ and summarize across years
@@ -682,7 +669,7 @@ sf::st_write(hotssea_SST_join, file.path(paths$climate, "Standardized_Marine_dat
   driver = "OpenFileGDB", append = FALSE)
 
 
-# CMIP6 high resolution SST ------------------------------------------
+# ==================== 8. CMIP6 High-Resolution SST Processing ====================
 
 period_CMIP6 <- filter(period_lookup, model == "CMIP6_SST")
 

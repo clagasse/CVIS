@@ -1,24 +1,32 @@
-################################################################################
+# ==============================================================================
+# CVIS Conservation Unit Plotting Functions (5a_plots_CU.R)
 #
-# 5a_plots_CU.R
+# Description:
+#   Collection of functions to plot, map, and visualize climate vulnerability 
+#   indicators, physical habitats, and trends at the Conservation Unit (CU) level.
+#   Includes stream networks, timing, migration routes, marine indicators, and 
+#   risk score lollipop charts.
 #
-#  Functions for plotting and mapping data within a single conservation unit
-#  Focus on freshwater stream indicators
+# List of Plotting Functions:
+#   1. cu_timing_plot()                 - CU life stage timing with indicator periods.
+#   2. stream_accessible_plot()         - Maps accessible streams and NUSEDS sites.
+#   3. stream_indicator_plot()          - Stream map + histogram of a given indicator.
+#   4. stream_indicator_multipanel_plot()- Side-by-side stream network panels.
+#   5. migration_path_plot()            - Maps migration paths from river mouth to spawning.
+#   6. migr_timing_plot()               - Water temperature trends along migration route.
+#   7. cu_boundary_highlight()          - General locator map highlighting a single CU.
+#   8. cu_hydrologic_regime()           - Maps CU boundaries with flow gauges and regimes.
+#   9. plot_cu_lolli()                  - Lollipop chart comparing CU vs species means.
+#   10. marine_indicator_plot()         - Maps marine SST and SSS indicators.
+#   11. abundance_status_plot()         - Timeline of wild spawner abundance and WSP status.
+#   12. plot_cu_indicators_lollipop()   - Comprehensive multi-indicator CU risk profile.
+#   13. MAZ_boundary_highlight()        - General locator map highlighting a single MAZ.
+#
+# Dependencies:
+#   - Requires ggplot2, sf, scico, patchwork, and standard CVIS data inputs.
+# ==============================================================================
 
-### Plots:
-# 1. cu_timing_plot() CU life stage timing and data quality plot
-# 2. stream_accessible_plot() Stream network plot of accessible streams and NUSEDS site within CU boundary
-# 3. stream_indicator_plot() Stream network plot of indicator values within a CU boundary
-# 4. migration_path_plot() Migration path plot from river mouth to NUSEDS sites
-# 5. Migration indicator values plot
-# 6. Nearshore marine indicator plot
-
-
-###############################################################################
-
-
-
-# 1. CU timing plot -------------------------------------------------------
+# ==================== 1. CU Timing Plot ====================
 # Improved CU timing plot function - Version 2
 # Shows life stage timing with indicator calculation periods
 
@@ -231,7 +239,7 @@ cu_timing_plot <- function(data, show_indicator_periods = FALSE) {
 
 
 
-# 2. Stream network accessible stream plot -----------------------------------
+# ==================== 2. Stream Network Accessible Plot ====================
 # input subset of stream network, nuseds data, and CU boundary for a specific CU
 stream_accessible_plot <- function(stream_data,
                                    nuseds_data,
@@ -258,7 +266,7 @@ stream_accessible_plot <- function(stream_data,
 }
 
 
-# 3. fw cu boundary/stream plots --------------
+# ==================== 3. Stream Indicator Map & Histogram ====================
 
 stream_indicator_plot <- function(fwModels,
                                   cu_boundary,
@@ -477,7 +485,7 @@ stream_indicator_multipanel_plot <- function(fwModels,
 
 
 
-# 4. migration path plot -------------------
+# ==================== 4. Migration Path Map ====================
 
 migration_path_plot <- function(migr_path,
                                 nuseds_data,
@@ -509,7 +517,7 @@ migration_path_plot <- function(migr_path,
 }
 
 
-# 5. migration timing plot ---------------------------------------------
+# ==================== 5. Migration Temperature Timing ====================
 
 migr_timing_plot <- function(migr_daily_all,
                              cu_i,
@@ -614,7 +622,7 @@ migr_timing_plot <- function(migr_daily_all,
 
 
 
-# 7. CU Boundary location plot --------------------------------------------
+# ==================== 6. CU Boundary Highlight ====================
 
 # simple plot showing location of the CU boundary outline compared to all CU boundaries
 
@@ -632,7 +640,7 @@ cu_boundary_highlight <- function(cu_boundary,
 }
 
 
-# 8. Hydrologic Regime ----------------------------------------------------
+# ==================== 7. Hydrologic Regimes & Gauges ====================
 cu_hydrologic_regime <- function(cu_boundary_i,
                                  stream_data,
                                  watershed_flow_cu,
@@ -662,7 +670,7 @@ cu_hydrologic_regime <- function(cu_boundary_i,
 
 
 
-# 9. CU lollipop plot of indicator values -------------------------------------------------
+# ==================== 8. CU Lollipop Chart ====================
 
 
 # ind_cu <- get_CU_indicators(all_flat_std,
@@ -752,7 +760,7 @@ plot_cu_lolli <- function(data, # need indicator data for a single CU, use get_c
 
 
 
-# 10. Marine indicators map -----------------------------------------------
+# ==================== 9. Marine Indicators Map ====================
 
 # SST_cu_sp <- subset_and_mean_sst(sf_data = filter(SST_grid, MAZ_Acrony == "GStr"),
 #   timing_df = cu_mar,
@@ -791,7 +799,7 @@ marine_indicator_plot <- function(data,
 }
 
 
-# 11. CU Abundance and Status ---------------------------------------------
+# ==================== 10. Abundance & Status Trend ====================
 
 abundance_status_plot <- function(status_data,
                                   cu_i) {
@@ -921,7 +929,7 @@ abundance_status_plot <- function(status_data,
 #   cu_i = "SEL-03-02")
 
 
-# 12. CU all indicators plot --------------------------------------------------
+# ==================== 11. Comprehensive CU Indicators Lollipop ====================
 
 # Function to create a comprehensive lollipop chart showing all indicators for one CU
 # This is the OPPOSITE of plot_lollipop which shows one indicator across all CUs
@@ -1147,7 +1155,7 @@ plot_cu_indicators_lollipop <- function(data,
 
 
 
-# 13. MAZ boundary location plot ------------------------------------------
+# ==================== 12. MAZ Boundary Highlight ====================
 
 MAZ_boundary_highlight <- function(MAZ,
                                    MAZ_pick) {
@@ -1162,7 +1170,7 @@ MAZ_boundary_highlight <- function(MAZ,
 }
 
 
-# X. Testing plot functions -----------------------------------------------
+# ==================== 13. Testing / Diagnostic Plots (Commented) ====================
 # 
 # cu_i <- "CO-47"
 # 

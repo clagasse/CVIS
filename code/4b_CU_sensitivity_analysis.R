@@ -1,18 +1,33 @@
-################################################################################
+# ==============================================================================
+# CVIS Sensitivity Analysis Engine (4b_CU_sensitivity_analysis.R)
 #
-# 4b_CU_sensitivity_analysis.R
+# Description:
+#   Performs sensitivity analysis on the vulnerability scoring engine.
+#   Quantifies deviations in vulnerability scores and rank stability (Mean Rank
+#   Displacement) across GCMs, RCPs, periods, scoring methods, and downscaling variants.
+#   Conducts a Jackknife (Leave-One-Out) leverage analysis to estimate the contribution
+#   and influence of individual indicators and categories on overall results.
 #
-# CU-Level Sensitivity Engine:
-# 1. Calculates directional and absolute deviations in vulnerability scores 
-#    across climate scenarios (GCM/RCP), time periods, and downscaling methods.
-# 2. Performs Jackknife (Leave-one-out) analysis to quantify the influence of 
-#    individual indicators and categories on overall results.
-# 3. Quantifies rank stability (Mean Rank Displacement) for each CU across variations.
-# 4. Generates baseline-relative metrics for all environmental drivers.
+# Workflow Steps:
+#   1. Load setup environment and core scoring results.
+#   2. Compute baseline and scenario-specific indicator raw/standardized deviations.
+#   3. Calculate overall vulnerability score deviations (GCM, RCP/Period, Method, and downscaler).
+#   4. Conduct Jackknife loop to systematically omit indicators and categories and re-score.
+#   5. Aggregate global and species-specific sensitivity metrics.
+#   6. Save output datasets to output/.
 #
-################################################################################
+# Inputs:
+#   - output/scoring_results.Rdata
+#   - Configuration tables (via 0_setup.R)
+#
+# Outputs:
+#   - output/sensitivity_analysis.Rdata
+#
+# Dependencies:
+#   - Requires 4a_CU_scoring.R to have been executed.
+# ==============================================================================
 
-#----1. Setup and Import----
+# ==================== 1. Setup and Environment ====================
 library(here)
 setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
@@ -21,7 +36,7 @@ source(file.path(here(), "code", "0_setup.R"))
 load(file.path(paths$output, "scoring_results.Rdata")) # loads all_std_long, scores_tidy
 
 
-#-----2. Indicator-level metrics--------
+# ==================== 2. Indicator-Level Metrics & Baseline ====================
 
 # For each indicator/CU combination, calculate the mean raw and standardized value for the baseline scenario
 # For environmental change indicators, also calculate the mean qlowgcm and qhighgcm for the baseline
@@ -161,7 +176,7 @@ indicator_metrics <- bind_rows(ind_cu_summary, ind_all_summary) %>%
     left_join(ind_baseline_ranks, by = c("FULL_CU_IN", "category", "indicator"))
 
 
-#----- 3. Overall vulnerability deviations ----------------------------------------
+# ==================== 3. Calculate Overall Vulnerability Deviations ====================
 
 # For each indicator category and overall score, calculate deviation from baseline scenario
 
@@ -367,7 +382,7 @@ top_drivers <- all_devs_long %>%
 all_devs_wide <- all_devs_wide %>%
     left_join(top_drivers, by = c("FULL_CU_IN", "category"))
 
-#----5. Jackknife Leverage Analysis----
+# ==================== 4. Jackknife Leverage Analysis ====================
 cat("\nPerforming Jackknife (Leave-one-out) Leverage Analysis...\n")
 
 # (hinge_weight now in 4_scoring_utils.R)
@@ -508,7 +523,7 @@ influence_species <- jackknife_joined %>%
 
 influence_summary <- bind_rows(influence_global, influence_species)
 
-#----6. Species-Level Summaries----
+# ==================== 5. Species-Level Summaries ====================
 cat("\nCalculating species-level sensitivity summaries...\n")
 
 # Summary of overall score sensitivity per species
@@ -546,7 +561,7 @@ ind_species_summary <- ind_dev_long %>%
         .groups = "drop"
     )
 
-#----7. Indicator correlation----
+# ==================== 6. Indicator Redundancy and Correlation ====================
 cat("\nAnalyzing Indicator Redundancy (Collinearity)...\n")
 
 # Pivot wide for correlation
@@ -562,7 +577,7 @@ cat(paste0("Numeric indicator columns for correlation: ", ncol(dat_wide), "\n"))
 cor_matrix <- cor(dat_wide, method = "pearson", use = "pairwise.complete.obs")
 
 
-#----8. Save Outputs----
+# ==================== 7. Save Outputs ====================
 
 cat("\nSaving sensitivity results...\n")
 

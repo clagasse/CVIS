@@ -1,23 +1,40 @@
-####  3c_marine_stats
+# ==============================================================================
+# CVIS Marine Exposure Statistics (3c_marine_stats.R)
 #
-# Import marine data summarized over time periods from 3b_marine_summarize
-# and calculate summary statistics for each CU
-# Point data are used to preserve native resolutions of data sets
+# Description:
+#   Loads Marine Adaptive Zone (MAZ) definitions, cumulative threat points, and
+#   sea surface temperature (SST) / sea surface salinity (SSS) projections.
+#   Calculates marine habitat exposure and cumulative threat indicators for each CU
+#   based on their specific nearshore ocean entry timing window.
+#
+# Workflow Steps:
+#   1. Load setup environment and spatial/temporal indicators database.
+#   2. Load marine spatial models (CMIP6, ROM SST/SSS, Cumulative Impacts, MAZ).
+#   3. Parse temporal ocean-entry timing parameters.
+#   4. Compute baseline spatial statistics for each MAZ and Cumulative Impacts points.
+#   5. Loop through CUs to intersect timing windows with marine databases.
+#   6. Save output datasets to processed_data/marine/.
+#
+# Inputs:
+#   - processed_data/marine/CMIP6_SST_periods.Rds
+#   - processed_data/marine/CImpact_points.Rds
+#   - processed_data/marine/ROM_SST.Rds / ROM_SSS.Rds
+#   - processed_data/marine/MAZ.Rds
+#   - cu_timing_Fr (loaded from 1a_CU_import via 0_setup)
+#
+# Outputs:
+#   - processed_data/marine/[date]_marine_stats.Rdata
+#
+# Dependencies:
+#   - Requires 3a_marine_data_import.R to have been executed.
+# ==============================================================================
 
-# Inputs: CMIP6 SST, HOTSSEA SST, SSC SST, BCCM SST data sets
-#  cu_timing - ocean entry
-# Optional inputs:  SSC Salinity, BCCM salinity, pH
-
-##########
+# ==================== 1. Setup and Environment ====================
 library(here)
 setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
 
-
-
-# To use Pacea SSTs, uncomment the next line:
-# BCCM_paceaSST_sub <- bccm_surface_temperature()
-
+# ==================== 2. Load Marine Spatial Data & Models ====================
 # load marine model files
 load(file = file.path(paths$marine, "CMIP6_SST_periods.Rds"))
 load(file = file.path(paths$marine, "CImpact_points.Rds")) # load CImpact_points
@@ -31,7 +48,7 @@ load(file = file.path(paths$marine, "ROM_SSS.Rds")) # SSC and BCCM outputs of SS
 load(file.path(paths$marine, "MAZ.Rds"))
 
 
-#------------- Timing data processing
+# ==================== 3. Timing and MAZ Processing ====================
 
 # get cu timing for ocean entry
 cu_marine <- cu_timing_Fr %>%
@@ -52,7 +69,7 @@ maz_marine <- st_drop_geometry(MAZ) %>%
 
 
 
-#------------- Take monthly means by MAZ and scenario ----------------------
+# ==================== 4. Summarize Spatial Data by Marine Adaptive Zone (MAZ) ====================
 
 CMIP_SST_summary <- CMIP6_SST %>%
   st_drop_geometry() %>%
@@ -80,7 +97,7 @@ CImpact_summary <- CImpact_points %>%
   )
 
 
-#-----------3. Get indicators by CU ----------------------
+# ==================== 5. Calculate CU-Level Exposure Indicators ====================
 
 for (i in 1:n.CUs) {
   cu_i <- cu_run$FULL_CU_IN[i]
@@ -194,7 +211,7 @@ mar_all <- mar_all %>%
 
 
 
-# Get indicators by MAZ ---------------------------------------------------
+# ==================== 6. Calculate MAZ-Level Reference Indicators ====================
 
 
 
@@ -307,8 +324,9 @@ maz_all <- maz_all %>%
 
 
 
-# Save output -------------------------------------------------------------
-
 save(mar_all, maz_all,
   file = file.path(paths$marine, paste0(today, "_marine_stats.Rdata"))
+)
+save(mar_all, maz_all,
+  file = file.path(paths$marine, "marine_stats.Rdata")
 )

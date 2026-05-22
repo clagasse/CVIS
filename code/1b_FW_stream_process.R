@@ -1,10 +1,30 @@
-
-# 2a_FW_data_process.R
+# ==============================================================================
+# CVIS Stream Process and Spatial Data Preparation (1b_FW_stream_process.R)
 #
-# Read in raw spatial data files and process them into R data frames and sf objects
+# Description:
+#   Reads in raw spatial data files, extracts Fraser basin subsets, and processes 
+#   them into standard R data frames and sf spatial objects. This script takes 
+#   a while to run and should only be needed when new input files need to be 
+#   generated.
 #
-# This script takes a while to run and should only be needed when new input files need to be generated
+# Workflow Steps:
+#   1. Load setup environment and load spatial layers (basins, CU boundaries, FWA lakes, BCFishpass).
+#   2. Process ecological niche models (ENM) favourability layers and stream flow GCMs.
+#   3. Join stream network models on a common base stream network.
+#   4. Calculate indicator variables (flow, temperature, ENM) for the combined spatial object.
+#   5. Process Ruzzante statistical low flow projections.
+#   6. Process PCIC grid data and model projections.
 #
+# Inputs:
+#   - Spatial shapefiles and geopackages in paths$spatial
+#   - ENM and flow projections in paths$climate
+#
+# Outputs:
+#   - Processed R data objects (.Rds, .Rdata) in paths$fw and processed_data/freshwater/
+#
+# Dependencies:
+#   - Requires 0_setup.R.
+# ==============================================================================
 
 library(here)
 setwd(here())
@@ -12,16 +32,7 @@ source(file.path(here(), "code", "0_setup.R"))
 
 library(janitor)
 
-# library(future.apply) # parallel processing
-
-# If encounter the error:
-# Error in wk_handle.wk_wkb(wkb, s2_geography_writer(oriented = oriented,  :
-# Loop 0 is not valid: Edge 2607 has duplicate vertex with edge 2625
-# Then run:
-# sf_use_s2(FALSE)
-
-
-#  1. Stream network and other spatial layer loading ----------------------
+# ==================== 1. Stream Network & Spatial Layer Loading ====================
 
 #--------------Basins polygons (for clipping primarily)--------------------
 
@@ -191,7 +202,7 @@ bcfpmod <- as.data.table(bcfpa) %>%
 
 
 
-# 2. Model Processing into R Spatial Object --------------------
+# ==================== 2. Model Processing into R Spatial Object ====================
 
 #---------------- Ecological Niche Models --------------------------------------
 
@@ -670,7 +681,7 @@ map_gcm_models_to_code_step2 <- function(df, gcm_codes) {
   df
 }
 
-# 3. Join stream network models on common base stream network------
+# ==================== 3. Join Stream Network Models on Common Base Network ====================
 
 # choose stream base network
 base_network <- switch(2, "bcfpa", "tscapes")
@@ -810,7 +821,7 @@ if (base_network == "tscapes") {
 
 }
 
-# 4. Calculate indicators for combined model object---------
+# ==================== 4. Calculate Indicators for Combined Model Object ====================
 
 load(file.path(paths$fw, "fw_models_tscapes.Rds"))
 fw_models_df <- st_drop_geometry(fw_models)
@@ -926,7 +937,7 @@ save(fw_sp_ind, file = file.path(paths$fw, "fw_stream_indicators_sp.Rds"))
 
 
 
-#----------------------5. Ruzzante statistical low flow projections ------------------------------
+# ==================== 5. Ruzzante Statistical Low Flow Projections ====================
 
 stations_stats <- read_csv(file.path(paths$climate, "Ruzzante_low_flows", "stations_performance.csv"))
 
@@ -1050,16 +1061,16 @@ save(watershed_flow, stations_flow, stations_stats, file = file.path(paths$fw, "
 # }
 
 
-#----------------------PCIC grid points and polygon----------------------------
+# ==================== 6. PCIC Grid & Model Projections Processing ====================
 # Read in PCIC grid
-grid_points <- read.csv(here("processed_data", "freshwater", "PCIC-grid-points_bccoast.csv"))
+grid_points <- read.csv(file.path(paths$fw, "PCIC-grid-points_bccoast.csv"))
 
 # Convert grid points to spatial object
 grid_points <- st_as_sf(grid_points, coords = c("lon", "lat"), crs = 4269) %>%
   st_transform(3005)
 
 # import polygon grid - see 2x_fw_create_inputs_grid.R file
-grid_polys <- readRDS(file = here("processed_data", "freshwater", "grid_polys_fw.rds")) %>%
+grid_polys <- readRDS(file = file.path(paths$fw, "grid_polys_fw.rds")) %>%
   st_transform(3005)
 
 # subset Fraser basin
@@ -1142,4 +1153,6 @@ st_crs(PCIC_month) <- 4269 # change CRS to NAD83/Albers from default of WGS84
 
 
 save(PCIC_month, PCIC_day, grid_points, grid_polys,
-  file = here("processed_data", "freshwater", "R_data", paste0(today, "_fw_spatial_inputs.Rdata")))
+  file = file.path(paths$fw, "R_data", paste0(today, "_fw_spatial_inputs.RData")))
+save(PCIC_month, PCIC_day, grid_points, grid_polys,
+  file = file.path(paths$fw, "R_data", "fw_spatial_inputs.RData"))

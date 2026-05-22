@@ -1,18 +1,35 @@
-################################################################################
+# ==============================================================================
+# CVIS Scoring Sensitivity Plots (5d_plots_sensitivity_scoring.R)
 #
-# 5d_plots_sensitivity_scoring.R
+# Description:
+#   Generates figures and tables visualizing sensitivity at the vulnerability
+#   score level. Includes directional vulnerability deviation violins, Mean
+#   Rank Displacement (MRD) bar charts, Jackknife leverage plots, Spearman rank
+#   consistency heatmaps, PCA biplots of CU risk profiles, SMU sensitivity tiles,
+#   and in-species rank bump plots (Chinook, Sockeye, Coho).
 #
-# Score Sensitivity & Vulnerability Visualizations:
-# 1. Summarizes overall and category-level vulnerability deviations (Violin plots).
-# 2. Quantifies relative stability through Mean Rank Displacement (MRD) charts.
-# 3. Visualizes indicator importance via Jackknife (Leave-one-out) leverage plots.
-# 4. Illustrates rank consistency across scenarios with correlation heatmaps.
-# 5. Performs multivariate profiling (PCA) and SMU-level sensitivity mapping.
-# 6. Generates species-specific CU rank bump plots (Chinook, Sockeye, Coho).
+# Workflow Steps:
+#   1. Load setup environment and libraries (reshape2, patchwork, ggrepel).
+#   2. Load sensitivity and summary indicators dataset RData.
+#   3. Plot overall/category directional deviations and MRD ranks.
+#   4. Plot Jackknife leverage indicators and rank consistency heatmaps.
+#   5. Construct and format a manuscript score sensitivity summary table (gt object).
+#   6. Plot PCA biplots, SMU sensitivity heatmaps, and species rank bump plots.
+#   7. Save generated HTML tables and PNG figures.
 #
-################################################################################
+# Inputs:
+#   - output/sensitivity_analysis.Rdata
+#   - output/indicator_sensitivity_summary.Rdata
+#
+# Outputs:
+#   - output/figures/sensitivity_analysis/*.png
+#   - output/figures/sensitivity_analysis/species_focus/*.png
+#
+# Dependencies:
+#   - Requires 4c_indicator_sensitivity_summary.R to have been executed.
+# ==============================================================================
 
-# 1. Setup and Import ----
+# ==================== 1. Setup and Environment ====================
 library(here)
 setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
@@ -32,7 +49,7 @@ load(file.path(paths$output, "indicator_sensitivity_summary.Rdata")) # loads sco
 # Shared Colors
 source_colors <- sens_source_palette
 
-# 2. Overall Vulnerability Deviations (Directional) ----
+# ==================== 2. Overall Vulnerability Deviations ====================
 cat("Plotting Overall Vulnerability Directional Impacts...\n")
 
 # Clean and filter the deviation data
@@ -97,7 +114,7 @@ p_dev_combined <- p_dev_all / p_dev_cats + plot_layout(heights = c(1, 1.2)) +
 
 ggsave(file.path(sens_fig_path, "overall_vulnerability_deviations.png"), p_dev_combined, width = 12, height = 10)
 
-# 3. Mean Rank Displacement (Relative Vulnerability Impacts) ----
+# ==================== 3. Mean Rank Displacement ====================
 cat("Plotting Mean Rank Displacement...\n")
 
 # Score-level global summary (Overall per variation source)
@@ -118,7 +135,7 @@ p_mrd <- ggplot(score_mrd_global, aes(x = reorder(source, mrd), y = mrd, fill = 
 ggsave(file.path(sens_fig_path, "mean_rank_displacement.png"), p_mrd, width = 11, height = 8)
 
 
-# 4. Jackknife Leverage Analysis (Indicator & Category Importance) ----
+# ==================== 4. Jackknife Leverage Analysis ====================
 cat("Plotting Jackknife Influence...\n")
 
 influence_summary <- overall_sensitivity$influence_summary # loads from 4b
@@ -145,7 +162,7 @@ ggsave(file.path(sens_fig_path, "jackknife_leverage_overall.png"), p_jack, width
 
 
 
-# 5. Rank Consistency (Correlation Heatmap) ----
+# ==================== 5. Rank Consistency (Correlation Heatmap) ====================
 cat("Plotting Correlation Heatmap...\n")
 
 # Use matrix from 4c
@@ -168,7 +185,7 @@ p_cor <- ggplot(cor_melted, aes(Var1, Var2, fill = value)) +
 ggsave(file.path(sens_fig_path, "rank_correlation_heat_all.png"), p_cor, width = 8, height = 7)
 
 
-# 6. Vulnerability Score Sensitivity Summary Table (Manuscript) ----
+# ==================== 6. Vulnerability Score Sensitivity Summary Table ====================
 cat("Generating vulnerability score sensitivity summary table...\n")
 
 # Prepare the data for a wide table (Category x Source Metrics)
@@ -240,7 +257,7 @@ score_sens_gt <- score_gt_data %>%
   ) %>%
   opt_stylize(style = 1, color = "gray")
 
-# 7. Risk Driver & Multivariate Analysis (Consolidated from 4d) ----
+# ==================== 7. Risk Driver & Multivariate Analysis ====================
 cat("Plotting Risk Drivers and Multivariate Analysis...\n")
 
 # A. Setup labels and palettes
@@ -306,7 +323,7 @@ ggsave(file.path(sens_fig_path, "smu_climate_sensitivity.png"), p_smu_sensitivit
 ggsave(file.path(sens_fig_path, "pca_detailed_biplot.png"), p_pca_detailed, width = 11, height = 8)
 
 
-# 8. Species-Specific Analysis (Bump Plots) (Consolidated from 5f) ----
+# ==================== 8. Species-Specific Analysis (Bump Plots) ====================
 cat("Generating species-specific CU rank bump plots...\n")
 
 spec_fig_path <- file.path(sens_fig_path, "species_focus")

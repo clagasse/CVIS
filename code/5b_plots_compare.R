@@ -1,23 +1,30 @@
-################################################################################
+# ==============================================================================
+# CVIS Comparative Plotting Functions (5b_plots_compare.R)
 #
-# 5b_plots_compare.R
+# Description:
+#   Collection of plotting and analysis functions to compare climate indicators,
+#   vulnerability risk scores, and life history timings across multiple Conservation
+#   Units (CUs) or Marine Adaptive Zones (MAZs).
 #
-#  Functions for plotting and comparing indicator values across multiple CUs
+# List of Functions:
+#   1. plot_std_vs_raw()            - Plots raw vs standardized indicator values.
+#   2. plot_lollipop()              - Single indicator comparison across CUs.
+#   3. multi_indicator_plot()       - Lollipop comparison of multiple indicators.
+#   4. spatial_indicator_plot()     - Maps indicator values by CU boundary.
+#   5. indicator_tile_plot()        - Multi-panel tile plot of indicators by species.
+#   6. get_correlation_matrix()     - Correlation analysis matrix of indicators.
+#   7. make_indicator_plots()       - Slices data and prints standard sets of plots.
+#   8. xy_indicator_plot()          - Scatter plot comparing two indicators.
+#   9. cu_status_table()            - WSP conservation status and abundance tables.
+#   10. plot_timing_comparison()    - Timeline comparison of life stages across CUs.
+#   11. indicator_cu_tile_plot()    - Combined tile plot of all indicators and CUs.
+#   12. plot_maz_lollipop()         - Lollipop plot of marine indicators across MAZs.
+#
+# Dependencies:
+#   - Requires ggplot2, sf, dplyr, stringr, patchwork, ggtext, and standard CVIS data inputs.
+# ==============================================================================
 
-### Plots:
-# 1.  Comparison of indicator standardization function and unstandardized vs standardized values
-# 2.  Lollipop chart comparison of values for a single indicator across CUs
-# 3.  Summary of multiple indicators for a life stage/category (using lollipop chart)
-# 4.  Maps of distribution of indicator values coloured by CU boundary
-
-#  Plot of indicator value vs latitude, elevation, glacial coverage
-
-# 5. Comparison of indicator value between PCIC and statistical models
-
-###############################################################################
-
-
-# 1. Indicator value comparison, standardized vs raw ----------------------
+# ==================== 1. Standardized vs Raw Comparison ====================
 
 # function to show how standardized values compare to raw ones across CUs
 # requires standardization function and data table with raw and unstandardized outputs
@@ -91,7 +98,7 @@ plot_std_vs_raw <- function(data,
 }
 
 
-#-----------------2. lollipop chart of indicator across CUs--------------------
+# ==================== 2. Single Indicator Lollipop across CUs ====================
 
 # Long format plots -------------------------------------------------------
 
@@ -327,7 +334,7 @@ plot_lollipop <- function(all_std_long,
 #               period_pick = "3",
 #               indicator_unit = "°C")
 
-# 3. Multiple indicator plot ----------------------------------------------
+# ==================== 3. Multiple Indicator Lollipop Comparison ====================
 
 # Make a multi-panel plot of indicators using the lollipop chart and patchwork
 multi_indicator_plot <- function(data,
@@ -392,7 +399,7 @@ multi_indicator_plot <- function(data,
 
 
 
-# 4. Spatial distribution of indicator values by CU boundary --------------
+# ==================== 4. Spatial Indicator Distribution by CU Boundary ====================
 
 
 spatial_indicator_plot <- function(data,
@@ -489,7 +496,7 @@ spatial_indicator_plot <- function(data,
 }
 
 
-# 5. Tile plot of standardized indicator values ---------------------------
+# ==================== 5. Multi-panel Indicator Tile Plot by Species ====================
 
 #' Tile plot of standardized indicator values (long-format, by species)
 #' Selects ensemble or GCM 0 (no averaging across GCMs).
@@ -1248,7 +1255,7 @@ species_category_tile_plot_from_scores <- function(all_std_long,
 # print(p)
 
 
-# 6. Correlation analysis and plots ---------------------------------------
+# ==================== 6. Indicator Correlation Matrix ====================
 
 get_correlation_matrix <- function(data,
                                    indicators_choose = tbl_indicators$abbrev,
@@ -1280,7 +1287,7 @@ get_correlation_matrix <- function(data,
 
 
 
-# 7. Make all plots -------------------------------------------------------
+# ==================== 7. Comprehensive Diagnostic / Slicing Plots ====================
 
 # utility function to make all plots for an indicator, used for markdown reporting
 make_indicator_plots <- function(data,
@@ -1368,7 +1375,7 @@ make_indicator_plots <- function(data,
 
 
 
-# 8. x_y indicator comparison ------------------------------------------------
+# ==================== 8. Two-Indicator Scatter Plot Comparison ====================
 
 xy_indicator_plot <- function(data,
                               x_pick = "lowQpdelta",
@@ -1420,7 +1427,7 @@ xy_indicator_plot <- function(data,
 
 
 
-# 9. status_table -------------------------------------------------------------
+# ==================== 9. WSP Abundance and Status Table (cu_status_table) ====================
 
 #' Create a formatted table of CU conservation status
 #'
@@ -1609,7 +1616,7 @@ cu_status_table <- function(status_data,
 
 
 
-# 11. Timing comparison plot --------------------------------------------------
+# ==================== 10. Life History Timing Comparison (plot_timing_comparison) ====================
 
 #' Plot life history timing comparison across CUs
 #'
@@ -1841,7 +1848,7 @@ plot_timing_comparison <- function(cu_timing_long,
 }
 
 
-# 12. Combined Tile Plot for All CUs and Indicators -----------------------
+# ==================== 11. Combined Tile Plot for All CUs & Indicators ====================
 
 #' Tile plot of all indicators and CUs, plus overall score (catavg)
 #'
@@ -2063,7 +2070,7 @@ indicator_cu_tile_plot <- function(all_std_long,
 
 
 
-# MAZ indicator values plot ----------------------------------------------
+# ==================== 12. Marine Adaptive Zone Lollipop Chart ====================
 
 #' Lollipop plot (long-format) for a single RCP/period with GCM variation
 

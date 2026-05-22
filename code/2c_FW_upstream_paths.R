@@ -1,26 +1,35 @@
-################################################################################
+# ==============================================================================
+# CVIS Upstream Migration Paths (2c_FW_upstream_paths.R)
 #
-# 2d_FW_upstream_paths.R
+# Description:
+#   Traces the spatial paths from ocean entry (river mouth) to NuSEDS spawning
+#   sites for each Conservation Unit (CU). Computes upstream migration routes,
+#   identifies shared stream segments (with proportional weighting), and calculates
+#   segment downstream distances and work (elevation × distance) metrics.
 #
-#  Get spatial objects of upstream paths from ocean entry to NUSEDS spawning sites for each CU
+# Workflow Steps:
+#   1. Load setup environment and configuration parameters.
+#   2. Load downstream distance stream database (bcfph).
+#   3. Loop through CUs, identify nearest stream features to NuSEDS spawner sites.
+#   4. Trace paths downstream from each site to find overlap/proportional usage.
+#   5. Calculate physical metrics (accumulated upstream work).
+#   6. Save resulting path list (migr_list) to processed_data/freshwater/.
 #
-#  For each CU:
-#    1) select streams closest to NUSEDS sites
-#    2) subset stream network of downstream path to ocean from each site
-#    3) determine proportion of NUSEDS sites travelling long each path
-#    4) calculate downstream distance for each stream segment
-#    5) Save a list of spatial objects of upstream paths for each CU as path_list
+# Inputs:
+#   - processed_data/freshwater/2025-07-22_fw_bcfp_downstreamdist.Rdata
+#   - NuSEDS spawner site locations (via 1a_CU_import / 0_setup)
 #
-#  This script uses functions from the 2_fw_utils.R file
+# Outputs:
+#   - processed_data/freshwater/[date]_fw_upstream_paths.Rdata
 #
-###############################################################################
-## Path analysis - upstream migration route
+# Dependencies:
+#   - Requires 0_setup.R and 2_fw_utils.R.
+# ==============================================================================
 
+# ==================== 1. Setup and Environment ====================
 library(here)
 setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
-
-# load(file.path(paths$fw, "2025-04-22_fw_upstream_paths.Rdata"))
 
 # subset stream network for more manageable size for analysis
 # FWA_Fr_ord5 <- filter(FWA_Fr_high, STREAM_ORD > 4)
@@ -37,7 +46,7 @@ source(file.path(here(), "code", "0_setup.R"))
 load(file.path(paths$fw, "2025-07-22_fw_bcfp_downstreamdist.Rdata"))
 
 
-#--------------------- Downstream distance for stream network -------------------
+# ==================== 2. Load Downstream Distance Matrix ====================
 
 # get downstream distance for each stream using function from 2_fw_utils
 # this takes a very long time to process but only needs to be done once
@@ -48,6 +57,7 @@ load(file.path(paths$fw, "2025-07-22_fw_bcfp_downstreamdist.Rdata"))
 
 # save(bcfph, file = file.path(paths$fw, paste0(today, "_fw_bcfp_downstreamdist.Rdata")))
 
+# ==================== 3. Trace Downstream Paths for each CU ====================
 for (i in 1:n.CUs) {
 
   cu_i <- cu_run$FULL_CU_IN[i]
@@ -112,10 +122,13 @@ for (i in 1:n.CUs) {
 
 }
 
+# ==================== 4. Save Outputs ====================
 names(migr_list) <- cu_seq
 
 save(migr_list,
   file = file.path(paths$fw, paste0(today, "_fw_upstream_paths.Rdata")))
+save(migr_list,
+  file = file.path(paths$fw, "fw_upstream_paths.Rdata"))
 
 #############################################################################
 ## FAZ Boundary analysis

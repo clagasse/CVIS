@@ -1,17 +1,33 @@
-################################################################################
+# ==============================================================================
+# CVIS Indicator Sensitivity Plots (5c_plots_sensitivity_indicators.R)
 #
-# 5c_plots_indicator_variation.R
+# Description:
+#   Generates figures and tables visualizing indicator-level sensitivity.
+#   Includes Mean Absolute Deviation (MAD) bar charts, directional shift violins,
+#   XY sensitivity scatterplots (raw vs. standardized), indicator Pearson correlation
+#   plots, and the manuscript-ready Indicator Sensitivity Summary table.
 #
-# Indicator Sensitivity Visualizations:
-# 1. Quantifies indicator-level sensitivity (Mean Absolute Deviation) 
-#    across all climate and downscaling variations.
-# 2. Visualizes directional shifts in raw indicator values (Violin plots).
-# 3. Compares raw vs. standardized risk responses (XY sensitivity).
-# 4. Analyzes indicator redundancy through correlation and cluster visualizations.
-# 5. Generates the comprehensive Indicator Sensitivity Summary table.
+# Workflow Steps:
+#   1. Load setup environment and libraries (corrplot, patchwork).
+#   2. Load and process indicator baseline and future ensemble variation.
+#   3. Generate MAD bar charts, directional violins, and XY sensitivity scatterplots.
+#   4. Plot correlation clustering heatmaps and pie matrices.
+#   5. Construct and format a manuscript sensitivity summary table (gt object).
+#   6. Save generated HTML/CSV tables and PNG figures.
 #
-################################################################################
+# Inputs:
+#   - output/scoring_results.Rdata
+#   - output/indicator_sensitivity_summary.Rdata
+#
+# Outputs:
+#   - output/figures/indicator_uncertainty/*.png
+#   - output/Table_Indicator_Sensitivity.csv / .html
+#
+# Dependencies:
+#   - Requires 4c_indicator_sensitivity_summary.R to have been executed.
+# ==============================================================================
 
+# ==================== 1. Setup and Environment ====================
 library(here)
 setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
@@ -26,7 +42,7 @@ dir.create(fig_path, showWarnings = FALSE, recursive = TRUE)
 cat("Loading indicator data...\n")
 load(file.path(paths$output, "scoring_results.Rdata")) # loads all_std_long
 
-#----------------1. Data Processing----------------
+# ==================== 2. Data Processing & Calculations ====================
 cat("Processing indicator variation data...\n")
 
 # Use standard RCP/Period codes for baseline
@@ -78,7 +94,7 @@ plot_dat <- plot_dat %>%
 
 
 
-#----------------3. Integrated Indicator Sensitivity Plots (from 5e)----------------
+# ==================== 3. Generate Sensitivity Visualizations ====================
 cat("Generating additional indicator sensitivity visualizations...\n")
 
 # Shared Colors
@@ -192,7 +208,7 @@ corrplot(rd_data$cor_matrix_pearson,
 )
 dev.off()
 
-#----------------3. Manuscript Summary Table----------------
+# ==================== 4. Generate Sensitivity Summary Table ====================
 cat("Generating manuscript-ready summary table of indicator sensitivity...\n")
 
 # Load sensitivity summary data from 4c

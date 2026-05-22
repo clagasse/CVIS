@@ -1,13 +1,31 @@
-################################################################################
+# ==============================================================================
+# CVIS Shiny App Explorer (7_CVIS_explorer_app.R)
 #
-# CU_vulnerability_shiny.R
+# Description:
+#   Launches the local interactive Shiny Dashboard explorer app. Allows users
+#   to explore climate vulnerability indicator summaries, life stage timing, WSP
+#   demographics, accessible stream networks, hydrologic regimes, projected August
+#   stream temperatures/flows, and nearshore sea surface temperatures (SST) for
+#   any selected Conservation Unit (CU) in the Fraser Basin.
 #
-# Shiny app for exploring Climate Vulnerability Indicators
-# Run with: shiny::runApp("CU_vulnerability_shiny.R")
+# Workflow Steps:
+#   1. Load setup environment and Shiny libraries (shinydashboard, reactable, gt).
+#   2. Load computed CVIS indicators, scores, and spatial stream paths.
+#   3. Build UI with a left sidebar navigation and interactive tables/plots.
+#   4. Server-side rendering: dynamically generate maps and plots for the selected CU.
+#   5. Run the local Shiny web application.
 #
-# Prerequisites: Run 4a_CU_scoring.R first to generate data
+# Inputs:
+#   - Sourced: code/4_scoring_utils.R, code/5a_plots_CU.R
+#   - processed_data/freshwater/fw_upstream_paths.Rdata
+#   - output/all_indicators_std_long.csv / combined_scores_long.csv
 #
-################################################################################
+# Outputs:
+#   - Launches local interactive Shiny dashboard
+#
+# Dependencies:
+#   - Requires 4a_CU_scoring.R to be run first. Sourced from 0a_console.R.
+# ==============================================================================
 
 library(shiny)
 library(shinydashboard)
@@ -55,34 +73,26 @@ if (!exists("cu_run")) {
   # But let's stick to the script assumption for now, just handling the new outputs.
 }
 
-if (!exists("fw_all")) {
-  # Try to find latest file
-  fw_path <- file.path(here(), "output", "fw_rearing_indicators.Rdata") # Try default name?
+# Ensure paths are configured
+if (!exists("paths")) {
+  library(here)
+  source(file.path(here(), "code", "0_setup.R"))
+}
 
+if (!exists("fw_all")) {
+  fw_path <- file.path(paths$fw, "fw_rearing_indicators.Rdata")
   if (!file.exists(fw_path)) {
-    # Look for pattern in output folder
-    fw_files <- list.files(file.path(here(), "output"), pattern = "fw_rearing_indicators.Rdata", full.names = TRUE)
-    if (length(fw_files) > 0) {
-      # Sort by mtime
-      file_info <- file.info(fw_files)
-      latest_file <- rownames(file_info)[which.max(file_info$mtime)]
-      load(latest_file) # loads fw_all, ss_all
-    }
-  } else {
-    load(fw_path)
+    fw_path <- file.path(paths$output, "fw_rearing_indicators.Rdata")
   }
+  load(fw_path) # loads fw_all, ss_all
 }
 
 if (!exists("migr_all")) {
-  migr_dir <- file.path(here(), "processed_data", "freshwater")
-  migr_files <- list.files(migr_dir, pattern = "migr_stats.Rdata", full.names = TRUE)
-  if (length(migr_files) > 0) {
-    load(latest_file)
-  }
+  load(file.path(paths$fw, "migr_stats.Rdata"))
 }
 
 if (!exists("migr_list")) {
-  load(file.path(here(), "processed_data", "freshwater", "fw_upstream_paths.Rdata"))
+  load(file.path(paths$fw, "fw_upstream_paths.Rdata"))
 }
 
 # Alias for compatibility if code uses old names
@@ -90,7 +100,7 @@ if (exists("all_std_long")) all_flat_std <- all_std_long
 if (exists("scores_long")) combined_scores_std <- scores_long
 
 ################################################################################
-# UI
+# ==================== 2. User Interface (UI) Definition ====================
 ################################################################################
 
 ui <- dashboardPage(
@@ -578,7 +588,7 @@ ui <- dashboardPage(
 )
 
 ################################################################################
-# Helper Functions
+# ==================== 3. Helper Functions ====================
 ################################################################################
 
 # Function to create a reactable for a single indicator
@@ -678,7 +688,7 @@ create_indicator_reactable <- function(df, indicator_codes) {
 }
 
 ################################################################################
-# Server
+# ==================== 4. Server Logic Definition ====================
 ################################################################################
 
 server <- function(input, output, session) {

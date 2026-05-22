@@ -1,17 +1,32 @@
-################################################################################
+# ==============================================================================
+# CVIS Indicator Sensitivity Summary & Risk Driver Analysis (4c_indicator_sensitivity_summary.R)
 #
-# 4c_indicator_sensitivity_summary.R
+# Description:
+#   Consolidates sensitivity metrics at both the individual indicator level
+#   and overall score level. Performs analysis of variance (ANOVA) to discover
+#   dominant risk drivers, identifies multivariate risk profiles using Principal
+#   Component Analysis (PCA), and clusters indicators by correlation.
 #
-# Sensitivity Consolidation & Risk Driver Analysis:
-# 1. Summarizes indicator-level and score-level sensitivity across all CUs.
-# 2. Identifies dominant risk drivers using ANOVA-based factor importance.
-# 3. Performs multivariate analysis (PCA) to characterize species risk profiles.
-# 4. Analyzes indicator collinearity and grouping through hierarchical clustering.
-# 5. Generates the final consolidated sensitivity RData for all plotting scripts.
+# Workflow Steps:
+#   1. Load setup environment and scores/sensitivity outputs.
+#   2. Summarize indicator-level raw/absolute deviations across all CUs and species.
+#   3. Summarize integrated score sensitivity, rank displacements, and correlations.
+#   4. Run PCA on standardized indicator values and hierarchy clustering.
+#   5. Calculate factor importance (ANOVA) on overall vulnerability.
+#   6. Save consolidated sensitivity datasets to output/.
 #
-################################################################################
+# Inputs:
+#   - output/scoring_results.Rdata
+#   - output/sensitivity_analysis.Rdata
+#
+# Outputs:
+#   - output/indicator_sensitivity_summary.Rdata
+#
+# Dependencies:
+#   - Requires 4b_CU_sensitivity_analysis.R to have been executed.
+# ==============================================================================
 
-#----1. Setup and Import----
+# ==================== 1. Setup and Environment ====================
 library(here)
 setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
@@ -24,6 +39,7 @@ metadata_cu <- cu_run %>%
   select(FULL_CU_IN, FAZ_group, DFO_AREA, SMU_SIMPLE, SPECIES_NAME)
 
 
+# ==================== 2. Summarize Indicator Sensitivity ====================
 cat("Summarizing indicator sensitivity across CUs (raw and absolute deviations)...\n")
 
 # Filter out the "ALL" summary rows to calculate statistics across individual CUs
@@ -106,7 +122,7 @@ ind_sens_summary <- bind_rows(ind_summary_list) %>%
   filter(mean_abs_dev != 0)
 
 
-#----3. Integrated Score Sensitivity Summary (Deviations + Ranks) ----
+# ==================== 3. Integrated Score Sensitivity Summary ====================
 
 cat("Calculating integrated score sensitivity summary (deviations, ranks, and correlations)...\n")
 
@@ -212,7 +228,7 @@ score_sens_summary <- bind_rows(score_summary_list)
 cor_matrices <- cor_matrix_list
 
 
-#----4. Risk Drivers and Multivariate Analysis (Consolidated from 4d) ----
+# ==================== 4. Risk Drivers and Multivariate Analysis ====================
 
 cat("Analyzing multivariate risk profiles and identification of dominant drivers...\n")
 
@@ -317,7 +333,7 @@ risk_drivers_analysis <- list(
 )
 
 
-#----5. Export Results----
+# ==================== 5. Save Outputs ====================
 
 # Save as R object for downstream use in 5c and 5e
 save(
@@ -332,7 +348,7 @@ save(
 cat("\nConsolidated Indicator Sensitivity and Risk Driver Analysis Complete.\n")
 
 
-#----6. Example Check----
+# ==================== 6. Example Check ====================
 
 # Print example requested by user
 if ("flow18pdelta" %in% ind_sens_summary$indicator) {
