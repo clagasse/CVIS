@@ -11,12 +11,31 @@ params:
   FULL_CU_IN: "CK-03"
   default_rcp: "45"
   default_period: "3"
+title: CVIS Data Report - `r cu_run_i$CU_NAME` 
 ---
 
 ```{r custom theme, echo = FALSE, message = F, warning = F}
 knitr::opts_chunk$set(message = F, echo = F, warning = F)
+library(magrittr)
+library(reactable)
+library(htmltools)
 
 ```
+
+```{r load data, echo=FALSE, message=FALSE, warning=FALSE}
+# Load new scoring results and sensitivity data if not already in environment
+if (!exists("all_std_long")) {
+  load(file.path(here(), "output", "scoring_results.Rdata"))
+}
+if (!exists("fw_all")) {
+  # Load stream indicator data (adjust filename if different)
+  load(file.path(here(), "output", "fw_rearing_indicators.Rdata"))
+}
+if (!exists("overall_sensitivity")) {
+  load(file.path(here(), "output", "sensitivity_analysis.Rdata"))
+}
+``` 
+
 
 ```{r subset CU}
 #params$FULL_CU_IN <- "SEL-05-02"
@@ -32,18 +51,20 @@ period_pick <- params$default_period
 
 ```
 
----
-title: CVIS Data Report - `r cu_run_i$CU_NAME` 
----
 
 ```{r spatial subset, echo = FALSE, message = F, warning = F}
 
-
 #indicator dataframe
-cu_std <- all_flat_std[all_flat_std$FULL_CU_IN == cu_i,]
+cu_std <- get_CU_indicators(all_std_long,
+  cu_i = cu_i,
+  use_standardized = FALSE,
+  period_pick = period_pick,
+  RCP_pick = rcp_pick)
 
-# Stream spatial layers
-fwR_cu <- fwR_all[[cu_i]] 
+# Stream indicator summary rows (fw_all format)
+fw_cu <- ss_all %>%
+  filter(FULL_CU_IN == cu_i) %>%
+  distinct(FULL_CU_IN, .keep_all = TRUE)
 
 stream_cu_sub <- stream_cu_picks[,colnames(stream_cu_picks) == cu_i]
 
@@ -52,18 +73,18 @@ cu_boundary_i <- cu_boundary[cu_boundary$FULL_CU_IN == cu_i,]
 #subset nuseds observations
 nuseds_cu <- nuseds_Fr[nuseds_Fr$FULL_CU_IN == cu_i,]
 
-fw_sp_cu <- fw_sp_ind[stream_cu_sub,] %>%
-  rename(keep_habitat = contains(paste0("model_habitat_", sp_pick_bcfp)),
-         #keep_model_rearing  = contains(paste0("model_rearing_", sp_pick_bcfp)),
-         favchange_45   = contains(paste0("favchange_", sp_pick_ENM, "_45_3")),
+fw_sp_cu <- subset_fw_models(
+  fw_models = fw_sp_ind,
+  cu_i = cu_i,
+  stream_cu_picks = stream_cu_picks,
+  cu_run = cu_run,
+  spp_lookup = spp_lookup,
+  to_factor = TRUE
+) %>%
+  rename(favchange_45   = contains(paste0("favchange_", sp_pick_ENM, "_45_3")),
          favchange_85   = contains(paste0("favchange_", sp_pick_ENM, "_85_3")),
          fav_45   = contains(paste0("fav_", sp_pick_ENM, "_45_3")),
-         fav_85   = contains(paste0("fav_", sp_pick_ENM, "_85_3"))) %>%
-  mutate(model_rs = if_any(starts_with("keep_habitat"), ~ . == TRUE)) %>%#get boolean for model spawning and rearing
-  mutate(model_rs = if_else(is.na(model_rs), FALSE, model_rs)) %>%
-  mutate(model_rs = factor(model_rs, levels = c(TRUE, FALSE), 
-                           labels = c("1-SPAWNING/REARING", "2-NOT SPAWNING/REARING"))) %>%
-  select(-starts_with(c("model_spawning","model_rearing", "known_rearing", "known_spawning")))
+         fav_85   = contains(paste0("fav_", sp_pick_ENM, "_85_3")))
 
 #make accessible only version for plotting some indicators
 acc_sp_cu <- fw_sp_cu %>%
@@ -81,8 +102,6 @@ stations_cu <- stations_flow[temp,]
 ## Migration spatial layers
 migr_cu <- migr_list[[cu_i]]
 
-migr_flat_cu <- migr_all_flat[migr_all_flat$FULL_CU_IN == cu_i,]
-
 
 #Lakes within CU boundary (for plotting)
 temp <- unlist(st_intersects(cu_boundary_i, lakes_Fr))
@@ -95,22 +114,26 @@ cu_timing_i <- cu_timing_Fr[cu_timing_Fr$FULL_CU_IN == cu_i, ]
 
 
 #get long data frame of standardized indicator values for the CU
-ind_cu <- get_CU_indicators(all_flat_std,
+ind_cu <- get_CU_indicators(all_std_long,
   cu_i,
   indicators_choose = tbl_indicators$abbrev,
   RCP_pick = rcp_pick,
   period_pick = period_pick
-)
+) %>%
+  dplyr::mutate(
+    SPECIES_NAME = unique(all_std_long$SPECIES_NAME[all_std_long$FULL_CU_IN == cu_i])[1],
+    CVIS_NAME = unique(all_std_long$CVIS_NAME[all_std_long$FULL_CU_IN == cu_i])[1]
+  )
 
 
 ```
+
 
 ```{r helper function for subset tables}
 # Function to create a reactable for a single indicator category
 create_indicator_reactable <- function(df, indicator_codes) {
   # Filter to selected indicators
-  tbl_view <- df %>%
-    filter(`Indicator Code` %in% indicator_codes)
+  tbl_view <- df[df[["Indicator Code"]] %in% indicator_codes, , drop = FALSE]
 
   if (nrow(tbl_view) == 0) {
     return(NULL)
@@ -206,53 +229,55 @@ create_indicator_reactable <- function(df, indicator_codes) {
 
 ```{r prepare indicator table data}
 # Prepare the indicator table data once for use in multiple tabs
-cu_all_raw <- get_CU_indicators(all_flat_std,
+cu_all_raw <- get_CU_indicators(all_std_long,
   cu_i = cu_i,
   use_standardized = FALSE,
   period_pick = "3",
   RCP_pick = "45")
 
-cu_all_std <- get_CU_indicators(all_flat_std,
+cu_all_std <- get_CU_indicators(all_std_long,
   cu_i = cu_i,
   use_standardized = TRUE,
   period_pick = "3",
   RCP_pick = "45")
 
 cu_all <- cu_all_raw %>%
-  left_join(cu_all_std, join_by(FULL_CU_IN, rcp, period_code, indicator)) %>%
-  left_join(select(tbl_indicators, abbrev, long_type), join_by(indicator == abbrev)) %>%
+  left_join(cu_all_std,
+    by = c("FULL_CU_IN", "rcp", "period_code", "indicator"),
+    suffix = c("_raw", "_std")) %>%
+  left_join(select(tbl_indicators, abbrev, long_type), by = c("indicator" = "abbrev")) %>%
   mutate(
-    # Convert NaN strings to actual NA (if they slipped in)
-    across(everything(), ~ ifelse(is.nan(.), NA, .))
+    across(where(is.numeric), ~ ifelse(is.nan(.), NA_real_, .))
   )
 
 # Build display-only view with required columns
+pick_col <- function(df, choices) {
+  out <- choices[choices %in% names(df)]
+  if (length(out) == 0) NA_character_ else out[1]
+}
+
+std_cu_col <- pick_col(cu_all, c("std_cu_value", "std_cu_mean", "cu_value_std", "cu_mean_std"))
+std_sp_col <- pick_col(cu_all, c("std_sp_value", "std_sp_mean", "sp_value_std", "sp_mean_std"))
+std_allcu_col <- pick_col(cu_all, c("std_allcu_value", "std_allcu_mean", "allcu_value_std", "allcu_mean_std"))
+cu_col <- pick_col(cu_all, c("cu_value_raw", "cu_mean_raw", "cu_value", "cu_mean"))
+q10_col <- pick_col(cu_all, c("cu_qlowgcm_raw", "cu_qlowgcm", "cu_qlowgcm_std"))
+q90_col <- pick_col(cu_all, c("cu_qhighgcm_raw", "cu_qhighgcm", "cu_qhighgcm_std"))
+sp_col <- pick_col(cu_all, c("sp_value_raw", "sp_mean_raw", "sp_value", "sp_mean"))
+allcu_col <- pick_col(cu_all, c("allcu_value_raw", "allcu_mean_raw", "allcu_value", "allcu_mean"))
+
 tbl_view <- cu_all %>%
   mutate(CU_Period = paste0(rcp, " • P", period_code)) %>%
-  select(any_of(c(
-    # meta
-    "long_type", "indicator",
-    # standardized (z-scores)
-    "std_cu_mean", "std_sp_mean", "std_allcu_mean",
-    # CU block
-    "cu_mean", "cu_qlowgcm", "cu_qhighgcm",
-    # species/all means (end of table)
-    "sp_mean", "allcu_mean"
-  )))
-
-# Rename columns (short, descriptive)
-tbl_view <- tbl_view %>%
-  rename(
-    `Indicator Type`   = long_type,
-    `Indicator Code`   = indicator,
-    `CU score`             = std_cu_mean,
-    `Species score`        = std_sp_mean,
-    `All Species score`    = std_allcu_mean,
-    `Mean`          = cu_mean,
-    `Q10`           = cu_qlowgcm,
-    `Q90`           = cu_qhighgcm,
-    `Species Mean`     = sp_mean,
-    `All Species Mean` = allcu_mean
+  transmute(
+    `Indicator Type` = long_type,
+    `Indicator Code` = indicator,
+    `CU score` = if (is.na(std_cu_col)) NA_real_ else .[[std_cu_col]],
+    `Species score` = if (is.na(std_sp_col)) NA_real_ else .[[std_sp_col]],
+    `All Species score` = if (is.na(std_allcu_col)) NA_real_ else .[[std_allcu_col]],
+    `Mean` = if (is.na(cu_col)) NA_real_ else .[[cu_col]],
+    `Q10` = if (is.na(q10_col)) NA_real_ else .[[q10_col]],
+    `Q90` = if (is.na(q90_col)) NA_real_ else .[[q90_col]],
+    `Species Mean` = if (is.na(sp_col)) NA_real_ else .[[sp_col]],
+    `All Species Mean` = if (is.na(allcu_col)) NA_real_ else .[[allcu_col]]
   )
 
 # Reorder display so CU block is together, species/all means at the end
@@ -350,7 +375,6 @@ cu_z_cell <- function(value, index, name) {
     sprintf("%.3f", value)
   )
 }
-
 reactable(
   tbl_view,
   elementId = table_id,
@@ -444,7 +468,7 @@ reactable(
     ind <- tbl_view[["Indicator Code"]][index]
     if (!is.null(ind) && ind %in% c("tw8proj","tw8rate","SSTproj","SSTrate")) {
       "climate-row"
-    } else if (!is.null(ind) && ind %in% c("migrT","migrQ","migrdist")) {
+    } else if (!is.null(ind) && ind %in% c("migrTproj","migrQpdelta","migrdist")) {
       "migration-row"
     } else {
       ""
@@ -477,10 +501,11 @@ reactable(
 
 Recent conservation status and number of mature individuals indicator values.
 
-```{r demographics summary}
-
-# Create subset table for demographic indicators
-create_indicator_reactable(tbl_view, c("CUstatus", "CUnmat"))
+```{r demographics plot}
+plot_cu_indicators_lollipop(
+  ind_cu,
+  indicators_choose = c("CUstatus", "CUnmat")
+)
 ```
 
 ### Spawner Abundance Time Series
@@ -534,8 +559,7 @@ p1
 Summary statistics for accessible stream habitat within the conservation unit boundary based on BC Fishpass habitat potential models.
 
 ```{r data tables}
-
-fwR_cu$streams %>%
+fw_cu %>%
   select(c(total_length_acc, n_streams, proportion_rear, proportion_spawn, proportion_rs,
            avg_elevation, avg_lat, avg_lon)) %>%
   mutate(
@@ -589,8 +613,7 @@ acc_plot
 Proportion of CU boundary classified by hydrologic regime type using method described in Ruzzante et al 2025. prop_coverage indicates proportion of CU boundary within gauged watersheds.
 
 ```{r hydrology}
-
-fwR_cu$streams %>%
+fw_cu %>%
   select(contains("prop_")) %>%
   mutate(across(where(is.numeric), ~ round(.x, 3))) %>%
   gt() %>%
@@ -633,11 +656,11 @@ regime_plot
 
 #### Flow Indicators Summary
 
-Projected changes in stream flow during the month of August (lowQpdelta) and Nov - Jan (highQpdelta) for RCP 4.5, 2041-2060.
+Projected changes in stream flow during the month of August (flow8pdelta) and Nov-Jan (flow18pdelta) for RCP 4.5, 2041-2060.
 
 ```{r flow indicators table}
 # Create subset table for flow indicators
-create_indicator_reactable(tbl_view, c("lowQpdelta", "highQpdelta"))
+create_indicator_reactable(tbl_view, c("flow8pdelta", "flow18pdelta"))
 ```
 
 #### Change in August Flow
@@ -648,7 +671,7 @@ Projected proportional change in August stream flows. Negative values indicate f
 Q8_plot <- stream_indicator_plot(acc_sp_cu, 
                                  cu_boundary_i,
                                  lakes_cu,
-                                variable = "qpdelta_flow_8_45_3", 
+                                variable = "deltaflow8_9_45_3", 
                                 plot_title = "Change in August flow - 2041-2060",
                                 unit_label = "Proportion change",
                                 xlim = c(-1,0),
@@ -666,7 +689,7 @@ Projected proportional change in winter flows (November-January). Positive value
 QNDJ_plot <- stream_indicator_plot(acc_sp_cu, 
                                  cu_boundary_i,
                                  lakes_cu,
-                                variable = "qpdelta_flow_18_45_3", 
+                                variable = "deltaflow18_9_45_3", 
                                 plot_title = "Change in Nov_Jan flow - 2041-2060",
                                 unit_label = "Proportion change",
                                 scico_palette = "devon",
@@ -717,7 +740,7 @@ tRate_plot <- stream_indicator_plot(acc_sp_cu,
                                 cu_boundary_i, 
                                 lakes_cu,
                                 Tw_stations,
-                                variable = "delta_tw8_9_45_3", 
+                                variable = "deltatw8_9_45_3", 
                                 temp_stations = TRUE,
                                 plot_title = "Rate of Change in August Mean Temperature - 1981-2000 to 2041-2060",
                                 unit_label = "Degrees C",
@@ -779,11 +802,11 @@ ENMdiff_plot
 
 #### Cumulative Threats Indicator Summary
 
-Indicator of cumulative threat score (CT) representing anthropogenic stressors to stream habitat.
+Indicator of cumulative threat score (cthr) representing anthropogenic stressors to stream habitat.
 
 ```{r threats table}
 # Create subset table for cumulative threats indicators
-create_indicator_reactable(tbl_view, c("CT"))
+create_indicator_reactable(tbl_view, c("cthr_anad"))
 ```
 
 #### Cumulative Threats to Stream Habitat
@@ -795,7 +818,7 @@ Cumulative threat score combining nine anthropogenic stressor categories. Higher
 ct_plot <- stream_indicator_plot(acc_sp_cu, 
                                  cu_boundary_i,
                                  lakes_cu,
-                                variable = "ct_anad", 
+                                variable = "cthr_anad", 
                                 plot_title = "Cumulative stressors",
                                 unit_label = "Cumulative Threat Score",
                                 scico_palette = "lajolla",
@@ -812,11 +835,11 @@ ct_plot
 
 #### Migration Indicators Summary
 
-Indicators representing temperature and flow conditions and migration distance from ocean to spawning grounds.
+Indicators representing migration temperature (migrTproj), migration flow change (migrQpdelta), and migration distance from ocean to spawning grounds.
 
 ```{r migration table}
 # Create subset table for migration indicators
-create_indicator_reactable(tbl_view, c("migrT", "migrQ", "migrdist"))
+create_indicator_reactable(tbl_view, c("migrTproj", "migrQpdelta", "migrdist"))
 ```
 
 #### Migration Route
@@ -830,7 +853,7 @@ mplot <- migration_path_plot(migr_cu,
   cu_boundary_i,
   colour_var = "channel_width",
 colour_label = "Channel width (m)",
-plot_title = paste0("Migration path length = ", cu_std$migrdist[1], "km") 
+plot_title = paste0("Migration path length = ", cu_std$cu_value[cu_std$indicator == "migrdist"][1], "km") 
 )
 
 mplot
@@ -844,7 +867,7 @@ Daily projected stream temperatures during upstream migration period. Vertical d
 
 ```{r Migration temp}
 
-timeplot <- migr_timing_plot(migrT_rcps,
+timeplot <- migr_timing_plot(migr_daily_all,
                              cu_i,
                              cu_timing_i,
                              rcp = "45",
@@ -863,13 +886,12 @@ Marine Adaptive Zone (green) representing the nearshore rearing area used for ma
 ```{r Marine}
 
 ### subset indicator values
-cu_mar <- mar_all_flat[mar_all_flat$FULL_CU_IN == cu_i, ]
-cu_MAZ <- cu_mar$MAZ[1]
+cu_MAZ <- cvis_cu_list$MAZ[cvis_cu_list$FULL_CU_IN == cu_i][1]
 
-start_month <- month.name[unique(cu_mar$ns_timing_start)]
-  end_month <- month.name[unique(cu_mar$ns_timing_end)]
+start_month <- month.name[unique(cu_timing_i$ns_start_month)]
+end_month <- month.name[unique(cu_timing_i$ns_end_month)]
 
-MAZ_pick <- unique(cu_mar$MAZ)
+MAZ_pick <- cu_MAZ
 
 MAZ_boundary_highlight(MAZ,
                           MAZ_pick = cu_MAZ)
@@ -895,8 +917,8 @@ Projected sea surface temperature during the period surrounding peak ocean entry
 
 # SST months
 months_include <- seq(
-    from = cu_mar$ns_timing_start[1],
-    to = cu_mar$ns_timing_end[1],
+    from = cu_timing_i$ns_start_month[1],
+    to = cu_timing_i$ns_end_month[1],
     by = 1
   )
 
@@ -936,7 +958,7 @@ Cumulative impact score combining stressors including aquaculture, fishing, inva
 
 ```{r Cumulative impacts}
 
-p2 <- marine_indicator_plot(filter(CImpact_points, MAZ_Acrony == cu_mar$MAZ[1]),
+p2 <- marine_indicator_plot(filter(CImpact_points, MAZ_Acrony == cu_MAZ),
                       MAZ_sp = MAZ,
                       var = "Cumul_Impact_ALL",
                       unit_label = "CI Score",

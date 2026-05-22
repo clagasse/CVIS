@@ -646,7 +646,18 @@ get_CU_indicators <- function(data,
 
     # Filter for chosen indicators and ensemble/aggregate stats
     if ("gcm" %in% names(data_sub)) {
-      data_sub <- data_sub %>% filter(gcm == "9" | is.na(gcm))
+      if ("gcm_name" %in% names(data_sub)) {
+        data_sub <- data_sub %>% filter(gcm == "9" | gcm == "0" | (is.na(gcm) & is.na(gcm_name)) | gcm_name == "ensemble")
+      } else {
+        data_sub <- data_sub %>% filter(gcm == "9" | gcm == "0" | is.na(gcm))
+      }
+    }
+
+    if ("dsmodel" %in% names(data_sub) && exists("tbl_standardize")) {
+      data_sub <- data_sub %>%
+        left_join(dplyr::select(tbl_standardize, abbrev, dsmodel_baseline_ind = dsmodel_baseline), by = c("indicator" = "abbrev")) %>%
+        filter(is.na(dsmodel) | dsmodel == dsmodel_baseline_ind | is.na(dsmodel_baseline_ind)) %>%
+        dplyr::select(-dsmodel_baseline_ind)
     }
 
     data_sub <- data_sub %>%

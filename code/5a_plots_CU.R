@@ -365,6 +365,118 @@ stream_indicator_plot <- function(fwModels,
 }
 
 
+#' Multi-panel stream network plot of indicator values within a CU boundary
+#' 
+#' Plots multiple indicators side-by-side using patchwork without histograms,
+#' using compact legends.
+#'
+#' @param fwModels sf object containing stream network and model outputs.
+#' @param cu_boundary sf object representing the CU boundary.
+#' @param lakes_cu sf object containing lakes within the CU (optional).
+#' @param variables Character vector of variables (indicators) to plot.
+#' @param plot_titles Optional character vector or named vector of titles.
+#' @param unit_labels Optional character vector or named vector of unit labels.
+#' @param scico_palettes Character vector or named vector of palettes. Default "roma".
+#' @param palette_directions Integer vector or named vector of directions. Default 1.
+#' @param ncol Integer. Number of columns in layout.
+#' @param nrow Integer. Number of rows in layout.
+#'
+stream_indicator_multipanel_plot <- function(fwModels,
+                                            cu_boundary,
+                                            lakes_cu = NULL,
+                                            variables = c("CT_anad"),
+                                            plot_titles = NULL,
+                                            unit_labels = NULL,
+                                            scico_palettes = "roma",
+                                            palette_directions = 1,
+                                            ncol = NULL,
+                                            nrow = NULL) {
+  # Helper to resolve parameter by index or name
+  get_param_by_name <- function(param, var_name, idx, default_val) {
+    if (is.null(param)) {
+      return(default_val)
+    }
+    if (!is.null(names(param)) && var_name %in% names(param)) {
+      return(param[[var_name]])
+    }
+    if (length(param) >= idx) {
+      return(param[idx])
+    }
+    return(param[1])
+  }
+
+  plots <- list()
+  for (i in seq_along(variables)) {
+    var_name <- variables[i]
+    var_sym <- sym(var_name)
+    
+    # Check if variable exists in the dataframe
+    if (!var_name %in% names(fwModels)) {
+      warning("Variable '", var_name, "' not found in fwModels. Skipping.")
+      next
+    }
+    
+    p_title <- get_param_by_name(plot_titles, var_name, i, var_name)
+    u_label <- get_param_by_name(unit_labels, var_name, i, NULL)
+    p_palette <- get_param_by_name(scico_palettes, var_name, i, "roma")
+    p_dir <- get_param_by_name(palette_directions, var_name, i, 1)
+    
+    # Filter out stream segments with NA values for this indicator
+    panel_data <- fwModels[!is.na(st_drop_geometry(fwModels)[[var_name]]), ]
+    
+    # Calculate limits for this indicator to avoid issues with NA or empty ranges
+    val_range <- range(panel_data[[var_name]], na.rm = TRUE)
+    if (any(is.infinite(val_range)) || any(is.nan(val_range))) {
+      val_range <- c(0, 1) # Fallback range
+    }
+    
+    p <- ggplot() +
+      geom_sf(data = panel_data, aes(color = !!var_sym)) +
+      scale_color_scico(
+        palette = p_palette,
+        direction = p_dir,
+        limits = val_range
+      ) +
+      geom_sf(data = cu_boundary, fill = NULL, color = "black", alpha = 0.3)
+      
+    if (!is.null(lakes_cu) && inherits(lakes_cu, "sf") && nrow(lakes_cu) > 0) {
+      p <- p + geom_sf(data = lakes_cu, color = "darkgrey", alpha = 0.7)
+    }
+    
+    p <- p +
+      coord_sf(
+        xlim = st_bbox(cu_boundary)[c(1, 3)],
+        ylim = st_bbox(cu_boundary)[c(2, 4)],
+        datum = NA
+      ) +
+      labs(
+        title = p_title,
+        color = u_label
+      ) +
+      theme_void() +
+      theme(
+        plot.title = element_text(size = 11, face = "bold", hjust = 0.5),
+        legend.title = element_text(size = 8, face = "bold"),
+        legend.text = element_text(size = 7),
+        legend.key.width = unit(0.3, "cm"),
+        legend.key.height = unit(0.4, "cm"),
+        legend.margin = margin(t = 2, r = 2, b = 2, l = 2),
+        legend.box.spacing = unit(2, "pt")
+      )
+      
+    plots[[length(plots) + 1]] <- p
+  }
+  
+  if (length(plots) == 0) {
+    stop("No valid variables plotted.")
+  }
+  
+  wrap_plots(plots, ncol = ncol, nrow = nrow)
+}
+
+
+
+
 # 4. migration path plot -------------------
 
 migration_path_plot <- function(migr_path,
@@ -399,29 +511,68 @@ migration_path_plot <- function(migr_path,
 
 # 5. migration timing plot ---------------------------------------------
 
-migr_timing_plot <- function(migrT,
+migr_timing_plot <- function(migr_daily_all,
                              cu_i,
                              timing,
                              rcp = "45",
                              period_choose = c("1981-2010", "2041-2060")) {
-  migrT_select <- migrT[[rcp]][[cu_i]][["doy"]]
-
   # Names of the components you want to process
   components <- c("mean", "0.1", "0.9")
 
-  # Convert each matrix to a long-format data frame with DOY
-  long_list <- components %>%
-    set_names() %>%
-    map(~ migrT_select[[.x]] %>%
-      as.data.frame() %>%
-      mutate(doy = as.numeric(rownames(.))) %>%
-      pivot_longer(-doy, names_to = "period", values_to = .x))
+  if (is.list(migr_daily_all) && !is.data.frame(migr_daily_all)) {
+    # Backward compatibility with migrT_rcps list structure
+    migrT_select <- migr_daily_all[[rcp]][[cu_i]][["doy"]]
+    long_list <- components %>%
+      purrr::set_names() %>%
+      map(~ migrT_select[[.x]] %>%
+        as.data.frame() %>%
+        mutate(doy = as.numeric(rownames(.))) %>%
+        pivot_longer(-doy, names_to = "period", values_to = .x))
+    df_all <- reduce(long_list, left_join, by = c("doy", "period")) %>%
+      drop_na() %>%
+      mutate(period = factor(period, levels = rev(sort(unique(period))))) %>%
+      filter(period %in% period_choose)
+  } else {
+    # Direct extraction from migr_daily_all tibble
+    if (exists("period_lookup")) {
+      period_codes <- period_lookup %>%
+        dplyr::filter(dsmodel == "pcicgrid", period %in% period_choose) %>%
+        dplyr::pull(period_code) %>%
+        unique()
+    } else {
+      period_codes <- NULL
+    }
 
-  # Combine all into one tidy data frame
-  df_all <- reduce(long_list, left_join, by = c("doy", "period")) %>%
-    drop_na() %>%
-    mutate(period = factor(period, levels = rev(sort(unique(period))))) %>%
-    filter(period %in% period_choose)
+    query <- migr_daily_all %>%
+      dplyr::filter(
+        FULL_CU_IN == cu_i,
+        rcp == !!rcp,
+        attr == "migrT"
+      )
+
+    if (!is.null(period_codes) && length(period_codes) > 0) {
+      query <- query %>% dplyr::filter(period_code %in% period_codes)
+    } else {
+      query <- query %>% dplyr::filter(period %in% period_choose)
+    }
+
+    df_unnested <- query %>%
+      dplyr::select(time) %>%
+      tidyr::unnest(time) %>%
+      dplyr::mutate(doy = as.numeric(time))
+
+    df_all <- df_unnested %>%
+      dplyr::group_by(period, doy) %>%
+      dplyr::summarise(
+        mean = mean(migrT, na.rm = TRUE),
+        `0.1` = as.numeric(stats::quantile(migrT, probs = 0.1, na.rm = TRUE)),
+        `0.9` = as.numeric(stats::quantile(migrT, probs = 0.9, na.rm = TRUE)),
+        .groups = "drop"
+      ) %>%
+      dplyr::mutate(period = factor(period, levels = rev(sort(unique(df_unnested$period))))) %>%
+      dplyr::filter(period %in% period_choose) %>%
+      dplyr::select(doy, period, mean, `0.1`, `0.9`)
+  }
 
   overall_mean <- df_all %>%
     summarise(mean_temp = mean(mean, na.rm = TRUE)) %>%
@@ -457,11 +608,6 @@ migr_timing_plot <- function(migrT,
 
   return(p)
 }
-
-
-
-# 6. migration indicator map ----------------------------------------------
-
 
 
 
@@ -526,7 +672,7 @@ cu_hydrologic_regime <- function(cu_boundary_i,
 #   indicators_choose = tbl_indicators$abbrev)
 
 plot_cu_lolli <- function(data, # need indicator data for a single CU, use get_cu_indicators()
-                          # indicators_choose = c("migrT", "migrQ", "migrA21", "migrdist"),
+                          # indicators_choose = c("migrTproj", "migrQpdelta", "migrA21", "migrdist"),
                           indicators_choose = c("CUstatus", "CUnmat"),
                           use_standardized = TRUE, # use raw or transformed (standardized values)
                           plot_colours = species_palette) {
@@ -539,26 +685,29 @@ plot_cu_lolli <- function(data, # need indicator data for a single CU, use get_c
   )
 
   data <- data %>%
-    filter(indicator %in% indicators_choose) %>%
-    mutate(
-      above_sp = case_when(
-        is.na(sp_value) ~ NA,
-        cu_value > sp_value ~ "Above Species Mean",
-        TRUE ~ "Below Species Mean"
+    filter(indicator %in% indicators_choose)
+
+  if ("stat" %in% names(data)) {
+    gcm_check <- sum(data$stat == "qlowgcm")
+
+    data_wide <- data %>%
+      pivot_wider(
+        id_cols = indicator,
+        names_from = stat,
+        values_from = c(cu_value, sp_value)
       )
-    )
+  } else {
+    gcm_check <- sum(c("cu_qlowgcm", "cu_value_qlowgcm") %in% names(data))
 
-  # check if gcm variation values exist
-  gcm_check <- sum(data$stat == "qlowgcm")
+    data_wide <- data
+  }
 
-
-  data_wide <- data %>%
-    pivot_wider(
-      id_cols = indicator,
-      names_from = stat,
-      values_from = c(cu_value, sp_value)
-    ) %>%
+  data_wide <- data_wide %>%
     mutate(
+      cu_value_mean = coalesce(cu_value_mean, cu_value),
+      sp_value_mean = coalesce(sp_value_mean, sp_value),
+      cu_value_qlowgcm = coalesce(cu_value_qlowgcm, cu_qlowgcm),
+      cu_value_qhighgcm = coalesce(cu_value_qhighgcm, cu_qhighgcm),
       above_sp = case_when(
         is.na(sp_value_mean) ~ NA,
         cu_value_mean > sp_value_mean ~ "Above Species Mean",
@@ -795,7 +944,7 @@ plot_cu_indicators_lollipop <- function(data,
 
   # Prepare data for plotting
   plot_data <- data %>%
-    left_join(select(tbl_indicators, abbrev, name, type),
+    left_join(select(tbl_indicators, abbrev, name, category),
       by = c("indicator" = "abbrev")
     ) %>%
     mutate(
@@ -811,10 +960,10 @@ plot_cu_indicators_lollipop <- function(data,
 
       # Category labels for grouping
       category_label = case_when(
-        type == "fwR" ~ "Spawning & Rearing",
-        type == "migr" ~ "Upstream Migration",
-        type == "dem" ~ "Demographics",
-        type == "mar" ~ "Nearshore Marine",
+        category %in% c("fwrs", "fwR") ~ "Spawning & Rearing",
+        category == "migr" ~ "Upstream Migration",
+        category == "dem" ~ "Demographics",
+        category == "mar" ~ "Nearshore Marine",
         TRUE ~ "Other"
       )
     )
@@ -830,7 +979,7 @@ plot_cu_indicators_lollipop <- function(data,
   # Order indicators by category if requested
   if (group_by_category) {
     plot_data <- plot_data %>%
-      arrange(type, indicator) %>%
+      arrange(category, indicator) %>%
       mutate(name = factor(name, levels = unique(name)))
   } else {
     plot_data <- plot_data %>%
@@ -1014,7 +1163,7 @@ MAZ_boundary_highlight <- function(MAZ,
 
 
 # X. Testing plot functions -----------------------------------------------
-#
+# 
 # cu_i <- "CO-47"
 # 
 # #cu_i <- cu_run$FULL_CU_IN[i]
@@ -1059,12 +1208,12 @@ MAZ_boundary_highlight <- function(MAZ,
 # stream_indicator_plot(fwModels_cu,
 #   cu_boundary_i,
 #   lakes_cu,
-#   variable = "tw8_9_45_3", 
+#   variable = "tw8_9_45_3",
 #   #plot_title = "Change in August flow - 2041-2060",
 #   unit_label = "°C",
 #   scico_palette = "roma",
 #   palette_direction = -1)
-#
+
 #
 # # migr_UFR <- filter(migr_cu, watershed_group_code == "UFRA")
 # #

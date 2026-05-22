@@ -62,7 +62,6 @@ The CVIS framework consists of 17 quantitative indicators (Table 1) classified i
 
 ```{r}
 
-
 tbl_ind_report %>%
   arrange(Category) %>%               # ensure groups are contiguous
   gt(groupname_col = "Category") %>%  # turn Category into row-group headers

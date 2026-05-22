@@ -73,6 +73,18 @@ if (!exists("fw_all")) {
   }
 }
 
+if (!exists("migr_all")) {
+  migr_dir <- file.path(here(), "processed_data", "freshwater")
+  migr_files <- list.files(migr_dir, pattern = "migr_stats.Rdata", full.names = TRUE)
+  if (length(migr_files) > 0) {
+    load(latest_file)
+  }
+}
+
+if (!exists("migr_list")) {
+  load(file.path(here(), "processed_data", "freshwater", "fw_upstream_paths.Rdata"))
+}
+
 # Alias for compatibility if code uses old names
 if (exists("all_std_long")) all_flat_std <- all_std_long
 if (exists("scores_long")) combined_scores_std <- scores_long
@@ -761,20 +773,20 @@ server <- function(input, output, session) {
 
     stream_cu_sub <- stream_cu_picks[, colnames(stream_cu_picks) == cu_i]
 
-    fw_sp_cu <- fw_sp_ind[stream_cu_sub, ] %>%
+    fw_sp_cu <- subset_fw_models(
+      fw_models = fw_sp_ind,
+      cu_i = cu_i,
+      stream_cu_picks = stream_cu_picks,
+      cu_run = cu_run,
+      spp_lookup = spp_lookup,
+      to_factor = TRUE
+    ) %>%
       rename(
-        keep_habitat = contains(paste0("model_habitat_", sp_pick_bcfp)),
         favchange_45 = contains(paste0("favchange_", sp_pick_ENM, "_45_3")),
         favchange_85 = contains(paste0("favchange_", sp_pick_ENM, "_85_3")),
         fav_45 = contains(paste0("fav_", sp_pick_ENM, "_45_3")),
         fav_85 = contains(paste0("fav_", sp_pick_ENM, "_85_3"))
-      ) %>%
-      mutate(model_rs = if_any(starts_with("keep_habitat"), ~ . == TRUE)) %>%
-      mutate(model_rs = if_else(is.na(model_rs), FALSE, model_rs)) %>%
-      mutate(model_rs = factor(model_rs,
-        levels = c(TRUE, FALSE),
-        labels = c("1-SPAWNING/REARING", "2-NOT SPAWNING/REARING")
-      ))
+      )
 
     acc_sp_cu <- fw_sp_cu %>%
       filter(model_access_salmon %in% c("OBSERVED", "INFERRED"))
@@ -945,9 +957,6 @@ server <- function(input, output, session) {
   output$stream_stats_table <- render_gt({
     req(input$cu_select)
 
-  output$stream_stats_table <- render_gt({
-    req(input$cu_select)
-
     cu_i <- input$cu_select
     fwR_cu <- fw_all %>% filter(FULL_CU_IN == cu_i)
 
@@ -1096,7 +1105,7 @@ server <- function(input, output, session) {
 
         stream_indicator_plot(spatial$acc_sp, spatial$boundary, spatial$lakes,
           Tw_stations = NULL,
-          variable = "qpdelta_flow_8_45_3",
+          variable = "deltaflow8_9_45_3",
           plot_title = "Change in August Flow - 2041-2060",
           unit_label = "Proportional Change",
           xlim = c(-1, 0),
@@ -1121,7 +1130,7 @@ server <- function(input, output, session) {
 
         stream_indicator_plot(spatial$acc_sp, spatial$boundary, spatial$lakes,
           Tw_stations = NULL,
-          variable = "qpdelta_flow_18_45_3",
+          variable = "deltaflow18_9_45_3",
           plot_title = "Change in Nov-Jan Flow - 2041-2060",
           unit_label = "Proportional Change",
           xlim = c(0, 1),
@@ -1174,7 +1183,7 @@ server <- function(input, output, session) {
         spatial <- cu_spatial()
 
         stream_indicator_plot(spatial$acc_sp, spatial$boundary, spatial$lakes, Tw_stations,
-          variable = "delta_tw8_9_45_3",
+          variable = "deltatw8_9_45_3",
           plot_title = "Rate of Temperature Change - 1981-2000 to 2041-2060",
           unit_label = "°C per decade",
           scico_palette = "roma",
@@ -1262,7 +1271,7 @@ server <- function(input, output, session) {
 
         stream_indicator_plot(spatial$acc_sp, spatial$boundary, spatial$lakes,
           Tw_stations = NULL,
-          variable = "ct_anad",
+          variable = "cthr_anad",
           plot_title = "Cumulative Threats to Stream Habitat",
           unit_label = "Cumulative Threat Score",
           scico_palette = "lajolla",
@@ -1303,7 +1312,7 @@ server <- function(input, output, session) {
 
     cu_timing_i <- cu_timing_Fr %>% filter(FULL_CU_IN == input$cu_select)
 
-    migr_timing_plot(migrT_rcps, input$cu_select, cu_timing_i,
+    migr_timing_plot(migr_daily_all, input$cu_select, cu_timing_i,
       rcp = "45",
       period_choose = c("1981-2010", "2041-2060")
     )
@@ -1316,25 +1325,22 @@ server <- function(input, output, session) {
   })
 
   output$maz_boundary_plot <- renderPlot({
-    req(cu_data())
-    maz_name <- cu_data()$MAZ[1]
-    MAZ_boundary_highlight(MAZ, MAZ_pick = maz_name)
+    req(input$cu_select)
+    cu_MAZ <- cvis_cu_list$MAZ[cvis_cu_list$FULL_CU_IN == input$cu_select][1]
+    req(!is.na(cu_MAZ) && cu_MAZ != "")
+    MAZ_boundary_highlight(MAZ, MAZ_pick = cu_MAZ)
   })
 
   output$sst_plot <- renderPlot({
     req(input$cu_select)
 
-    cu_mar <- mar_all_flat %>%
-      filter(
-        FULL_CU_IN == input$cu_select,
-        rcp == "45",
-        period_code == "3"
-      )
+    cu_timing_i <- cu_timing_Fr %>% filter(FULL_CU_IN == input$cu_select)
+    cu_MAZ <- cvis_cu_list$MAZ[cvis_cu_list$FULL_CU_IN == input$cu_select][1]
 
-    if (nrow(cu_mar) > 0) {
+    if (nrow(cu_timing_i) > 0 && !is.na(cu_MAZ) && cu_MAZ != "") {
       months_include <- seq(
-        from = cu_mar$ns_timing_start[1],
-        to = cu_mar$ns_timing_end[1],
+        from = cu_timing_i$ns_start_month[1],
+        to = cu_timing_i$ns_end_month[1],
         by = 1
       )
 
@@ -1344,7 +1350,7 @@ server <- function(input, output, session) {
         rcp_pick = "45"
       )
 
-      MAZ_cu <- MAZ %>% filter(MAZ_Acrony == cu_mar$MAZ[1])
+      MAZ_cu <- MAZ %>% filter(MAZ_Acrony == cu_MAZ)
 
       marine_indicator_plot(SST_cu_sp,
         MAZ_sp = MAZ_cu,
@@ -1365,11 +1371,12 @@ server <- function(input, output, session) {
   })
 
   output$marine_impacts_plot <- renderPlot({
-    req(cu_data())
+    req(input$cu_select)
 
-    maz_name <- cu_data()$MAZ[1]
-    CI_cu <- CImpact_points %>% filter(MAZ_Acrony == maz_name)
-    MAZ_cu <- MAZ %>% filter(MAZ_Acrony == maz_name)
+    cu_MAZ <- cvis_cu_list$MAZ[cvis_cu_list$FULL_CU_IN == input$cu_select][1]
+    req(!is.na(cu_MAZ) && cu_MAZ != "")
+    CI_cu <- CImpact_points %>% filter(MAZ_Acrony == cu_MAZ)
+    MAZ_cu <- MAZ %>% filter(MAZ_Acrony == cu_MAZ)
 
     marine_indicator_plot(CI_cu,
       MAZ_sp = MAZ_cu,

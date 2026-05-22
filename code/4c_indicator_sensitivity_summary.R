@@ -16,18 +16,13 @@ library(here)
 setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
 
+load(file.path(paths$output, "scoring_results.Rdata")) # Ensure all_std_long and scores_tidy are fresh
 # Load outputs from 4b (Indicator metrics and sensitivity analysis)
 load(file.path(paths$output, "sensitivity_analysis.Rdata")) # loads overall_sensitivity
 
-# Load outputs from 4b (Indicator metrics and sensitivity analysis)
-load(file.path(paths$output, "sensitivity_analysis.Rdata")) # loads overall_sensitivity
-
-# Load additional metadata for multivariate analysis
-load(file.path(paths$CU, "cu_run.Rds")) # Loads cu_run
 metadata_cu <- cu_run %>%
   select(FULL_CU_IN, FAZ_group, DFO_AREA, SMU_SIMPLE, SPECIES_NAME)
 
-load(file.path(paths$output, "scoring_results.Rdata")) # Ensure all_std_long and scores_tidy are fresh
 
 cat("Summarizing indicator sensitivity across CUs (raw and absolute deviations)...\n")
 

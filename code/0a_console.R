@@ -131,7 +131,7 @@ for (i in 29:n.CUs) {
   default_period <- 3
   
   rmarkdown::render(
-    file.path(here(), "code", "6a_CU_indicator_report_tabbed.Rmd"),
+    file.path(here(), "code", "6a_CU_indicator_report.Rmd"),
     output_file = paste(CU_IN_i, "CVIS_Data_report.html", sep = "_"),
     output_dir = file.path(paths$reports, "CU_reports"),
     output_format = "html_document",

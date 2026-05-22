@@ -741,22 +741,22 @@ regime_stats <- function(watershed_flow, cu_boundary_i) {
 for (i in 1:n.CUs) {
   #---- a. subset CU data ----
   cu_i <- cu_run$FULL_CU_IN[i]
+  
   sp_pick <- cu_run$SPECIES_NAME[cu_run$FULL_CU_IN == cu_i] # species abbr
-  sp_pick_bcfp <- spp_lookup$spp_abr_bcfp[spp_lookup$SPECIES_NAME == sp_pick] # BCFP species abbr (different for Chinook)
   sp_pick_ENM <- str_to_lower(sp_pick)
-  # get model_spawning and model_rearing columns for CU species
-  model_h_pick <- paste0("model_habitat_", sp_pick_bcfp)
-  model_r_pick <- paste0("model_rearing_", sp_pick_bcfp)
-  model_s_pick <- paste0("model_spawning_", sp_pick_bcfp)
-
-  # harrison downstream (Weaver) doesn't have any modelled sockeye habitat, so use any salmon habitat instead
-  if (cu_i == "SEL-03-04") model_h_pick == "model_habitat_salmon"
+  
+  #----create subsetted data tables for each model
+  fw_models_cu <- subset_fw_models(
+    fw_models = fw_models,
+    cu_i = cu_i,
+    stream_cu_picks = stream_cu_picks,
+    cu_run = cu_run,
+    spp_lookup = spp_lookup,
+    to_factor = FALSE
+  )
 
   # Subset CU boundary
   cu_boundary_i <- cu_boundary[cu_boundary$FULL_CU_IN == cu_i, ]
-
-  # pick column of stream indices to subset for CU
-  stream_cu_sub <- stream_cu_picks[, colnames(stream_cu_picks) == cu_i]
 
   # subset nuseds observations
   nuseds_cu <- nuseds_Fr[nuseds_Fr$FULL_CU_IN == cu_i, ]
@@ -764,37 +764,6 @@ for (i in 1:n.CUs) {
   # get cu FW timing info
   fw_timing_i <- cu_timing_Fr[cu_timing_Fr$FULL_CU_IN == cu_i, ] %>%
     select(oe_age, sp_peak, oe_peak, fwres_mean)
-
-  #----create subsetted data tables for each model
-  fw_models_cu <- fw_models[stream_cu_sub, ]
-
-  # Select reachable habitat (model_rs)
-  avail_h_cols <- intersect(model_h_pick, names(fw_models_cu))
-  if (length(avail_h_cols) > 0) {
-    fw_models_cu$model_rs <- rowSums(st_drop_geometry(fw_models_cu)[, avail_h_cols, drop = FALSE], na.rm = TRUE) > 0
-  } else {
-    fw_models_cu$model_rs <- FALSE
-  }
-
-  # Select spawning habitat
-  avail_s_cols <- intersect(model_s_pick, names(fw_models_cu))
-  if (length(avail_s_cols) > 0) {
-    fw_models_cu$model_spawning <- rowSums(st_drop_geometry(fw_models_cu)[, avail_s_cols, drop = FALSE], na.rm = TRUE) > 0
-  } else {
-    fw_models_cu$model_spawning <- FALSE
-  }
-
-  # Select rearing habitat
-  if (sp_pick %in% c("ck", "co", "sk")) {
-    avail_r_cols <- intersect(model_r_pick, names(fw_models_cu))
-    if (length(avail_r_cols) > 0) {
-      fw_models_cu$model_rearing <- rowSums(st_drop_geometry(fw_models_cu)[, avail_r_cols, drop = FALSE], na.rm = TRUE) > 0
-    } else {
-      fw_models_cu$model_rearing <- FALSE
-    }
-  } else {
-    fw_models_cu$model_rearing <- FALSE
-  }
 
   # get flow stations within each CU boundary
   cu_cont <- st_contains(cu_boundary_i, stations_flow, sparse = T)

@@ -122,10 +122,6 @@ plot_lollipop <- function(all_std_long,
                           indicator_name = NULL,
                           indicator_unit = NULL,
                           use_standardized = FALSE, # default FALSE (Y uses raw)
-                          plot_colours = c(
-                            "#1b9e77", "#d95f02", "#7570b3", "#66a61e",
-                            "#e6ab02", "#a6761d", "#666666"
-                          ),
                           log_scale = FALSE,
                           threshold_value = NA_real_,
                           show_gcm_points = FALSE) {
@@ -266,20 +262,20 @@ plot_lollipop <- function(all_std_long,
     )
 
   # # Saturated Scenario Colors - supporting both "45"/"85" and "4.5"/"8.5" formats
-  # p <- p +
-  #   scale_color_manual(
-  #     name = "Scenario (RCP)",
-  #     values = c(
-  #       "45" = "darkblue", "4.5" = "darkblue", 
-  #       "85" = "#B22222", "8.5" = "#B22222"
-  #     ),
-  #     na.translate = FALSE
-  #   ) +
-  #   scale_shape_manual(
-  #     name = "Downscaling method",
-  #     values = c(21, 24, 22, 23, 25),
-  #     na.translate = FALSE
-  #   )
+  p <- p +
+    scale_color_manual(
+      name = "Scenario (RCP)",
+      values = c(
+        "45" = "darkblue", "4.5" = "darkblue",
+        "85" = "#B22222", "8.5" = "#B22222"
+      ),
+      na.translate = FALSE
+    ) +
+    scale_shape_manual(
+      name = "Downscaling method",
+      values = c(21, 24, 22, 23, 25),
+      na.translate = FALSE
+    )
 
   # Axis scale
   if (isTRUE(log_scale)) {
@@ -324,7 +320,7 @@ plot_lollipop <- function(all_std_long,
   return(p)
 }
 
-# # 
+# # # 
 # p <- plot_lollipop(all_std_long,
 #                           indicator_pick = "migrTproj",
 #               rcp_pick = "45",
@@ -400,12 +396,15 @@ multi_indicator_plot <- function(data,
 
 
 spatial_indicator_plot <- function(data,
+                                   cu_boundary,
                                    outline = Fr_basin,
                                    sp_pick = c("Chinook", "Coho", "Sockeye"),
                                    sp_col_name = "SPECIES_NAME",
                                    indicator_pick,
                                    indicator_name,
-                                   use_standardized = T,
+                                   rcp_pick = NULL,
+                                   period_pick = NULL,
+                                   use_standardized = TRUE,
                                    id_col = "FULL_CU_IN",
                                    brewer_palette = "RdYlGn",
                                    palette_direction = -1) {
@@ -435,11 +434,28 @@ spatial_indicator_plot <- function(data,
     warning("Raw value not found in data, falling back to std_value.")
   }
 
+  # It's possible the data doesn't have the raw 'value' column but was requested
+  if (value_var == "value" && !"value" %in% names(plot_data)) {
+    value_var <- "std_value"
+    warning("Raw value not found in data, falling back to std_value.")
+  }
+
+  # Filter by RCP if provided
+  if (!is.null(rcp_pick)) {
+    plot_data <- plot_data %>% dplyr::filter(.data$rcp %in% rcp_pick)
+  }
+
+  # Filter by period if provided
+  if (!is.null(period_pick)) {
+    plot_data <- plot_data %>% dplyr::filter(.data$period_code %in% period_pick)
+  }
+
   plot_data <- plot_data %>%
     rename(plot_value = !!sym(value_var))
 
   cu_boundary_plot <- cu_boundary %>%
-    left_join(select(plot_data, !!sym(id_col), plot_value, !!sym(sp_col_name)), by = join_by(!!sym(id_col) == !!sym(id_col))) %>%
+    left_join(select(plot_data, !!sym(id_col), plot_value, !!sym(sp_col_name)), 
+              by = join_by(!!sym(id_col), !!sym(sp_col_name))) %>%
     rename(sp_col = !!sym(sp_col_name)) %>%
     filter(
       !is.na(plot_value),
@@ -2052,19 +2068,13 @@ indicator_cu_tile_plot <- function(all_std_long,
 #' Lollipop plot (long-format) for a single RCP/period with GCM variation
 
 plot_maz_lollipop <- function(maz_all,
-                          indicator_pick,
+                          indicator_picks = c("SSTproj", "SSTrate", "CImpact"),
                           rcp_pick = "45",
                           period_pick = "3",
                           dsmodel_pick = NULL,
                           indicator_name = NULL,
                           indicator_unit = NULL,
                           use_standardized = FALSE, # default FALSE (Y uses raw)
-                          plot_colours = c(
-                            "#1b9e77", "#d95f02", "#7570b3", "#66a61e",
-                            "#e6ab02", "#a6761d", "#666666"
-                          ),
-                          log_scale = FALSE,
-                          threshold_value = NA_real_,
                           show_gcm_points = FALSE) {
   # ---- CU roster (ensures all CUs are shown regardless of data presence) 
   maz_roster <- maz_all %>%
@@ -2073,7 +2083,7 @@ plot_maz_lollipop <- function(maz_all,
   # ---- Resolve value column for plotting Y (ranges & center_y) 
   val_col <- if (use_standardized) {
     if (!"std_value" %in% names(maz_all)) {
-      stop("Column 'std_value' not found in all_std_long.")
+      stop("Column 'std_value' not found in maz_all.")
     }
     "std_value"
   } else {
@@ -2086,144 +2096,163 @@ plot_maz_lollipop <- function(maz_all,
     }
   }
   
-  # ---- Filter scenarios/models ----
-  dat_full <- maz_all %>%
-    filter(
-      .data$indicator == indicator_pick,
-      .data$rcp %in% rcp_pick,
-      .data$period_code %in% period_pick
-    )
+  plot_list <- list()
   
-  if (!is.null(dsmodel_pick) && length(dsmodel_pick) > 0 && "dsmodel" %in% names(dat_full)) {
-    dat_full <- dat_full %>% filter(.data$dsmodel %in% dsmodel_pick)
-  }
-  
-  # Ensure rcp and dsmodel are factor-like for plotting
-  dat_full <- dat_full %>%
-    mutate(
-      rcp = factor(rcp),
-      dsmodel = if ("dsmodel" %in% names(.)) factor(dsmodel) else factor("default")
-    )
-  
-  # # Note: even if dat_full is empty, we still want to show all CUs with blanks.
-  # if (!"std_value" %in% names(dat_full)) {
-  #   if (nrow(dat_full) > 0) stop("Column 'std_value' is required for colouring points by standardized score.")
-  # }
-  
-  # ---- Reduce to needed columns ----
-  dat <- dat_full %>%
-    select(MAZ, gcm, rcp, dsmodel,
-           val = dplyr::all_of(val_col)
-    )
-  
-  # ---- Summaries across GCM per CU/Scenario/Model 
-  maz_summary <- dat %>%
-    group_by(MAZ, rcp, dsmodel) %>%
-    summarise(
-      n_gcm      = dplyr::n_distinct(gcm[!is.na(val)]),
-      min_gcm    = if (sum(!is.na(val)) > 0) min(val, na.rm = TRUE) else NA_real_,
-      max_gcm    = if (sum(!is.na(val)) > 0) max(val, na.rm = TRUE) else NA_real_,
-      center_y   = if (sum(!is.na(val)) > 0) mean(val, na.rm = TRUE) else NA_real_, # Y position
-      .groups    = "drop"
-    )
-  
-  # ---- Right-join summaries to the full CU roster to ensure all CUs are present 
-  maz_plot <- maz_roster %>%
-    left_join(maz_summary, by = c("MAZ"))
-  
-
-  # ---- Plot ----
-  dodge_width <- 0.8
-  p <- ggplot(maz_plot, aes(x = MAZ, color = rcp, group = interaction(rcp, dsmodel)))
-  
-  if (!is.na(threshold_value)) {
-    p <- p + geom_hline(yintercept = threshold_value, linetype = "dashed", color = "grey30", size = 0.8)
-  }
-  
-  # 1. Background "Cloud" for GCM uncertainty (wide grey bar)
-  p <- p +
-    geom_segment(aes(xend = MAZ, y = min_gcm, yend = max_gcm),
-                 color = "grey92", linewidth = 6, alpha = 0.8, na.rm = TRUE,
-                 position = position_dodge(width = dodge_width)
-    )
-  
-  # 2. Inner GCM range line (thin line for contrast)
-  p <- p +
-    geom_segment(aes(xend = MAZ, y = min_gcm, yend = max_gcm),
-                 linewidth = 1.5, alpha = 0.8, na.rm = TRUE,
-                 position = position_dodge(width = dodge_width)
-    )
-  
-  # 3. Lollipop Head (Future ensemble mean color-coded by risk score)
-  p <- p +
-    geom_point(aes(y = center_y, shape = dsmodel),
-               color = "black", size = 3.2, stroke = 0.8, na.rm = TRUE,
-               position = position_dodge(width = dodge_width)
-    ) 
-  
-  # Saturated Scenario Colors
-  p <- p +
-    scale_color_manual(
-      name = "Scenario (RCP)",
-      values = c("45" = "darkblue", "85" = "#B22222", "0" = "black"), # ForestGreen and FireBrick
-      na.translate = FALSE
-    ) +
-    scale_shape_manual(
-      name = "Downscaling method",
-      values = c(21, 24, 22, 23, 25),
-      na.translate = FALSE
-    )
-  
-  # Axis scale
-  if (isTRUE(log_scale)) {
-    if (any(maz_plot$min_gcm <= 0, na.rm = TRUE)) {
-      warning("log_scale = TRUE but some values are <= 0; those rows will be dropped by scale_y_log10.")
+  for (i in seq_along(indicator_picks)) {
+    ind <- indicator_picks[i]
+    
+    # ---- Filter scenarios/models ----
+    dat_full <- maz_all %>%
+      filter(
+        .data$indicator == ind,
+        .data$rcp %in% rcp_pick,
+        .data$period_code %in% period_pick
+      )
+    
+    if (nrow(dat_full) == 0) {
+      p_empty <- ggplot() + 
+        theme_void() + 
+        labs(title = ind, subtitle = "No data found")
+      plot_list[[i]] <- p_empty
+      next
     }
-    p <- p + scale_y_log10()
+    
+    if (!is.null(dsmodel_pick) && length(dsmodel_pick) > 0 && "dsmodel" %in% names(dat_full)) {
+      dat_full <- dat_full %>% filter(.data$dsmodel %in% dsmodel_pick)
+    }
+    
+    # Ensure rcp and dsmodel are factor-like for plotting
+    dat_full <- dat_full %>%
+      mutate(
+        rcp = factor(rcp),
+        dsmodel = if ("dsmodel" %in% names(.)) factor(dsmodel) else factor("default")
+      )
+    
+    # ---- Reduce to needed columns ----
+    dat <- dat_full %>%
+      select(MAZ, gcm, rcp, dsmodel,
+             val = dplyr::all_of(val_col)
+      )
+    
+    # ---- Summaries across GCM per CU/Scenario/Model 
+    maz_summary <- dat %>%
+      group_by(MAZ, rcp, dsmodel) %>%
+      summarise(
+        n_gcm      = dplyr::n_distinct(gcm[!is.na(val)]),
+        min_gcm    = if (sum(!is.na(val)) > 0) min(val, na.rm = TRUE) else NA_real_,
+        max_gcm    = if (sum(!is.na(val)) > 0) max(val, na.rm = TRUE) else NA_real_,
+        center_y   = if (sum(!is.na(val)) > 0) mean(val, na.rm = TRUE) else NA_real_, # Y position
+        .groups    = "drop"
+      )
+    
+    # ---- Right-join summaries to the full CU roster to ensure all CUs are present 
+    maz_plot <- maz_roster %>%
+      left_join(maz_summary, by = c("MAZ"))
+    
+    # ---- Plot ----
+    dodge_width <- 0.8
+    p <- ggplot(maz_plot, aes(x = MAZ, color = rcp, group = interaction(rcp, dsmodel)))
+    
+    
+    # 1. Background "Cloud" for GCM uncertainty (wide grey bar)
+    p <- p +
+      geom_segment(aes(xend = MAZ, y = min_gcm, yend = max_gcm),
+                   color = "grey92", linewidth = 6, alpha = 0.8, na.rm = TRUE,
+                   position = position_dodge(width = dodge_width)
+      )
+    
+    # 2. Inner GCM range line (thin line for contrast)
+    p <- p +
+      geom_segment(aes(xend = MAZ, y = min_gcm, yend = max_gcm),
+                   linewidth = 1.5, alpha = 0.8, na.rm = TRUE,
+                   position = position_dodge(width = dodge_width)
+      )
+    
+    # 3. Lollipop Head (Future ensemble mean color-coded by risk score)
+    p <- p +
+      geom_point(aes(y = center_y, shape = dsmodel),
+                 color = "black", size = 3.2, stroke = 0.8, na.rm = TRUE,
+                 position = position_dodge(width = dodge_width)
+      ) 
+    
+    # Saturated Scenario Colors
+    p <- p +
+      scale_color_manual(
+        name = "Scenario (RCP)",
+        values = c("45" = "darkblue", "85" = "#B22222", "0" = "black"),
+        na.translate = FALSE
+      ) +
+      scale_shape_manual(
+        name = "Downscaling method",
+        values = c(21, 24, 22, 23, 25),
+        na.translate = FALSE
+      )
+    
+    # Labels
+    ind_name <- if (is.null(indicator_name) || length(indicator_name) < i || is.na(indicator_name[i])) ind else indicator_name[i]
+    ind_unit <- if (is.null(indicator_unit) || length(indicator_unit) < i || is.na(indicator_unit[i])) "" else indicator_unit[i]
+    
+    subtitle_lab <- ind_name
+    y_lab <- if (isTRUE(use_standardized)) {
+      "Standardized score"
+    } else {
+      if (is.null(ind_unit) || is.na(ind_unit) || ind_unit == "") "Value" else ind_unit
+    }
+    
+    p <- p +
+      labs(
+        subtitle = subtitle_lab,
+        y = y_lab,
+        x = NULL
+      ) +
+      coord_flip() +
+      theme_minimal(base_size = 11) +
+      theme(
+        axis.text.y = ggtext::element_markdown(size = 8.5),
+        panel.grid.major.y = element_blank()
+      )
+    
+    # Hide y-axis labels and ticks for panels after the first to prevent repetition
+    if (i > 1) {
+      p <- p + theme(
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()
+      )
+    }
+    
+    plot_list[[i]] <- p
   }
   
-  # Labels
-  subtitle_lab <- if (is.null(indicator_name)) indicator_pick else indicator_name
-  y_lab <- if (isTRUE(use_standardized)) {
-    "Standardized score" # no units for standardized
-  } else {
-    if (is.null(indicator_unit) || is.na(indicator_unit) || indicator_unit == "") "Value" else indicator_unit
-  }
-  dsmodel_lab <- if (!is.null(dsmodel_pick) && length(dsmodel_pick) > 0 && "dsmodel" %in% names(dat_full)) {
-    paste(unique(dat_full$dsmodel), collapse = ", ")
+  # Determine common caption info
+  dsmodel_lab <- if (!is.null(dsmodel_pick) && length(dsmodel_pick) > 0 && "dsmodel" %in% names(maz_all)) {
+    paste(unique(maz_all$dsmodel[maz_all$dsmodel %in% dsmodel_pick]), collapse = ", ")
   } else {
     NA_character_
   }
   
-  p <- p +
-    labs(
-      subtitle = subtitle_lab,
-      y = y_lab,
-      x = NULL,
-      caption = paste0(
-        "RCP ", rcp_pick, " • Period ", period_pick,
-        if (!is.na(dsmodel_lab)) paste0(" • dsmodel: ", dsmodel_lab) else "",
-        " — Point = mean across GCMs; Segment = min–max across GCMs",
-        if (!use_standardized) " (Y: raw; colour: standardized)" else " (Y & colour: standardized)"
-      )
-    ) +
-    coord_flip() +
-    theme_minimal(base_size = 11) +
-    theme(
-      axis.text.y = ggtext::element_markdown(size = 8.5),
-      legend.position = "right",
-      panel.grid.major.y = element_blank()
+  shared_caption <- paste0(
+    "RCP ", paste(rcp_pick, collapse = "/"), " • Period ", paste(period_pick, collapse = "/"),
+    if (!is.na(dsmodel_lab) && dsmodel_lab != "") paste0(" • dsmodel: ", dsmodel_lab) else "",
+    " — Point = mean across GCMs; Segment = min–max across GCMs",
+    if (!use_standardized) " (Y: raw; colour: standardized)" else " (Y & colour: standardized)"
+  )
+  
+  # Assemble with patchwork
+  combined_plot <- patchwork::wrap_plots(plot_list, ncol = length(indicator_picks)) +
+    patchwork::plot_layout(guides = "collect") &
+    theme(legend.position = "right")
+  
+  combined_plot <- combined_plot +
+    patchwork::plot_annotation(
+      caption = shared_caption
     )
   
-  return(p)
+  return(combined_plot)
 }
 
-
-# plot_maz_lollipop(maz_all,
-#                   indicator_pick = "SSTproj",
-#                   rcp_pick = "45",
-#                   period_pick = "3")
-
+# 
+# plot_maz_lollipop(maz_all)
+# 
 
 
 

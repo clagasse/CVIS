@@ -87,8 +87,139 @@ subset_intersections <- function(sp_x, sp_y) {
   return(sp_x_sub)
 }
 
+# Reconstruct migrT_rcps from migr_daily_all if it is missing (as in newer data files)
+reconstruct_migrT_rcps <- function(migr_daily_all) {
+  if (is.null(migr_daily_all) || nrow(migr_daily_all) == 0) {
+    return(list())
+  }
+  
+  # Unnest daily migration temperature data, dropping period from outer select to avoid duplicate names in unnest
+  df_unnested <- migr_daily_all %>%
+    dplyr::filter(attr == "migrT") %>%
+    dplyr::select(FULL_CU_IN, rcp, time) %>%
+    tidyr::unnest(time) %>%
+    dplyr::mutate(doy = as.integer(time))
+  
+  if (nrow(df_unnested) == 0) {
+    return(list())
+  }
+  
+  # Calculate summary stats across GCM models
+  df_summary <- df_unnested %>%
+    dplyr::group_by(FULL_CU_IN, rcp, period, doy) %>%
+    dplyr::summarise(
+      mean_val = mean(migrT, na.rm = TRUE),
+      q10_val = stats::quantile(migrT, probs = 0.1, na.rm = TRUE),
+      q90_val = stats::quantile(migrT, probs = 0.9, na.rm = TRUE),
+      .groups = "drop"
+    )
+  
+  rcps <- unique(df_summary$rcp)
+  migrT_rcps <- list()
+  
+  for (rcp_val in rcps) {
+    df_rcp <- df_summary %>% dplyr::filter(rcp == rcp_val)
+    cus <- unique(df_rcp$FULL_CU_IN)
+    migrT_rcps[[rcp_val]] <- list()
+    
+    for (cu_val in cus) {
+      df_cu <- df_rcp %>% dplyr::filter(FULL_CU_IN == cu_val)
+      periods <- sort(unique(df_cu$period))
+      doys <- sort(unique(df_cu$doy))
+      
+      mat_mean <- matrix(NA_real_, nrow = length(doys), ncol = length(periods),
+                         dimnames = list(as.character(doys), periods))
+      mat_10 <- mat_mean
+      mat_90 <- mat_mean
+      
+      for (per_val in periods) {
+        df_per <- df_cu %>% dplyr::filter(period == per_val)
+        idx <- match(df_per$doy, doys)
+        mat_mean[idx, per_val] <- df_per$mean_val
+        mat_10[idx, per_val] <- df_per$q10_val
+        mat_90[idx, per_val] <- df_per$q90_val
+      }
+      
+      migrT_rcps[[rcp_val]][[cu_val]] <- list(
+        doy = list(
+          mean = mat_mean,
+          `0.1` = mat_10,
+          `0.9` = mat_90
+        ),
+        gcm = NULL
+      )
+    }
+  }
+  
+  return(migrT_rcps)
+}
+
+# Subset fw_models by CU and get model_rs, model_spawning, and model_rearing for the CU species
+subset_fw_models <- function(fw_models, cu_i, stream_cu_picks, cu_run, spp_lookup, to_factor = FALSE) {
+  # Get species abbreviations
+  sp_pick <- cu_run$SPECIES_NAME[cu_run$FULL_CU_IN == cu_i]
+  if (length(sp_pick) == 0) {
+    stop("CU ", cu_i, " not found in cu_run.")
+  }
+  sp_pick <- sp_pick[1] # Ensure single value
+  
+  sp_pick_bcfp <- spp_lookup$spp_abr_bcfp[spp_lookup$SPECIES_NAME == sp_pick]
+  
+  # Determine column names for habitat potential models
+  model_h_pick <- paste0("model_habitat_", sp_pick_bcfp)
+  model_r_pick <- paste0("model_rearing_", sp_pick_bcfp)
+  model_s_pick <- paste0("model_spawning_", sp_pick_bcfp)
+  
+  # Harrison downstream (Weaver) sockeye exception
+  if (cu_i == "SEL-03-04") {
+    model_h_pick <- "model_habitat_salmon"
+  }
+  
+  # Subset stream indices for the CU
+  stream_cu_sub <- stream_cu_picks[, colnames(stream_cu_picks) == cu_i]
+  fw_models_cu <- fw_models[stream_cu_sub, ]
+  
+  # Calculate reachable/accessible habitat (model_rs)
+  avail_h_cols <- intersect(model_h_pick, names(fw_models_cu))
+  if (length(avail_h_cols) > 0) {
+    fw_models_cu$model_rs <- rowSums(st_drop_geometry(fw_models_cu)[, avail_h_cols, drop = FALSE], na.rm = TRUE) > 0
+  } else {
+    fw_models_cu$model_rs <- FALSE
+  }
+  
+  # Calculate spawning habitat (model_spawning)
+  avail_s_cols <- intersect(model_s_pick, names(fw_models_cu))
+  if (length(avail_s_cols) > 0) {
+    fw_models_cu$model_spawning <- rowSums(st_drop_geometry(fw_models_cu)[, avail_s_cols, drop = FALSE], na.rm = TRUE) > 0
+  } else {
+    fw_models_cu$model_spawning <- FALSE
+  }
+  
+  # Calculate rearing habitat (model_rearing)
+  # Check if species is Chinook, Coho, or Sockeye (using both abbreviations and full names)
+  if (sp_pick %in% c("ck", "co", "sk", "Chinook", "Coho", "Sockeye")) {
+    avail_r_cols <- intersect(model_r_pick, names(fw_models_cu))
+    if (length(avail_r_cols) > 0) {
+      fw_models_cu$model_rearing <- rowSums(st_drop_geometry(fw_models_cu)[, avail_r_cols, drop = FALSE], na.rm = TRUE) > 0
+    } else {
+      fw_models_cu$model_rearing <- FALSE
+    }
+  } else {
+    fw_models_cu$model_rearing <- FALSE
+  }
+  
+  # Convert model_rs to factor for plotting if requested
+  if (isTRUE(to_factor)) {
+    fw_models_cu$model_rs <- factor(fw_models_cu$model_rs, levels = c(TRUE, FALSE),
+                                    labels = c("1-SPAWNING/REARING", "2-ACCESSIBLE"))
+  }
+  
+  return(fw_models_cu)
+}
+
 
 ###############################################################################
+
 # Function to load PCIC model output for given model and variable
 ###############################################################################
 
