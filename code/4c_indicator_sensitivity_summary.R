@@ -32,6 +32,15 @@ setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
 
 load(file.path(paths$output, "scoring_results.Rdata")) # Ensure all_std_long and scores_tidy are fresh
+
+# Filter to default exponential standardization to keep downstream analyses consistent
+if ("std_method" %in% names(all_std_long)) {
+  all_std_long <- all_std_long %>% filter(std_method == "exponential")
+}
+if ("std_method" %in% names(scores_tidy)) {
+  scores_tidy <- scores_tidy %>% filter(std_method == "exponential")
+}
+
 # Load outputs from 4b (Indicator metrics and sensitivity analysis)
 load(file.path(paths$output, "sensitivity_analysis.Rdata")) # loads overall_sensitivity
 
@@ -76,6 +85,7 @@ for (sp in species_to_process) {
         str_detect(source_label, "^RCP") ~ "Scenario",
         str_detect(source_label, "^Method") ~ "Method",
         str_detect(source_label, "^Model") ~ "dsmethod",
+        str_detect(source_label, "^stdmethod") ~ "StdMethod",
         TRUE ~ "Other"
       )
       source_nm <- case_when(
@@ -83,15 +93,28 @@ for (sp in species_to_process) {
         TRUE ~ source_label
       )
       
-      raw_vals <- ind_dat[[col]]
-      abs_vals <- abs(raw_vals)
-      
-      # Calculate Ranks WITHIN CURRENT SCOPE (Global or Species) for displacement
-      scen_vals <- baseline_vals + raw_vals
-      scen_ranks <- rank(scen_vals, ties.method = "average", na.last = "keep")
-      
-      mrd <- mean(abs(scen_ranks - baseline_ranks), na.rm = TRUE)
-      cor_val <- cor(scen_ranks, baseline_ranks, method = "spearman", use = "pairwise.complete.obs")
+      if (source_label == "stdmethod") {
+        raw_vals <- ind_dat$std_dev_stdmethod
+        abs_vals <- ind_dat$abs_std_dev_stdmethod
+        
+        # Ranks for stdmethod are based on standardized values
+        baseline_ranks_std <- rank(ind_dat$base_std_mean, ties.method = "average", na.last = "keep")
+        scen_vals <- ind_dat$base_std_mean + raw_vals
+        scen_ranks <- rank(scen_vals, ties.method = "average", na.last = "keep")
+        
+        mrd <- mean(abs(scen_ranks - baseline_ranks_std), na.rm = TRUE)
+        cor_val <- cor(scen_ranks, baseline_ranks_std, method = "spearman", use = "pairwise.complete.obs")
+      } else {
+        raw_vals <- ind_dat[[col]]
+        abs_vals <- abs(raw_vals)
+        
+        # Calculate Ranks WITHIN CURRENT SCOPE (Global or Species) for displacement
+        scen_vals <- baseline_vals + raw_vals
+        scen_ranks <- rank(scen_vals, ties.method = "average", na.last = "keep")
+        
+        mrd <- mean(abs(scen_ranks - baseline_ranks), na.rm = TRUE)
+        cor_val <- cor(scen_ranks, baseline_ranks, method = "spearman", use = "pairwise.complete.obs")
+      }
       
       tibble(
         SPECIES_NAME = sp,
@@ -151,6 +174,7 @@ for (cat in unique(score_deviations$category)) {
       str_detect(source_label, "^RCP") ~ "Scenario",
       str_detect(source_label, "^Method") ~ "Method",
       str_detect(source_label, "^Model") ~ "dsmethod",
+      str_detect(source_label, "^stdmethod") ~ "StdMethod",
       TRUE ~ "Other"
     )
     source_nm <- case_when(

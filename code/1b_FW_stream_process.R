@@ -50,7 +50,7 @@ save(basins, file = file.path(paths$fw, "basins_shp.Rds"))
 cu_boundary <- st_read(file.path(paths$spatial, "CU_boundaries", "fraser_cus.shp")) %>%
   st_make_valid() %>%
   st_transform(crs = 3005)  %>%  # crs 3005 is NAD83/BC Albers
-  left_join(select(cu_Fr, cuid, FULL_CU_IN, spp),
+  left_join(select(decoder, cuid, FULL_CU_IN, spp),
     join_by(CUID == cuid)) %>%
   filter(!is.na(FULL_CU_IN))
 
@@ -826,7 +826,6 @@ if (base_network == "tscapes") {
 load(file.path(paths$fw, "fw_models_tscapes.Rds"))
 fw_models_df <- st_drop_geometry(fw_models)
 
-
 ### High flow stats
 
 flow_long <- fw_models_df %>%
@@ -863,8 +862,8 @@ proj_col_18 <- proj_col_18[str_detect(proj_col_18, "flow18")]
 
 fwQNDJ_wide <- flow_wide %>%
   mutate(histq = !!sym(hist_col_18),
-    across(contains(proj_col_18), ~ (.x - histq) / histq, .names = "delta{.col}")) %>%
-  select(linear_feature_id, contains("deltaflow"))
+    across(all_of(proj_col_18), ~ (.x - histq) / histq, .names = "{sub('flow18_9_', 'flow18pdelta_9_', .col)}")) %>%
+  select(linear_feature_id, starts_with("flow18pdelta"))
 
 hist_col_8 <- names(flow_wide)[str_detect(names(flow_wide), "flow8_9_0_0")]
 proj_col_8 <- names(flow_wide)[str_detect(names(flow_wide), "45|85")]
@@ -872,8 +871,8 @@ proj_col_8 <- proj_col_8[str_detect(proj_col_8, "flow8")]
 
 fwQ8_wide <- flow_wide %>%
   mutate(histq = !!sym(hist_col_8),
-    across(contains(proj_col_8), ~ (.x - histq) / histq, .names = "delta{.col}")) %>%
-  select(linear_feature_id, contains("deltaflow"))
+    across(all_of(proj_col_8), ~ (.x - histq) / histq, .names = "{sub('flow8_9_', 'flow8pdelta_9_', .col)}")) %>%
+  select(linear_feature_id, starts_with("flow8pdelta"))
 
 ## Historic flow stats for all months
 # hflow_sub <- hflow %>%
@@ -881,12 +880,20 @@ fwQ8_wide <- flow_wide %>%
 #   rename_with(~ str_replace_all(., "mean_flow_m3s", "flow")) %>%
 #   rename_with(~ str_replace_all(.,  "_1$", "_0"))
 
-# temp stats by stream
+fwT_cols <- grep(paste0("^", T_model, "_", 9), names(fw_models), value = TRUE)
+
 fwT_indi <- fw_models_df %>%
-  mutate(histT = !!sym(paste(T_model, "0_00", historical_code, sep = "_"))) %>%  # add historical Tw8
-  select(linear_feature_id, histT,
-    all_of(grep(paste0("^", T_model, "_", 9), names(fw_models), value = TRUE))) %>%
-  mutate(across(contains(T_model), ~ .x - histT, .names = "delta{.col}"))
+  mutate(histT = !!sym(paste(T_model, "0_00", historical_code, sep = "_")))
+
+for (col in fwT_cols) {
+  period_pick <- sub(".*_([0-9])$", "\\1", col)
+  decades <- decade_calc(historical_code, period_pick)
+  rate_col_name <- sub(paste0("^", T_model, "_"), "tw8rate_", col)
+  fwT_indi[[rate_col_name]] <- (fwT_indi[[col]] - fwT_indi$histT) / decades
+}
+
+fwT_indi <- fwT_indi %>%
+  select(linear_feature_id, histT, all_of(fwT_cols), starts_with("tw8rate"))
 
 
 # ENM stats by stream
@@ -921,8 +928,7 @@ fw_sp_ind <- fw_models %>%
     mad_m3s, upstream_area_ha, gradient, gnis_name, model_access_salmon,
     model_habitat_salmon,
     model_habitat_ch, model_habitat_cm, model_habitat_co, model_habitat_pk, model_habitat_sk,
-    contains("cthr"),
-    contains("fav")) %>%
+    contains("cthr")) %>%
   left_join(fwT_indi,
     join_by(linear_feature_id)) %>%
   left_join(fwQ8_wide,
@@ -931,6 +937,20 @@ fw_sp_ind <- fw_models %>%
     join_by(linear_feature_id)) %>%
   left_join(fw_ENM,
     join_by(linear_feature_id))
+
+# Clean up fw_sp_ind to only include relevant scenarios/outputs
+# 1) Rename tw8_9_... to tw8proj_9_...
+names(fw_sp_ind) <- sub("^tw8_9_", "tw8proj_9_", names(fw_sp_ind))
+
+# 2) Filter columns to exclude RCP 2.6 and period 2
+cols_to_keep <- names(fw_sp_ind) %>%
+  # Exclude any column containing "_26_" or "_26" or ending in "_26"
+  grep("(_26_|\\b26\\b|_26$)", ., invert = TRUE, value = TRUE) %>%
+  # Exclude any column ending in "_2" (time period 2)
+  grep("_2$", ., invert = TRUE, value = TRUE)
+
+fw_sp_ind <- fw_sp_ind %>%
+  select(all_of(cols_to_keep))
 
 save(fw_sp_ind, file = file.path(paths$fw, "fw_stream_indicators_sp.Rds"))
 

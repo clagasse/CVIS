@@ -671,7 +671,7 @@ Projected proportional change in August stream flows. Negative values indicate f
 Q8_plot <- stream_indicator_plot(acc_sp_cu, 
                                  cu_boundary_i,
                                  lakes_cu,
-                                variable = "deltaflow8_9_45_3", 
+                                variable = "flow8pdelta_9_45_3", 
                                 plot_title = "Change in August flow - 2041-2060",
                                 unit_label = "Proportion change",
                                 xlim = c(-1,0),
@@ -689,7 +689,7 @@ Projected proportional change in winter flows (November-January). Positive value
 QNDJ_plot <- stream_indicator_plot(acc_sp_cu, 
                                  cu_boundary_i,
                                  lakes_cu,
-                                variable = "deltaflow18_9_45_3", 
+                                variable = "flow18pdelta_9_45_3", 
                                 plot_title = "Change in Nov_Jan flow - 2041-2060",
                                 unit_label = "Proportion change",
                                 scico_palette = "devon",
@@ -721,7 +721,7 @@ t_plot <- stream_indicator_plot(acc_sp_cu,
                                 cu_boundary_i, 
                                 lakes_cu,
                                 Tw_stations,
-                                variable = "tw8_9_45_3", 
+                                variable = "tw8proj_9_45_3", 
                                 temp_stations = TRUE,
                                 plot_title = "August Mean Temperature - 2041-2060",
                                 unit_label = "Degrees C",
@@ -740,7 +740,7 @@ tRate_plot <- stream_indicator_plot(acc_sp_cu,
                                 cu_boundary_i, 
                                 lakes_cu,
                                 Tw_stations,
-                                variable = "deltatw8_9_45_3", 
+                                variable = "tw8rate_9_45_3", 
                                 temp_stations = TRUE,
                                 plot_title = "Rate of Change in August Mean Temperature - 1981-2000 to 2041-2060",
                                 unit_label = "Degrees C",
@@ -761,23 +761,6 @@ Indicator value of changes in habitat favourability (favchange) from Environment
 create_indicator_reactable(tbl_view, c("favchange"))
 ```
 
-#### ENM Habitat Favourability
-
-Projected habitat favourability (2041-2060, RCP 4.5). Values range from 0 (unfavourable) to 1 (highly favourable) based on projected environmental conditions.
-
-```{r ENMs}
-ENM_plot <- stream_indicator_plot(fw_sp_cu, 
-                                 cu_boundary_i,
-                                 lakes_cu,
-                                variable = "fav_45", 
-                                plot_title = "ENM favourability, 2041-2060",
-                                histogram_fill = "model_access_salmon",
-                                scico_palette = "davos",
-                                xlim = c(0,1),
-                                palette_direction = -1)
-
-ENM_plot
-```
 
 #### Change in Favourability
 

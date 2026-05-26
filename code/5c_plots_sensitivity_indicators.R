@@ -41,6 +41,8 @@ dir.create(fig_path, showWarnings = FALSE, recursive = TRUE)
 # Load indicator data
 cat("Loading indicator data...\n")
 load(file.path(paths$output, "scoring_results.Rdata")) # loads all_std_long
+load(file.path(paths$output, "sensitivity_analysis.Rdata")) # loads overall_sensitivity
+load(file.path(paths$output, "indicator_sensitivity_summary.Rdata")) # loads ind_sens_summary, etc.
 
 # ==================== 2. Data Processing & Calculations ====================
 cat("Processing indicator variation data...\n")
@@ -101,7 +103,7 @@ cat("Generating additional indicator sensitivity visualizations...\n")
 source_colors <- sens_source_palette
 
 # 3a. Indicator-Level Sensitivity (MAD Bar Chart)
-p_ind_sens <- ggplot(ind_sens_summary, aes(x = reorder(indicator, mean_abs_dev, mean), y = mean_abs_dev, fill = source)) +
+p_ind_sens <- ggplot(ind_sens_summary %>% filter(SPECIES_NAME == "ALL"), aes(x = reorder(indicator, mean_abs_dev, mean), y = mean_abs_dev, fill = source)) +
     geom_bar(stat = "identity", position = "dodge") +
     coord_flip() +
     facet_wrap(~category, scales = "free_y") +
@@ -131,7 +133,8 @@ ind_shift_cus <- overall_sensitivity$indicator_metrics %>%
         val_RCP45_P5 = base_raw_mean + raw_dev_RCP45_P5,
         val_RCP85_P3 = base_raw_mean + raw_dev_RCP85_P3,
         val_RCP85_P5 = base_raw_mean + raw_dev_RCP85_P5,
-        val_dsmethod = base_raw_mean + raw_dev_dsmethod
+        val_dsmethod = base_raw_mean + raw_dev_dsmethod,
+        val_stdmethod = base_raw_mean + raw_dev_stdmethod
     ) %>%
     select(FULL_CU_IN, indicator, category, base_raw_mean, starts_with("val_")) %>%
     pivot_longer(cols = starts_with("val_"), names_to = "source", names_prefix = "val_", values_to = "val") %>%
@@ -140,7 +143,7 @@ ind_shift_cus <- overall_sensitivity$indicator_metrics %>%
     mutate(has_variation = source == "Baseline" | any(abs(val - base_raw_mean) > 1e-10, na.rm = TRUE)) %>%
     filter(has_variation) %>%
     group_by(indicator) %>% filter(n_distinct(source) > 1) %>% ungroup() %>%
-    mutate(source = factor(source, levels = rev(c("Baseline", "GCM1", "GCM4", "GCM6", "RCP45_P5", "RCP85_P3", "RCP85_P5", "dsmethod"))))
+    mutate(source = factor(source, levels = rev(c("Baseline", "GCM1", "GCM4", "GCM6", "RCP45_P5", "RCP85_P3", "RCP85_P5", "dsmethod", "stdmethod"))))
 
 baseline_refs <- ind_shift_cus %>% group_by(indicator) %>% summarise(ref_mean = mean(base_raw_mean, na.rm = TRUE), .groups = "drop")
 ind_label_units <- tbl_indicators %>% mutate(facet_label = paste0(abbrev, "\n(", unit, ")")) %>% select(abbrev, facet_label) %>% tibble::deframe()
@@ -167,13 +170,14 @@ ind_xy_dat <- overall_sensitivity$indicator_metrics %>%
     valraw_GCM1 = base_raw_mean + raw_dev_GCM1, valstd_GCM1 = base_std_mean + std_dev_GCM1,
     valraw_GCM4 = base_raw_mean + raw_dev_GCM4, valstd_GCM4 = base_std_mean + std_dev_GCM4,
     valraw_GCM6 = base_raw_mean + raw_dev_GCM6, valstd_GCM6 = base_std_mean + std_dev_GCM6,
-    valraw_dsmethod = base_raw_mean + raw_dev_dsmethod, valstd_dsmethod = base_std_mean + std_dev_dsmethod
+    valraw_dsmethod = base_raw_mean + raw_dev_dsmethod, valstd_dsmethod = base_std_mean + std_dev_dsmethod,
+    valraw_stdmethod = base_raw_mean + raw_dev_stdmethod, valstd_stdmethod = base_std_mean + std_dev_stdmethod
   ) %>%
   select(FULL_CU_IN, SPECIES_NAME, category, indicator, starts_with("valraw_"), starts_with("valstd_")) %>%
   pivot_longer(cols = starts_with("valraw_") | starts_with("valstd_"), names_to = c(".value", "source"), names_sep = "_") %>%
   rename(raw = valraw, std = valstd) %>% filter(!is.na(raw))
 
-source_shapes <- c("Baseline" = 16, "GCM1" = 17, "GCM4" = 18, "GCM6" = 15, "dsmethod" = 13)
+source_shapes <- c("Baseline" = 16, "GCM1" = 17, "GCM4" = 18, "GCM6" = 15, "dsmethod" = 13, "stdmethod" = 8)
 xy_colors <- c("Baseline" = "black", source_colors)
 
 p_xy <- ggplot(ind_xy_dat, aes(x = raw, y = std, color = source, shape = source)) +
@@ -211,8 +215,7 @@ dev.off()
 # ==================== 4. Generate Sensitivity Summary Table ====================
 cat("Generating manuscript-ready summary table of indicator sensitivity...\n")
 
-# Load sensitivity summary data from 4c
-load(file.path(paths$output, "indicator_sensitivity_summary.Rdata"))
+# Load sensitivity summary data from 4c (already loaded at setup)
 
 # 3a. Prepare baseline means for all indicators (including non-climate ones)
 # We use the same baseline logic as 4b/4c
@@ -230,6 +233,7 @@ baseline_means <- all_std_long %>%
 # Period 5 is the shift from P3 to P5 under RCP 45
 # RCP85 is the shift from RCP 45 to 85 under Period 3
 ind_sens_table_long <- ind_sens_summary %>%
+  filter(SPECIES_NAME == "ALL") %>%
   mutate(table_source = case_when(
     source == "GCM1" ~ "GCM1",
     source == "GCM4" ~ "GCM4",
@@ -238,6 +242,7 @@ ind_sens_table_long <- ind_sens_summary %>%
     source == "RCP45_P5" ~ "Period5",
     source == "Model" ~ "dsmethod",
     source == "dsmethod" ~ "dsmethod",
+    source == "stdmethod" ~ "stdmethod",
     TRUE ~ NA_character_
   )) %>%
   filter(!is.na(table_source))
@@ -254,6 +259,7 @@ ind_sens_table_wide <- ind_sens_table_long %>%
 
 # Calculate GCM spread (q10 and q90) across the individual GCM means for each indicator
 gcm_spread <- ind_sens_summary %>%
+  filter(SPECIES_NAME == "ALL") %>%
   filter(source_type == "GCM") %>%
   group_by(indicator) %>%
   summarise(
@@ -273,7 +279,7 @@ indicator_sensitivity_table <- tbl_indicators %>%
     Baseline_Mean,
     any_of(c("GCM1_raw", "GCM1_mrd", "GCM4_raw", "GCM4_mrd", "GCM6_raw", "GCM6_mrd",
              "RCP85_raw", "RCP85_mrd", "Period5_raw", "Period5_mrd", 
-             "dsmethod_raw", "dsmethod_mrd", "GCM_q10", "GCM_q90"))
+             "dsmethod_raw", "dsmethod_mrd", "stdmethod_raw", "stdmethod_mrd", "GCM_q10", "GCM_q90"))
   )
 
 # 3d. Format as gt table for manuscript
@@ -299,6 +305,7 @@ ind_sens_gt <- gt_data %>%
     RCP85_raw = "Raw", RCP85_mrd = "MRD",
     Period5_raw = "Raw", Period5_mrd = "MRD",
     dsmethod_raw = "Raw", dsmethod_mrd = "MRD",
+    stdmethod_raw = "Raw", stdmethod_mrd = "MRD",
     GCM_q10 = "q10", GCM_q90 = "q90"
   ) %>%
   tab_spanner(label = "GCM 1", columns = starts_with("GCM1")) %>%
@@ -307,6 +314,7 @@ ind_sens_gt <- gt_data %>%
   tab_spanner(label = "RCP 8.5", columns = starts_with("RCP85")) %>%
   tab_spanner(label = "Period 5", columns = starts_with("Period5")) %>%
   tab_spanner(label = "Downscaling method", columns = starts_with("dsmethod")) %>%
+  tab_spanner(label = "Std Method", columns = starts_with("stdmethod")) %>%
   tab_spanner(label = "GCM Spread", columns = c("GCM_q10", "GCM_q90")) %>%
   fmt_missing(everything(), missing_text = "—") %>%
   tab_options(

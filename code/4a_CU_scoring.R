@@ -129,8 +129,8 @@ for (i in 1:nrow(tbl_standardize)) {
     next
   }
 
-  # Standardize
-  std_result <- standardize_long_indicator(
+  # 1. Run default standardization
+  std_result_default <- standardize_long_indicator(
     data = all_long,
     calibration_data = calibration_input,
     grouping_vars = grouping_vars_pick,
@@ -141,17 +141,78 @@ for (i in 1:nrow(tbl_standardize)) {
     baseline_rcp = scale_baseline_rcp,
     baseline_period = scale_baseline_period
   )
+  
+  if (is.null(std_result_default)) next
+
+  std_fun_default <- tbl_standardize$std_fun[i]
+
+  if (std_fun_default %in% c("cat_std", "step_std", "enh_std")) {
+    # Discrete/categorical: duplicate default to both options
+    std_result <- bind_rows(
+      std_result_default %>% mutate(std_method = "exponential"),
+      std_result_default %>% mutate(std_method = "linear")
+    )
+  } else if (std_fun_default %in% c("exponential_std", "decay_std")) {
+    # Default is exponential/decay -> alternative is linear
+    std_exp <- std_result_default %>% mutate(std_method = "exponential")
+    
+    alt_fun <- if (std_fun_default == "exponential_std") "linear_std" else "invlinear_std"
+    std_result_lin <- standardize_long_indicator(
+      data = all_long,
+      calibration_data = calibration_input,
+      grouping_vars = grouping_vars_pick,
+      indicator_pick = ind_abbrev,
+      std_fun = alt_fun,
+      std_params = std_params_i,
+      calibration_gcm = "9",
+      baseline_rcp = scale_baseline_rcp,
+      baseline_period = scale_baseline_period
+    )
+    
+    if (!is.null(std_result_lin)) {
+      std_lin <- std_result_lin %>% mutate(std_method = "linear")
+      std_result <- bind_rows(std_exp, std_lin)
+    } else {
+      std_result <- std_exp
+    }
+  } else if (std_fun_default %in% c("linear_std", "invlinear_std")) {
+    # Default is linear/inverse-linear -> alternative is exponential
+    std_lin <- std_result_default %>% mutate(std_method = "linear")
+    
+    alt_fun <- if (std_fun_default == "linear_std") "exponential_std" else "decay_std"
+    alt_params <- std_params_i
+    alt_params$lambda <- 3 # default lambda for alternative exponential risk curve
+    
+    std_result_exp <- standardize_long_indicator(
+      data = all_long,
+      calibration_data = calibration_input,
+      grouping_vars = grouping_vars_pick,
+      indicator_pick = ind_abbrev,
+      std_fun = alt_fun,
+      std_params = alt_params,
+      calibration_gcm = "9",
+      baseline_rcp = scale_baseline_rcp,
+      baseline_period = scale_baseline_period
+    )
+    
+    if (!is.null(std_result_exp)) {
+      std_exp <- std_result_exp %>% mutate(std_method = "exponential")
+      std_result <- bind_rows(std_exp, std_lin)
+    } else {
+      std_result <- std_lin
+    }
+  } else {
+    # Fallback
+    std_result <- bind_rows(
+      std_result_default %>% mutate(std_method = "exponential"),
+      std_result_default %>% mutate(std_method = "linear")
+    )
+  }
 
   all_std_long[[i]] <- std_result
 }
 
 all_std_long <- bind_rows(all_std_long)
-
-test_mar <- filter(
-  all_std_long, indicator == "SSTproj",
-  rcp == "45", period_code == "3", dsmodel == "qdm"
-)
-
 
 # ==================== 3. Scoring and Ranks Across Indicators ====================
 
@@ -166,14 +227,14 @@ dat <- all_std_long %>%
 # STATIC: indicators with only baseline rows (used as fallback for non projected indicators)
 static_tbl <- dat %>%
   filter(gcm == 0, period_code == 0) %>%
-  select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, indicator, category, static_value = std_value) %>%
+  select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, std_method, indicator, category, static_value = std_value) %>%
   distinct()
 
 # PROJECTED: everything else (including baseline rows that also have projections, if any)
 proj_tbl <- dat %>%
   filter(!(gcm == 0 & period_code == 0)) %>%
   filter(gcm %in% c("9", common_gcms)) %>% # filter individual gcm outputs and ensembles that are used across model
-  select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, gcm, rcp, period_code,
+  select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, std_method, gcm, rcp, period_code,
     indicator, category,
     proj_value = std_value
   )
@@ -181,31 +242,31 @@ proj_tbl <- dat %>%
 # ENSEMBLE: Ensemble projections (GCM 9) used as preferred fallback for specific GCM projections
 ensemble_tbl <- proj_tbl %>%
   filter(gcm == "9") %>%
-  select(FULL_CU_IN, rcp, period_code, indicator, ensemble_value = proj_value)
+  select(FULL_CU_IN, std_method, rcp, period_code, indicator, ensemble_value = proj_value)
 
 # CU × GCM × RCP × PERIOD grid (from projections)
 grid_cu_scen <- proj_tbl %>%
-  distinct(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, gcm, rcp, period_code)
+  distinct(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, std_method, gcm, rcp, period_code)
 
 # Indicator list per CU (union of indicators seen anywhere — projected or static)
 inds_per_cu <- dat %>%
-  distinct(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, indicator, category)
+  distinct(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, std_method, indicator, category)
 
 # Expand grid with indicators for the same CU, excluding period_code 0
 grid_expanded <- grid_cu_scen %>%
   filter(period_code != 0) %>%
-  inner_join(inds_per_cu, by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "CU_COMMON_NAME", "SMU_SIMPLE"))
+  inner_join(inds_per_cu, by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "CU_COMMON_NAME", "SMU_SIMPLE", "std_method"))
 
 vals <- grid_expanded %>%
   left_join(proj_tbl,
     by = c(
-      "FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "CU_COMMON_NAME", "SMU_SIMPLE",
+      "FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "CU_COMMON_NAME", "SMU_SIMPLE", "std_method",
       "gcm", "rcp", "period_code", "indicator", "category"
     )
   ) %>%
-  left_join(ensemble_tbl, by = c("FULL_CU_IN", "rcp", "period_code", "indicator")) %>%
+  left_join(ensemble_tbl, by = c("FULL_CU_IN", "std_method", "rcp", "period_code", "indicator")) %>%
   left_join(static_tbl,
-    by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "CU_COMMON_NAME", "SMU_SIMPLE", "indicator", "category")
+    by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "CU_COMMON_NAME", "SMU_SIMPLE", "std_method", "indicator", "category")
   ) %>%
   mutate(std_value = dplyr::coalesce(proj_value, ensemble_value, static_value))
 
@@ -213,7 +274,7 @@ vals <- grid_expanded %>%
 # now that we have an expanded grid of values covering all gcm/scenario/period combinations
 # we calculate teh aggregated scores
 scores_base <- vals %>%
-  group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, gcm, rcp, period_code) %>%
+  group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, std_method, gcm, rcp, period_code) %>%
   calculate_combined_scores()
 
 # (scale_0_100 now in 4_scoring_utils.R)
@@ -224,7 +285,7 @@ score100_cross <- scores_base
 if (!is.na(scale_baseline_rcp) && !is.na(scale_baseline_period)) {
   bounds_cross <- score100_cross %>%
     filter(rcp == scale_baseline_rcp, period_code == scale_baseline_period) %>%
-    group_by(gcm, method, category) %>%
+    group_by(std_method, gcm, method, category) %>%
     summarise(
       mn = suppressWarnings(min(score, na.rm = TRUE)),
       mx = suppressWarnings(max(score, na.rm = TRUE)),
@@ -232,15 +293,15 @@ if (!is.na(scale_baseline_rcp) && !is.na(scale_baseline_period)) {
     )
 
   score100_cross <- score100_cross %>%
-    left_join(bounds_cross, by = c("gcm", "method", "category")) %>%
+    left_join(bounds_cross, by = c("std_method", "gcm", "method", "category")) %>%
     mutate(score100_all = if_else(!is.finite(mn) | !is.finite(mx) | mx <= mn, NA_real_, (score - mn) / (mx - mn) * 100)) %>%
-    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, gcm, rcp, period_code, method, category, score100_all)
+    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, std_method, gcm, rcp, period_code, method, category, score100_all)
 } else {
   score100_cross <- score100_cross %>%
-    group_by(rcp, period_code, gcm, method, category) %>%
+    group_by(std_method, rcp, period_code, gcm, method, category) %>%
     mutate(score100_all = scale_0_100(score)) %>%
     ungroup() %>%
-    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, gcm, rcp, period_code, method, category, score100_all)
+    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, std_method, gcm, rcp, period_code, method, category, score100_all)
 }
 
 # Within-species 0-100
@@ -249,7 +310,7 @@ score100_within <- scores_base
 if (!is.na(scale_baseline_rcp) && !is.na(scale_baseline_period)) {
   bounds_within <- score100_within %>%
     filter(rcp == scale_baseline_rcp, period_code == scale_baseline_period) %>%
-    group_by(SPECIES_NAME, gcm, method, category) %>%
+    group_by(std_method, SPECIES_NAME, gcm, method, category) %>%
     summarise(
       mn = suppressWarnings(min(score, na.rm = TRUE)),
       mx = suppressWarnings(max(score, na.rm = TRUE)),
@@ -257,46 +318,46 @@ if (!is.na(scale_baseline_rcp) && !is.na(scale_baseline_period)) {
     )
 
   score100_within <- score100_within %>%
-    left_join(bounds_within, by = c("SPECIES_NAME", "gcm", "method", "category")) %>%
+    left_join(bounds_within, by = c("std_method", "SPECIES_NAME", "gcm", "method", "category")) %>%
     mutate(score100_species = if_else(!is.finite(mn) | !is.finite(mx) | mx <= mn, NA_real_, (score - mn) / (mx - mn) * 100)) %>%
-    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, gcm, rcp, period_code, method, category, score100_species)
+    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, std_method, gcm, rcp, period_code, method, category, score100_species)
 } else {
   score100_within <- score100_within %>%
-    group_by(SPECIES_NAME, rcp, period_code, gcm, method, category) %>%
+    group_by(std_method, SPECIES_NAME, rcp, period_code, gcm, method, category) %>%
     mutate(score100_species = scale_0_100(score)) %>%
     ungroup() %>%
-    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, gcm, rcp, period_code, method, category, score100_species)
+    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, std_method, gcm, rcp, period_code, method, category, score100_species)
 }
 
 
-# ---- Existing ranks (keep if you still want them) ----
+# ---- Existing ranks ----
 ranks_cross <- scores_base %>%
-  group_by(rcp, period_code, gcm, method, category) %>%
+  group_by(std_method, rcp, period_code, gcm, method, category) %>%
   mutate(rankall = rank(score, ties.method = "average", na.last = "keep")) %>%
   ungroup() %>%
-  select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, gcm, rcp, period_code, method, category, rankall)
+  select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, std_method, gcm, rcp, period_code, method, category, rankall)
 
 ranks_within <- scores_base %>%
-  group_by(SPECIES_NAME, rcp, period_code, gcm, method, category) %>%
+  group_by(std_method, SPECIES_NAME, rcp, period_code, gcm, method, category) %>%
   mutate(rankspecies = rank(score, ties.method = "average", na.last = "keep")) %>%
   ungroup() %>%
-  select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, gcm, rcp, period_code, method, category, rankspecies)
+  select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, std_method, gcm, rcp, period_code, method, category, rankspecies)
 
 # 3) Final tidy table with new 0–100 scores alongside ranks
 scores_tidy <- scores_base %>%
   left_join(score100_cross,
-    by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "CU_COMMON_NAME", "SMU_SIMPLE", "gcm", "rcp", "period_code", "method", "category")
+    by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "CU_COMMON_NAME", "SMU_SIMPLE", "std_method", "gcm", "rcp", "period_code", "method", "category")
   ) %>%
   left_join(score100_within,
-    by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "CU_COMMON_NAME", "SMU_SIMPLE", "gcm", "rcp", "period_code", "method", "category")
+    by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "CU_COMMON_NAME", "SMU_SIMPLE", "std_method", "gcm", "rcp", "period_code", "method", "category")
   ) %>%
   left_join(ranks_cross,
-    by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "CU_COMMON_NAME", "SMU_SIMPLE", "gcm", "rcp", "period_code", "method", "category")
+    by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "CU_COMMON_NAME", "SMU_SIMPLE", "std_method", "gcm", "rcp", "period_code", "method", "category")
   ) %>%
   left_join(ranks_within,
-    by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "CU_COMMON_NAME", "SMU_SIMPLE", "gcm", "rcp", "period_code", "method", "category")
+    by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "CU_COMMON_NAME", "SMU_SIMPLE", "std_method", "gcm", "rcp", "period_code", "method", "category")
   ) %>%
-  arrange(rcp, period_code, gcm, SPECIES_NAME, FULL_CU_IN, method, category)
+  arrange(std_method, rcp, period_code, gcm, SPECIES_NAME, FULL_CU_IN, method, category)
 
 # ==================== 4. Averaging Scores ====================
 

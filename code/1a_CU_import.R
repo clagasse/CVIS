@@ -1,8 +1,32 @@
-### 1a_CU_import.R
+# ==============================================================================
+# CVIS CU Metadata & Status Data Import (1a_CU_import.R)
+#
+# Description:
+#   Imports, processes, and merges Conservation Unit (CU) level data including 
+#   crosswalks, decoders, WSP assessments status, spawner locations, and life 
+#   history timing metrics. Generates standard subsets and formats the outputs.
+#
+# Workflow Steps:
+#   1. Define cyclic CUs and auxiliary helper functions (infilling, CU formatting).
+#   2. Load and merge the CU-SMU crosswalk and decoders, and map cuid.
+#   3. Import CCVA CU lists with Freshwater Adaptive Zones (FAZs).
+#   4. Load WSP rapid status data and compute generational geometric averages.
+#   5. Import spawner locations from NuSEDS.
+#   6. Import and process spawner timing data compiled by PSF, computing freshwater residency and nearshore marine entry months.
+#   7. Subset target CUs to run for current analysis configurations.
+#   8. Compile long format CU lists for scoring.
+#   9. Save processed datasets to processed_data/CU/.
+#
+# Inputs:
+#   - Various population, timing, and assessment CSV datasets in paths$salmon
+#
+# Outputs:
+#   - Processed metadata tables (.Rds, .Rdata) in paths$CU
+#
+# Dependencies:
+#   - Requires 0_setup.R.
+# ==============================================================================
 
-## import and process CU-level information
-
-# specify cyclic CUs. These are treated differently when getting the number of mature individuals, only taking the maximum year from a cycle
 cyclic_CUs <- c(
   "SEL-06-14", # Takla-Trembleur-Estu
   "SEL-09-02", # Shuswap-ES
@@ -12,7 +36,7 @@ cyclic_CUs <- c(
   "SEL-09-03" # Shuswap-L
 )
 
-# -----  Functions -----------------
+# ==================== 1. Define Helper Functions ====================
 # simple infilling function for NA values, used for peak spawn timing
 infill_average <- function(df, col1, col2, target_col) {
   # Replace NA values in the target column with the average of col1 and col2
@@ -24,12 +48,12 @@ infill_average <- function(df, col1, col2, target_col) {
   return(df)
 }
 
-## adjust format of CU abbreviations to include leading zeroes (eg. CK-9 becomes CK-09)
+# adjust format of CU abbreviations to include leading zeroes (eg. CK-9 becomes CK-09)
 adjust_CU_IN <- function(CU_IN_vector) {
   str_replace_all(CU_IN_vector, "-(\\d)(?!\\d)", "-0\\1")
 }
 
-#----------------- CU-SMU crosswalk-------------------------------------------
+# ==================== 2. CU-SMU Crosswalk & Decoder ====================
 
 crosswalk <- read_csv(file.path(paths$salmon, "CrossWalkData_2025-10-10.csv")) %>%
   clean_names(case = "all_caps") %>%
@@ -76,7 +100,7 @@ spp_lookup <- tibble(
 )
 
 
-#--------------------- CUSTOM CU list with FAZ--------------------------------------
+# ==================== 3. Custom CU List & FAZ Mapping ====================
 
 cvis_cu_list <- read.csv(file.path(paths$salmon, "CCVA_CU_List.csv"), skip = 1) %>%
   mutate(
@@ -112,7 +136,7 @@ cu_list <- cu_list %>%
 
 #
 
-#-------------------- Import WSP Rapid Status Data------------------------------
+# ==================== 4. Import WSP Rapid Status Data ====================
 
 # get status file names
 status_files <- list.files(file.path(paths$salmon, "FIA", "Status data"))
@@ -203,7 +227,7 @@ recent_status <- status_data %>%
 cu_list <- cu_list %>%
   left_join(select(recent_status, FULL_CU_IN, CUstatus_mean, CUnmat_mean, status_year), join_by(FULL_CU_IN))
 
-# Import NuSEDS data ------------------------------------------------------
+# ==================== 5. Import NuSEDS Spawner Locations ====================
 
 ### NUSEDS salmon spawner locations
 ## version from FIA. Usage column added by Michael Arbeider
@@ -235,7 +259,7 @@ nuseds_Fr$FULL_CU_IN <- adjust_CU_IN(nuseds_Fr$FULL_CU_IN)
 #   ))
 
 
-# ====================Import timing data compiled by PSF========================
+# ==================== 6. Import PSF Timing Data ====================
 
 # note oe_age added for some CUs from original file
 cu_timing <- read.csv(file.path(
@@ -311,7 +335,7 @@ cu_list <- cu_list %>%
   left_join(select(cu_timing, FULL_CU_IN, fwres_mean), join_by(FULL_CU_IN))
 
 
-# Subset CUs to run for analysis based on settings ----------------------------------
+# ==================== 7. Subset CUs to Run ====================
 
 # Select subset of CUs to run for analysis
 cu_run <- cu_list %>%
@@ -327,7 +351,7 @@ cu_seq <- cu_run$FULL_CU_IN # Create vector of CUs to analyze, ordered CK, CM, C
 n.CUs <- nrow(cu_run)
 
 
-# make long version of cu_run for indicator analysis ----------------------
+# ==================== 8. Compile Long Format CU Lists ====================
 
 cu_long <- cu_run %>%
   select(FULL_CU_IN, matches(tbl_indicators$abbrev)) %>%
@@ -348,7 +372,7 @@ cu_long <- cu_run %>%
   left_join(select(tbl_indicators, abbrev, category), join_by(indicator == abbrev))
 
 
-# Save R objects ----------------------------------------------------------
+# ==================== 9. Save Processed Datasets ====================
 
 save(cu_list, file = file.path(paths$CU, "cu_list.Rds"))
 save(status_data, file = file.path(paths$CU, "cu_status_data.Rds"))

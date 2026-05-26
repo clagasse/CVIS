@@ -136,27 +136,6 @@ stream_BCFP_stats <- function(streams) {
 
 #---- 3.1 stream stats function----
 
-# calculate number of decades from historical to projection period. used for calculating rates of T change
-decade_calc <- function(historical_pick = "0", period_pick = "3") {
-  year_hist <- case_when(
-    historical_pick == "0" ~ 1990,
-    historical_pick == "1" ~ 2010
-  )
-
-  year_proj <- case_when(
-    period_pick == "0" ~ 1990,
-    period_pick == "1" ~ 2010,
-    period_pick == "2" ~ 2030,
-    period_pick == "3" ~ 2050,
-    period_pick == "4" ~ 2070,
-    period_pick == "5" ~ 2090
-  )
-
-  decades <- (year_proj - year_hist) / 10
-}
-
-
-
 stream_env_stats <- function(
     fwT_cu,
     RCP = rcp_vec,

@@ -1,36 +1,49 @@
-# comparing MAZ summaries from points to interpolated standarized grids to see how 
-# well the interpolation preserves these averages
+# ==============================================================================
+# CVIS Standardized Grid Validation (3e_validating_standardized_grid.R)
+#
+# Description:
+#   Validates the spatial interpolation of marine indicators by comparing
+#   averages from raw point datasets to interpolated standardized grids.
+#   Computes spring differences, spring averages, decadal rate of change,
+#   cumulative impact scores, and Z-scores across Marine Analysis Zones (MAZs).
+#
+# Workflow Steps:
+#   1. Load setup environment and import cropped shapefile layers.
+#   2. Compute descriptive statistics and diagnostic histograms.
+#   3. Calculate spring differences and render comparative tables.
+#   4. Calculate projected spring averages.
+#   5. Calculate decadal rates of change.
+#   6. Summarize cumulative impact scores by MAZ.
+#   7. Analyze monthly seasonality patterns.
+#   8. Calculate projected and historic annual averages.
+#   9. Compute and compare Z-score differences.
+#
+# Inputs:
+#   - Crop shapefiles under paths$climate/Standardized_Marine_data/
+#
+# Outputs:
+#   - Diagnostic tables and plots (rendered in interactive mode)
+#
+# Dependencies:
+#   - Requires 0_setup.R, sf, dplyr, gridExtra/grid
+# ==============================================================================
 
-#Import cropnped layers as vector grid files 
-BCCM_SST_cropped<-read_sf(file.path(climate_dat, "Standardized_Marine_data/BCCM_SST_cropped.shp"))
-BCCM_SSS_cropped<-read_sf( file.path(climate_dat, "Standardized_Marine_data/BCCM_SSS_cropped.shp"  ))
-BCCM_SSPH_cropped<-read_sf(file.path(climate_dat, "Standardized_Marine_data/BCCM_SSPH_cropped.shp" ))
-NEP_SST_cropped<-read_sf(file.path(climate_dat, "Standardized_Marine_data/NEP_SST_cropped.shp"))
-NEP_SSS_cropped<-read_sf(file.path(climate_dat, "Standardized_Marine_data/NEP_SSS_cropped.shp" ))
-NEP_SSPH_cropped<-read_sf(file.path(climate_dat, "Standardized_Marine_data/NEP_SSPH_cropped.shp"))
-SSC_SST_cropped<-read_sf( file.path(climate_dat, "Standardized_Marine_data/SSC_SST_cropped.shp"))
-SSC_SSS_cropped<-read_sf(file.path(climate_dat, "Standardized_Marine_data/SSC_SSS_cropped.shp"))
-CI_cropped<-read_sf(file.path(climate_dat, "Standardized_Marine_data/CI_cropped.shp"))
+# ==================== 1. Setup & Load Crop Layers ====================
+library(here)
+setwd(here())
+source(file.path(here(), "code", "0_setup.R"))
 
-# descriptive stats
-# mean, median, mode
-mean(BCCM_SST_cropped$SST_H_01, na.rm=TRUE)
-mean(BCCM_SST_sub$SST_H_01, na.rm=TRUE)
+BCCM_SST_cropped<-read_sf(file.path(paths$climate, "Standardized_Marine_data/BCCM_SST_cropped.shp"))
+BCCM_SSS_cropped<-read_sf(file.path(paths$climate, "Standardized_Marine_data/BCCM_SSS_cropped.shp"))
+BCCM_SSPH_cropped<-read_sf(file.path(paths$climate, "Standardized_Marine_data/BCCM_SSPH_cropped.shp"))
+NEP_SST_cropped<-read_sf(file.path(paths$climate, "Standardized_Marine_data/NEP_SST_cropped.shp"))
+NEP_SSS_cropped<-read_sf(file.path(paths$climate, "Standardized_Marine_data/NEP_SSS_cropped.shp"))
+NEP_SSPH_cropped<-read_sf(file.path(paths$climate, "Standardized_Marine_data/NEP_SSPH_cropped.shp"))
+SSC_SST_cropped<-read_sf(file.path(paths$climate, "Standardized_Marine_data/SSC_SST_cropped.shp"))
+SSC_SSS_cropped<-read_sf(file.path(paths$climate, "Standardized_Marine_data/SSC_SSS_cropped.shp"))
+CI_cropped<-read_sf(file.path(paths$climate, "Standardized_Marine_data/CI_cropped.shp"))
 
-median(BCCM_SST_cropped$SST_H_01, na.rm=TRUE)
-median(BCCM_SST_sub$SST_H_01, na.rm=TRUE)
-
-hist(BCCM_SST_cropped$SST_H_01)
-hist(BCCM_SST_sub$SST_H_01)
-
-max(BCCM_SST_cropped$SST_H_01, na.rm=TRUE)
-max(BCCM_SST_sub$SST_H_01, na.rm=TRUE)
-
-min(BCCM_SST_cropped$SST_H_01, na.rm=TRUE)
-min(BCCM_SST_sub$SST_H_01, na.rm=TRUE)
-
-# Try calculating marine indicators with cropped data 
-
+# Assign subsets
 BCCM_SST_sub<-BCCM_SST_cropped
 BCCM_SSS_sub<-BCCM_SSS_cropped
 BCCM_SSPH_sub<-BCCM_SSPH_cropped
@@ -41,7 +54,29 @@ SSC_SST_sub<- SSC_SST_cropped
 SSC_SSS_sub<- SSC_SSS_cropped
 CI_points_sub<- CI_cropped
 
-######### Spring difference ###############
+# ==================== 2. Descriptive Statistics & Diagnostics ====================
+# mean, median, mode
+mean(BCCM_SST_cropped$SST_H_01, na.rm=TRUE)
+mean(BCCM_SST_sub$SST_H_01, na.rm=TRUE)
+
+median(BCCM_SST_cropped$SST_H_01, na.rm=TRUE)
+median(BCCM_SST_sub$SST_H_01, na.rm=TRUE)
+
+if (interactive()) {
+  hist(BCCM_SST_cropped$SST_H_01)
+  hist(BCCM_SST_sub$SST_H_01)
+}
+
+max(BCCM_SST_cropped$SST_H_01, na.rm=TRUE)
+max(BCCM_SST_sub$SST_H_01, na.rm=TRUE)
+
+min(BCCM_SST_cropped$SST_H_01, na.rm=TRUE)
+min(BCCM_SST_sub$SST_H_01, na.rm=TRUE)
+
+# Try calculating marine indicators with cropped data 
+
+
+# ==================== 3. Spring Differences Calculation ====================
 #1) Calculate difference between the historic and future spring values in new column 
 BCCM_SST_sub$BCCM_SST_Spring_Diff <-((BCCM_SST_sub$SST_45_04+BCCM_SST_sub$SST_45_05+BCCM_SST_sub$SST_45_06)/3)-((BCCM_SST_sub$SST_H_04 + BCCM_SST_sub$SST_H_05+BCCM_SST_sub$SST_H_06)/3)
 BCCM_SSS_sub$BCCM_SSS_Spring_Diff <-((BCCM_SSS_sub$SSS_45_04+BCCM_SSS_sub$SSS_45_05+BCCM_SSS_sub$SSS_45_06)/3)-((BCCM_SSS_sub$SSS_H_04 + BCCM_SSS_sub$SSS_H_05+BCCM_SSS_sub$SSS_H_06)/3)
@@ -110,20 +145,17 @@ colnames(SpringDiff)<- colAll
 #colnames(SSS_SpringDiff)<- colAll
 #colnames(SSPH_SpringDiff)<- colNEPBCCM
 
-# Create table ## Not sure why there are a bunch of extra columns 
-grid.newpage()
-grid.table(SpringDiff)
-#grid.table(SST_SpringDiff)
-#grid.newpage()
-#grid.table(SSS_SpringDiff)
-#grid.newpage()
-#grid.table(SSPH_SpringDiff)
+  # Create table
+  if (interactive()) {
+    grid.newpage()
+    grid.table(SpringDiff)
+  }
 
 #remove variables no longer needed 
 rm(SST_SpringDiff1, SSS_SpringDiff1,SpringDiff1, SSS_SpringDiff, SST_SpringDiff, SSPH_SpringDiff,
    SSS_BCCM, SSS_NEP, SSS_SSC, SST_BCCM, SST_NEP, SST_SSC, SSPH_BCCM, SSPH_NEP)
 
-############# Spring mean Projected temperature #######
+# ==================== 4. Projected Spring Averages ====================
 BCCM_SST_sub$BCCM_SST_SpringAvg <-((BCCM_SST_sub$SST_45_04+BCCM_SST_sub$SST_45_05+BCCM_SST_sub$SST_45_06)/3)
 BCCM_SSS_sub$BCCM_SSS_SpringAvg <-((BCCM_SSS_sub$SSS_45_04+BCCM_SSS_sub$SSS_45_05+BCCM_SSS_sub$SSS_45_06)/3)
 BCCM_SSPH_sub$BCCM_SSPH_SpringAvg <-((BCCM_SSPH_sub$SSPH_45_04+BCCM_SSPH_sub$SSPH_45_05+BCCM_SSPH_sub$SSPH_45_06)/3)
@@ -191,14 +223,11 @@ colnames(SpringAvg)<- colAll
 #colnames(SSS_SpringDiff)<- colAll
 #colnames(SSPH_SpringDiff)<- colNEPBCCM
 
-# Create table ## Not sure why there are a bunch of extra columns 
-grid.newpage()
-grid.table(SpringAvg)
-#grid.table(SST_SpringDiff)
-#grid.newpage()
-#grid.table(SSS_SpringDiff)
-#grid.newpage()
-#grid.table(SSPH_SpringDiff)
+  # Create table
+  if (interactive()) {
+    grid.newpage()
+    grid.table(SpringAvg)
+  }
 
 #remove variable no longer needed 
 rm(SST_SpringAvg1, SSS_SpringAvg1,SpringAvg1, SSS_SpringAvg, SST_SpringAvg, SSPH_SpringAvg,
@@ -274,14 +303,11 @@ colnames(SpringDiff)<- colAll
 #colnames(SSS_SpringDiff)<- colAll
 #colnames(SSPH_SpringDiff)<- colNEPBCCM
 
-# Create table ## Not sure why there are a bunch of extra columns 
-grid.newpage()
-grid.table(SpringDiff)
-#grid.table(SST_SpringDiff)
-#grid.newpage()
-#grid.table(SSS_SpringDiff)
-#grid.newpage()
-#grid.table(SSPH_SpringDiff)
+  # Create table
+  if (interactive()) {
+    grid.newpage()
+    grid.table(SpringDiff)
+  }
 
 #remove variable no longer needed 
 rm(SST_SpringDiff1, SSS_SpringDiff1,SpringDiff1, SSS_SpringDiff, SST_SpringDiff, SSPH_SpringDiff,
@@ -355,20 +381,17 @@ colnames(SpringAvg)<- colAll
 #colnames(SSS_SpringDiff)<- colAll
 #colnames(SSPH_SpringDiff)<- colNEPBCCM
 
-# Create table ## Not sure why there are a bunch of extra columns 
-grid.newpage()
-grid.table(SpringAvg)
-#grid.table(SST_SpringDiff)
-#grid.newpage()
-#grid.table(SSS_SpringDiff)
-#grid.newpage()
-#grid.table(SSPH_SpringDiff)
+  # Create table
+  if (interactive()) {
+    grid.newpage()
+    grid.table(SpringAvg)
+  }
 
 #remove variable no longer needed 
 rm(SST_SpringAvg1, SSS_SpringAvg1,SpringAvg1, SSS_SpringAvg, SST_SpringAvg, SSPH_SpringAvg,
    SSS_BCCM, SSS_NEP, SSS_SSC, SST_BCCM, SST_NEP, SST_SSC, SSPH_BCCM, SSPH_NEP)
 
-######### Decadal rate of change ######
+# ==================== 5. Decadal Rate of Change ====================
 # calculate the decadal ROC by first calculating the annual average for the historic
 #and future time periods, substracting the historic ann avg from the future ann avg,
 # and dividing the difference by 6 (the number of decades between the future and historic time periods)
@@ -507,21 +530,17 @@ colnames(DecROC)<- colAll
 #colnames(SSS_DecROC)<- colAll
 #colnames(SSPH_DecROC)<- colNEPBCCM
 
-# Create table ## Not sure why there are a bunch of extra columns 
-grid.newpage()
-grid.table(DecROC)
-#grid.newpage()
-#grid.table(SST_DecROC)
-#grid.newpage()
-#grid.table(SSS_DecROC)
-#grid.newpage()
-#grid.table(SSPH_DecROC)
+  # Create table
+  if (interactive()) {
+    grid.newpage()
+    grid.table(DecROC)
+  }
 
 #remove variable no longer needed 
 rm(SST_DecROC, SSS_DecROC, SSPH_DecROC,DecROC1, SSS_DecROC1,SST_DecROC1,SSPH_BCCM, 
    SSPH_NEP, SSS_BCCM, SSS_NEP, SSS_SSC, SST_BCCM, SST_NEP, SST_SSC)
 
-##### Cumulative Impact score ####
+# ==================== 6. Cumulative Impact Scores ====================
 # join summarize CI score by MAZ acronym
 CI_MAZ<-CI_points_sub %>% group_by(MAZ_Acrony) %>%
   summarise(across(starts_with("Cumul_Impa"), mean))%>%
@@ -531,10 +550,12 @@ CI_MAZ= subset(CI_MAZ, select = -c(geometry)) %>%
 
 colCI<-c('MAZ', 'Total CI Score')
 colnames(CI_MAZ)<- colCI
-grid.newpage()
-grid.table(CI_MAZ)
+if (interactive()) {
+  grid.newpage()
+  grid.table(CI_MAZ)
+}
 
-######### Seasonality #########
+# ==================== 7. Monthly Seasonality Patterns ====================
 # avg each variable/model values for each month by MAZ
 BCCM_SST_Month_Avg<-BCCM_SST_sub %>% group_by(MAZ_Acrony) %>%
   summarise(across(starts_with("SST_"), mean, na.rm=TRUE))%>%
@@ -582,7 +603,7 @@ SSPHDecROC<-merge(ROC_SSPH_NEP, ROC_SSPH_BCCM, by="MAZ_Acrony", all=TRUE)
 
 #ggplot(SSC_SST_Month_Avg, aes(x=month, y=temperature))
 
-######### Projected/future absolute value ########
+# ==================== 8. Projected & Historic Annual Averages ====================
 #1) Calculate projected annual averages  
 BCCM_SST_sub$BCCM_SST_45AnnAvg <-
   (BCCM_SST_sub$SST_45_01+BCCM_SST_sub$SST_45_02+BCCM_SST_sub$SST_45_03+
@@ -682,7 +703,7 @@ SSPH_AnnAvg= subset(SSPH_AnnAvg, select = -c(geometry.x, geometry.y)) %>%
 rm(SST_AnnAvg1, SSS_AnnAvg1,
    SSS_BCCM, SSS_NEP, SSS_SSC, SST_BCCM, SST_NEP, SST_SSC, SSPH_BCCM, SSPH_NEP)
 
-####### Historic annual average ###### 
+# ==================== 9. Z-Score Difference Validation ==================== 
 #1) Calculate historic mean in a new column
 BCCM_SST_sub$BCCM_SST_HAnnAvg <-
   (BCCM_SST_sub$SST_H_01+BCCM_SST_sub$SST_H_02+BCCM_SST_sub$SST_H_03+
@@ -871,13 +892,15 @@ colnames(SST_AnnAvg)<- colAnAvgZsc_all
 colnames(SSS_AnnAvg)<- colAnAvgZsc_all
 colnames(SSPH_AnnAvg)<- colAnAvgZsc_2
 
-# Create table ## Not sure why there are a bunch of extra columns 
-grid.newpage()
-grid.table(SST_AnnAvg)
-grid.newpage()
-grid.table(SSS_AnnAvg)
-grid.newpage()
-grid.table(SSPH_AnnAvg)
+# Create table
+if (interactive()) {
+  grid.newpage()
+  grid.table(SST_AnnAvg)
+  grid.newpage()
+  grid.table(SSS_AnnAvg)
+  grid.newpage()
+  grid.table(SSPH_AnnAvg)
+}
 
 #remove variable no longer needed 
 rm(BCCM_SST_45_mean,BCCM_45_SSS_mean,BCCM_SSPH_45_mean,BCCM_45_SST_sd,BCCM_SSS_45_sd,

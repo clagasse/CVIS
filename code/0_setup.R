@@ -178,7 +178,8 @@ sens_source_palette <- c(
   "RCP45_P5" = "#33a02c", "RCP85_P3" = "#1f78b4", "RCP85_P5" = "#a6cee3", "Scenario" = "#1f78b4", "scenario" = "#1f78b4",
   "cube" = "#6a3d9a", "flag" = "#b15928", "avgcube" = "#cab2d6", "avgall" = "#fb9a99",
   "qdm" = "#db7093", "bccmssc" = "#daa520", "streamdyn" = "#4682b4", "tscapes" = "#d2b48c",
-  "pcicgrid" = "#e7298a", "station" = "#7570b3", "model" = "#8dd3c7", "dsmethod" = "#8dd3c7"
+  "pcicgrid" = "#e7298a", "station" = "#7570b3", "model" = "#8dd3c7", "dsmethod" = "#8dd3c7",
+  "stdmethod" = "#8c564b", "StdMethod" = "#8c564b"
 )
 
 # Mapping of life stage category codes to descriptive names
@@ -225,19 +226,19 @@ period_lookup <- tribble(
 # table of indicator abbreviations and full names
 tbl_indicators <- tribble(
   ~abbrev, ~category, ~long_type, ~std_fun, ~unit, ~name,
-  "favchange", "fwrs", "Freshwater", "invlinear_std", "Favourability", "Ecological Niche Model Change in favourability from baseline",
-  "cthr", "fwrs", "Freshwater", "linear_std", "Threat score", "Standardized cumulative threats to freshwater streams",
+  "favchange", "fwrs", "Freshwater", "invlinear_std", "Favourability", "Change in ENM favourability",
+  "cthr", "fwrs", "Freshwater", "linear_std", "Threat score", "Standardized cumulative threats",
   "tw8rate", "fwrs", "Freshwater", "linear_std", "Temperature change per decade (°C)", "Rate of change in August Temperature (°C/decade)",
   "tw8proj", "fwrs", "Freshwater", "exponential_std", "Temperature (°C)", "Projected August Temperature (°C)",
-  "flow8pdelta", "fwrs", "Freshwater", "decay_std", "Proportion change from baseline", "Proportional change in August flow from baseline",
-  "flow18pdelta", "fwrs", "Freshwater", "exponential_std", "Proportion change from baseline", "Proportional change in Nov-Jan flow from baseline",
+  "flow8pdelta", "fwrs", "Freshwater", "decay_std", "Proportion change from baseline", "Proportional change in August flow",
+  "flow18pdelta", "fwrs", "Freshwater", "exponential_std", "Proportion change from baseline", "Proportional change in Nov-Jan flow",
   "fwres", "fwrs", "Freshwater", "step_std", "Number of days", "Freshwater residency time (days)",
   "migrTproj", "migr", "Upstream Migration", "exponential_std", "Temperature (°C)", "Projected temperature during upstream migration (°C)",
-  "migrQpdelta", "migr", "Upstream Migration", "decay_std", "Proportion change", "Proportional change in discharge during upstream migration",
+  "migrQpdelta", "migr", "Upstream Migration", "decay_std", "Proportion change", "Proportional change in discharge",
   "migrdist", "migr", "Upstream Migration", "linear_std", "Metres", "Length of upstream migration (km)",
-  "SSTproj", "mar", "Nearshore Marine", "exponential_std", "Temperature (°C)", "Projected nearshore SST during ocean entry (°C)",
+  "SSTproj", "mar", "Nearshore Marine", "exponential_std", "Temperature (°C)", "Projected nearshore SST (°C)",
   "SSTrate", "mar", "Nearshore Marine", "linear_std", "Temperature change per decade (°C)", "Rate of change in nearshore SST (°C/decade)",
-  "CImpact", "mar", "Nearshore Marine", "linear_std", "Threat score", "Cumulative impacts to marine nearshore habitat",
+  "CImpact", "mar", "Nearshore Marine", "linear_std", "Threat score", "Cumulative impacts to habitat",
   "CUstatus", "dem", "Demographics", "cat_std", "Status", "Wild Salmon Policy CU status",
   "CUnmat", "dem", "Demographics", "decay_std", "Number of spawners", "Number of mature individuals (spawners)",
   "hetzyg", "gen", "Genetics", "invlinear_std", "Heterozygosity", "Genetic heterozygosity",

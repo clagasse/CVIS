@@ -1,12 +1,34 @@
-##  6_figures_manuscript  ####
+# ==============================================================================
+# CVIS Manuscript Figures Generator (6_figures_manuscript.R)
+#
+# Description:
+#   Generates and saves the final PNG figure outputs used in the CVIS manuscript.
+#   Loads spatial datasets, model outputs, indicators, and scoring results,
+#   then plots maps, lollipop plots, migration paths, and indicator tile grids.
+#
+# Workflow Steps:
+#   1. Setup settings and verify the output directory exists.
+#   2. Load freshwater, migration, marine, and scoring datasets.
+#   3. Subset CU and timing data for the specified case study.
+#   4. Generate Figure 2 (Freshwater indicator multipanel maps).
+#   5. Generate Figure 3 (Upstream migration path).
+#   6. Generate Figure 4 (Indicator lollipop plot).
+#   7. Generate Figure 5 (Vulnerability spatial maps).
+#   8. Generate Figure 6 (Marine adaptive zones lollipop plot).
+#   9. Generate Figure 7 (Vulnerability score indicator tiles).
+#
+# Inputs:
+#   - Processed Rds/Rdata files under paths$fw, paths$marine, and paths$output
+#
+# Outputs:
+#   - PNG figure files saved in paths$figures/manuscript/
+#
+# Dependencies:
+#   - Requires 0_setup.R, ggplot2, sf, dplyr
+# ==============================================================================
 
-# Script to make png outputs for CVIS manuscript  
-# using plotting functions and data sources
+# ==================== 1. Settings & Configurations ====================
 
-# These png outputs are then read by the 6_CVIS_manuscript for knitting
-# Uses existing plotting functions and data sets
-
-# 
 
 # Settings ----------------------------------------------------------------
 # set-up used in every script
@@ -14,15 +36,28 @@ library(here)
 setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
 
+# Helper to find latest file by pattern
+get_latest_file <- function(path, pattern) {
+  files <- list.files(path, pattern = pattern, full.names = TRUE)
+  if (length(files) == 0) stop("No files found matching ", pattern)
+  # filter out files starting with ~ (temp files)
+  files <- files[!grepl("^~", basename(files))]
+  file_info <- file.info(files)
+  latest_file <- rownames(file_info)[which.max(file_info$mtime)]
+  cat("Loading latest file:", basename(latest_file), "\n")
+  return(latest_file)
+}
+
 #output directory 
 output_dir <- file.path(paths$figures, "manuscript")
+dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
 # select case study CUs for manuscript
 casestudy_1 <- "CK-12"
 casestudy_2 <- "CM-02"
 
 
-# Load data ---------------------------------------------------------------
+# ==================== 2. Load Processed Datasets ====================
 
 ### ----- Load frequently used data sets- ------
 # load marine adaptive zone spatial object
@@ -65,7 +100,7 @@ load(file.path(paths$output, "sensitivity_analysis.Rdata")) # loads overall_sens
 
 
 
-# subset CU data ----------------------------------------------------------
+# ==================== 3. Subset Case Study Data ====================
 
 cu_i <- casestudy_1
 
@@ -111,12 +146,14 @@ cu_timing_i <- cu_timing_Fr[cu_timing_Fr$FULL_CU_IN == cu_i, ]
 
 
 
+# ==================== 4. Generate & Save Figures ====================
+
 # Figure 2 - Map of values for freshwater spawning and rearing indicators within a CU boundary
 
 f2 <- stream_indicator_multipanel_plot(fw_sp_ind_cu,
   cu_boundary_i,
   lakes_cu,
-  variables = c("favchange_chinook_85_3", "cthr_anad", "tw8_9_45_3", "deltatw8_9_45_3", "deltaflow8_9_45_3", "deltaflow18_9_45_3"),
+  variables = c("favchange_chinook_85_3", "cthr_anad", "tw8proj_9_45_3", "tw8rate_9_45_3", "flow8pdelta_9_45_3", "flow18pdelta_9_45_3"),
   plot_titles = c("favchange", "cthr", "tw8proj", "tw8rate", "flow8", "flow18"),
   scico_palette = "roma",
   palette_directions = c(1, -1, -1, -1, 1, -1))
@@ -146,15 +183,14 @@ ggsave(filename = file.path(output_dir, "figure_4.png"), plot = f4,
 
 # Figure 5 - Mapped vulnerability scores for freshwater spawning and rearing category.
 
-f5 <- spatial_indicator_plot(all_std_long,
-                             cu_boundary,
-                            outline = Fr_basin,
-                              sp_pick = c("Chinook", "Coho", "Sockeye"),
-                              indicator_pick = "flow8pdelta",
-                             rcp_pick = sens_rcp_base,
-                             period_pick = sens_period_base)
+f5 <- spatial_fw_rearing_indicators_plot(all_std_long,
+                                         cu_boundary,
+                                         outline = Fr_basin,
+                                         species_pick = "Chinook",
+                                         rcp_pick = sens_rcp_base,
+                                         period_pick = sens_period_base)
     
-ggsave(filename = file.path(output_dir, "figure_5.png"), plot = f5, width = 7, height = 5)                                
+ggsave(filename = file.path(output_dir, "figure_5.png"), plot = f5, width = 10, height = 7)                                
                                    
 # Figure 6 - Marine adaptive zones and associated mean indicator scores for each indicator - SSTproj, SSTrate, CImpact.
 

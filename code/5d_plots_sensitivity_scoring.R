@@ -64,6 +64,7 @@ dev_raw <- overall_sensitivity$deviations %>%
             str_detect(source_label, "^Method") ~ "Method",
             str_detect(source_label, "^Model") ~ "dsmethod",
             str_detect(source_label, "^dsmethod") ~ "dsmethod",
+            str_detect(source_label, "^stdmethod") ~ "stdmethod",
             TRUE ~ "Other"
         ),
         source = case_when(
@@ -193,7 +194,7 @@ cat("Generating vulnerability score sensitivity summary table...\n")
 target_v_sources <- c(
   "GCM1", "GCM4", "GCM6", 
   "RCP85_P3", "RCP45_P5", 
-  "cube"
+  "cube", "stdmethod"
 )
 
 score_table_wide <- score_sens_summary %>%
@@ -205,6 +206,7 @@ score_table_wide <- score_sens_summary %>%
     source == "RCP85_P3" ~ "RCP85",
     source == "RCP45_P5" ~ "Period5",
     source == "cube" ~ "Method",
+    source == "stdmethod" ~ "stdmethod",
     TRUE ~ NA_character_
   )) %>%
   filter(!is.na(table_source)) %>%
@@ -248,6 +250,7 @@ score_sens_gt <- score_gt_data %>%
   tab_spanner(label = "RCP 8.5", columns = starts_with("RCP85")) %>%
   tab_spanner(label = "Period 5", columns = starts_with("Period5")) %>%
   tab_spanner(label = "Scoring (Cube)", columns = starts_with("Method")) %>%
+  tab_spanner(label = "Std Method", columns = starts_with("stdmethod")) %>%
   # Style
   tab_options(
     table.font.size = px(11),
@@ -334,7 +337,7 @@ dev_full <- overall_sensitivity$deviations %>%
     filter(category == "all", SPECIES_NAME %in% c("Chinook", "Sockeye", "Coho")) %>%
     select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, SMU_SIMPLE, base_score, base_rank = base_rank_sp, starts_with("raw_dev_")) %>%
     pivot_longer(cols = starts_with("raw_dev_"), names_to = "source", names_prefix = "raw_dev_", values_to = "raw_dev") %>%
-    filter(source %in% c("GCM1", "GCM4", "GCM6", "RCP85_P3", "RCP45_P5", "dsmethod", "Method_cube", "Method_avgcube", "Method_flag")) %>%
+    filter(source %in% c("GCM1", "GCM4", "GCM6", "RCP85_P3", "RCP45_P5", "dsmethod", "Method_cube", "Method_avgcube", "Method_flag", "stdmethod")) %>%
     # Add Baseline
     bind_rows(
         overall_sensitivity$deviations %>%
@@ -348,8 +351,8 @@ dev_full <- overall_sensitivity$deviations %>%
     ungroup()
 
 # Labels and ordering
-source_order <- c("GCM1", "GCM4", "GCM6", "Baseline", "RCP45_P5", "RCP85_P3", "dsmethod", "Method_cube", "Method_avgcube", "Method_flag")
-source_labels_bump <- c("CanESM2", "HadGEM2", "MPI-ESM", "Baseline", "RCP 4.5", "RCP 8.5", "DS Meth", "Cube-M", "Avg-Cube", "Flag")
+source_order <- c("GCM1", "GCM4", "GCM6", "Baseline", "RCP45_P5", "RCP85_P3", "dsmethod", "Method_cube", "Method_avgcube", "Method_flag", "stdmethod")
+source_labels_bump <- c("CanESM2", "HadGEM2", "MPI-ESM", "Baseline", "RCP 4.5", "RCP 8.5", "DS Meth", "Cube-M", "Avg-Cube", "Flag", "Std Meth")
 
 dev_full <- dev_full %>%
     mutate(source = factor(source, levels = source_order, labels = source_labels_bump))

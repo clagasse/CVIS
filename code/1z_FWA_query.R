@@ -1,21 +1,38 @@
-## 2z_FWA_query.R
-# Use the fwapgr package to query data from the freshwater atlas of BC
+# ==============================================================================
+# CVIS Freshwater Atlas Query Tool (1z_FWA_query.R)
+#
+# Description:
+#   Uses the fwapgr package to query spatial watershed and stream network data 
+#   from the BC Freshwater Atlas. Prepares subsets (e.g. for Vancouver Island 
+#   Chinook CK-29) and performs diagnostic area overlays.
+#
+# Workflow Steps:
+#   1. Define watershed code zero-padding utility functions.
+#   2. Query FWA basins, groups, and streams using the pgfeatureserv API.
+#   3. Load and intersect spatial files (lakes, drainage units, BCFishpass).
+#   4. Subset streams, boundaries, and NuSEDS systems for CK-29.
+#   5. Sub-divide CK-29 streams into individual watershed groups.
+#   6. Render diagnostic boundary maps and compute drainage areas.
+#
+# Inputs:
+#   - Spatial shapefiles and geopackages in paths$spatial
+#
+# Outputs:
+#   - Intersected sub-selections loaded into R environment
+#
+# Dependencies:
+#   - Requires 0_setup.R, pgfeatureserv, and fwapgr.
+# ==============================================================================
 
-# package info:  https://github.com/poissonconsulting/fwapgr
-
-# install.packages("devtools")
-devtools::install_github("poissonconsulting/pgfeatureserv")
-devtools::install_github("poissonconsulting/fwapgr")
-
-### this code will query from the FWA database using an API, but is limited to 10,000 records
+# ==================== 1. Setup & Load Libraries ====================
 library(fwapgr)  # package for accessing BC FWA
-
 library(here)
+
 setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
 
 
-### Padding for Watershed Code
+# ==================== 2. Define Padding Functions ====================
 # Define the target segment lengths
 target_lengths <- c(3, 6, 5, 5, 4, 4, 3, 3, 3, 3, 3, 3)
 
@@ -54,6 +71,7 @@ pad_localcode <- function(code) {
 }
 
 
+# ==================== 3. FWA Collection Queries & Vancouver Island Intersections ====================
 # get information about the collections or a collection’s properties:
 fwa_cols <- fwa_collections()
 fwa_collection_properties("whse_basemapping.fwa_basins_poly")
@@ -79,7 +97,7 @@ FWA_query <- fwa_query_collection(collection_id, filter = filter_watersheds)
 # lakes polygons
 lakes_fwa <- st_read(file.path(paths$spatial, "BC_FWA_LAKES", "FWA_LAKES_POLY.gpkg"))
 
-### load Vancouver Island watershed
+# load Vancouver Island watershed
 
 # read ecological drainage units
 EAU <- st_read(file.path(paths$spatial, "EAUBC_ECO_DRAINAGE_UNITS", "EAUBC_ECO_DRAINAGE_UNITS_SP.gpkg"))
@@ -109,7 +127,7 @@ filter_watersheds <- setNames(as.list(VI_codes), rep("watershed_group_code", len
 VI_wsheds <- fwa_query_collection(collection_id, filter = list(watershed_group_code = "NIMP"))
 
 
-# Subset for Upper SoG Chinook --------------------------------------------
+# ==================== 4. Subset for Upper SoG Chinook (CK-29) ====================
 
 load(file = file.path(paths$fw, "BCFP_VI.Rds"))
 
@@ -161,7 +179,7 @@ acc_wsheds_NIMP <- VI_wsheds %>%
   ungroup()
 
 
-# Subset for individual watersheds ----------------------------------------
+# ==================== 5. Subset for Individual Watersheds ====================
 
 # get polygon for watershed group of interest
 wshed_NIMP <- filter(wshed_groups, watershed_group_code == "NIMP")
@@ -182,54 +200,56 @@ bcfph_SALM <- subset_intersections(st_zm(bcfph_CK29), wshed_SALM)
 bcfph_NIMP <- subset_intersections(st_zm(bcfph_CK29), wshed_NIMP)
 
 
-# Plots -------------------------------------------------------------------
+# ==================== 6. Diagnostic Plots & Metrics ====================
 
-# CU Boundary plot
-ggplot() +
-  geom_sf(data = CK29_boundary, fill = "grey", alpha = 0.3) +
-  # annotation_map_tile(type = "cartolight") +
-  # geom_sf(data = wsheds_CK29, aes(fill = watershed_group_code), alpha = 0.5) +
-  # geom_sf(data = bcfph_CK29_sub, aes(colour = ch_code_1), linewidth = 1.0) +
-  geom_sf(data = acc_CK29, aes(colour = ch_code_1), linewidth = 1.0) +
-  geom_sf(data = lakes_CK29, fill = "darkblue", alpha = 0.7) +
-  geom_sf(data = nuseds_sites_CK29)
-
-
-# Nimpkish or other watershed plot
-ggplot() +
-  geom_sf(data = VI_wsheds, fill = "darkred", alpha = 0.5) +
-  geom_sf(data = acc_wsheds_CK29, colour = "blue") +
-  geom_sf(data = acc_NIMP, aes(colour = ch_code_1))
+if (interactive()) {
+  # CU Boundary plot
+  ggplot() +
+    geom_sf(data = CK29_boundary, fill = "grey", alpha = 0.3) +
+    # annotation_map_tile(type = "cartolight") +
+    # geom_sf(data = wsheds_CK29, aes(fill = watershed_group_code), alpha = 0.5) +
+    # geom_sf(data = bcfph_CK29_sub, aes(colour = ch_code_1), linewidth = 1.0) +
+    geom_sf(data = acc_CK29, aes(colour = ch_code_1), linewidth = 1.0) +
+    geom_sf(data = lakes_CK29, fill = "darkblue", alpha = 0.7) +
+    geom_sf(data = nuseds_sites_CK29)
 
 
-# Nimpkish or other watershed plot
-ggplot() +
-  annotation_map_tile(type = "cartolight") +
-  geom_sf(data = wshed_CAMB, fill = "grey", alpha = 0.3) +
-  # geom_sf(data = acc_wsheds_CK29, colour = "blue") +
-  geom_sf(data = bcfph_CAMB, aes(colour = ch_code_1), linewidth = 1.0) +
-  geom_sf(data = lakes_CAMB, fill = "darkblue", alpha = 0.7)
-
-# Nimpkish or other watershed plot
-ggplot() +
-  annotation_map_tile(type = "cartolight") +
-  geom_sf(data = wshed_SALM, fill = "grey", alpha = 0.3) +
-  # geom_sf(data = acc_wsheds_CK29, colour = "blue") +
-  geom_sf(data = bcfph_SALM, aes(colour = ch_code_1), linewidth = 1.0) +
-  geom_sf(data = lakes_SALM, fill = "darkblue", alpha = 0.7)
-
-ggplot() +
-  annotation_map_tile(type = "cartolight") +
-  geom_sf(data = wshed_NIMP, fill = "grey", alpha = 0.3) +
-  # geom_sf(data = acc_wsheds_CK29, colour = "blue") +
-  geom_sf(data = bcfph_NIMP, aes(colour = ch_code_1), linewidth = 1.0) +
-  geom_sf(data = lakes_NIMP, fill = "darkblue", alpha = 0.7)
+  # Nimpkish or other watershed plot
+  ggplot() +
+    geom_sf(data = VI_wsheds, fill = "darkred", alpha = 0.5) +
+    geom_sf(data = acc_wsheds_CK29, colour = "blue") +
+    geom_sf(data = acc_NIMP, aes(colour = ch_code_1))
 
 
-# get watershed area
+  # Nimpkish or other watershed plot
+  ggplot() +
+    annotation_map_tile(type = "cartolight") +
+    geom_sf(data = wshed_CAMB, fill = "grey", alpha = 0.3) +
+    # geom_sf(data = acc_wsheds_CK29, colour = "blue") +
+    geom_sf(data = bcfph_CAMB, aes(colour = ch_code_1), linewidth = 1.0) +
+    geom_sf(data = lakes_CAMB, fill = "darkblue", alpha = 0.7)
 
-# accessible areas
-sum(acc_wsheds_CK29$area_ha)
+  # Nimpkish or other watershed plot
+  ggplot() +
+    annotation_map_tile(type = "cartolight") +
+    geom_sf(data = wshed_SALM, fill = "grey", alpha = 0.3) +
+    # geom_sf(data = acc_wsheds_CK29, colour = "blue") +
+    geom_sf(data = bcfph_SALM, aes(colour = ch_code_1), linewidth = 1.0) +
+    geom_sf(data = lakes_SALM, fill = "darkblue", alpha = 0.7)
 
-# total area
-sum(VI_wsheds$area_ha)
+  ggplot() +
+    annotation_map_tile(type = "cartolight") +
+    geom_sf(data = wshed_NIMP, fill = "grey", alpha = 0.3) +
+    # geom_sf(data = acc_wsheds_CK29, colour = "blue") +
+    geom_sf(data = bcfph_NIMP, aes(colour = ch_code_1), linewidth = 1.0) +
+    geom_sf(data = lakes_NIMP, fill = "darkblue", alpha = 0.7)
+
+
+  # get watershed area
+
+  # accessible areas
+  sum(acc_wsheds_CK29$area_ha)
+
+  # total area
+  sum(VI_wsheds$area_ha)
+}

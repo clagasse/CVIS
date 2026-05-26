@@ -35,12 +35,18 @@ source(file.path(here(), "code", "0_setup.R"))
 # Load outputs from 4a
 load(file.path(paths$output, "scoring_results.Rdata")) # loads all_std_long, scores_tidy
 
+# Filter scores_tidy for baseline score analysis (Sections 3 and 4)
+scores_tidy_baseline <- scores_tidy
+if ("std_method" %in% names(scores_tidy)) {
+    scores_tidy_baseline <- scores_tidy %>% filter(std_method == "exponential")
+}
 
 # ==================== 2. Indicator-Level Metrics & Baseline ====================
 
 # For each indicator/CU combination, calculate the mean raw and standardized value for the baseline scenario
 # For environmental change indicators, also calculate the mean qlowgcm and qhighgcm for the baseline
 ind_baseline <- all_std_long %>%
+    filter(std_method == "exponential") %>%
     filter(rcp == sens_rcp_base, period_code == sens_period_base, gcm == sens_gcm_base) %>%
     # Use the per-indicator baseline model defined in tbl_standardize
     left_join(tbl_standardize %>% select(abbrev, dsmodel_baseline_ind = dsmodel_baseline), by = c("indicator" = "abbrev")) %>%
@@ -60,6 +66,7 @@ ind_baseline <- all_std_long %>%
 # calculate the mean and raw values for other scenarios, and the raw and absolute deviation
 # compared to baseline scenario, broken down by individual sources of variation.
 ind_others <- all_std_long %>%
+    filter(std_method == "exponential") %>%
     filter(stat == "mean") %>%
     filter(period_code != "0") %>%
     # Filter to only the baseline model for quantifying GCM/Scenario variation
@@ -101,6 +108,7 @@ ind_scen_dev <- map_dfr(sens_scenarios, function(s) {
 # 2.3 dsmethod Deviations for indicators
 # Only for indicators with > 1 model available in dsmodel_baseline
 ind_model_dev <- all_std_long %>%
+    filter(std_method == "exponential") %>%
     filter(stat == "mean") %>%
     filter(rcp == sens_rcp_base, period_code == sens_period_base, gcm == sens_gcm_base) %>%
     # Identify variations from the baseline model
@@ -121,10 +129,28 @@ ind_model_dev <- all_std_long %>%
     mutate(source = "dsmethod") %>%
     select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, category, indicator, source, raw_dev, std_dev, abs_raw_dev, abs_std_dev)
 
+# 2.4 stdmethod Deviations for indicators (Linear vs. Exponential)
+ind_stdmethod_dev <- all_std_long %>%
+    filter(std_method == "linear") %>%
+    filter(stat == "mean") %>%
+    filter(rcp == sens_rcp_base, period_code == sens_period_base, gcm == sens_gcm_base) %>%
+    left_join(tbl_standardize %>% select(abbrev, dsmodel_baseline_ind = dsmodel_baseline), by = c("indicator" = "abbrev")) %>%
+    filter(dsmodel == dsmodel_baseline_ind) %>%
+    left_join(ind_baseline, by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "category", "indicator")) %>%
+    mutate(
+        raw_dev = value - base_raw_mean,
+        std_dev = std_value - base_std_mean,
+        abs_raw_dev = abs(raw_dev),
+        abs_std_dev = abs(std_dev),
+        source = "stdmethod"
+    ) %>%
+    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, category, indicator, source, raw_dev, std_dev, abs_raw_dev, abs_std_dev)
+
 ind_dev_long <- bind_rows(
     ind_gcm_dev %>% select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, category, indicator, source, raw_dev, std_dev, abs_raw_dev, abs_std_dev),
     ind_scen_dev %>% select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, category, indicator, source, raw_dev, std_dev, abs_raw_dev, abs_std_dev),
-    ind_model_dev %>% select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, category, indicator, source, raw_dev, std_dev, abs_raw_dev, abs_std_dev)
+    ind_model_dev %>% select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, category, indicator, source, raw_dev, std_dev, abs_raw_dev, abs_std_dev),
+    ind_stdmethod_dev %>% select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, category, indicator, source, raw_dev, std_dev, abs_raw_dev, abs_std_dev)
 )
 
 ind_dev_wide <- ind_dev_long %>%
@@ -191,6 +217,7 @@ relevant_categories <- c("all", "fwrs", "migr", "mar", "gen", "dem")
 # Identify indicators with multiple models to quantify model variation
 # We compare alternative models against the baseline model specified in tbl_standardize
 mult_model_inds_df <- all_std_long %>%
+    filter(std_method == "exponential") %>%
     left_join(tbl_standardize %>% select(abbrev, dsmodel_baseline_ind = dsmodel_baseline), by = c("indicator" = "abbrev"))
 
 # Alternative models are those that appear in the data but are NOT the baseline for their indicator
@@ -206,7 +233,7 @@ model_cat_relevance <- mult_model_inds_df %>%
     rename(source = dsmodel)
 
 # Identify baseline scores and bounds for sensitivity comparison
-dat <- scores_tidy %>%
+dat <- scores_tidy_baseline %>%
     filter(category %in% relevant_categories) %>%
     mutate(
         rcp = as.character(rcp),
@@ -348,7 +375,25 @@ for (cat in relevant_categories) {
                    source, raw_dev, abs_dev, rank_diff_all, rank_diff_sp, rankall, rankspecies)
     }
 
-    all_devs_list[[cat]] <- bind_rows(gcm_dev, scen_dev, m_dev, mod_dev)
+    # 2.5 stdmethod Deviations (Linear vs. Exponential)
+    stdmethod_dev <- tibble()
+    if ("std_method" %in% names(scores_tidy)) {
+        stdmethod_dev <- scores_tidy %>%
+            filter(std_method == "linear") %>%
+            filter(category == cat) %>%
+            filter(rcp == sens_rcp_base, period_code == sens_period_base, gcm == sens_gcm_base, method == b_method) %>%
+            mutate(
+                rcp = as.character(rcp),
+                period_code = as.character(period_code),
+                gcm = as.character(gcm)
+            ) %>%
+            calc_devs(cat_baseline) %>%
+            select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, SMU_SIMPLE, category, base_score, base_rank_all, base_rank_sp, 
+                   raw_dev, abs_dev, rank_diff_all, rank_diff_sp, rankall, rankspecies) %>%
+            mutate(source = "stdmethod")
+    }
+
+    all_devs_list[[cat]] <- bind_rows(gcm_dev, scen_dev, m_dev, mod_dev, stdmethod_dev)
 }
 
 all_devs_long <- bind_rows(all_devs_list)
@@ -389,6 +434,7 @@ cat("\nPerforming Jackknife (Leave-one-out) Leverage Analysis...\n")
 
 # Recreate the 'filled' indicator values for the baseline scenario using specific baseline models
 jk_dat <- all_std_long %>%
+    filter(std_method == "exponential") %>%
     left_join(tbl_standardize %>% select(abbrev, dsmodel_baseline_ind = dsmodel_baseline), by = c("indicator" = "abbrev")) %>%
     filter(dsmodel == dsmodel_baseline_ind) %>%
     mutate(

@@ -1,7 +1,30 @@
-###############################################################################
-# Functions to load and summarize data relevant to exposure indicators
+# ==============================================================================
+# CVIS Freshwater Utility Functions (2_fw_utils.R)
+#
+# Description:
+#   Utility functions for freshwater indicators, spatial subsetting, FWA path
+#   reconstructions, PCIC indicators netCDF loading, and plotting/mapping.
+#
+# Functions:
+#   - calculate_subset_means_all: Calculates mean for column subsets.
+#   - greater_zero: Returns TRUE if value is > 0.
+#   - wmean, wsd, wqt: Weighted mean, standard deviation, and quantiles.
+#   - standardize_long_stats, stack_long_stats: Data formatting helpers.
+#   - subset_intersections: Spatial intersection helper.
+#   - reconstruct_migrT_rcps: Reconstructs migrT_rcps from daily data.
+#   - subset_fw_models: Subsets FW stream potential datasets.
+#   - loadPCIC_ind: Loads PCIC indicator NetCDF variables.
+#   - downstream_path, measure_downstream: FWA network path functions.
+#   - choose_CU_stream: Selects representative streams.
+#   - calculate_work: Computes vertical/horizontal fish work.
+#   - rainfall_plot, map.stage: Visualizations.
+#
+# Dependencies:
+#   - sf, dplyr, purrr, tidyr, Hmisc, stars/ncdf4 (via read_ncdf)
+# ==============================================================================
 
-###############################################################################
+# ==================== 1. Summary & Formatting Helpers ====================
+
 
 ## simple calculation functions
 calculate_subset_means_all <- function(df, index_list) {
@@ -76,9 +99,27 @@ stack_long_stats <- function(...) {
     arrange(FULL_CU_IN, category, dsmodel, indicator, rcp, period_code, stat, gcm)
 }
 
-###############################################################################
-# Spatial analysis utility functions
-###############################################################################
+# ==================== 2. Spatial Analysis & Habitat Subsetting ====================
+
+# calculate number of decades from historical to projection period. used for calculating rates of T change
+decade_calc <- function(historical_pick = "0", period_pick = "3") {
+  year_hist <- case_when(
+    historical_pick == "0" ~ 1990,
+    historical_pick == "1" ~ 2010
+  )
+  
+  year_proj <- case_when(
+    period_pick == "0" ~ 1990,
+    period_pick == "1" ~ 2010,
+    period_pick == "2" ~ 2030,
+    period_pick == "3" ~ 2050,
+    period_pick == "4" ~ 2070,
+    period_pick == "5" ~ 2090
+  )
+  
+  decades <- (year_proj - year_hist) / 10
+}
+
 
 # for two spatial objects, subset the data in sp_x that intersects with sp_y
 subset_intersections <- function(sp_x, sp_y) {
@@ -218,10 +259,7 @@ subset_fw_models <- function(fw_models, cu_i, stream_cu_picks, cu_run, spp_looku
 }
 
 
-###############################################################################
-
-# Function to load PCIC model output for given model and variable
-###############################################################################
+# ==================== 3. PCIC NetCDF Data Loading ====================
 
 loadPCIC_ind <- function(
     variable = "POT19freq_year_aClimMean", # Which variable to load?
@@ -231,7 +269,7 @@ loadPCIC_ind <- function(
 ){
   
   # Define location of data
-  root_dat <- here("data", "PCIC_indicators")
+  root_dat <- file.path(paths$climate, "PCIC_indicators")
   
     # Two variables in VICGL output
   varNames <- data.frame(
@@ -301,9 +339,7 @@ loadPCIC_ind <- function(
 
 
 
-##########################################################################
-## ----  FWA functions-----
-###################################################################
+# ==================== 4. Freshwater Atlas (FWA) Path Analysis ====================
 
 downstream_path <- function(stream_pick, stream_network, code_type = "FWA") {
   
@@ -457,7 +493,7 @@ calculate_work <- function(elev, dist) {
   work <- 0.0001 * elev * dist
 }
 
-#----------------------rainfall plot-----------------------------------------
+# ==================== 5. Diagnostic Plotting & Mapping ====================
 
 rainfall_plot <- function(data) {
     ggplot(data, aes(x = factor(STREAM_ORDER), y = CT_anad, fill = factor(STREAM_ORDER))) +

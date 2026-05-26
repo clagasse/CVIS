@@ -43,14 +43,43 @@ library(ggspatial)
 source(file.path(here(), "code", "4_scoring_utils.R"))
 source(file.path(here(), "code", "5a_plots_CU.R"))
 
+# Ensure paths are configured
+if (!exists("paths")) {
+  library(here)
+  source(file.path(here(), "code", "0_setup.R"))
+}
+
+# Helper to find the latest date-prefixed file matching a pattern
+get_latest_file <- function(path, pattern) {
+  files <- list.files(path, pattern = pattern, full.names = TRUE)
+  if (length(files) == 0) {
+    # try output directory as fallback
+    files <- list.files(here("output"), pattern = pattern, full.names = TRUE)
+  }
+  if (length(files) == 0) {
+    stop("No files matching pattern '", pattern, "' found in ", path)
+  }
+  sorted_files <- sort(files, decreasing = TRUE)
+  return(sorted_files[1])
+}
+
 # Load Data
-# Try to load from output CSVs if not already in environment
+# Try to load from Rdata first (produced by 4a_CU_scoring.R)
+if (!exists("all_std_long")) {
+  rdata_path <- file.path(here(), "output", "scoring_results.Rdata")
+  if (file.exists(rdata_path)) {
+    load(rdata_path) # loads all_std_long and scores_tidy
+    if (!exists("scores_long") && exists("scores_tidy")) {
+      scores_long <- scores_tidy
+    }
+  }
+}
+
+# Fallback to output CSVs if not already in environment
 if (!exists("all_std_long")) {
   data_path <- file.path(here(), "output", "all_indicators_std_long.csv")
   if (file.exists(data_path)) {
     all_std_long <- read.csv(data_path)
-    # Ensure columns match expectations for get_CU_indicators
-    # The CSV might store numeric columns as correct types, but check if factor conversion needed
   } else {
     warning("all_indicators_std_long.csv not found. Please run 4a_CU_scoring.R")
   }
@@ -65,34 +94,63 @@ if (!exists("scores_long")) {
   }
 }
 
-# Load Metadata if needed (cu_run, tbl_indicators)
-if (!exists("cu_run")) {
-  # Try to source setup or load from file if available?
-  # Ideally source 0_setup.R but that might re-load everything.
-  # For now, assume setup is run or load cu_list_CVIS.csv if critical.
-  # But let's stick to the script assumption for now, just handling the new outputs.
-}
-
-# Ensure paths are configured
-if (!exists("paths")) {
-  library(here)
-  source(file.path(here(), "code", "0_setup.R"))
-}
-
 if (!exists("fw_all")) {
-  fw_path <- file.path(paths$fw, "fw_rearing_indicators.Rdata")
-  if (!file.exists(fw_path)) {
-    fw_path <- file.path(paths$output, "fw_rearing_indicators.Rdata")
-  }
+  fw_path <- get_latest_file(paths$fw, "fw_rearing_indicators.Rdata")
   load(fw_path) # loads fw_all, ss_all
 }
 
-if (!exists("migr_all")) {
-  load(file.path(paths$fw, "migr_stats.Rdata"))
+if (!exists("migr_all") || !exists("migr_daily_all")) {
+  load(get_latest_file(paths$fw, "migr_stats.Rdata"))
 }
 
 if (!exists("migr_list")) {
   load(file.path(paths$fw, "fw_upstream_paths.Rdata"))
+}
+
+# Load Core Spatial and Reference Objects if not in environment
+if (!exists("MAZ")) {
+  load(file.path(paths$marine, "MAZ.Rds"))
+}
+if (!exists("basins")) {
+  load(file.path(paths$fw, "basins_shp.Rds"))
+}
+if (!exists("Fr_basin") && exists("basins")) {
+  Fr_basin <- filter(basins, BASIN == "FRASER")
+}
+if (!exists("stream_cu_picks")) {
+  load(file.path(paths$fw, "fw_streampicks_tscapes.Rdata"))
+}
+if (!exists("fw_sp_ind")) {
+  load(file.path(paths$fw, "fw_stream_indicators_sp.Rds"))
+}
+
+# Dynamic post-load safeguard for legacy column names in spatial indicators
+if (exists("fw_sp_ind")) {
+  names(fw_sp_ind) <- sub("^tw8_9_", "tw8proj_9_", names(fw_sp_ind))
+  names(fw_sp_ind) <- sub("^lowQpdelta_9_", "flow8pdelta_9_", names(fw_sp_ind))
+  names(fw_sp_ind) <- sub("^highQpdelta_9_", "flow18pdelta_9_", names(fw_sp_ind))
+}
+
+if (!exists("lakes_Fr")) {
+  load(file.path(paths$fw, "BC_FWA_LAKES_FR.Rds"))
+}
+if (!exists("watershed_flow")) {
+  load(file.path(paths$fw, "flow_gauge_data.Rdata"))
+}
+if (!exists("Tw_stations")) {
+  load(file.path(paths$fw, "Tw_stations.Rds"))
+}
+if (!exists("cu_timing_long") || !exists("cu_timing_Fr")) {
+  load(file.path(paths$CU, "cu_timing_data.Rdata"))
+}
+if (!exists("CMIP6_SST")) {
+  load(file.path(paths$marine, "CMIP6_SST_periods.Rds"))
+}
+if (!exists("CImpact_points")) {
+  load(file.path(paths$marine, "CImpact_points.Rds"))
+}
+if (!exists("tbl_standardize") || !exists("tbl_indicators")) {
+  load(file.path(paths$params, "indicator_tables.Rdata"))
 }
 
 # Alias for compatibility if code uses old names
@@ -344,7 +402,7 @@ ui <- dashboardPage(
             status = "info", solidHeader = TRUE,
             tags$p(
               style = "margin: 5px 0 10px 0; color: #666; font-size: 12px;",
-              "Projected changes in stream flow during the month of August (lowQpdelta) and Nov - Jan (highQpdelta) for RCP 4.5, 2041-2060."
+              "Projected changes in stream flow during the month of August (flow8pdelta) and Nov - Jan (flow18pdelta) for RCP 4.5, 2041-2060."
             ),
             reactableOutput("flow_indicators_table")
           )
@@ -423,17 +481,6 @@ ui <- dashboardPage(
               "Indicator value of changes in habitat favourability (favchange) from Environmental Niche Models."
             ),
             reactableOutput("enm_indicators_table")
-          )
-        ),
-        fluidRow(
-          box(
-            width = 12, title = "ENM Habitat Favourability",
-            status = "success", solidHeader = TRUE,
-            tags$p(
-              style = "margin: 5px 0 10px 0; color: #666; font-size: 12px;",
-              "Projected habitat favourability (2041-2060, RCP 4.5). Values range from 0 (unfavourable) to 1 (highly favourable) based on projected environmental conditions."
-            ),
-            plotOutput("enm_plot", height = "650px")
           )
         ),
         fluidRow(
@@ -698,9 +745,13 @@ server <- function(input, output, session) {
     all_std_long %>%
       filter(
         FULL_CU_IN == input$cu_select,
-        rcp == "45",
-        period_code == "3"
-      )
+        (rcp == "45" & period_code == "3") | (rcp == "0" & period_code == "0")
+      ) %>%
+      group_by(FULL_CU_IN, indicator, stat) %>%
+      mutate(has_projection = any(rcp == "45" & period_code == "3")) %>%
+      filter(!has_projection | (rcp == "45" & period_code == "3")) %>%
+      ungroup() %>%
+      select(-has_projection)
   })
 
   # Reactive data for indicator table (formatted for display)
@@ -723,43 +774,48 @@ server <- function(input, output, session) {
     )
 
     df <- cu_all_raw %>%
-      left_join(cu_all_std, join_by(FULL_CU_IN, rcp, period_code, indicator)) %>%
-      left_join(select(tbl_indicators, abbrev, long_type), join_by(indicator == abbrev)) %>%
-      mutate(across(everything(), ~ ifelse(is.nan(.), NA, .)))
+      left_join(cu_all_std, by = c("FULL_CU_IN", "rcp", "period_code", "indicator"), suffix = c("_raw", "_std")) %>%
+      left_join(select(tbl_indicators, abbrev, long_type), by = c("indicator" = "abbrev")) %>%
+      mutate(across(where(is.numeric), ~ ifelse(is.nan(.), NA_real_, .)))
 
-    # Build display-only view with required columns
+    # Dynamically pick columns to be robust to missing columns
+    pick_col <- function(df_in, choices) {
+      out <- choices[choices %in% names(df_in)]
+      if (length(out) == 0) NA_character_ else out[1]
+    }
+
+    std_cu_col <- pick_col(df, c("std_cu_value", "std_cu_mean", "cu_value_std", "cu_mean_std", "std_cu"))
+    std_sp_col <- pick_col(df, c("std_sp_value", "std_sp_mean", "sp_value_std", "sp_mean_std", "std_sp"))
+    std_allcu_col <- pick_col(df, c("std_allcu_value", "std_allcu_mean", "allcu_value_std", "allcu_mean_std", "std_allcu"))
+    cu_col <- pick_col(df, c("cu_value_raw", "cu_mean_raw", "cu_value", "cu_mean"))
+    q10_col <- pick_col(df, c("cu_qlowgcm_raw", "cu_qlowgcm", "cu_qlowgcm_std"))
+    q90_col <- pick_col(df, c("cu_qhighgcm_raw", "cu_qhighgcm", "cu_qhighgcm_std"))
+    sp_col <- pick_col(df, c("sp_value_raw", "sp_mean_raw", "sp_value", "sp_mean"))
+    allcu_col <- pick_col(df, c("allcu_value_raw", "allcu_mean_raw", "allcu_value", "allcu_mean"))
+
     tbl_view <- df %>%
-      mutate(CU_Period = paste0(rcp, " • P", period_code)) %>%
-      select(any_of(c(
-        "long_type", "indicator",
-        "std_cu_mean", "std_sp_mean", "std_allcu_mean",
-        "cu_mean", "cu_qlowgcm", "cu_qhighgcm",
-        "sp_mean", "allcu_mean"
-      )))
-
-    # Rename columns
-    tbl_view <- tbl_view %>%
-      rename(
+      transmute(
         `Indicator Type` = long_type,
         `Indicator Code` = indicator,
-        `CU score` = std_cu_mean,
-        `Species score` = std_sp_mean,
-        `All Species score` = std_allcu_mean,
-        `Mean` = cu_mean,
-        `Q10` = cu_qlowgcm,
-        `Q90` = cu_qhighgcm,
-        `Species Mean` = sp_mean,
-        `All Species Mean` = allcu_mean
+        `CU score` = if (is.na(std_cu_col)) NA_real_ else .[[std_cu_col]],
+        `Species score` = if (is.na(std_sp_col)) NA_real_ else .[[std_sp_col]],
+        `All Species score` = if (is.na(std_allcu_col)) NA_real_ else .[[std_allcu_col]],
+        `Mean` = if (is.na(cu_col)) NA_real_ else .[[cu_col]],
+        `GCM Q10` = if (is.na(q10_col)) NA_real_ else .[[q10_col]],
+        `GCM Q90` = if (is.na(q90_col)) NA_real_ else .[[q90_col]],
+        `Species Mean` = if (is.na(sp_col)) NA_real_ else .[[sp_col]],
+        `All Species Mean` = if (is.na(allcu_col)) NA_real_ else .[[allcu_col]]
       )
 
     # Reorder columns
     display_order <- c(
       "Indicator Type", "Indicator Code",
       "CU score", "Species score", "All Species score",
-      "Mean", "Q10", "Q90",
+      "Mean", "GCM Q10", "GCM Q90",
       "Species Mean", "All Species Mean"
     )
-    tbl_view[, intersect(display_order, names(tbl_view))]
+    tbl_view <- tbl_view[, intersect(display_order, names(tbl_view))]
+    tbl_view
   })
 
   # Reactive timing data
@@ -793,9 +849,7 @@ server <- function(input, output, session) {
     ) %>%
       rename(
         favchange_45 = contains(paste0("favchange_", sp_pick_ENM, "_45_3")),
-        favchange_85 = contains(paste0("favchange_", sp_pick_ENM, "_85_3")),
-        fav_45 = contains(paste0("fav_", sp_pick_ENM, "_45_3")),
-        fav_85 = contains(paste0("fav_", sp_pick_ENM, "_85_3"))
+        favchange_85 = contains(paste0("favchange_", sp_pick_ENM, "_85_3"))
       )
 
     acc_sp_cu <- fw_sp_cu %>%
@@ -1103,7 +1157,7 @@ server <- function(input, output, session) {
   # SPAWNING FLOW OUTPUTS
   output$flow_indicators_table <- renderReactable({
     req(indicator_table_data())
-    create_indicator_reactable(indicator_table_data(), c("lowQpdelta", "highQpdelta"))
+    create_indicator_reactable(indicator_table_data(), c("flow8pdelta", "flow18pdelta"))
   })
 
   output$august_flow_plot <- renderPlot({
@@ -1115,7 +1169,7 @@ server <- function(input, output, session) {
 
         stream_indicator_plot(spatial$acc_sp, spatial$boundary, spatial$lakes,
           Tw_stations = NULL,
-          variable = "deltaflow8_9_45_3",
+          variable = "flow8pdelta_9_45_3",
           plot_title = "Change in August Flow - 2041-2060",
           unit_label = "Proportional Change",
           xlim = c(-1, 0),
@@ -1140,7 +1194,7 @@ server <- function(input, output, session) {
 
         stream_indicator_plot(spatial$acc_sp, spatial$boundary, spatial$lakes,
           Tw_stations = NULL,
-          variable = "deltaflow18_9_45_3",
+          variable = "flow18pdelta_9_45_3",
           plot_title = "Change in Nov-Jan Flow - 2041-2060",
           unit_label = "Proportional Change",
           xlim = c(0, 1),
@@ -1170,7 +1224,7 @@ server <- function(input, output, session) {
         spatial <- cu_spatial()
 
         stream_indicator_plot(spatial$acc_sp, spatial$boundary, spatial$lakes, Tw_stations,
-          variable = "tw8_9_45_3",
+          variable = "tw8proj_9_45_3",
           plot_title = "August Mean Temperature - 2041-2060",
           unit_label = "Temperature (°C)",
           scico_palette = "roma",
@@ -1193,7 +1247,7 @@ server <- function(input, output, session) {
         spatial <- cu_spatial()
 
         stream_indicator_plot(spatial$acc_sp, spatial$boundary, spatial$lakes, Tw_stations,
-          variable = "deltatw8_9_45_3",
+          variable = "tw8rate_9_45_3",
           plot_title = "Rate of Temperature Change - 1981-2000 to 2041-2060",
           unit_label = "°C per decade",
           scico_palette = "roma",
@@ -1212,32 +1266,6 @@ server <- function(input, output, session) {
   output$enm_indicators_table <- renderReactable({
     req(indicator_table_data())
     create_indicator_reactable(indicator_table_data(), c("favchange"))
-  })
-
-  output$enm_plot <- renderPlot({
-    req(cu_spatial())
-
-    tryCatch(
-      {
-        spatial <- cu_spatial()
-
-        stream_indicator_plot(spatial$fw_sp, spatial$boundary, spatial$lakes,
-          Tw_stations = NULL,
-          variable = "fav_45",
-          plot_title = "ENM Favourability - 2041-2060",
-          unit_label = "Favourability",
-          histogram_fill = "model_access_salmon",
-          xlim = c(0, 1),
-          scico_palette = "managua",
-          palette_direction = -1,
-          temp_stations = FALSE
-        )
-      },
-      error = function(e) {
-        plot(1, type = "n", axes = FALSE, xlab = "", ylab = "")
-        text(1, 1, paste("Error:\n", e$message), cex = 0.8)
-      }
-    )
   })
 
   output$enm_diff_plot <- renderPlot({
@@ -1269,7 +1297,7 @@ server <- function(input, output, session) {
   # SPAWNING THREATS OUTPUT
   output$threats_indicators_table <- renderReactable({
     req(indicator_table_data())
-    create_indicator_reactable(indicator_table_data(), c("CT"))
+    create_indicator_reactable(indicator_table_data(), c("cthr"))
   })
 
   output$ct_plot <- renderPlot({
@@ -1299,7 +1327,7 @@ server <- function(input, output, session) {
   # MIGRATION OUTPUTS
   output$migration_indicators_table <- renderReactable({
     req(indicator_table_data())
-    create_indicator_reactable(indicator_table_data(), c("migrT", "migrQ", "migrdist"))
+    create_indicator_reactable(indicator_table_data(), c("migrTproj", "migrQpdelta", "migrdist"))
   })
 
   output$migration_path_plot <- renderPlot({
@@ -1309,10 +1337,19 @@ server <- function(input, output, session) {
 
     if (input$cu_select %in% names(migr_list)) {
       migr_cu <- migr_list[[input$cu_select]]
+
+      migrdist_row <- cu_data() %>% filter(indicator == "migrdist")
+      migrdist_val <- if (nrow(migrdist_row) > 0) {
+        val <- migrdist_row$value[!is.na(migrdist_row$value)][1]
+        if (!is.null(val) && !is.na(val)) round(as.numeric(val), 0) else "Unknown"
+      } else {
+        "Unknown"
+      }
+
       migration_path_plot(migr_cu, spatial$nuseds, spatial$boundary,
         colour_var = "channel_width",
         colour_label = "Channel Width (m)",
-        plot_title = paste0("Migration Distance: ", round(cu_data()$migrdist[1], 0), " km")
+        plot_title = paste0("Migration Distance: ", migrdist_val, " km")
       )
     }
   })

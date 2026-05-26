@@ -1,0 +1,761 @@
+---
+title: "Appendix: Sensitivity Analysis of Climate Vulnerability Indicators and Scores"
+subtitle: "DRAFT - not for further distribution without permission of the authors"
+author: "Cory Lagasse, Josie Iacarella, Colin Bailey, Michael Arbeider, Timothy Healy"
+date: "`r format(Sys.Date(), '%d %B %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    toc_collapsed: false
+    number_sections: true
+    theme: flatly
+    css: "CVIS_style.css"
+    fig_caption: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE,
+                      fig.align = "center", out.width = "100%")
+
+library(here)
+source(file.path(here(), "code", "0_setup.R"))
+
+library(reshape2)
+library(patchwork)
+library(corrplot)
+library(gt)
+library(scico)
+
+# Load pre-computed sensitivity outputs from scripts 4b and 4c
+load(file.path(paths$output, "sensitivity_analysis.Rdata"))         # overall_sensitivity, all_devs_wide
+load(file.path(paths$output, "indicator_sensitivity_summary.Rdata")) # ind_sens_summary, score_sens_summary, cor_matrices
+
+source_colors <- sens_source_palette
+```
+
+---
+
+# Overview
+
+This appendix describes the sensitivity analysis of the Climate Vulnerability Indicators for Salmon (CVIS) framework. The analysis evaluates how climate model uncertainty and methodological choices propagate into individual indicator values and aggregate vulnerability scores across the `r length(unique(overall_sensitivity$deviations$FULL_CU_IN))` Fraser River salmon conservation units (CUs) assessed in the main report. Results are presented in three sections:
+
+1. **Indicator-Level Sensitivity** — variability of raw and standardized individual indicator values across climate scenarios, GCMs, and downscaling methods.
+2. **Overall and Category Vulnerability Sensitivity** — how uncertainty in indicator inputs propagates into final vulnerability scores and CU rankings for each life-stage category and the overall vulnerability score.
+3. **Drivers of Vulnerability Variation** — multivariate analysis of the dominant factors explaining variation in overall vulnerability across CUs, including PCA-based risk profiling, factor importance, and SMU-level sensitivity to climate uncertainty.
+
+## Baseline Scenario
+
+All deviations are expressed relative to a common **baseline scenario**: the **GCM ensemble mean** (GCM 9; mean of GCMs 1, 4, and 6) under **RCP 4.5** for the **mid-century period (2041–2060; Period 3)**. This is the same default scenario presented in the main report. Category and overall scores use the **average scoring method** (`avg` for life-stage categories; `catavg` for overall vulnerability) as the baseline method.
+
+## Sources of Variation
+
+The sensitivity analysis evaluates ten discrete sources of variation, organized into four classes:
+
+**Global Climate Model (GCM) Uncertainty**\
+The sensitivity of indicators and scores to individual GCMs is evaluated by substituting the ensemble mean with each of three individual GCMs used across the freshwater and marine climate models in the CVIS framework. All other scenario parameters (RCP, period) are held at the baseline.
+
+| Source label | GCM | Model name |
+|---|---|---|
+| GCM1 | GCM 1 | CanESM2 |
+| GCM4 | GCM 4 | HadGEM2-ES |
+| GCM6 | GCM 6 | MPI-ESM-LR |
+
+**Emissions Scenario and Time Period**\
+The sensitivity of vulnerability scores to emission pathway and projection horizon is evaluated by substituting the baseline RCP 4.5, mid-century scenario with three alternative combinations of RCP and time period. All other parameters (GCM, method) are held at baseline.
+
+| Source label | Emissions scenario | Time period |
+|---|---|---|
+| RCP45_P5 | RCP 4.5 | End-of-century (2081–2099) |
+| RCP85_P3 | RCP 8.5 | Mid-century (2041–2060) |
+| RCP85_P5 | RCP 8.5 | End-of-century (2081–2099) |
+
+**Downscaling Method**\
+For indicators derived from statistically downscaled climate data (stream temperatures, flow metrics), multiple downscaling methods are available. The sensitivity of these indicators and their contribution to category scores is evaluated by comparing the baseline downscaling method to alternative methods available for those indicators.
+
+| Source label | Description |
+|---|---|
+| dsmethod | Mean deviation when substituting the alternative statistical downscaling method |
+
+**Scoring Method**\
+The sensitivity of overall and category-level vulnerability scores to the scoring method is evaluated using three alternative methods relative to the baseline `avg`/`catavg` approach.
+
+| Source label | Method | Description |
+|---|---|---|
+| cube | Cubic mean | Category scores use the cubic (power) mean of indicators, emphasizing high risk values |
+| avgcube | Average-of-categories using cubic mean | Category scores from cubic mean, then averaged |
+| flag | Logic model | Indicators are binned into risk classes using fixed thresholds; overall score uses logic rules |
+| avgall | Average of all indicators | All indicators weighted equally regardless of category |
+
+> **Note:** Indicator-level sensitivity covers GCM, scenario, and downscaling method variation. Scoring method variation is only relevant at the category and overall vulnerability level.
+
+
+---
+
+# Section 1: Indicator-Level Sensitivity {#indicator-sensitivity}
+
+This section evaluates the degree to which each of the 17 CVIS indicators varies across global climate models and emissions scenarios. Indicator-level sensitivity provides insight into which components of the vulnerability assessment are most exposed to climate model uncertainty, and in which direction those indicators are projected to shift under different climate futures.
+
+Sensitivity is characterized using two complementary metrics calculated across all CUs:
+
+- **Mean Absolute Deviation (MAD):** The average of |indicator value – baseline value| across all CUs for a given source of variation. Larger values indicate greater sensitivity, regardless of direction.
+- **Mean Raw Deviation:** The average of (indicator value – baseline value) with sign retained. Positive values indicate that the indicator increases (higher risk) relative to baseline; negative values indicate a decrease (lower risk).
+- **Mean Rank Displacement (MRD):** The average absolute shift in the rank order of CU indicator values compared to the baseline ranking. An MRD of 0 means no change in the relative ranking of CUs; larger MRD indicates that the variation source disrupts the ordering of CUs.
+
+Deviations for static indicators (demographics, genetics, freshwater residency time, cumulative threats) are zero for GCM and scenario variation, as these are not derived from climate projections. Only climate-sensitive indicators — August stream temperature, hydrologic indicators, migration temperature and flow, and sea surface temperature — show non-zero sensitivity. The ecological niche model (`favchange`) also responds to GCM and scenario variation through the projected climate variables used by the ENM.
+
+## Mean Absolute Deviation by Indicator and Source of Variation
+
+The following plot summarizes the mean absolute deviation of each indicator across all CUs for each source of climate variation. Indicators are grouped by life-stage category and ordered by their overall sensitivity (mean MAD across sources). Larger bars indicate higher sensitivity of the indicator to the specified source of variation.
+
+```{r ind-sens-bar, fig.width=12, fig.height=8, fig.cap="Mean absolute deviation of each CVIS indicator from the baseline scenario across all Conservation Units. Bars are grouped by source of variation and ordered by mean sensitivity within each life-stage category."}
+p_ind_sens <- ggplot(ind_sens_summary,
+                     aes(x = reorder(indicator, mean_abs_dev, mean),
+                         y = mean_abs_dev, fill = source)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  coord_flip() +
+  facet_wrap(~category, scales = "free_y",
+             labeller = labeller(category = cat_label_map)) +
+  scale_fill_manual(values = source_colors, na.value = "grey50",
+                    name = "Source of variation") +
+  labs(
+    title = "Indicator Sensitivity to Climate and Downscaling Method Variation",
+    subtitle = "Mean absolute deviation from baseline scenario (RCP 4.5, mid-century, ensemble mean) across all CUs",
+    x = "Indicator",
+    y = "Mean Absolute Deviation (standardized units)"
+  ) +
+  theme_cvis() +
+  theme(legend.position = "bottom")
+
+p_ind_sens
+```
+
+## Directional Shifts: Baseline vs. Climate Scenarios
+
+The following plots show the direction and magnitude of indicator shifts under each GCM and climate scenario, relative to the categorical baseline (dashed vertical line). Points show the mean raw indicator value across all CUs for each source of variation, and error bars span the 10th to 90th percentile across CUs. Indicators that shift to the right of the baseline dashed line have higher projected values (typically associated with higher risk), while those shifting left have lower values.
+
+This visualization helps identify whether indicator responses are consistent across CUs (narrow error bars) or highly variable across the landscape (wide bars), and whether all GCMs agree in direction (consistent horizontal displacement) or show spread (overlapping error bars between sources).
+
+```{r ind-shift, fig.width=15, fig.height=18, fig.cap="Directional shifts in indicator values relative to the categorical baseline (dashed vertical line) for each source of climate variation. Points show the mean across all CUs; error bars span the 10th to 90th percentile."}
+ind_shift_dat <- ind_sens_summary %>%
+  mutate(
+    scen_mean = base_mean + mean_raw_dev,
+    scen_q10  = base_mean + q10_raw_dev,
+    scen_q90  = base_mean + q90_raw_dev
+  )
+
+p_shift <- ggplot(ind_shift_dat, aes(y = source, color = source)) +
+  geom_vline(aes(xintercept = base_mean), linetype = "dashed",
+             color = "grey30", alpha = 0.7) +
+  geom_pointrange(aes(x = scen_mean, xmin = scen_q10, xmax = scen_q90),
+                  size = 0.6, fatten = 4) +
+  facet_wrap(~indicator, scales = "free_x", ncol = 3) +
+  scale_color_manual(values = source_colors, na.value = "grey50", guide = "none") +
+  labs(
+    title = "Indicator Shifts: Baseline vs. GCM and Scenario Variations",
+    subtitle = "Points: mean across all CUs — Error bars: 10th–90th percentile — Dashed line: baseline mean",
+    x = "Indicator Value (standardized units)",
+    y = "Source of variation"
+  ) +
+  theme_cvis() +
+  theme(strip.text = element_text(face = "bold", size = 10))
+
+p_shift
+```
+
+## Indicator Sensitivity Summary Table
+
+The following table summarizes the mean raw deviation (Raw) and mean rank displacement (MRD) for each indicator and each source of variation. MRD represents how much the ranking of CUs for that indicator shifts relative to the baseline under each source of variation. Hyphen (—) indicates the source of variation is not applicable to the indicator (e.g., GCMs do not apply to non-climate indicators).
+
+```{r ind-sens-gt, fig.width=12}
+# Prepare data for the gt table (from 5c_plots_indicator_variation.R logic)
+ind_sens_table_long <- ind_sens_summary %>%
+  mutate(table_source = case_when(
+    source == "GCM1"    ~ "GCM1",
+    source == "GCM4"    ~ "GCM4",
+    source == "GCM6"    ~ "GCM6",
+    source == "RCP85_P3" ~ "RCP85",
+    source == "RCP45_P5" ~ "Period5",
+    source == "Model"   ~ "dsmethod",
+    source == "dsmethod" ~ "dsmethod",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(table_source))
+
+ind_sens_table_wide <- ind_sens_table_long %>%
+  select(indicator, table_source, mean_raw_dev, mrd) %>%
+  pivot_wider(
+    names_from  = table_source,
+    values_from = c(mean_raw_dev, mrd),
+    names_glue  = "{table_source}_{.value}"
+  ) %>%
+  rename_with(~ str_replace(., "mean_raw_dev", "raw"), contains("mean_raw_dev"))
+
+gcm_spread <- ind_sens_summary %>%
+  filter(source_type == "GCM") %>%
+  group_by(indicator) %>%
+  summarise(
+    GCM_q10 = quantile(mean_raw_dev, 0.1, na.rm = TRUE),
+    GCM_q90 = quantile(mean_raw_dev, 0.9, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+gt_data <- tbl_indicators %>%
+  select(indicator = abbrev, name, category_code = category) %>%
+  left_join(ind_sens_table_wide, by = "indicator") %>%
+  left_join(gcm_spread, by = "indicator") %>%
+  mutate(category = cat_label_map[category_code]) %>%
+  select(category, indicator, name,
+         any_of(c("GCM1_raw", "GCM1_mrd",
+                  "GCM4_raw", "GCM4_mrd",
+                  "GCM6_raw", "GCM6_mrd",
+                  "RCP85_raw", "RCP85_mrd",
+                  "Period5_raw", "Period5_mrd",
+                  "dsmethod_raw", "dsmethod_mrd",
+                  "GCM_q10", "GCM_q90"))) %>%
+  mutate(across(where(is.numeric), ~ round(., 3)))
+
+gt_data %>%
+  group_by(category) %>%
+  gt(rowname_col = "indicator") %>%
+  tab_header(
+    title    = md("**Table A1. Summary of Indicator-Level Sensitivity Analysis**"),
+    subtitle = md("Mean raw deviation and mean rank displacement (MRD) from the baseline scenario (RCP 4.5, mid-century, GCM ensemble mean). Raw values in standardized units; MRD in rank positions.")
+  ) %>%
+  cols_label(
+    name        = "Indicator description",
+    GCM1_raw    = "Raw",  GCM1_mrd    = "MRD",
+    GCM4_raw    = "Raw",  GCM4_mrd    = "MRD",
+    GCM6_raw    = "Raw",  GCM6_mrd    = "MRD",
+    RCP85_raw   = "Raw",  RCP85_mrd   = "MRD",
+    Period5_raw = "Raw",  Period5_mrd = "MRD",
+    dsmethod_raw = "Raw", dsmethod_mrd = "MRD",
+    GCM_q10     = "q10",  GCM_q90     = "q90"
+  ) %>%
+  tab_spanner(label = "CanESM2 (GCM 1)",   columns = starts_with("GCM1")) %>%
+  tab_spanner(label = "HadGEM2 (GCM 4)",   columns = starts_with("GCM4")) %>%
+  tab_spanner(label = "MPI-ESM (GCM 6)",   columns = starts_with("GCM6")) %>%
+  tab_spanner(label = "RCP 8.5, mid-cent.", columns = starts_with("RCP85")) %>%
+  tab_spanner(label = "RCP 4.5, end-cent.", columns = starts_with("Period5")) %>%
+  tab_spanner(label = "Downscaling method", columns = starts_with("dsmethod")) %>%
+  tab_spanner(label = "GCM spread",         columns = c("GCM_q10", "GCM_q90")) %>%
+  tab_footnote(
+    footnote = "Raw: mean raw deviation from baseline (positive = higher risk). MRD: mean rank displacement (higher = more reordering of CUs). GCM spread: 10th and 90th percentile of raw deviation across the three GCMs.",
+    locations = cells_title("subtitle")
+  ) %>%
+  fmt_missing(everything(), missing_text = "—") %>%
+  tab_options(
+    table.font.size         = px(11),
+    column_labels.font.weight = "bold",
+    row_group.font.weight   = "bold",
+    table.width             = pct(100),
+    data_row.padding        = px(3)
+  ) %>%
+  opt_stylize(style = 6, color = "gray")
+```
+
+## Indicator Collinearity
+
+The Pearson correlation matrix below characterizes the degree of collinearity among standardized indicator values across all CUs using the baseline scenario. Strongly correlated indicators may provide redundant information when combined into category and overall vulnerability scores. Pie-style cells indicate the strength and direction of correlation: filled clockwise = positive correlation, counter-clockwise = negative.
+
+```{r ind-corr, fig.width=9, fig.height=9, fig.cap="Pearson correlation matrix of standardized CVIS indicator values across all Fraser Basin CUs under the baseline scenario (RCP 4.5, mid-century, GCM ensemble mean). Pie area represents correlation magnitude; direction indicates the sign."}
+cor_matrix_ind <- overall_sensitivity$correlation_indicators
+
+corrplot(cor_matrix_ind,
+         method = "pie",
+         type   = "lower",
+         title  = "Indicator Pearson Correlation (Baseline Scenario)",
+         mar    = c(0, 0, 2, 0),
+         tl.cex = 0.8,
+         cl.cex = 0.75)
+```
+
+---
+
+# Section 2: Overall and Category Vulnerability Sensitivity {#score-sensitivity}
+
+This section evaluates how uncertainty propagates from individual indicators into the aggregated vulnerability scores at the life-stage category and overall vulnerability levels. We characterize sensitivity using three complementary approaches:
+
+1. **Directional deviations** — the distribution of vulnerability score changes (scenario score − baseline score) across all CUs for each source of variation, showing both the typical magnitude and direction of uncertainty.
+2. **Mean Rank Displacement (MRD)** — the average absolute shift in CU vulnerability rank relative to the baseline, quantifying the degree to which different sources of variation would change conclusions about relative vulnerability among CUs.
+3. **Rank consistency (Spearman correlation)** — the correlation between CU vulnerability ranks under each alternative scenario and the baseline, summarizing overall consistency of CU orderings.
+4. **Jackknife leverage analysis** — a leave-one-out approach that identifies which individual indicators and life-stage categories have the greatest influence on overall vulnerability scores.
+
+## Directional Influence on Vulnerability Scores
+
+The boxplots below show the distribution of raw score deviations ((scenario score − baseline score) on the 0–100 CVIS vulnerability scale) for each source of variation across all CUs, grouped by vulnerability category. Boxes that span predominantly above zero indicate that the source of variation systematically increases vulnerability relative to the baseline; boxes below zero indicate systematic decreases. The spread of the boxplot reflects variability in the response across CUs — wide distributions suggest that the direction and magnitude of change is highly CU-specific.
+
+For example, RCP 8.5 mid-century (RCP85_P3) and RCP 4.5 end-of-century (RCP45_P5) are expected to show positive deviations for most climate-sensitive categories, reflecting projected increases in environmental stressors relative to the mid-century RCP 4.5 baseline. Differences between GCMs reflect model disagreement in the magnitude of projected environmental change.
+
+```{r dev-violin, fig.width=12, fig.height=10, fig.cap="Distribution of raw vulnerability score deviations (scenario – baseline, on 0–100 scale) across all CUs for each source of variation. The top pane shows Overall Vulnerability, while bottom panes show key life-stage categories. Thicker internal lines represent the median and interquartile range (25th and 75th percentiles). Scoring methods irrelevant to the specific category are excluded."}
+dev_raw <- overall_sensitivity$deviations %>%
+  select(FULL_CU_IN, category, starts_with("raw_dev_")) %>%
+  pivot_longer(
+    cols         = starts_with("raw_dev_"),
+    names_to     = "source_label",
+    values_to    = "raw_deviation"
+  ) %>%
+  mutate(
+    source_label = str_remove(source_label, "raw_dev_"),
+    source_type  = case_when(
+      str_detect(source_label, "^GCM")    ~ "GCM",
+      str_detect(source_label, "^RCP")    ~ "Scenario",
+      str_detect(source_label, "^Method") ~ "Method",
+      str_detect(source_label, "^Model")  ~ "dsmethod",
+      str_detect(source_label, "^dsmethod") ~ "dsmethod",
+      TRUE ~ "Other"
+    ),
+    source = case_when(
+      source_type == "Method" ~ str_remove(source_label, "^Method_"),
+      TRUE ~ source_label
+    )
+  )
+
+# 2a. Overall Vulnerability Pane
+p_dev_all <- dev_raw %>%
+    filter(category == "all", source != "cube") %>%
+    ggplot(aes(x = source, y = raw_deviation, fill = source)) +
+    geom_violin(alpha = 0.8, draw_quantiles = c(0.25, 0.5, 0.75), linewidth = 0.7) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
+    scale_fill_manual(values = source_colors, na.value = "grey50", guide = "none") +
+    labs(
+        title = "Influence of Uncertainty on Overall Vulnerability",
+        x = NULL,
+        y = "Score Change (Raw Deviation)"
+    ) +
+    theme_cvis() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# 2b. Category-Level Panes (subsetted)
+target_cats <- c("fwrs", "migr", "gen")
+p_dev_cats <- dev_raw %>%
+    filter(category %in% target_cats, !source %in% c("avgall", "avgcube")) %>%
+    ggplot(aes(x = source, y = raw_deviation, fill = source)) +
+    geom_violin(alpha = 0.8, draw_quantiles = c(0.25, 0.5, 0.75), linewidth = 0.7, scale = "width") +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
+    facet_wrap(~category, scales = "free_x", labeller = labeller(category = cat_label_map)) +
+    scale_fill_manual(values = source_colors, na.value = "grey50", guide = "none") +
+    labs(
+        title = "Category-Level Score Sensitivity",
+        x = "Variation Source",
+        y = "Score Change (Raw Deviation)"
+    ) +
+    theme_cvis() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Combine using patchwork
+p_dev_combined <- p_dev_all / p_dev_cats + plot_layout(heights = c(1, 1.2))
+
+p_dev_combined
+```
+
+## Mean Rank Displacement
+
+Mean Rank Displacement (MRD) quantifies the average absolute change in the vulnerability rank of CUs compared to the baseline scenario ranking. An MRD of zero means the ranking of CUs is identical to the baseline; higher MRD values indicate greater disruption of the relative vulnerability ordering. MRD is particularly relevant for management applications where the ranking of CUs — rather than their absolute score — drives prioritization decisions.
+
+### Global Mean Rank Displacement
+
+The following plot shows MRD for each source of variation across all CUs and all five species combined, grouped by vulnerability category. Sources of variation with higher MRD are those that most alter the relative standing of CUs.
+
+```{r mrd-global, fig.width=11, fig.height=8, fig.cap="Mean rank displacement of CU vulnerability scores for each source of variation relative to the baseline scenario. Higher values indicate greater disruption of CU vulnerability rankings. Results are shown across all CUs and species combined."}
+score_mrd_global <- score_sens_summary %>% filter(SPECIES_NAME == "ALL")
+
+p_mrd <- ggplot(score_mrd_global,
+                aes(x = reorder(source, mrd), y = mrd, fill = source)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~category, scales = "free_x",
+             labeller = labeller(category = c(cat_label_map, "all" = "Overall Vulnerability"))) +
+  scale_fill_manual(values = source_colors, na.value = "grey50", guide = "none") +
+  coord_flip() +
+  labs(
+    title    = "Mean Rank Displacement by Source of Variation",
+    subtitle = "Average shift in CU vulnerability rank relative to baseline (all CUs and species)",
+    x        = "Source of variation",
+    y        = "Mean rank displacement (rank positions)"
+  ) +
+  theme_cvis()
+
+p_mrd
+```
+
+
+
+## Jackknife Leverage Analysis
+
+The jackknife (leave-one-out) leverage analysis identifies which individual indicators and life-stage categories have the greatest influence on overall vulnerability scores. For each jackknife iteration, a single indicator or category is removed from the calculation, and the overall vulnerability score is recomputed across all CUs. The deviation between the jackknife score and the baseline score (with all indicators included) measures the "leverage" of that element.
+
+A **negative mean raw deviation** after removing an element indicates that the element was contributing to **higher** overall vulnerability (i.e., removing it causes scores to decrease — the element is a risk driver). A **positive mean raw deviation** indicates the removed element was reducing overall scores (i.e., removing it causes scores to increase).
+
+The leverage analysis thus identifies which indicators and categories are most important risk drivers for overall vulnerability, and which contribute least to distinguishing among CUs.
+
+### Global Jackknife Leverage (All CUs and Species)
+
+```{r jackknife-global, fig.width=10, fig.height=9, fig.cap="Jackknife leverage analysis for overall vulnerability (all CUs and species combined). Each point shows the mean raw deviation in overall vulnerability score (0–100 scale) when the indicated indicator or category is excluded from the scoring. Error bars span the 10th–90th percentile range across CUs. Negative values identify risk drivers; positive values indicate that an element suppresses overall scores. Elements are ordered by their mean absolute deviation (most influential at top)."}
+influence_summary <- overall_sensitivity$influence_summary
+
+jack_global <- influence_summary %>%
+  filter((method == "avgall" | method == "avg_all") & SPECIES_NAME == "ALL")
+
+p_jack <- ggplot(jack_global,
+                 aes(x    = reorder(excluded_element, mean_abs_dev),
+                     y    = mean_raw_dev,
+                     color = parent_category)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+  geom_pointrange(aes(ymin = q10_raw_dev, ymax = q90_raw_dev), size = 0.6) +
+  coord_flip() +
+  facet_wrap(~excluded_type, scales = "free_y", ncol = 1,
+             labeller = labeller(
+               excluded_type = c("indicator" = "Individual indicators",
+                                 "category"  = "Life-stage categories"))) +
+  scale_color_scico_d(palette = "roma", name = "Life-stage category",
+                      labels = c(cat_label_map, setNames("Overall", "all"))) +
+  labs(
+    title    = "Jackknife Leverage on Overall Vulnerability Score",
+    subtitle = paste0("Mean deviation in overall vulnerability (0–100 scale) when excluding each element\n",
+                      "Error bars: 10th–90th percentile across CUs. Negative value = risk driver."),
+    x        = "Excluded element",
+    y        = "Raw score deviation (jackknife score − baseline score)"
+  ) +
+  theme_cvis()
+
+p_jack
+```
+
+
+
+## Rank Consistency Heatmap
+
+The Spearman rank correlation heatmap below summarizes the consistency of CU vulnerability rankings under each alternative scenario relative to the baseline and to each other. Each cell represents the pairwise Spearman correlation of CU ranks between two scenarios. Values close to 1.0 indicate that the ordering of CUs is nearly identical between scenarios; lower values indicate greater reordering. The heatmap reveals which combinations of variation sources produce the most similar — or most divergent — assessments of relative vulnerability.
+
+```{r rank-heatmap, fig.width=8, fig.height=7, fig.cap="Spearman rank correlation matrix of CU overall vulnerability scores across all sources of variation and the baseline scenario. High correlation (dark colour, values near 1.0) indicates consistent CU vulnerability rankings despite parameter variation."}
+cor_mat    <- cor_matrices$all
+cor_melted <- melt(cor_mat)
+
+p_cor <- ggplot(cor_melted, aes(Var1, Var2, fill = value)) +
+  geom_tile() +
+  scale_fill_scico(palette = "batlow", direction = 1, limits = c(0.7, 1),
+                   name = "Spearman\ncorrelation") +
+  geom_text(aes(label = round(value, 2)), color = "white", size = 3) +
+  labs(
+    title    = "Rank Consistency Heatmap — Overall Vulnerability",
+    subtitle = "Pairwise Spearman rank correlation of CU vulnerability scores across all sources of variation",
+    x        = NULL, y = NULL
+  ) +
+  theme_cvis() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+p_cor
+```
+
+## Vulnerability Score Sensitivity Summary Table
+
+The following table provides a quantitative summary of sensitivity for each vulnerability category and the overall vulnerability score. For each source of variation we report the mean absolute deviation (Mean), 10th percentile (q10), and 90th percentile (q90) of absolute deviations across CUs (all on the 0–100 CVIS vulnerability scale), as well as the Spearman rank correlation (Rho) between the baseline and the alternative scenario. Higher absolute deviations and lower Rho values indicate greater sensitivity.
+
+```{r summary-table}
+target_v_sources <- c("GCM1", "GCM4", "GCM6", "RCP85_P3", "RCP45_P5", "cube")
+
+score_table_wide <- score_sens_summary %>%
+  filter(SPECIES_NAME == "ALL") %>%
+  mutate(table_source = case_when(
+    source == "GCM1"    ~ "GCM1",
+    source == "GCM4"    ~ "GCM4",
+    source == "GCM6"    ~ "GCM6",
+    source == "RCP85_P3" ~ "RCP85",
+    source == "RCP45_P5" ~ "Period5",
+    source == "cube"    ~ "Method",
+    source == "dsmethod" ~ "dsmethod",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(table_source)) %>%
+  select(category, table_source,
+         mean_abs_dev, q10_abs_dev, q90_abs_dev, spearman_corr) %>%
+  pivot_wider(
+    id_cols    = category,
+    names_from = table_source,
+    values_from = c(mean_abs_dev, q10_abs_dev, q90_abs_dev, spearman_corr),
+    names_glue = "{table_source}_{.value}"
+  )
+
+cat_labels_full <- c(cat_label_map, "all" = "Overall Vulnerability")
+
+score_gt_data <- score_table_wide %>%
+  mutate(
+    category_label = cat_labels_full[category],
+    order          = if_else(category == "all", 0, 1)
+  ) %>%
+  arrange(order, category_label) %>%
+  select(category_label, everything(), -category, -order) %>%
+  mutate(across(where(is.numeric), ~ round(., 2)))
+
+score_gt_data %>%
+  gt() %>%
+  tab_header(
+    title    = md("**Table A2. Vulnerability Score Sensitivity Summary**"),
+    subtitle = md("Mean absolute deviation and Spearman rank correlation (Rho) relative to baseline (RCP 4.5, mid-century, GCM ensemble mean). Score deviations are on the 0–100 CVIS vulnerability scale.")
+  ) %>%
+  cols_label(
+    category_label = "Vulnerability category",
+    ends_with("mean_abs_dev") ~ "Mean",
+    ends_with("q10_abs_dev")  ~ "q10",
+    ends_with("q90_abs_dev")  ~ "q90",
+    ends_with("spearman_corr") ~ "Rho"
+  ) %>%
+  tab_spanner(label = "CanESM2 (GCM 1)",      columns = starts_with("GCM1")) %>%
+  tab_spanner(label = "HadGEM2 (GCM 4)",      columns = starts_with("GCM4")) %>%
+  tab_spanner(label = "MPI-ESM (GCM 6)",      columns = starts_with("GCM6")) %>%
+  tab_spanner(label = "RCP 8.5, mid-century", columns = starts_with("RCP85")) %>%
+  tab_spanner(label = "RCP 4.5, end-century", columns = starts_with("Period5")) %>%
+  tab_spanner(label = "Downscaling method", columns = starts_with("dsmethod")) %>%
+  tab_spanner(label = "Scoring method (cubic mean)", columns = starts_with("Method")) %>%
+  tab_footnote(
+    footnote = "Mean, q10, q90: mean, 10th-, and 90th-percentile absolute deviation from baseline score across all CUs. Rho: Spearman rank correlation between baseline and alternative scenario CU rankings.",
+    locations = cells_column_spanners()
+  ) %>%
+  tab_options(
+    table.font.size            = px(11),
+    column_labels.font.weight  = "bold",
+    table.width                = pct(100),
+    data_row.padding           = px(4)
+  ) %>%
+  opt_stylize(style = 1, color = "gray")
+```
+
+# Species-Specific Sensitivity Analysis {#species-sensitivity}
+
+The following section examines how individual CUs within **Chinook**, **Sockeye**, and **Coho** salmon respond to different sources of variation. These species have multiple CUs, enabling meaningful within-species rank comparisons. Pink and Chum are excluded as they contain only one or two CUs, making rank comparisons unsuitable.
+
+## CU Vulnerability Rank Stability (Bump Plots)
+
+The plots below trace each CU's within-species vulnerability rank across all sensitivity scenarios, with the **Baseline** scenario shown in the centre (bold label). Lines are coloured by Stock Management Unit (SMU) to reveal whether rank shifts are consistent within management units. The Mean Rank Displacement (MRD) annotation at the bottom of each panel quantifies the average absolute rank change for that source of variation.
+
+CUs clustered at the top (Rank 1 = Highest Risk) that remain there across all scenarios represent the most robustly high-risk units; CUs with highly crossed lines indicate that their relative vulnerability ranking is sensitive to climate and methodological assumptions.
+
+```{r species-bump, echo=FALSE, warning=FALSE, message=FALSE, fig.width=13, fig.height=10}
+library(ggrepel)
+
+# Focus on 'overall' vulnerability (category == 'all')
+dev_long_sp <- overall_sensitivity$deviations %>%
+    filter(category == "all") %>%
+    filter(SPECIES_NAME %in% c("Chinook", "Sockeye", "Coho")) %>%
+    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, SMU_SIMPLE, base_score,
+           base_rank = base_rank_sp, starts_with("raw_dev_")) %>%
+    pivot_longer(cols = starts_with("raw_dev_"), names_to = "source",
+                 names_prefix = "raw_dev_", values_to = "raw_dev") %>%
+    filter(source %in% c("GCM1", "GCM4", "GCM6", "RCP85_P3", "RCP45_P5",
+                         "dsmethod", "Method_cube", "Method_avgcube", "Method_flag"))
+
+dev_baseline_sp <- overall_sensitivity$deviations %>%
+    filter(category == "all", SPECIES_NAME %in% c("Chinook", "Sockeye", "Coho")) %>%
+    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, SMU_SIMPLE, base_score,
+           base_rank = base_rank_sp) %>%
+    mutate(source = "Baseline", raw_dev = 0)
+
+dev_full_sp <- bind_rows(dev_baseline_sp, dev_long_sp) %>%
+    mutate(scen_score = base_score + raw_dev) %>%
+    group_by(SPECIES_NAME, source) %>%
+    mutate(scen_rank = rank(-scen_score, ties.method = "average", na.last = "keep")) %>%
+    ungroup()
+
+mrd_stats_sp <- overall_sensitivity$species_score_summary %>%
+    filter(category == "all") %>%
+    mutate(mrd_label = paste0("MRD: ", round(mrd_sp, 1)))
+
+source_order_sp    <- c("GCM1", "GCM4", "GCM6", "Baseline", "RCP45_P5", "RCP85_P3",
+                         "dsmethod", "Method_cube", "Method_avgcube", "Method_flag")
+source_labels_sp   <- c("CanESM2", "HadGEM2", "MPI-ESM", "Baseline", "RCP 4.5",
+                         "RCP 8.5", "DS Meth", "Cube-M", "Avg-Cube", "Flag")
+
+dev_full_sp  <- dev_full_sp  %>% mutate(source = factor(source, levels = source_order_sp, labels = source_labels_sp))
+mrd_stats_sp <- mrd_stats_sp %>% mutate(source = factor(source, levels = source_order_sp, labels = source_labels_sp))
+x_faces_sp   <- ifelse(source_labels_sp == "Baseline", "bold", "plain")
+
+plot_sp_bump <- function(sp) {
+    sp_dat <- dev_full_sp %>% filter(SPECIES_NAME == sp)
+    sp_mrd <- mrd_stats_sp %>% filter(SPECIES_NAME == sp & !is.na(source) & source != "Baseline")
+    n_cus  <- length(unique(sp_dat$FULL_CU_IN))
+
+    ggplot(sp_dat, aes(x = source, y = scen_rank, group = FULL_CU_IN)) +
+        geom_line(aes(color = SMU_SIMPLE), alpha = 0.4, linewidth = 0.8) +
+        geom_label_repel(aes(label = FULL_CU_IN, color = SMU_SIMPLE),
+                         alpha = 1, size = 1.7, fontface = "bold", box.padding = 0.1) +
+        geom_text(data = sp_mrd,
+                  aes(x = source, y = n_cus + 1, label = mrd_label, group = NULL),
+                  size = 2.2, fontface = "italic", vjust = 1, color = "grey40") +
+        scale_y_reverse(breaks = seq(1, n_cus, by = ifelse(n_cus > 20, 5, 2)),
+                        expand = expansion(mult = c(0.1, 0.15))) +
+        scale_color_brewer(palette = "Set1", name = "SMU") +
+        labs(subtitle = paste0(sp, "  (n = ", n_cus, " CUs)"),
+             x = NULL, y = "Within-Species Rank") +
+        theme_minimal(base_size = 9) +
+        theme(panel.grid.minor      = element_blank(),
+              panel.grid.major.x    = element_line(color = "grey90"),
+              legend.position       = "bottom",
+              axis.text.x           = element_text(face = x_faces_sp, angle = 45, hjust = 1))
+}
+
+(plot_sp_bump("Chinook") / plot_sp_bump("Sockeye") / plot_sp_bump("Coho")) +
+    plot_annotation(
+        title    = "Vulnerability Rank Stability Across Sensitivity Scenarios",
+        subtitle = "Rank 1 = Highest Risk. **Baseline** (bold) in centre. Lines coloured by SMU. MRD = Mean Rank Displacement."
+    )
+```
+
+---
+
+# Section 3: Drivers of Vulnerability Variation {#drivers-variation}
+
+This section investigates the underlying factors that explain variation in overall vulnerability among CUs. Rather than focusing on the sensitivity to external uncertainty sources (as in Sections 1 and 2), here we characterize **which biological, geographic, and climate factors drive differences in baseline vulnerability** across the assessment. Three complementary analyses are presented:
+
+1. **Factor importance (ANOVA)** — identifies which fixed factors (species, management unit, climate cluster) statistically explain the largest proportion of variance in overall vulnerability.
+2. **Vulnerability variation by SMU** — visualizes the distribution of baseline vulnerability scores within each Stock Management Unit, revealing which management units contain the most and least vulnerable CUs.
+3. **SMU sensitivity to climate uncertainty** — shows how each SMU's mean vulnerability score shifts in response to GCM and RCP variation.
+4. **Multivariate risk profiling (PCA)** — a Principal Component Analysis of the baseline indicator profile for all CUs, revealing dominant axes of vulnerability and clustering of CUs by risk type.
+
+## Factor Importance
+
+An ANOVA-based decomposition of variance in the overall baseline vulnerability score identifies which grouping factors (species, SMU, DFO area, indicator cluster groups) account for the greatest fraction of variability across CUs.
+
+```{r factor-importance, fig.width=10, fig.height=6, fig.cap="Percentage of variance in overall baseline vulnerability explained by each grouping factor, based on ANOVA decomposition. Factors are ordered by their contribution."}
+rd_data <- risk_drivers_analysis
+
+ggplot(rd_data$factor_importance,
+       aes(x = reorder(factor, pct_variance), y = pct_variance, fill = pct_variance)) +
+    geom_col(show.legend = FALSE) +
+    coord_flip() +
+    scale_fill_scico(palette = "batlow", direction = 1) +
+    labs(
+        title    = "Factors Explaining Variation in Overall Vulnerability",
+        subtitle = "ANOVA-based decomposition of variance across all CUs",
+        x        = NULL,
+        y        = "% Variance Explained"
+    ) +
+    theme_cvis()
+```
+
+## Vulnerability Variation by Stock Management Unit
+
+The boxplots below show the distribution of baseline overall vulnerability scores (0–100 scale) for CUs within each Stock Management Unit (SMU), ordered by median vulnerability. Colour indicates species, allowing comparison of within-SMU and between-species patterns.
+
+```{r smu-variation, fig.width=10, fig.height=8, fig.cap="Distribution of baseline overall vulnerability scores across CUs within each Stock Management Unit (SMU), ordered by median score. Colour shows species. High-scoring SMUs contain CUs that are consistently more vulnerable under the baseline assessment."}
+ggplot(rd_data$analysis_combined %>% filter(!is.na(SMU_SIMPLE)),
+       aes(x = reorder(SMU_SIMPLE, total_vulnerability, FUN = median),
+           y = total_vulnerability, fill = SPECIES_NAME)) +
+    geom_boxplot(alpha = 0.8, outlier.size = 1) +
+    coord_flip() +
+    scale_fill_manual(values = species_palette, name = "Species") +
+    labs(
+        title    = "Variation in Vulnerability by Stock Management Unit",
+        subtitle = "Distribution of baseline overall vulnerability across CUs within each SMU",
+        x        = NULL,
+        y        = "Overall Vulnerability Score (0–100)"
+    ) +
+    theme_cvis() +
+    theme(axis.text.y = element_text(size = 8))
+```
+
+## SMU Sensitivity to Climate Uncertainty
+
+The heatmap below shows the mean deviation in overall vulnerability score for each SMU under GCM and RCP variation. Positive values (warm colours) indicate that an SMU's mean vulnerability increases under that source of variation; negative values indicate a decrease. SMUs with consistently warm colours across sources are those whose member CUs are systematically projected to become more vulnerable under alternative climate assumptions.
+
+```{r smu-sensitivity, fig.width=10, fig.height=8, fig.cap="Mean raw deviation in overall vulnerability score for each SMU under each source of climate variation (GCMs and RCP scenarios). Warm colours indicate increased vulnerability relative to baseline; cool colours indicate decreased vulnerability."}
+ggplot(rd_data$smu_sensitivity,
+       aes(x = source, y = reorder(SMU_SIMPLE, mean_raw_dev), fill = mean_raw_dev)) +
+    geom_tile(color = "white", linewidth = 0.4) +
+    scale_fill_scico(palette = "roma", midpoint = 0, name = "Mean Deviation") +
+    labs(
+        title    = "SMU Sensitivity to Climate Uncertainty",
+        subtitle = "Mean deviation in overall vulnerability score from baseline, by SMU and climate scenario",
+        x        = "Source of Variation",
+        y        = NULL
+    ) +
+    theme_cvis() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 9))
+```
+
+## Multivariate Risk Profiling (PCA Biplot)
+
+A Principal Component Analysis (PCA) was conducted on the standardized indicator values (baseline scenario) across all CUs. The biplot below shows each CU as a point (coloured by overall vulnerability score, shaped by species) and each indicator as an arrow (loading vector). Arrows pointing in similar directions indicate correlated indicators; the length and direction of each arrow reflects the indicator's contribution to the principal components.
+
+CUs clustered together share similar indicator profiles (i.e., are vulnerable for similar reasons). The separation between species groups reveals the degree to which vulnerability pathways differ across salmon species in the basin.
+
+```{r pca-biplot, fig.width=11, fig.height=8, fig.cap="PCA biplot of baseline CU vulnerability profiles. Points represent CUs (colour = overall vulnerability score; shape = species). Arrows show indicator loadings — only indicators with loadings > 0.15 on PC1 or PC2 are labelled. CUs that cluster together share similar indicator-level risk profiles."}
+short_name_map <- c(
+    "favchange" = "ENM Fav.", "cthr" = "FW Threats", "tw8rate" = "Aug T Rate",
+    "tw8proj" = "Aug T Proj", "flow8pdelta" = "Aug Flow Δ", "flow18pdelta" = "Win Flow Δ",
+    "fwres" = "FW Residency", "migrTproj" = "Migr T Proj", "migrQpdelta" = "Migr Flow Δ",
+    "migrdist" = "Migr Dist", "SSTproj" = "SST Entry", "SSTrate" = "SST Rate",
+    "CImpact" = "Mar Impacts", "CUstatus" = "WSP Status", "CUnmat" = "Abundance",
+    "hetzyg" = "Heterozygosity", "genoff" = "Genomic Offset"
+)
+
+pca_res     <- rd_data$pca_result
+pca_load    <- as.data.frame(pca_res$rotation[, 1:2])
+pca_load$indicator  <- rownames(pca_load)
+pca_load$name_short <- coalesce(short_name_map[pca_load$indicator], pca_load$indicator)
+mult        <- 15
+pca_load    <- pca_load %>%
+    mutate(x_end = PC1 * mult, y_end = PC2 * mult) %>%
+    filter(abs(PC1) > 0.15 | abs(PC2) > 0.15)
+
+ggplot(rd_data$pca_plot_dat, aes(x = PC1, y = PC2)) +
+    geom_point(aes(color = total_vulnerability, shape = SPECIES_NAME),
+               size = 3.5, alpha = 0.75) +
+    geom_segment(data = pca_load,
+                 aes(x = 0, y = 0, xend = x_end, yend = y_end),
+                 arrow = arrow(length = unit(0.18, "cm")),
+                 color = "grey25", alpha = 0.8) +
+    geom_text(data = pca_load,
+              aes(x = x_end * 1.12, y = y_end * 1.12, label = name_short),
+              size = 2.8, fontface = "bold", color = "grey10") +
+    scale_color_scico(palette = "lajolla",
+                      name = "Vulnerability\n(0–100)", midpoint = 50) +
+    scale_shape_manual(values = c(16, 17, 15, 18, 8), name = "Species") +
+    labs(
+        title    = "CU Risk Profile PCA Biplot",
+        subtitle = "Baseline scenario indicator values; arrows show indicator loadings (>0.15 shown)",
+        x        = "Principal Component 1",
+        y        = "Principal Component 2"
+    ) +
+    theme_cvis() +
+    theme(legend.position = "right")
+```
+
+
+
+
+---
+
+---
+
+# Methods Summary
+
+## Analysis Scripts
+
+The sensitivity analysis is implemented across the following scripts in the CVIS pipeline:
+
+| Script | Role |
+|---|---|
+| `4a_CU_scoring.R` | **Scoring engine.** Aggregates all environmental and demographic indicators; standardizes values (0–1) using scenario-specific ranges (GCM/RCP/Period); calculates multi-scale vulnerability scores and ranks. |
+| `4b_CU_sensitivity_analysis.R` | **Sensitivity engine.** Calculates directional and absolute deviations in scores across all climate scenarios, time periods, and downscaling methods; performs Jackknife leverage analysis; quantifies Mean Rank Displacement (MRD). |
+| `4c_indicator_sensitivity_summary.R` | **Consolidation & risk driver analysis.** Summarizes score- and indicator-level sensitivity metrics; identifies dominant risk drivers via ANOVA; performs PCA-based multivariate risk profiling and indicator collinearity analysis. |
+| `5c_plots_indicator_variation.R` | **Indicator visualizations.** Generates indicator-level sensitivity bar charts, directional shift violins, raw vs. standardized response plots, indicator correlation matrices, and the indicator sensitivity summary table. |
+| `5e_plots_sensitivity_analysis.R` | **Score & species visualizations.** Generates overall and category-level deviation plots, MRD charts, Jackknife leverage plots, rank consistency heatmaps, PCA biplots, SMU analysis plots, and species-specific CU rank bump plots. |
+
+## Scoring Methods
+
+Five scoring methods are evaluated in the sensitivity analysis at the category and overall vulnerability level:
+
+| Method code | Description |
+|---|---|
+| `avg` / `catavg` | **Baseline method.** Category scores = arithmetic mean of standardized indicator values; overall = average of category scores |
+| `cube` | Category scores = cubic (power) mean of indicators; emphasizes high values |
+| `avgcube` | Category scores from cubic mean, then averaged across categories |
+| `avgall` | All indicators weighted equally regardless of category (no category aggregation step) |
+| `flag` | Logic model: indicators binned to low/moderate/high (thresholds at 0.33 and 0.66); overall score from logic rules |
+
+## Standardization and Score Scaling
+
+Indicator standardization is applied **within each unique combination of GCM, RCP, time period, and downscaling method**, ensuring that the 0–1 standardization range is consistent for each climate scenario. This avoids conflating differences in absolute indicator magnitude with differences in relative rank within a scenario.
+
+All vulnerability scores in the sensitivity analysis are scaled to a **0–100 scale** using fixed bounds derived from the **baseline scenario distribution** across all CUs. This ensures that deviations from the baseline accurately reflect shifts on a consistent vulnerability scale, rather than being re-scaled within each iteration.

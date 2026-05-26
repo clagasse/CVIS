@@ -1,9 +1,26 @@
-###############################################################################
-# 3_marine_utils.R
+# ==============================================================================
+# CVIS Marine Utility Functions (3_marine_utils.R)
+#
+# Description:
+#   Utility functions for marine indicators, spatial point assignment,
+#   reshaping CMIP6 NetCDF SST data, interpolating grids via nearest neighbor,
+#   and calculating nearshore migration timings.
+#
+# Functions:
+#   - ncdf_to_dt: Converts CMIP6 NetCDF SST file to data.table and formats.
+#   - point2rast: Interpolates point spatial data into a SpatRaster or SpatVector.
+#   - nnfit: Helper function for point2rast to calculate nearest neighbor.
+#   - assign_points: Intersects points/polygons with Marine Analysis Zones (MAZ).
+#   - subset_and_mean_var: Reshapes SST data to compute means/rates of change.
+#   - get_spatial_var: Retrieves ocean entry SST subset for mapping.
+#   - ns_timing_start, ns_timing_end: Helper functions for nearshore residence timing.
+#
+# Dependencies:
+#   - ncdf4, data.table, sf, terra, gstat, dplyr, stringr, stats
+# ==============================================================================
 
-# Functions to load and summarize marine data relevant
+# ==================== 1. CMIP6 NetCDF & Grid Interpolation Helpers ====================
 
-###############################################################################
 
 
 # get datatable from CMIP6 NCDF file
@@ -169,7 +186,7 @@ nnfit <- function(x, r, loc, coords, nnmax) {
 }
 
 
-## function to assign points or polygons based on intersection with MAZ
+# ==================== 2. Marine Analysis Zone (MAZ) Assigner ====================
 assign_points <- function(x, y, var = "MAZ_Acrony") {
   t_int <- st_intersects(x, y)
 
@@ -185,7 +202,7 @@ assign_points <- function(x, y, var = "MAZ_Acrony") {
 
 
 
-# Data reshaping ----------------------------------------------------------
+# ==================== 3. Marine SST Reshaping & Statistics ====================
 
 # get mean and statistics for a range of chosen months
 subset_and_mean_var <- function(data,
@@ -290,7 +307,7 @@ get_spatial_var <- function(data,
 }
 
 
-# Marine nearshore timing -------------------------------------------------
+# ==================== 4. Nearshore Residency Timing Helpers ====================
 
 # simple functions to determine start and end dates for the nearshore period when summarizing indicators
 

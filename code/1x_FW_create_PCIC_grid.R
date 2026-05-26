@@ -1,11 +1,34 @@
-#### Create a grid points rds object for spatial analysis
+# ==============================================================================
+# CVIS PCIC Spatial Grid Creator (1x_FW_create_PCIC_grid.R)
+#
+# Description:
+#   Creates a spatial polygon grid Rds object from the raw PCIC grid points.
+#   This script only needs to be run once to generate inputs for spatial analysis.
+#
+# Workflow Steps:
+#   1. Load setup environment.
+#   2. Read the raw PCIC grid points CSV.
+#   3. Construct cell polygon boundaries and convert to sf polygons.
+#   4. Save the generated grid polygons RDS object to processed_data/freshwater/.
+#
+# Inputs:
+#   - processed_data/freshwater/PCIC-grid-points_bccoast.csv
+#
+# Outputs:
+#   - processed_data/freshwater/grid_polys_fw.rds
+#
+# Dependencies:
+#   - Requires 0_setup.R.
+# ==============================================================================
 
-# This script only needs to be run once before calculating the indicators
+# ==================== 1. Setup & Load Grid Points ====================
+library(here)
+setwd(here())
+source(file.path(here(), "code", "0_setup.R"))
 
+grid_points0 <- read.csv(file.path(paths$fw, "PCIC-grid-points_bccoast.csv"))
 
-# Read in PCIC grid
-grid_points0 <- read.csv("processed_data/freshwater/PCIC-grid-points_bccoast.csv") 
-# Create grid polys
+# ==================== 2. Generate Grid Polygons ====================
 n <- length(grid_points0$lon)
 d <- 1/16
 
@@ -19,4 +42,5 @@ grid_polys <- st_as_sf(data.frame(
   summarise(geometry = st_combine(geometry)) %>%
   st_cast("POLYGON") 
 
-saveRDS(grid_polys, file = here("processed_data", "freshwater", "grid_polys_fw.rds"))
+# ==================== 3. Save Grid Polygons ====================
+saveRDS(grid_polys, file = file.path(paths$fw, "grid_polys_fw.rds"))

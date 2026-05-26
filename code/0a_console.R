@@ -14,13 +14,6 @@
 #   4. Scoring indicator standardization & calculation (4a).
 #   5. Generating outputs (Rmd report, Shiny app).
 #
-# Inputs:
-#   - Spatial/definition databases (basins, MAZ, stream paths, etc.) via processed_data/
-#   - Scoring results and data inputs (fw_all, ss_all, migr_all, marine_stats)
-#
-# Outputs:
-#   - Rendered reports in reports/
-#   - Interactive Shiny App
 #
 # Dependencies:
 #   - Requires R packages (sf, tidyverse, here, shiny, rmarkdown)
@@ -29,7 +22,7 @@
 
 # ==================== 1. Initialization and Setup ====================
 # Clear active workspace
-rm(list = ls())
+#rm(list = ls())
 
 # Set working directory and load libraries
 library(here)
@@ -37,31 +30,35 @@ setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
 
 # Execution Toggles: Toggle steps of the pipeline on (TRUE) or off (FALSE)
+run_data_load      <- F
 run_fw_prep        <- FALSE # Run raw stream networks and PCIC flow model prep (1b, 1c, 1d)
 run_fw_stats       <- FALSE # Run stream intersections, rearing, and migration stats (2a, 2b, 2c, 2d)
 run_marine_prep    <- FALSE # Run raw marine NetCDF and spatial GDB imports (3a)
 run_marine_stats   <- FALSE # Run marine stats & grid standardization calculations (3b, 3c)
-run_scoring        <- TRUE  # Run core standardization and scoring calculation engine (4a)
-run_report_all     <- TRUE  # Generate the comprehensive multi-CU CVIS HTML report (6_CVIS_report.Rmd)
+run_scoring        <- F  # Run core standardization and scoring calculation engine (4a)
+run_report_all     <- F  # Generate the comprehensive multi-CU CVIS HTML report (6_CVIS_report.Rmd)
 run_reports_indiv  <- FALSE # Generate individual CU report HTML files (Deprecated, use Shiny app)
-run_shiny_explorer <- FALSE # Launch local interactive Shiny explorer app (7_CVIS_explorer_app.R)
+run_shiny_explorer <- T # Launch local interactive Shiny explorer app (7_CVIS_explorer_app.R)
 
 # ==================== 2. Load Core Spatial and Definition Data ====================
-cat("Loading reference spatial objects...\n")
-load(file.path(paths$marine, "MAZ.Rds"))            # Marine Adaptive Zones
-load(file.path(paths$fw, "basins_shp.Rds"))         # Watershed basins
-Fr_basin <- filter(basins, BASIN == "FRASER")      # Filter Fraser basin for mapping/plots
 
-load(file.path(paths$fw, "fw_streampicks_tscapes.Rdata"))  # Stream segments by CU boundary
-load(file.path(paths$fw, "fw_upstream_paths.Rdata"))       # Stream migration paths by CU boundary
-load(file.path(paths$fw, "fw_models_tscapes.Rds"))         # Base stream models (tscapes, Fishpass)
-load(file.path(paths$fw, "fw_stream_indicators_sp.Rds"))   # Spatial indicator streams
-load(file.path(paths$fw, "BC_FWA_LAKES_FR.Rds"))           # Fraser basin lakes for plotting
-load(file.path(paths$fw, "flow_gauge_data.Rdata"))         # Hydrology gauge locations and watersheds
-load(file.path(paths$fw, "Tw_stations.Rds"))               # Temperature station locations
-
-load(file.path(paths$marine, "CMIP6_SST_periods.Rds"))     # SST data by period
-load(file.path(paths$marine, "CImpact_points.Rds"))        # Cumulative impacts points
+if(run_data_load) {
+  
+  load(file.path(paths$marine, "MAZ.Rds"))            # Marine Adaptive Zones
+  load(file.path(paths$fw, "basins_shp.Rds"))         # Watershed basins
+  Fr_basin <- filter(basins, BASIN == "FRASER")      # Filter Fraser basin for mapping/plots
+  
+  load(file.path(paths$fw, "fw_streampicks_tscapes.Rdata"))  # Stream segments by CU boundary
+  load(file.path(paths$fw, "fw_upstream_paths.Rdata"))       # Stream migration paths by CU boundary
+  load(file.path(paths$fw, "fw_models_tscapes.Rds"))         # Base stream models (tscapes, Fishpass)
+  load(file.path(paths$fw, "fw_stream_indicators_sp.Rds"))   # Spatial indicator streams
+  load(file.path(paths$fw, "BC_FWA_LAKES_FR.Rds"))           # Fraser basin lakes for plotting
+  load(file.path(paths$fw, "flow_gauge_data.Rdata"))         # Hydrology gauge locations and watersheds
+  load(file.path(paths$fw, "Tw_stations.Rds"))               # Temperature station locations
+  
+  load(file.path(paths$marine, "CMIP6_SST_periods.Rds"))     # SST data by period
+  load(file.path(paths$marine, "CImpact_points.Rds"))        # Cumulative impacts points
+}
 
 # ==================== 3. Optional Pipeline Executions ====================
 

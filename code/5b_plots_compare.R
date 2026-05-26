@@ -496,6 +496,169 @@ spatial_indicator_plot <- function(data,
 }
 
 
+#' Spatial multi-panel plot of the 6 freshwater rearing indicators for a single species
+#'
+#' @param data               Long-format table with (at least):
+#'   indicator, SPECIES_NAME, FULL_CU_IN, std_value, value, and scenario/period/gcm columns
+#' @param cu_boundary        Spatial sf object containing CU boundaries and species column.
+#' @param outline            Watershed outline sf object (default: Fr_basin).
+#' @param species_pick       The single species to filter for (default: "Chinook").
+#' @param sp_col_name        Column name for species in the data and boundary (default: "SPECIES_NAME").
+#' @param rcp_pick           Optional RCP code(s) to filter (e.g. "45").
+#' @param period_pick        Optional period code(s) to filter (e.g. "3").
+#' @param use_standardized   Logical; if TRUE, uses std_value (0-1), else uses raw value (default: TRUE).
+#' @param id_col             CU ID column (default: "FULL_CU_IN").
+#' @param brewer_palette     RColorBrewer palette (default: "RdYlGn").
+#' @param palette_direction  Direction for brewer palette (default: -1).
+#' @param ncol               Number of columns in the facet layout (default: 3).
+#' @return A ggplot object.
+spatial_fw_rearing_indicators_plot <- function(data,
+                                               cu_boundary,
+                                               outline = Fr_basin,
+                                               species_pick = "Chinook",
+                                               sp_col_name = "SPECIES_NAME",
+                                               rcp_pick = NULL,
+                                               period_pick = NULL,
+                                               use_standardized = TRUE,
+                                               id_col = "FULL_CU_IN",
+                                               brewer_palette = "RdYlGn",
+                                               palette_direction = -1,
+                                               ncol = 3) {
+  
+  # The 6 freshwater rearing indicators (excluding fwres)
+  fw_indicators <- c("favchange", "cthr", "tw8rate", "tw8proj", "flow8pdelta", "flow18pdelta")
+  
+  # Filter data to the 6 FW rearing indicators and chosen species
+  plot_data <- data %>% 
+    filter(
+      .data$indicator %in% fw_indicators,
+      .data[[sp_col_name]] == species_pick
+    )
+  
+  if (nrow(plot_data) == 0) {
+    stop(paste("No data found for species:", species_pick, "and the 6 FW rearing indicators."))
+  }
+  
+  # Split by indicator to apply dynamic filtering (GCM, RCP, period)
+  # This ensures that indicators without projections (e.g. cthr, which only has gcm == 0)
+  # are still preserved when filtering other indicators to future RCPs/periods.
+  data_list <- split(plot_data, plot_data$indicator)
+  for (ind in names(data_list)) {
+    df_ind <- data_list[[ind]]
+    
+    # Filter by RCP if provided, fallback to 0
+    if (!is.null(rcp_pick)) {
+      if (any(df_ind$rcp %in% rcp_pick, na.rm = TRUE)) {
+        df_ind <- df_ind %>% filter(rcp %in% rcp_pick)
+      } else if (any(df_ind$rcp %in% c("0", 0), na.rm = TRUE)) {
+        df_ind <- df_ind %>% filter(rcp %in% c("0", 0))
+      }
+    }
+
+    # Filter by period if provided, fallback to 0
+    if (!is.null(period_pick)) {
+      if (any(df_ind$period_code %in% period_pick, na.rm = TRUE)) {
+        df_ind <- df_ind %>% filter(period_code %in% period_pick)
+      } else if (any(df_ind$period_code %in% c("0", 0), na.rm = TRUE)) {
+        df_ind <- df_ind %>% filter(period_code %in% c("0", 0))
+      }
+    }
+    
+    # Select GCM: prefer 9 (ensemble mean) or 0 (baseline) or first unique
+    if ("gcm" %in% names(df_ind)) {
+      if (any(df_ind$gcm == "9", na.rm = TRUE)) {
+        df_ind <- df_ind %>% filter(.data$gcm == "9")
+      } else if (any(df_ind$gcm == "0" | df_ind$gcm == 0, na.rm = TRUE)) {
+        df_ind <- df_ind %>% filter(.data$gcm == "0" | .data$gcm == 0)
+      } else {
+        # Take first available GCM per CU to avoid duplication
+        df_ind <- df_ind %>%
+          group_by(!!sym(id_col)) %>%
+          slice(1) %>%
+          ungroup()
+      }
+    }
+    
+    data_list[[ind]] <- df_ind
+  }
+  
+  plot_data <- bind_rows(data_list)
+  
+  value_var <- if (use_standardized) "std_value" else "value"
+  
+  # Fallback to std_value if raw value requested but missing
+  if (value_var == "value" && !"value" %in% names(plot_data)) {
+    value_var <- "std_value"
+    warning("Raw value not found in data, falling back to std_value.")
+  }
+  
+  plot_data <- plot_data %>%
+    rename(plot_value = !!sym(value_var))
+  
+  # Join with spatial boundaries
+  cu_boundary_plot <- cu_boundary %>%
+    left_join(
+      select(plot_data, !!sym(id_col), plot_value, indicator),
+      by = id_col
+    ) %>%
+    filter(!is.na(plot_value))
+  
+  if (nrow(cu_boundary_plot) == 0) {
+    p <- ggplot() +
+      geom_sf(data = outline, colour = "black", fill = NA, alpha = 0.3) +
+      theme_void() +
+      labs(title = paste("No valid data for FW rearing indicators (Species:", species_pick, ")"))
+    return(p)
+  }
+  
+  # Add friendly names to indicators if tbl_indicators exists
+  if (exists("tbl_indicators")) {
+    indicator_names <- tbl_indicators %>% 
+      filter(abbrev %in% fw_indicators) %>% 
+      select(abbrev, name) %>%
+      mutate(abbrev = factor(abbrev, levels = fw_indicators)) %>%
+      arrange(abbrev)
+    
+    cu_boundary_plot <- cu_boundary_plot %>%
+      left_join(indicator_names, by = c("indicator" = "abbrev")) %>%
+      mutate(
+        indicator_lbl = coalesce(name, indicator),
+        indicator_lbl = factor(indicator_lbl, levels = indicator_names$name)
+      )
+    
+    facet_var <- "indicator_lbl"
+  } else {
+    cu_boundary_plot <- cu_boundary_plot %>%
+      mutate(indicator = factor(indicator, levels = fw_indicators))
+    facet_var <- "indicator"
+  }
+  
+  p <- ggplot() +
+    geom_sf(data = cu_boundary_plot, aes(fill = plot_value), alpha = 0.3) +
+    scale_fill_distiller(
+      palette = brewer_palette, 
+      direction = palette_direction, 
+      limits = if (use_standardized) c(0, 1) else NULL
+    ) +
+    geom_sf(data = outline, colour = "black", fill = NA, alpha = 0.3) +
+    labs(
+      fill = if (use_standardized) "Standardized\nScore" else "Value",
+      title = paste("Freshwater Rearing Indicators -", species_pick)
+    ) +
+    facet_wrap(vars(!!sym(facet_var)), ncol = ncol) +
+    coord_sf(datum = NA, expand = FALSE, clip = "on") +
+    theme_void() +
+    theme(
+      plot.title = element_text(face = "bold", size = 12, hjust = 0.5, margin = margin(b = 10)),
+      strip.text = element_text(face = "bold", size = 9, margin = margin(b = 5)),
+      panel.spacing = grid::unit(8, "pt"),
+      legend.position = "right"
+    )
+  
+  return(p)
+}
+
+
 # ==================== 5. Multi-panel Indicator Tile Plot by Species ====================
 
 #' Tile plot of standardized indicator values (long-format, by species)

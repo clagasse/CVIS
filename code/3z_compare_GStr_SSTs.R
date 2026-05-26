@@ -1,9 +1,38 @@
+# ==============================================================================
+# CVIS Georgia Strait SST Model Comparison (3z_compare_GStr_SSTs.R)
+#
+# Description:
+#   Compares SST summaries in Georgia Strait (GStr) and other Marine Analysis
+#   Zones (MAZs) across OISST, HOTSSEA, CMIP6 high-res projections, Salish
+#   Sea Cast (SSC), and BCCM. Computes spring anomalies and annual summaries,
+#   renders comparison reports, and calculates Z-scores.
+#
+# Workflow Steps:
+#   1. Load setup environment and read spatial boundaries (MAZ).
+#   2. Load OISST (from pacea), HOTSSEA, and CMIP6 shapefiles.
+#   3. Process spatial intersections and compute spring averages.
+#   4. Process ROMs (BCCM and SSC) monthly historical data and projections.
+#   5. Summarize spring and annual temperatures across models.
+#   6. Render markdown report to compare SST models.
+#   7. Calculate Z-scores comparing CMIP6 models to OISST baseline climatology.
+#
+# Inputs:
+#   - Spatial MAZ shapefile and standardized marine data points.
+#   - Pacea OISST and HOTSSEA databases.
+#
+# Outputs:
+#   - Rendered HTML report in paths$reports
+#
+# Dependencies:
+#   - Requires 0_setup.R, pacea, sf, dplyr, pivot_longer, rmarkdown
+# ==============================================================================
 
+# ==================== 1. Setup & Load Datasets ====================
 library(here)
 setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
-
 library(pacea)
+
 
 # months to use for summarizing ocean entry SSTs
 months_choose <- c(4, 5, 6, 7)
@@ -43,7 +72,7 @@ SSC_SST_sub <- read_sf(file.path(paths$climate, "Standardized_Marine_data/Points
 BCCM_SST_sub <- read_sf(file.path(paths$climate, "Standardized_Marine_data/Points/BCCM_SST_sub.gdb"))
 
 
-#----------------- Spatial Processing-------------------------
+# ==================== 2. Spatial Processing & Historic Climatology ====================
 
 # match oisst points to MAZ polygons
 oisst_month$MAZ_Acrony <- NA
@@ -150,7 +179,7 @@ spring_anoms <- combined_spring %>%
 
 
 
-### ----- ROM historical summaries and projections
+# ==================== 3. Regional Ocean Modeling System (ROMS) Processing ====================
 
 SSC_SST_long <- SSC_SST_sub %>%
   as_tibble() %>%
@@ -351,17 +380,17 @@ ROM_SST_annual_summary <- bind_rows(ROM_SST_annual_summary, oisst_annual_summary
 
 
 
-#----------------- Make report------------------------
+# ==================== 4. Generate Comparative Report ====================
 
 rmarkdown::render(
   file.path(paths$code, "markdown", "compare_model_SSTs_wCMIP6.Rmd"),
   output_file = paste(today, "SST_comparisons.html", sep = "_"),
-  output_dir = here("reports"),
+  output_dir = paths$reports,
   output_format = "html_document")
 
 
 
-# Calculate z-scores ------------------------------------------------------
+# ==================== 5. Z-Score Calculation ====================
 
 
 CMIP_spring_stats <- CMIP_spring %>%

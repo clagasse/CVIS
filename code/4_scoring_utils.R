@@ -1,9 +1,32 @@
-## 4_scoring_utils.R
+# ==============================================================================
+# CVIS Scoring & Standardization Utility Functions (4_scoring_utils.R)
+#
+# Description:
+#   Utility functions for standardizing raw indicator values, tidying/reshaping
+#   indicator tables, ranking scores, scaling, and calculating aggregated
+#   vulnerability/exposure portfolio scores.
+#
+# Functions:
+#   - linear_std, invlinear_std: 0 to 1 linear scaling (with optional 95% quantiles).
+#   - logarithmic_std, exponential_std, decay_std: Non-linear scaling.
+#   - step_std, cat_std, enh_std: Category/discrete step scaling.
+#   - simulate_range: Simulates sequences between min/max values.
+#   - sum_selected_columns, multiply_selected_columns, power_selected_columns, average_selected_columns: Rowwise aggregation helpers.
+#   - subset_ind_table: Subsets and pivots wide/long indicator data tables.
+#   - rename_ind_table: Renames columns with standardized suffix formatting.
+#   - standardize_long_indicator: Standardizes long-format data using calibration params.
+#   - get_CU_indicators: Extracts CU-specific and regional baseline statistics.
+#   - rank_scores: Ranks scores across CUs or subgroups.
+#   - scale_0_100: Normalizes numeric vectors to 0-100 scale.
+#   - hinge_weight: Soft thresholding indicator function for red flags.
+#   - calculate_combined_scores: Aggregates category and overall vulnerability portfolio scores.
+#
+# Dependencies:
+#   - dplyr, stringr, tidyr, purrr, tibble
+# ==============================================================================
 
-# Functions for standardization of indices, scoring and plotting
-# as well as reshaping indicator data tables
+# ==================== 1. Indicator Standardization Functions ====================
 
-# 1. Standardization functions --------------------------------------------
 
 # raw standardization function between 0 and 1 using min and max values
 # if xmin or xmax are set, a manual min and max range are used for standardizing between 0 and 1
@@ -166,7 +189,7 @@ simulate_range <- function(x, n = 100) {
 }
 
 
-# 2. Data tidying and reshaping -------------------------------------------
+# ==================== 2. Data Reshaping & Tidying Helpers ====================
 
 sum_selected_columns <- function(data, match_strings, new_col_name = "row_sum") {
   pattern <- paste(match_strings, collapse = "|")
@@ -634,11 +657,14 @@ get_CU_indicators <- function(data,
   is_long <- "indicator" %in% names(data) && "stat" %in% names(data) && "value" %in% names(data)
 
   if (is_long) {
-    data_sub <- filter(
-      data,
-      rcp == RCP_pick,
-      period_code == period_pick
-    )
+    # Keep requested scenario OR baseline fallback for static indicators
+    data_sub <- data %>%
+      filter((rcp == RCP_pick & period_code == period_pick) | (rcp == "0" & period_code == "0")) %>%
+      group_by(FULL_CU_IN, indicator, stat) %>%
+      mutate(has_projection = any(rcp == RCP_pick & period_code == period_pick)) %>%
+      filter(!has_projection | (rcp == RCP_pick & period_code == period_pick)) %>%
+      ungroup() %>%
+      select(-has_projection)
 
     # Set value column based on use_standardized
     val_col <- if (use_standardized) "std_value" else "value"
@@ -653,11 +679,25 @@ get_CU_indicators <- function(data,
       }
     }
 
-    if ("dsmodel" %in% names(data_sub) && exists("tbl_standardize")) {
-      data_sub <- data_sub %>%
-        left_join(dplyr::select(tbl_standardize, abbrev, dsmodel_baseline_ind = dsmodel_baseline), by = c("indicator" = "abbrev")) %>%
-        filter(is.na(dsmodel) | dsmodel == dsmodel_baseline_ind | is.na(dsmodel_baseline_ind)) %>%
-        dplyr::select(-dsmodel_baseline_ind)
+    if (exists("tbl_standardize")) {
+      if ("dsmodel" %in% names(data_sub)) {
+        data_sub <- data_sub %>%
+          left_join(dplyr::select(tbl_standardize, abbrev, dsmodel_baseline_ind = dsmodel_baseline), by = c("indicator" = "abbrev")) %>%
+          filter(is.na(dsmodel) | dsmodel == dsmodel_baseline_ind | is.na(dsmodel_baseline_ind)) %>%
+          dplyr::select(-dsmodel_baseline_ind)
+      }
+      if ("std_method" %in% names(data_sub)) {
+        data_sub <- data_sub %>%
+          left_join(dplyr::select(tbl_standardize, abbrev, std_fun), by = c("indicator" = "abbrev")) %>%
+          mutate(
+            std_fun_base = case_when(
+              std_fun %in% c("linear_std", "invlinear_std") ~ "linear",
+              TRUE ~ "exponential"
+            )
+          ) %>%
+          filter(is.na(std_method) | std_method == std_fun_base) %>%
+          dplyr::select(-std_fun, -std_fun_base)
+      }
     }
 
     data_sub <- data_sub %>%
@@ -831,8 +871,7 @@ rank_scores <- function(data, score_col, group_cols, rank_col = "score_rank", de
 # test <- subset_ind_table(all_flat,
 #   indicators_choose = c("Tw8rate", "Tw8proj", "CUstatus"))
 
-# Hinge weight function
-# helper function for 0-100 scaling across a vector of values
+# ==================== 3. Portfolio & Combined Score Aggregations ====================
 scale_0_100 <- function(x) {
   mn <- suppressWarnings(min(x, na.rm = TRUE))
   mx <- suppressWarnings(max(x, na.rm = TRUE))
