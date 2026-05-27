@@ -4,13 +4,29 @@ A data-informed, indicator-based framework for evaluating climate change vulnera
 
 ## Overview
 
-This project presents an analytical framework that integrates climate projections, habitat assessments, demographic, and genetics data to characterize relative climate vulnerability for Pacific salmon conservation units. The framework evaluates \>15 indicators across 5 categories representing different life stages and mechanisms of climate change vulnerability:
+This project presents an analytical framework that integrates climate projections, habitat assessments, demographic, and genetics data to characterize relative climate vulnerability for Pacific salmon conservation units. The framework evaluates 17 indicators across 5 categories representing different life stages and mechanisms of climate change vulnerability:
 
--   **Freshwater Spawning & Rearing** - Environmental changes to spawning and rearing streams
--   **Freshwater Upstream Migration** - Changes affecting adult migration to spawning sites
--   **Marine Nearshore** - Sea surface temperature changes during ocean entry
--   **Demographic Factors** - Population status and abundance metrics
--   **Genetic Factors** - Genetic diversity and offset
+*   **Freshwater Spawning & Rearing**
+    *   *Change in ENM favourability* (`favchange`): Relative changes in ecological niche model habitat suitability.
+    *   *Standardized cumulative threats* (`cthr`): Integrated land-use and human footprint impact scores.
+    *   *August Stream Temperature* (`tw8proj` & `tw8rate`): Projected stream temperatures and decadal rates of change.
+    *   *August Stream Flow Change* (`flow8pdelta`): Projected dry-season proportional flow change.
+    *   *Winter Stream Flow Change* (`flow18pdelta`): Projected wet-season proportional flow change (Nov-Jan).
+    *   *Freshwater residency time* (`fwres`): Species-specific rearing residence duration.
+*   **Freshwater Upstream Migration**
+    *   *Migration corridor temperature* (`migrTproj`): River temperatures along the migration corridor during migration timing.
+    *   *Migration season discharge* (`migrQpdelta`): Proportional change in discharge during migration.
+    *   *Length of migration path* (`migrdist`): Absolute distance from ocean entry to NuSEDS spawning sites.
+*   **Marine Nearshore**
+    *   *Projected SST* (`SSTproj`): Sea surface temperatures during the critical nearshore ocean entry window.
+    *   *Rate of change in SST* (`SSTrate`): Decadal SST warming rate.
+    *   *Cumulative marine habitat impacts* (`CImpact`): Localized marine stressors and threats.
+*   **Demographic Factors**
+    *   *Wild Salmon Policy status* (`CUstatus`): Current integrated WSP status assessment.
+    *   *Mature spawner abundance* (`CUnmat`): Baseline geometric mean number of mature spawner individuals.
+*   **Genetic Factors**
+    *   *Genetic heterozygosity* (`hetzyg`): Population genomic diversity levels.
+    *   *Genomic offset* (`genoff`): Predicted genetic vulnerability based on genomic-climate mismatch.
 
 The analysis currently covers 50 conservation units throughout the Fraser River watershed, with results for mid-century (2040-2060) and end-of-century (2080-2100) time periods under RCP 4.5 and RCP 8.5 emissions scenarios.
 
@@ -20,33 +36,62 @@ A full description of methods and results are detailed in a technical report cur
 
 ## Project Structure
 
-```         
+```
 ├── code/
-│   ├── 0_setup.R                    # Project configuration and paths
-│   ├── 0a_console.R                 # Workflow demonstration script
-│   ├── 1a_CU_import.R               # Conservation unit data import
-│   ├── 1b_FW_stream_process.R       # Freshwater stream data processing
-│   ├── 1c_FW_PCIC_period_average.R  # Climate model period averaging
-│   ├── 1d_FW_PCIC_model_averages.R  # Climate model ensemble means
-│   ├── 2a_FW_boundary_subset.R      # Spatial subsetting by CU boundaries
-│   ├── 2b_FW_rearing_stats.R        # Spawning/rearing indicator statistics
-│   ├── 2c_FW_upstream_paths.R       # Migration pathway analysis
-│   ├── 2d_FW_migration_stats.R      # Migration indicator statistics
-│   ├── 3a_marine_data_import.R      # Marine data import
-│   ├── 3b_marine_summarize.R        # Marine data summarization
-│   ├── 3c_marine_stats.R            # Marine indicator statistics
-│   ├── 3d_marine_grid_standardize.R # Marine grid standardization
-│   ├── 4a_CU_scoring.R              # Vulnerability indicator scoring
-│   ├── 5a_plots_CU.R                # CU-specific plotting functions
-│   ├── 5b_plots_compare.R           # Comparative plotting functions
-│   ├── 6a_CU_indicator_report.Rmd   # CU-specific report template
-│   └── 6b_CVIS_overview.Rmd         # Project overview report template
+│   ├── 0_setup.R                    # Paths registration, configs, and library setup
+│   ├── 0a_console.R                 # Workflow runner and console interface
+│   │
+│   ├── 1a_CU_import.R               # CU crosswalk decoders and spawner site imports
+│   ├── 1b_FW_stream_process.R       # Raw stream networks & PCIC spatial processing
+│   ├── 1c_FW_PCIC_period_average.R  # PCIC NetCDF period averaging calculations
+│   ├── 1d_FW_PCIC_model_averages.R  # Multi-model GCM ensemble averaging
+│   ├── 1f_genetics_import.R         # Heterozygosity and genomic offset imports
+│   ├── 1x_FW_create_PCIC_grid.R     # PCIC climate grid spatial polygon builder
+│   ├── 1z_FWA_query.R               # BC Freshwater Atlas stream database queries
+│   │
+│   ├── 2_fw_utils.R                 # Utility helpers for freshwater & FWA tracing
+│   ├── 2a_FW_boundary_subset.R      # Subsetting stream networks by CU boundary
+│   ├── 2b_FW_rearing_stats.R        # Freshwater spawning/rearing indicator metrics
+│   ├── 2c_FW_upstream_paths.R       # Tracing upstream migration routes from ocean entry
+│   ├── 2d_FW_migration_stats.R      # Migration pathway thermal and flow indicators
+│   │
+│   ├── 3_marine_utils.R             # Utility helpers for marine SST and grids
+│   ├── 3a_marine_data_import.R      # SST and salinity projections spatial import
+│   ├── 3b_marine_summarize.R        # SST/SSS Marine Analysis Zone (MAZ) averaging
+│   ├── 3c_marine_stats.R            # Nearshore marine indicator metrics
+│   ├── 3d_marine_grid_standardize.R # SST grid interpolation and standardization
+│   ├── 3e_validating_standardized_grid.R # Spatial interpolation validation checks
+│   ├── 3z_compare_GStr_SSTs.R       # Salish Sea SST model comparisons & Z-scores
+│   │
+│   ├── 4_scoring_utils.R            # Utility helpers for indicator scaling and scoring
+│   ├── 4a_CU_scoring.R              # 0-1 normalization and portfolio aggregations
+│   ├── 4b_CU_sensitivity_analysis.R # Sensitivity analysis across runs and parameters
+│   ├── 4c_indicator_sensitivity_summary.R # Indicator sensitivity summary compiling
+│   │
+│   ├── 5a_plots_CU.R                # Individual CU lollipop and map plots
+│   ├── 5b_plots_compare.R           # Comparative multi-CU indicator plots
+│   ├── 5c_plots_sensitivity_indicators.R # Plotting indicator sensitivity ranges
+│   ├── 5d_plots_sensitivity_scoring.R # Plotting scoring aggregation rank deviations
+│   │
+│   ├── 6_CVIS_report.Rmd            # Master CVIS report template
+│   ├── 6_figures_manuscript.R       # Generating and exporting manuscript figures
+│   ├── 6a_CU_indicator_report.Rmd   # Individual CU summary report template
+│   ├── 6b_Sensitivity_Appendix.Rmd  # Methodological sensitivity appendix template
+│   ├── 6c_CVIS_supplemental_report.Rmd # Supplemental data reporting template
+│   │
+│   └── 7_CVIS_explorer_app.R        # Shiny App for interactive mapping and exploration
+│
 ├── processed_data/
+│   ├── CU/                          # Aggregated CU metadata and genetics data
 │   ├── freshwater/                  # Processed freshwater indicators
-│   └── marine/                      # Processed marine indicators
+│   ├── marine/                      # Processed marine indicators
+│   └── params/                      # Analysis configs and indicators metadata tables
+│
 ├── output/
-│   └── figures/                     # Generated figures and plots
-└── reports/                         # Generated HTML/PDF reports
+│   ├── figures/                     # Generated figures and plots (e.g. manuscript)
+│   ├── reports/                     # Generated HTML/PDF reports (nested by run)
+│   ├── scoring_results.Rdata        # Final indicator scores database
+│   └── sensitivity_analysis.Rdata   # Sensitivity database
 ```
 
 ## Data Requirements
@@ -76,29 +121,34 @@ This project requires external climate, spatial, and biological data that are no
 
 ## Usage
 
-### Basic Workflow
+### General Workflow
 
-The analysis workflow is demonstrated in `code/0a_console.R`. The typical sequence is:
+The CVIS analysis pipeline can be executed in modular stages using `code/0a_console.R` as the master script runner. This runner coordinates the execution sequence:
 
-1.  **Setup and configuration** (`0_setup.R`)
+1.  **Setup & Initialization** (`code/0_setup.R`): Configures global analysis options (such as target CUs, emission scenarios, and models), registers centralized directories, and loads dependencies. Sibling raw data folders (`0_data_climate`, `0_data_spatial`, `0_data_salmon`) resolve outside the repository to remain Git-clean.
+2.  **Freshwater Indicator Analysis** (scripts 1a-2d): Imports CU metadata and traces spawner pathways. Calculates dry-season temperatures, winter flow anomalies, and thermal migration corridor stressors.
+3.  **Marine Nearshore Analysis** (scripts 3a-3d): Standardizes ocean sea surface temperature (SST) and salinity datasets to extract entry-window conditions.
+4.  **Vulnerability Scoring & Aggregation** (scripts 4a-4c): Normalizes all raw indicators to a standard 0-1 scale. Aggregates scores across lifecycle categories using multiple methods, including arithmetic means, extreme-value scaling (cube-roots), and red flag thresholds.
+5.  **Visualization & Reporting** (scripts 5a-6c): Compiles comparative summaries, renders individual and regional HTML dashboards, and outputs them directly to `output/reports/`.
+6.  **Interactive Exploration**: Launches the interactive Shiny Explorer application (`code/7_CVIS_explorer_app.R`) to visualize indicators and mapped CU vulnerabilites.
 
-2.  **Data import and processing** (scripts 1a-1d)
+### Core Dependencies
 
-3.  **Spatial analysis** (scripts 2a-2d for freshwater, 3a-3e for marine)
-
-4.  **Indicator scoring** (scripts 4a-4d)
-
-5.  **Visualization and reporting** (scripts 5a-6b)
+The framework leverages several categories of R packages:
+-   **Spatial Analysis**: `sf`, `terra`, `fwapgr` (Freshwater Atlas integration), `gstat`
+-   **Data Processing**: `dplyr`, `tidyr`, `purrr`, `data.table`, `stars` (NetCDF raster manipulation)
+-   **Visualizations & Outputs**: `ggplot2`, `shiny`, `rmarkdown`
 
 ## Output
 
 The framework produces:
 
 -   **Standardized indicator values** (0-1 scale) for each CU
--   **Combined vulnerability scores** using multiple aggregation methods
+-   **Combined vulnerability scores** using multiple aggregation methods (averages, extreme-value scaling, red flag counts)
 -   **Spatial visualizations** of stream-level indicators
 -   **Comparative plots** across CUs, species, and scenarios
--   **HTML/PDF reports** for individual CUs and watershed-wide summaries
+-   **HTML reports** for individual CUs and watershed-wide summaries (placed in `output/reports/`)
+-   **Interactive Shiny App** for visual results exploration and scenario mapping (`code/7_CVIS_explorer_app.R`)
 
 ## Contributing
 

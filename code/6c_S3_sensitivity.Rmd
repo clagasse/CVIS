@@ -459,9 +459,24 @@ plot_pca_detailed_biplot(rd_data$pca_plot_dat, pca_load, species_palette)
 
 # Section 4: Combined Uncertainty and Robustness Analysis {#combined-uncertainty}
 
-While the sensitivity analysis in previous sections evaluates shifts across discrete scenarios (holding other factors constant), the vulnerability assessment is subject to multiple simultaneous sources of uncertainty. To quantify how these uncertainties compound and propagate, a Monte Carlo uncertainty analysis was performed.
+While the sensitivity analysis in previous sections evaluates shifts across discrete scenarios (holding other factors constant), the vulnerability assessment is subject to multiple simultaneous sources of uncertainty. To quantify how these uncertainties compound and propagate, a bootstrap uncertainty analysis was performed.
 
-Under the Monte Carlo framework (Period 3: 2041–2060), 100 iterations were run where climate models (GCMs), emissions pathways (RCP 4.5 vs. RCP 8.5), downscaling methods for temperature, flow, and sea surface temperature, and standardization methods (exponential vs. linear) were simultaneously and randomly sampled. This section presents:
+### Bootstrapping Methodology
+
+Under the bootstrap framework, we performed $B = 100$ iterations focusing on the mid-century period (Period 3: 2041–2060). For each iteration, we simultaneously and randomly sampled parameter configurations from the following uncertainty dimensions:
+
+1. **Global Climate Models (GCMs):** Randomly sampled from the three common GCMs (`CanESM2`, `HadGEM2-ES`, and `MPI-ESM-LR`).
+2. **Emissions Scenarios (RCPs):** Randomly sampled from `RCP 4.5` and `RCP 8.5`.
+3. **Freshwater Temperature Downscaling:** Randomly sampled from `pcicgrid` (PCIC gridded downscaled temperature projections) and `tscapes` (Thermalscapes).
+4. **Freshwater Flow Downscaling:** Randomly sampled from `station` (station-based downscaled flow projections) and `streamdyn` (dynamic streamflow modeling). Due to data constraints, when the `station` downscaler is sampled, flow indicators default to the GCM ensemble mean (GCM 9) instead of the sampled individual GCM.
+5. **Marine SST Downscaling:** Gridded sea surface temperature projections are randomly sampled from `qdm` (bias-corrected QDM) and `bccmssc` (spatial downscaling).
+
+During this bootstrapping process, the following parameters were held fixed to ensure isolation of environmental uncertainty:
+- **Indicator Standardization:** Held fixed to the default standardization function and parameters for each indicator as defined in the CVIS configuration (`tbl_indicators`/`tbl_standardize`). Continuous indicators were not switched between linear and exponential risk curves.
+- **Aggregation and Scoring Method:** Held fixed to the baseline scoring configurations (`avg` for category-level aggregation; `catavg` for overall vulnerability score calculation).
+- **Vulnerability Score Scaling:** All re-computed overall vulnerability scores were scaled to the 0–100 range using fixed bounds derived from the baseline scenario distribution across all CUs.
+
+This section presents:
 
 1. **Combined Score Spread** — the overall variation in vulnerability scores (0–100 scale) for each CU across all iterations.
 2. **Rank Uncertainty & Robustness Profiles** — the stability of CU vulnerability rankings and classification of CUs into robustness categories (Robust High, Robust Low, Highly Uncertain).
@@ -469,9 +484,9 @@ Under the Monte Carlo framework (Period 3: 2041–2060), 100 iterations were run
 
 ## Combined Score Spread
 
-The boxplots below show the spread of overall CVIS vulnerability scores across the Monte Carlo iterations for each of the 50 CUs. CUs are ordered by their mean score. The horizontal spread of each box reflects the combined sensitivity of that CU to the joint uncertainty in climate projections and downscaling/standardization methodologies.
+The boxplots below show the spread of overall CVIS vulnerability scores across the bootstrap iterations for each of the 50 CUs. CUs are ordered by their mean score. The horizontal spread of each box reflects the combined sensitivity of that CU to the joint uncertainty in climate projections and downscaling methodologies.
 
-```{r combined-spread, fig.width=12, fig.height=9, fig.cap="Distribution of overall CVIS vulnerability scores (0-100 scale) across Monte Carlo iterations for each Fraser River salmon Conservation Unit. CUs are colored by species and sorted by their mean vulnerability score."}
+```{r combined-spread, fig.width=12, fig.height=9, fig.cap="Distribution of overall CVIS vulnerability scores (0-100 scale) across bootstrap iterations for each Fraser River salmon Conservation Unit. CUs are colored by species and sorted by their mean vulnerability score."}
 all_scores <- mc_results %>% filter(category == "all")
 plot_combined_uncertainty_spread(all_scores, species_palette)
 ```
@@ -490,7 +505,12 @@ plot_rank_uncertainty(cu_summary)
 
 ## Variance Decomposition (ANOVA)
 
-To identify which uncertainty sources contribute the most to the variation in final vulnerability scores, a multi-way ANOVA was performed on the Monte Carlo score outputs. The analysis controls for the geographical variation among CUs and decomposes the remaining uncertainty variance into the contributions of the sampled GCMs, RCPs, downscaling methods, and standardization methods.
+To identify which uncertainty sources contribute the most to the variation in final vulnerability scores, a multi-way Analysis of Variance (ANOVA) was performed on the bootstrap score outputs. The linear model includes `FULL_CU_IN` as a factor to control for the baseline geographical and biological differences among CUs. The remaining variance is then decomposed into the relative contributions of the sampled uncertainty parameters:
+- Global Climate Model (`sampled_gcm`)
+- Emission Scenario (`sampled_rcp`)
+- Temperature Downscaling Method (`sampled_ds_temp`)
+- Flow Downscaling Method (`sampled_ds_flow`)
+- Marine Downscaling Method (`sampled_ds_mar`)
 
 ```{r variance-decomposition, fig.width=10, fig.height=6, fig.cap="Decomposition of combined uncertainty variance. Bars represent the percentage of score variance explained by each source of variation after controlling for spatial differences among CUs."}
 plot_uncertainty_variance_decomposition(anova_unc)
@@ -509,8 +529,8 @@ The sensitivity analysis is implemented across the following scripts in the CVIS
 | `4a_CU_scoring.R` | **Scoring engine.** Aggregates all environmental and demographic indicators; standardizes values (0–1) using scenario-specific ranges (GCM/RCP/Period); calculates multi-scale vulnerability scores and ranks. |
 | `4b_CU_sensitivity_analysis.R` | **Sensitivity engine.** Calculates directional and absolute deviations in scores across all climate scenarios, time periods, and downscaling methods; performs Jackknife leverage analysis; quantifies Mean Rank Displacement (MRD). |
 | `4c_indicator_sensitivity_summary.R` | **Consolidation & risk driver analysis.** Summarizes score- and indicator-level sensitivity metrics; identifies dominant risk drivers via ANOVA; performs PCA-based multivariate risk profiling and indicator collinearity analysis. |
-| `4d_CU_uncertainty_analysis.R` | **Monte Carlo uncertainty engine.** Conducts Monte Carlo simulation (100 iterations) to quantify combined uncertainty spread, rank confidence intervals, robustness profiles, and performs ANOVA-based variance decomposition. |
-| `5c_plots_sensitivity_indicators.R` | **Consolidated plotting library.** Defines plotting functions for indicator sensitivity, score deviations, Jackknife leverage, rank consistency, risk drivers (ANOVA & PCA), species rank bumps, and Monte Carlo spread and rank stability. |
+| `4d_bootstrap_analysis.R` | **Bootstrap uncertainty engine.** Conducts bootstrap simulation (100 iterations) to quantify combined uncertainty spread, rank confidence intervals, robustness profiles, and performs ANOVA-based variance decomposition. |
+| `5c_plots_sensitivity_indicators.R` | **Consolidated plotting library.** Defines plotting functions for indicator sensitivity, score deviations, Jackknife leverage, rank consistency, risk drivers (ANOVA & PCA), species rank bumps, and bootstrap spread and rank stability. |
 
 ## Scoring Methods
 

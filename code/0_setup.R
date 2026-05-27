@@ -77,7 +77,7 @@ paths <- list(
   output  = here("output"),
   CU      = here("processed_data", "CU"),
   figures = here("output", "figures"),
-  reports = here("reports"),
+  reports = here("output", "reports"),
   code    = here("code"),
   params  = here("processed_data", "params")
 )
@@ -136,6 +136,11 @@ base_network <- switch(1,
 
 # vector of RCP codes
 rcp_vec <- c("0", "00", "45", "85")
+
+
+#the minimum inclusive stream order to use for subsetting of migration paths
+# that represent the mainstem (mostly for plotting purposes)
+mainstem_min_order <- 9
 
 # for converting CU status categories to a numeric
 status_map <- c(Green = 1, Amber = 2, Red = 3)
@@ -390,6 +395,24 @@ cu_boundary <- cu_boundary %>%
 # Load watershed basins and filter to Fraser River basin for spatial maps
 load(file.path(paths$fw, "basins_shp.Rds"))
 Fr_basin <- filter(basins, BASIN == "FRASER")
+
+# Load Fraser basin lakes for plotting
+load(file.path(paths$fw, "BC_FWA_LAKES_FR.Rds"))
+
+# Load BC coastline polygon from pacea package and save to processed_data/marine if it doesn't exist already
+bc_coast_path <- file.path(paths$marine, "bc_coast.Rds")
+if (!file.exists(bc_coast_path)) {
+  library(pacea)
+  if (exists("bc_coast", envir = asNamespace("pacea"))) {
+    bc_coast_obj <- get("bc_coast", envir = asNamespace("pacea"))
+  } else {
+    data("bc_coast", package = "pacea", envir = environment())
+    bc_coast_obj <- bc_coast
+  }
+  saveRDS(bc_coast_obj, file = bc_coast_path)
+}
+bc_coast <- readRDS(bc_coast_path)
+
 
 
 # ==================== 9. Dynamic SMU Palette Definition ====================

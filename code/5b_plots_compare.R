@@ -657,8 +657,7 @@ spatial_fw_rearing_indicators_plot <- function(data,
     ) +
     geom_sf(data = outline, colour = "black", fill = NA, alpha = 0.3) +
     labs(
-      fill = if (use_standardized) "Standardized\nScore" else "Value",
-      title = paste("Freshwater Rearing Indicators -", species_pick)
+      fill = if (use_standardized) "Standardized\n Risk Score" else "Value"
     ) +
     facet_wrap(vars(!!sym(facet_var)), ncol = ncol) +
     coord_sf(datum = NA, expand = FALSE, clip = "on") +
@@ -2446,7 +2445,9 @@ plot_maz_lollipop <- function(maz_all,
 migration_compare_plot <- function(migr_daily_all,
                                    timing = NULL,
                                    rcp = "45",
-                                   period_choose = c("1981-2010", "2041-2060")) {
+                                   period_choose = c("1981-2010", "2041-2060"),
+                                   spatial_path_choose = "CK-12",
+                                   min_stream_order = 9) {
   # Summary plot mode for all CUs
   if (is.null(timing)) {
     if (exists("cu_timing_Fr", envir = .GlobalEnv)) {
@@ -2478,9 +2479,9 @@ migration_compare_plot <- function(migr_daily_all,
     }
   }
 
-  # Filter to only spatial_path == "CK-12"
+  # Filter to only spatial_path == spatial_path_choose
   calendar_sub <- calendar_df %>%
-    dplyr::filter(spatial_path == "CK-12", rcp == !!rcp, period %in% period_choose) %>%
+    dplyr::filter(spatial_path == spatial_path_choose, rcp == !!rcp, period %in% period_choose) %>%
     dplyr::mutate(day_of_year = as.numeric(day_of_year))
 
   # Ensemble mean line
@@ -2510,11 +2511,11 @@ migration_compare_plot <- function(migr_daily_all,
 
   p_upper <- ggplot(df_timing) +
     # Dotted connector from rt_end to sp_start (transition)
-    geom_segment(aes(x = rt_end, xend = sp_start, y = CU_label, yend = CU_label, color = SPECIES_NAME), linetype = "dotted", linewidth = 1) +
-    # Run timing bar (rt_start to rt_end) - thicker segment
-    geom_segment(aes(x = rt_start, xend = rt_end, y = CU_label, yend = CU_label, color = SPECIES_NAME), linewidth = 3) +
-    # Spawning timing bar (sp_start to sp_peak) - thinner and semi-transparent segment
-    geom_segment(aes(x = sp_start, xend = sp_peak, y = CU_label, yend = CU_label, color = SPECIES_NAME), linewidth = 1.5, alpha = 0.7) +
+    geom_segment(aes(x = rt_end, xend = sp_start, y = CU_label, yend = CU_label, color = SPECIES_NAME), linetype = "dotted", linewidth = 0.6) +
+    # Run timing bar (rt_start to rt_end) - narrower segment
+    geom_segment(aes(x = rt_start, xend = rt_end, y = CU_label, yend = CU_label, color = SPECIES_NAME), linewidth = 1.5) +
+    # Spawning timing bar (sp_start to sp_peak) - narrower segment
+    geom_segment(aes(x = sp_start, xend = sp_peak, y = CU_label, yend = CU_label, color = SPECIES_NAME), linewidth = 0.8, alpha = 0.7) +
     scale_color_manual(values = spp_colors) +
     labs(x = NULL, y = "CU", color = "Species") +
     scale_x_continuous(limits = c(1, 365),
@@ -2525,25 +2526,204 @@ migration_compare_plot <- function(migr_daily_all,
       axis.text.y = element_text(size = 5),
       panel.grid.major.y = element_blank(),
       legend.position = "right"
-    )
+    ) +
+    annotation_custom(grid::textGrob("a", x = unit(0.96, "npc"), y = unit(0.92, "npc"), gp = grid::gpar(fontface = "bold", fontsize = 12)))
+
+  # Split df_temp_ensemble into historical and mid-century
+  df_ens_hist <- df_temp_ensemble %>% dplyr::filter(period == "1981-2010")
+  df_ens_mid <- df_temp_ensemble %>% dplyr::filter(period == "2041-2060")
 
   p_lower <- ggplot() +
-    # Ribbon for mid-century GCM bounds (daily min and max)
-    geom_ribbon(data = df_bounds_mid, aes(x = day_of_year, ymin = min_temp, ymax = max_temp, fill = period), alpha = 0.2) +
-    # Ensemble mean lines for each period (historical and mid-century)
-    geom_line(data = df_temp_ensemble, aes(x = day_of_year, y = migrTproj, color = period), linewidth = 1) +
-    labs(x = "Month", y = "Temperature (°C)", color = "Period", fill = "Period") +
+    # Red ribbon for GCM bounds (daily min and max) for mid-century (no legend mapping)
+    geom_ribbon(data = df_bounds_mid, aes(x = day_of_year, ymin = min_temp, ymax = max_temp), fill = "#e74c3c", alpha = 0.15) +
+    # Historical Ensemble
+    geom_line(data = df_ens_hist, aes(x = day_of_year, y = migrTproj, color = "1981-2010"), linewidth = 1) +
+    # Mid-century Ensemble
+    geom_line(data = df_ens_mid, aes(x = day_of_year, y = migrTproj, color = "2041-2060"), linewidth = 1) +
+    labs(x = "Month", y = "Mainstem temperature (°C)") +
+    scale_color_manual(
+      name = "Period",
+      values = c(
+        "1981-2010" = "#2c3e50",
+        "2041-2060" = "#e74c3c"
+      )
+    ) +
     scale_x_continuous(limits = c(1, 365),
                        breaks = c(1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335),
                        labels = c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")) +
     theme_bw() +
-    theme(legend.position = "right")
+    theme(
+      legend.position = "right"
+    ) +
+    annotation_custom(grid::textGrob("b", x = unit(0.96, "npc"), y = unit(0.85, "npc"), gp = grid::gpar(fontface = "bold", fontsize = 12)))
 
-  # Combine using patchwork
-  if (!requireNamespace("patchwork", quietly = TRUE)) {
-    stop("Package 'patchwork' is required for the multi-CU comparison plot.")
+  # Retrieve and filter the CK-12 migration path
+  if (exists("migr_list", envir = .GlobalEnv)) {
+    migr_list_obj <- get("migr_list", envir = .GlobalEnv)
+  } else {
+    if (exists("paths") && !is.null(paths$fw)) {
+      load(file.path(paths$fw, "fw_upstream_paths.Rdata"))
+      migr_list_obj <- migr_list
+    } else {
+      if (file.exists(file.path("processed_data", "freshwater", "fw_upstream_paths.Rdata"))) {
+        load(file.path("processed_data", "freshwater", "fw_upstream_paths.Rdata"))
+        migr_list_obj <- migr_list
+      } else {
+        stop("migr_list spatial object not found.")
+      }
+    }
   }
-  p <- patchwork::wrap_plots(p_upper, p_lower, ncol = 1, heights = c(2.5, 1))
+
+  if (!spatial_path_choose %in% names(migr_list_obj)) {
+    stop(paste("Selected spatial path", spatial_path_choose, "not found in migr_list."))
+  }
+  migr_path_selected <- migr_list_obj[[spatial_path_choose]]
+  migr_path_filtered <- migr_path_selected %>%
+    dplyr::filter(stream_order >= min_stream_order)
+
+  # Load fw_models to get August temperature
+  if (exists("fw_models", envir = .GlobalEnv)) {
+    fw_models_obj <- get("fw_models", envir = .GlobalEnv)
+  } else {
+    if (exists("paths") && !is.null(paths$fw) && file.exists(file.path(paths$fw, "fw_models_tscapes.Rds"))) {
+      load(file.path(paths$fw, "fw_models_tscapes.Rds"))
+      fw_models_obj <- fw_models
+    } else {
+      if (file.exists(file.path("processed_data", "freshwater", "fw_models_tscapes.Rds"))) {
+        load(file.path("processed_data", "freshwater", "fw_models_tscapes.Rds"))
+        fw_models_obj <- fw_models
+      } else {
+        fw_models_obj <- NULL
+      }
+    }
+  }
+
+  if (!is.null(fw_models_obj)) {
+    proj_period <- setdiff(period_choose, c("1981-2010", "1981-2000"))[1]
+    if (is.na(proj_period)) {
+      proj_period <- tail(period_choose, 1)
+    }
+    
+    p_code <- period_lookup %>%
+      dplyr::filter(period == proj_period, dsmodel == "tscapes") %>%
+      dplyr::pull(period_code) %>%
+      unique() %>%
+      head(1)
+    
+    if (length(p_code) == 0) {
+      p_code <- "3"
+    }
+    
+    temp_col <- paste0("tw8_9_", rcp, "_", p_code)
+    temp_col_alt <- paste0("tw8proj_9_", rcp, "_", p_code)
+    matching_col <- intersect(c(temp_col, temp_col_alt), names(fw_models_obj))[1]
+    
+    if (!is.na(matching_col)) {
+      join_col <- intersect(c("linear_feature_id", "segmented_stream_id"), names(migr_path_filtered))
+      join_col <- intersect(join_col, names(fw_models_obj))
+      
+      if (length(join_col) > 0) {
+        temp_df <- sf::st_drop_geometry(fw_models_obj) %>%
+          dplyr::select(dplyr::all_of(c(join_col[1], matching_col)))
+        
+        migr_path_filtered <- migr_path_filtered %>%
+          dplyr::left_join(temp_df, by = join_col[1]) %>%
+          dplyr::rename(august_temp = !!matching_col)
+      }
+    }
+  }
+
+  # Get projection CRS from the migration path
+  target_crs <- sf::st_crs(migr_path_filtered)
+
+  # Reproject other map layers
+  if (exists("bc_coast", envir = .GlobalEnv)) {
+    bc_coast_proj <- sf::st_transform(get("bc_coast", envir = .GlobalEnv), target_crs)
+  } else if (exists("paths") && !is.null(paths$marine) && file.exists(file.path(paths$marine, "bc_coast.Rds"))) {
+    bc_coast_proj <- sf::st_transform(readRDS(file.path(paths$marine, "bc_coast.Rds")), target_crs)
+  } else {
+    library(pacea)
+    bc_coast_proj <- sf::st_transform(pacea::bc_coast, target_crs)
+  }
+
+  if (exists("Fr_basin", envir = .GlobalEnv)) {
+    Fr_basin_proj <- sf::st_transform(get("Fr_basin", envir = .GlobalEnv), target_crs)
+  } else {
+    if (exists("paths") && !is.null(paths$fw) && file.exists(file.path(paths$fw, "basins_shp.Rds"))) {
+      load(file.path(paths$fw, "basins_shp.Rds"))
+      Fr_basin_proj <- sf::st_transform(dplyr::filter(basins, BASIN == "FRASER"), target_crs)
+    } else {
+      Fr_basin_proj <- NULL
+    }
+  }
+
+  if (exists("lakes_Fr", envir = .GlobalEnv)) {
+    lakes_proj <- sf::st_transform(get("lakes_Fr", envir = .GlobalEnv), target_crs)
+  } else {
+    if (exists("paths") && !is.null(paths$fw) && file.exists(file.path(paths$fw, "BC_FWA_LAKES_FR.Rds"))) {
+      load(file.path(paths$fw, "BC_FWA_LAKES_FR.Rds"))
+      lakes_proj <- sf::st_transform(lakes_Fr, target_crs)
+    } else {
+      lakes_proj <- NULL
+    }
+  }
+
+  # Crop bounding box with margin
+  bbox <- sf::st_bbox(migr_path_filtered)
+  x_range <- bbox["xmax"] - bbox["xmin"]
+  y_range <- bbox["ymax"] - bbox["ymin"]
+  margin_factor <- 0.08
+  xlims <- c(bbox["xmin"] - margin_factor * x_range, bbox["xmax"] + margin_factor * x_range)
+  ylims <- c(bbox["ymin"] - margin_factor * y_range, bbox["ymax"] + margin_factor * y_range)
+
+  # Map path prefix to species color
+  path_prefix <- toupper(substr(spatial_path_choose, 1, 2))
+  species_name <- switch(path_prefix,
+    "CK" = "Chinook",
+    "CO" = "Coho",
+    "SE" = "Sockeye",
+    "CM" = "Chum",
+    "PK" = "Pink",
+    "Chinook" # Default fallback
+  )
+  path_color <- if (species_name %in% names(spp_colors)) spp_colors[species_name] else "#E69F00"
+
+  p_map <- ggplot() +
+    geom_sf(data = bc_coast_proj, fill = "grey90", color = "grey75", linewidth = 0.3)
+  
+  if (!is.null(Fr_basin_proj)) {
+    p_map <- p_map + geom_sf(data = Fr_basin_proj, fill = "antiquewhite", color = "grey60", linewidth = 0.4)
+  }
+  
+  if (!is.null(lakes_proj)) {
+    p_map <- p_map + geom_sf(data = lakes_proj, fill = "aliceblue", color = "aliceblue", linewidth = 0.1)
+  }
+
+  if ("august_temp" %in% names(migr_path_filtered) && any(!is.na(migr_path_filtered$august_temp))) {
+    p_map <- p_map +
+      geom_sf(data = migr_path_filtered, aes(color = august_temp), linewidth = 1.2) +
+      scale_color_scico(palette = "roma", name = "August Temp (°C)", direction = -1)
+  } else {
+    p_map <- p_map +
+      geom_sf(data = migr_path_filtered, color = path_color, linewidth = 1.2)
+  }
+
+  p_map <- p_map +
+    coord_sf(xlim = xlims, ylim = ylims, expand = FALSE) +
+    theme_void() +
+    theme(
+      plot.subtitle = element_text(size = 9, face = "bold", hjust = 0.5),
+      plot.margin = margin(5, 5, 5, 5),
+      panel.border = element_rect(color = "black", fill = NA, linewidth = 0.8)
+    ) +
+    annotation_custom(grid::textGrob("c", x = unit(0.94, "npc"), y = unit(0.94, "npc"), gp = grid::gpar(fontface = "bold", fontsize = 12)))
+
+  p_left <- patchwork::wrap_plots(p_upper, p_lower, ncol = 1, heights = c(2.5, 1))
+  p <- patchwork::wrap_plots(p_left, p_map, ncol = 2, widths = c(2, 1.2)) +
+    patchwork::plot_layout(guides = "collect") &
+    theme(
+      plot.margin = margin(t = 2, r = 2, b = 2, l = 2, unit = "pt")
+    )
 
   return(p)
 }

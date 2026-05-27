@@ -1008,12 +1008,68 @@ server <- function(input, output, session) {
     req(input$cu_select)
 
     cu_boundary_i <- cu_boundary %>% filter(FULL_CU_IN == input$cu_select)
+    target_crs <- sf::st_crs(cu_boundary)
+
+    # Reproject other map layers
+    if (exists("bc_coast", envir = .GlobalEnv)) {
+      bc_coast_proj <- sf::st_transform(get("bc_coast", envir = .GlobalEnv), target_crs)
+    } else if (exists("paths") && !is.null(paths$marine) && file.exists(file.path(paths$marine, "bc_coast.Rds"))) {
+      bc_coast_proj <- sf::st_transform(readRDS(file.path(paths$marine, "bc_coast.Rds")), target_crs)
+    } else {
+      library(pacea)
+      bc_coast_proj <- sf::st_transform(pacea::bc_coast, target_crs)
+    }
+
+    if (exists("Fr_basin", envir = .GlobalEnv)) {
+      Fr_basin_proj <- sf::st_transform(get("Fr_basin", envir = .GlobalEnv), target_crs)
+    } else {
+      if (exists("paths") && !is.null(paths$fw) && file.exists(file.path(paths$fw, "basins_shp.Rds"))) {
+        load(file.path(paths$fw, "basins_shp.Rds"))
+        Fr_basin_proj <- sf::st_transform(dplyr::filter(basins, BASIN == "FRASER"), target_crs)
+      } else {
+        Fr_basin_proj <- NULL
+      }
+    }
+
+    if (exists("lakes_Fr", envir = .GlobalEnv)) {
+      lakes_proj <- sf::st_transform(get("lakes_Fr", envir = .GlobalEnv), target_crs)
+    } else {
+      if (exists("paths") && !is.null(paths$fw) && file.exists(file.path(paths$fw, "BC_FWA_LAKES_FR.Rds"))) {
+        load(file.path(paths$fw, "BC_FWA_LAKES_FR.Rds"))
+        lakes_proj <- sf::st_transform(lakes_Fr, target_crs)
+      } else {
+        lakes_proj <- NULL
+      }
+    }
+
+    bbox <- sf::st_bbox(cu_boundary)
+    x_range <- bbox["xmax"] - bbox["xmin"]
+    y_range <- bbox["ymax"] - bbox["ymin"]
+    margin_factor <- 0.08
+    xlims <- c(bbox["xmin"] - margin_factor * x_range, bbox["xmax"] + margin_factor * x_range)
+    ylims <- c(bbox["ymin"] - margin_factor * y_range, bbox["ymax"] + margin_factor * y_range)
 
     p <- ggplot() +
-      annotation_map_tile(type = "cartolight") +
+      geom_sf(data = bc_coast_proj, fill = "grey90", color = "grey75", linewidth = 0.3)
+    
+    if (!is.null(Fr_basin_proj)) {
+      p <- p + geom_sf(data = Fr_basin_proj, fill = "antiquewhite", color = "grey60", linewidth = 0.4)
+    }
+    
+    if (!is.null(lakes_proj)) {
+      p <- p + geom_sf(data = lakes_proj, fill = "aliceblue", color = "aliceblue", linewidth = 0.1)
+    }
+
+    p <- p +
       geom_sf(data = cu_boundary, color = "black", alpha = 0.3) +
       geom_sf(data = cu_boundary_i, fill = "green", alpha = 0.5) +
-      labs(title = input$cu_select)
+      coord_sf(xlim = xlims, ylim = ylims, expand = FALSE) +
+      labs(title = input$cu_select) +
+      theme_void() +
+      theme(
+        panel.border = element_rect(color = "black", fill = NA, linewidth = 0.8),
+        plot.margin = margin(5, 5, 5, 5)
+      )
 
     print(p)
   })

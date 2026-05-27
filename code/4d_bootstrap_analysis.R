@@ -1,18 +1,19 @@
 # ==============================================================================
-# CVIS Monte Carlo Uncertainty Analysis (4d_MC_analysis.R)
+# CVIS Bootstrap Uncertainty Analysis (4d_bootstrap_analysis.R)
 #
 # Description:
-#   Conducts a Monte Carlo uncertainty analysis by simultaneously varying multiple
+#   Conducts a bootstrap uncertainty analysis by simultaneously varying multiple
 #   sources of uncertainty (GCMs, RCP emissions scenario, and downscaling methods)
 #   through random sampling. Focuses on Period 3 (2041-2060), keeps scoring
-#   method fixed to the default (overall: catavg, category: avg), and runs
-#   100 iterations to quantify combined uncertainty, rank stability, and identify
+#   method fixed to the default (overall: catavg, category: avg), uses the default
+#   indicator standardization functions defined in 0_setup, and runs 100
+#   iterations to quantify combined uncertainty, rank stability, and identify
 #   CUs with robust vulnerability profiles.
 #
 # Workflow Steps:
 #   1. Load setup environment and core scoring results.
 #   2. Define uncertainty sampling space (GCMs, RCPs, Downscalers).
-#   3. Perform Monte Carlo loop (100 iterations):
+#   3. Perform bootstrapping loop (100 iterations):
 #      - Randomly sample GCM, RCP, and Downscaling assumptions.
 #      - Select correct standardized values using a key-based join.
 #      - Calculate overall vulnerability scores (catavg) and ranks.
@@ -47,7 +48,7 @@ load(file.path(paths$output, "scoring_results.Rdata")) # loads all_std_long, sco
 uncertainty_fig_path <- file.path(paths$figures, "uncertainty_analysis")
 dir.create(uncertainty_fig_path, showWarnings = FALSE, recursive = TRUE)
 
-cat("Starting Monte Carlo Uncertainty Analysis...\n")
+cat("Starting Bootstrap Uncertainty Analysis...\n")
 
 # Clean and format variables in the input dataset to character to prevent join mismatches
 all_std_clean <- all_std_long %>%
@@ -59,13 +60,19 @@ all_std_clean <- all_std_long %>%
     period_code = as.character(period_code)
   )
 
+# Define defaults for each indicator based on tbl_standardize std_fun
+# linear/invlinear default to "linear", all others default to "exponential"
+tbl_defaults <- tbl_standardize %>%
+  mutate(std_method = if_else(std_fun %in% c("linear_std", "invlinear_std"), "linear", "exponential")) %>%
+  select(indicator = abbrev, std_method)
+
 # ==================== 2. Define Sampling Space ====================
-N_iterations <- 1000
+N_iterations <- 100
 target_period <- "3" # Only period 3 (2041-2060)
 
 # Uncertainty Sources:
 # 1. Climate Models (GCMs)
-gcm_choices <- common_gcms # c("1", "4", "6") (CanESM2, HadGEM2, MPI)
+gcm_choices <- c("9", common_gcms) # c("1", "4", "6") (CanESM2, HadGEM2, MPI)
 # 2. Emission Scenarios (RCPs)
 rcp_choices <- c("45", "85")
 # 3. Spawning/Rearing Temp Downscaling
@@ -74,17 +81,15 @@ ds_temp_choices <- c("pcicgrid", "tscapes")
 ds_flow_choices <- c("station", "streamdyn")
 # 5. Nearshore Marine SST Downscaling
 ds_mar_choices <- c("qdm", "bccmssc")
-# 6. Standardization Method (exponential/decay vs linear)
-std_method_choices <- c("exponential", "linear")
 
 # Set seed for reproducibility
 set.seed(42)
 
-# List to hold Monte Carlo iteration outputs
-mc_results_list <- vector("list", N_iterations)
+# List to hold Bootstrap iteration outputs
+boot_results_list <- vector("list", N_iterations)
 
-# ==================== 3. Monte Carlo Loop ====================
-cat("Running", N_iterations, "iterations for Period 3...\n")
+# ==================== 3. Bootstrap Loop ====================
+cat("Running", N_iterations, "bootstrap iterations for Period 3...\n")
 
 for (k in 1:N_iterations) {
   # A. Randomly sample the uncertainty sources
@@ -93,7 +98,6 @@ for (k in 1:N_iterations) {
   d_temp <- sample(ds_temp_choices, 1)
   d_flow <- sample(ds_flow_choices, 1)
   d_mar <- sample(ds_mar_choices, 1)
-  std_method_k <- sample(std_method_choices, 1)
   
   # B. Build selection key table for this iteration
   # Note: Flow 'station' downscaler only has ensemble mean '9', so fall back to '9' if 'station' is chosen.
@@ -120,7 +124,7 @@ for (k in 1:N_iterations) {
     "CUnmat",       "observed", "0", "0", "0",
     "hetzyg",       "observed", "0", "0", "0"
   ) %>%
-    mutate(std_method = std_method_k)
+    left_join(tbl_defaults, by = "indicator")
   
   # C. Extract and score
   res <- all_std_clean %>%
@@ -150,15 +154,14 @@ for (k in 1:N_iterations) {
       sampled_rcp = rcp_k,
       sampled_ds_temp = d_temp,
       sampled_ds_flow = d_flow,
-      sampled_ds_mar = d_mar,
-      sampled_std_method = std_method_k
+      sampled_ds_mar = d_mar
     )
   
-  mc_results_list[[k]] <- scores_scaled
+  boot_results_list[[k]] <- scores_scaled
 }
 
-mc_results <- bind_rows(mc_results_list)
-cat("Monte Carlo simulation completed.\n")
+mc_results <- bind_rows(boot_results_list)
+cat("Bootstrap simulation completed.\n")
 
 # ==================== 4. Statistical Summary & Robustness ====================
 cat("Summarizing uncertainty results...\n")
@@ -205,13 +208,13 @@ cat("Performing variance decomposition using ANOVA...\n")
 
 # Run multi-way ANOVA to partition uncertainty variance
 # We control for the true spatial variation among CUs by including FULL_CU_IN
-lm_fit <- lm(score100 ~ FULL_CU_IN + sampled_gcm + sampled_rcp + sampled_ds_temp + sampled_ds_flow + sampled_ds_mar + sampled_std_method, data = all_scores)
+lm_fit <- lm(score100 ~ FULL_CU_IN + sampled_gcm + sampled_rcp + sampled_ds_temp + sampled_ds_flow + sampled_ds_mar, data = all_scores)
 anova_res <- anova(lm_fit)
 anova_df <- as.data.frame(anova_res) %>%
   rownames_to_column("Source")
 
 # Define target uncertainty factors
-unc_factors <- c("sampled_gcm", "sampled_rcp", "sampled_ds_temp", "sampled_ds_flow", "sampled_ds_mar", "sampled_std_method")
+unc_factors <- c("sampled_gcm", "sampled_rcp", "sampled_ds_temp", "sampled_ds_flow", "sampled_ds_mar")
 
 # Subset ANOVA table to target uncertainty factors and calculate relative contribution
 anova_unc <- anova_df %>%
@@ -226,7 +229,6 @@ anova_unc <- anova_df %>%
       Source == "sampled_ds_temp" ~ "Temperature Downscaling",
       Source == "sampled_ds_flow" ~ "Flow Downscaling",
       Source == "sampled_ds_mar" ~ "Marine Downscaling",
-      Source == "sampled_std_method" ~ "Standardization Method",
       TRUE ~ Source
     )
   ) %>%
@@ -237,12 +239,7 @@ print(as.data.frame(anova_unc[, c("Source_Label", "pct_uncertainty_variance")]))
 # ==================== 6. Save Datasets ====================
 cat("Saving data outputs...\n")
 
-# Save R object for downstream analysis
+# Save R object for downstream analysis (keep variable name mc_results for backward compatibility)
 save(mc_results, cu_summary, anova_unc, file = file.path(paths$output, "uncertainty_analysis_results.Rdata"))
-
-# Save summary tables to CSV
-write_csv(cu_summary, file.path(paths$output, "CU_robustness_summary.csv"))
-write_csv(anova_unc %>% select(Source, Source_Label, df = Df, sum_sq = `Sum Sq`, mean_sq = `Mean Sq`, F_value = `F value`, p_value = `Pr(>F)`, pct_uncertainty_variance),
-          file.path(paths$output, "uncertainty_variance_decomposition.csv"))
 
 cat("Script 4d complete. Analysis results successfully saved!\n")

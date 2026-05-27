@@ -399,6 +399,9 @@ plot_uncertainty_variance_decomposition <- function(anova_unc) {
 if (sys.nframe() == 0) {
   cat("Running standalone plot generation...\n")
   
+  library(here)
+  source(file.path(here(), "code", "0_setup.R"))
+  
   # Directories
   ind_fig_path <- file.path(paths$figures, "indicator_uncertainty")
   sens_fig_path <- file.path(paths$figures, "sensitivity_analysis")

@@ -237,7 +237,7 @@ for (j in 1:length(rcp_iter)) {
   rcp_cal_stats <- list()
   for (cu_name in calendar_cu_select) {
     path_cu <- migr_list[[cu_name]] %>%
-      filter(stream_order >= 8) %>%
+      filter(stream_order >= mainstem_min_order) %>%
       st_transform(4269)
       
     if (nrow(path_cu) == 0) {
