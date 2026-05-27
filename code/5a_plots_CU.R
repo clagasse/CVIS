@@ -445,7 +445,7 @@ stream_indicator_multipanel_plot <- function(fwModels,
         direction = p_dir,
         limits = val_range
       ) +
-      geom_sf(data = cu_boundary, fill = NULL, color = "black", alpha = 0.3)
+      geom_sf(data = cu_boundary, color = "black", alpha = 0.05)
       
     if (!is.null(lakes_cu) && inherits(lakes_cu, "sf") && nrow(lakes_cu) > 0) {
       p <- p + geom_sf(data = lakes_cu, color = "darkgrey", alpha = 0.7)

@@ -43,6 +43,7 @@ dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 # select case study CUs for manuscript
 casestudy_1 <- "CK-12"
 casestudy_2 <- "CM-02"
+casestudy_3 <- "PKO-01"
 
 
 # ==================== 2. Load Processed Datasets ====================
@@ -126,7 +127,8 @@ fw_sp_ind_cu <- subset_fw_models(
   stream_cu_picks = stream_cu_picks,
   cu_run = cu_run,
   spp_lookup = spp_lookup,
-  to_factor = TRUE
+  to_factor = TRUE,
+  filter_rs = T  #get rearing/spawning streams only for species
 )
 
 cu_timing_long_i <- cu_timing_long[cu_timing_long$FULL_CU_IN == cu_i, ]
@@ -142,29 +144,33 @@ f2 <- stream_indicator_multipanel_plot(fw_sp_ind_cu,
   cu_boundary_i,
   lakes_cu,
   variables = c("favchange_chinook_85_3", "cthr_anad", "tw8proj_9_45_3", "tw8rate_9_45_3", "flow8pdelta_9_45_3", "flow18pdelta_9_45_3"),
-  plot_titles = c("favchange", "cthr", "tw8proj", "tw8rate", "flow8", "flow18"),
+  plot_titles = c("Change in ENM Favourability", "Cumulative Threat Score", "August Mean Temperature",
+                  "Rate of Temp. Change", "Change in August Flow", "Change in Nov-Jan Flow"),
   scico_palette = "roma",
   palette_directions = c(1, -1, -1, -1, 1, -1))
 
 #save as png
-ggsave(filename = file.path(output_dir, "figure_2.png"), plot = f2, width = 8, height = 5) 
+ggsave(filename = file.path(output_dir, "figure_2.png"), plot = f2, width = 10, height = 6) 
 
-# Figure 3 - Upstream migration path and time period used to determine migration temperature
+# Figure 3 - Summary of migration timing and temperatures across CUs
+# Uses migration_compare_plot from 5b to show all CUs' timing and temperatures for all 365 days (months)
+f3 <- migration_compare_plot(
+  migr_daily_calendar,
+  timing = cu_timing_Fr,
+  rcp = "45",
+  period_choose = c("1981-2010", "2041-2060")
+)
 
-f3 <- migration_path_plot(migr_cu,
-                          nuseds_cu, 
-                          cu_boundary_i)
+ggsave(filename = file.path(output_dir, "figure_3.png"), plot = f3, width = 8, height = 6)
 
-ggsave(filename = file.path(output_dir, "figure_3.png"), plot = f3) 
-                          
-
+            
 # Figure 4 - Lollilop plot of indicator values and standardization function for change in August flow
 
 f4 <- plot_lollipop(all_std_long_baseline,
                     indicator_pick = "migrTproj")
 
 ggsave(filename = file.path(output_dir, "figure_4.png"), plot = f4,
-       width = 6, height = 8) 
+       width = 5, height = 6) 
 
 # Figure 5 - Mapped vulnerability scores for freshwater spawning and rearing category.
 
@@ -173,7 +179,7 @@ f5 <- spatial_fw_rearing_indicators_plot(all_std_long_baseline,
                                          outline = Fr_basin,
                                          species_pick = "Chinook")
     
-ggsave(filename = file.path(output_dir, "figure_5.png"), plot = f5, width = 10, height = 7)                                
+ggsave(filename = file.path(output_dir, "figure_5.png"), plot = f5, width = 10, height = 9)                                
                                    
 # Figure 6 - Marine adaptive zones and associated mean indicator scores for each indicator - SSTproj, SSTrate, CImpact.
 
@@ -475,4 +481,274 @@ tryCatch({
 }, error = function(e) {
   cat("gtsave as PNG failed (likely webshot2/PhantomJS not installed): ", e$message, "\n")
 })
+
+
+# ==================== 6. Vulnerability Summary Table by Category ====================
+
+# 1. Reshape category scores
+cat_scores <- scores_tidy_baseline %>%
+  filter(method == "avg", category %in% c("dem", "fwrs", "gen", "mar", "migr")) %>%
+  select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, category, score100_all) %>%
+  pivot_wider(
+    names_from = category,
+    values_from = score100_all
+  )
+
+# 2. Extract baseline overall vulnerability score and ranks
+overall_scores <- scores_tidy_baseline %>%
+  filter(method == "catavg", category == "all") %>%
+  select(FULL_CU_IN, overall = score100_all, rankall, rankspecies)
+
+# 3. Calculate min and max overall vulnerability scores across GCMs 1, 4, and 6
+gcm_scores <- scores_tidy %>%
+  filter(std_method == "exponential", rcp == "45", period_code == "3", category == "all", method == "catavg") %>%
+  filter(gcm %in% c("1", "4", "6")) %>%
+  group_by(FULL_CU_IN) %>%
+  summarise(
+    gcm_min = min(score100_all, na.rm = TRUE),
+    gcm_max = max(score100_all, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# 4. Extract different scoring methods for overall vulnerability (ensemble GCM 9)
+method_scores <- scores_tidy %>%
+  filter(std_method == "exponential", rcp == "45", period_code == "3", category == "all", gcm == "9") %>%
+  filter(method %in% c("avgall", "avgcube")) %>%
+  select(FULL_CU_IN, method, score100_all) %>%
+  pivot_wider(
+    names_from = method,
+    values_from = score100_all
+  )
+
+# 5. Join all together
+vuln_table_data <- cat_scores %>%
+  left_join(overall_scores, by = "FULL_CU_IN") %>%
+  left_join(gcm_scores, by = "FULL_CU_IN") %>%
+  left_join(method_scores, by = "FULL_CU_IN") %>%
+  mutate(
+    # Combine Species and SMU for grouping
+    species_smu = paste0(SPECIES_NAME, " - ", SMU_SIMPLE)
+  ) %>%
+  arrange(SPECIES_NAME, SMU_SIMPLE, FULL_CU_IN)
+
+# 6. Round columns to integer
+round_cols <- c("dem", "fwrs", "gen", "mar", "migr", "overall", "rankall", "rankspecies", "gcm_min", "gcm_max", "avgall", "avgcube")
+for (col in round_cols) {
+  if (col %in% names(vuln_table_data)) {
+    vuln_table_data[[col]] <- round(vuln_table_data[[col]], 0)
+  }
+}
+
+# Select and order columns as requested (Ranks first, then categories, then overall, then alternatives, then GCM range)
+vuln_table_data <- vuln_table_data %>%
+  select(species_smu, FULL_CU_IN, CU_COMMON_NAME, 
+         rankall, rankspecies, 
+         dem, fwrs, gen, mar, migr, 
+         overall, avgall, avgcube,
+         gcm_min, gcm_max)
+
+# 7. Build gt table
+gt_vuln_table <- vuln_table_data %>%
+  gt(groupname_col = "species_smu") %>%
+  tab_header(
+    title = "Conservation Unit Climate Vulnerability Scores and Ranks",
+    subtitle = "Relative ranks, category vulnerability, GCM model ranges, and scoring methodology comparisons"
+  ) %>%
+  cols_label(
+    FULL_CU_IN = "CU Code",
+    CU_COMMON_NAME = "CU Name",
+    rankall = "All CUs",
+    rankspecies = "Within Species",
+    dem = "Demographics",
+    fwrs = "Freshwater",
+    gen = "Genetics",
+    mar = "Marine",
+    migr = "Migration",
+    overall = "Overall",
+    avgall = "Avg All",
+    avgcube = "Avg Cube",
+    gcm_min = "Min",
+    gcm_max = "Max"
+  ) %>%
+  tab_spanner(
+    label = "Relative Ranks",
+    columns = c(rankall, rankspecies)
+  ) %>%
+  tab_spanner(
+    label = "Category Scores (0-100)",
+    columns = c(dem, fwrs, gen, mar, migr)
+  ) %>%
+  tab_spanner(
+    label = "Overall Scoring Methods (Ensemble)",
+    columns = c(overall, avgall, avgcube)
+  ) %>%
+  tab_spanner(
+    label = "GCM Range (catavg)",
+    columns = c(gcm_min, gcm_max)
+  ) %>%
+  fmt_integer(
+    columns = all_of(round_cols)
+  ) %>%
+  sub_missing(
+    columns = everything(),
+    missing_text = "-"
+  ) %>%
+  cols_align(
+    align = "center",
+    columns = c(FULL_CU_IN, rankall, rankspecies, dem, fwrs, gen, mar, migr, overall, avgall, avgcube, gcm_min, gcm_max)
+  ) %>%
+  cols_align(
+    align = "left",
+    columns = CU_COMMON_NAME
+  ) %>%
+  opt_table_font(
+    font = list(
+      google_font(name = "Inter"),
+      "Helvetica Neue", "Arial", "sans-serif"
+    )
+  ) %>%
+  tab_style(
+    style = cell_text(weight = "bold", size = px(15), color = "#1A365D"),
+    locations = cells_title(groups = "title")
+  ) %>%
+  tab_style(
+    style = cell_text(size = px(11), style = "italic", color = "#4A5568"),
+    locations = cells_title(groups = "subtitle")
+  ) %>%
+  # Style Row Group headers
+  tab_style(
+    style = list(
+      cell_fill(color = "#EBF8FF"),
+      cell_text(color = "#2B6CB0", weight = "bold", size = px(11))
+    ),
+    locations = cells_row_groups()
+  ) %>%
+  # Vertical dividers
+  tab_style(
+    style = cell_borders(sides = "right", color = "#CBD5E0", weight = px(1.5)),
+    locations = cells_body(columns = CU_COMMON_NAME)
+  ) %>%
+  tab_style(
+    style = cell_borders(sides = "right", color = "#CBD5E0", weight = px(1.5)),
+    locations = cells_column_labels(columns = CU_COMMON_NAME)
+  ) %>%
+  tab_style(
+    style = cell_borders(sides = "right", color = "#CBD5E0", weight = px(1.5)),
+    locations = cells_body(columns = rankspecies)
+  ) %>%
+  tab_style(
+    style = cell_borders(sides = "right", color = "#CBD5E0", weight = px(1.5)),
+    locations = cells_column_labels(columns = rankspecies)
+  ) %>%
+  tab_style(
+    style = cell_borders(sides = "right", color = "#CBD5E0", weight = px(1.5)),
+    locations = cells_body(columns = migr)
+  ) %>%
+  tab_style(
+    style = cell_borders(sides = "right", color = "#CBD5E0", weight = px(1.5)),
+    locations = cells_column_labels(columns = migr)
+  ) %>%
+  tab_style(
+    style = cell_borders(sides = "right", color = "#CBD5E0", weight = px(1.5)),
+    locations = cells_body(columns = overall)
+  ) %>%
+  tab_style(
+    style = cell_borders(sides = "right", color = "#CBD5E0", weight = px(1.5)),
+    locations = cells_column_labels(columns = overall)
+  ) %>%
+  tab_style(
+    style = cell_borders(sides = "right", color = "#CBD5E0", weight = px(1.5)),
+    locations = cells_body(columns = avgcube)
+  ) %>%
+  tab_style(
+    style = cell_borders(sides = "right", color = "#CBD5E0", weight = px(1.5)),
+    locations = cells_column_labels(columns = avgcube)
+  ) %>%
+  # Bold the overall vulnerability column
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(columns = overall)
+  ) %>%
+  # Header label styling
+  tab_style(
+    style = cell_text(weight = "bold", size = px(11), color = "#2D3748"),
+    locations = cells_column_spanners(spanners = everything())
+  ) %>%
+  tab_style(
+    style = cell_borders(sides = "bottom", color = "#E2E8F0", weight = px(1)),
+    locations = cells_body()
+  ) %>%
+  opt_row_striping() %>%
+  tab_options(
+    table.font.size = 10,
+    heading.title.font.size = 13,
+    heading.subtitle.font.size = 11,
+    row_group.font.size = 11,
+    row_group.font.weight = "bold",
+    column_labels.font.weight = "bold",
+    column_labels.background.color = "#F7FAFC",
+    row.striping.background_color = "#F8FAFC",
+    table.border.top.color = "#1A365D",
+    table.border.top.width = px(2),
+    table.border.bottom.color = "#1A365D",
+    table.border.bottom.width = px(2),
+    column_labels.border.bottom.color = "#A0AEC0",
+    column_labels.border.bottom.width = px(1.5),
+    table.width = pct(100),
+    data_row.padding = px(6)
+  )
+
+# Color scale function for vulnerability (0-100 domain)
+color_fun_vuln <- scales::col_numeric(
+  palette = c("#E8F3FF", "#FFFDE6", "#FFEAEA"),
+  domain = c(0, 100),
+  na.color = "#FFFFFF"
+)
+
+# Color scale function for rankall (1-50 domain)
+color_fun_rank <- scales::col_numeric(
+  palette = c("#E8F3FF", "#FFFDE6", "#FFEAEA"),
+  domain = c(1, 50),
+  na.color = "#FFFFFF"
+)
+
+# Apply cell background colors to vulnerability score columns
+score_cols <- c("dem", "fwrs", "gen", "mar", "migr", "overall", "avgall", "avgcube", "gcm_min", "gcm_max")
+for (col in score_cols) {
+  for (i in seq_len(nrow(vuln_table_data))) {
+    val <- vuln_table_data[[col]][i]
+    if (!is.na(val)) {
+      bg_color <- color_fun_vuln(val)
+      gt_vuln_table <- gt_vuln_table %>%
+        tab_style(
+          style = cell_fill(color = bg_color),
+          locations = cells_body(columns = all_of(col), rows = i)
+        )
+    }
+  }
+}
+
+# Apply cell background colors to rankall column
+for (i in seq_len(nrow(vuln_table_data))) {
+  val <- vuln_table_data$rankall[i]
+  if (!is.na(val)) {
+    bg_color <- color_fun_rank(val)
+    gt_vuln_table <- gt_vuln_table %>%
+      tab_style(
+        style = cell_fill(color = bg_color),
+        locations = cells_body(columns = rankall, rows = i)
+      )
+  }
+}
+
+# Save vulnerability table outputs
+gtsave(gt_vuln_table, filename = file.path(output_dir, "table_vulnerability.html"))
+
+tryCatch({
+  gtsave(gt_vuln_table, filename = file.path(output_dir, "table_vulnerability.png"))
+  cat("Vulnerability Table saved to PNG successfully!\n")
+}, error = function(e) {
+  cat("gtsave as PNG failed: ", e$message, "\n")
+})
+
 

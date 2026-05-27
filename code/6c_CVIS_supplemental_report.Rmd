@@ -38,10 +38,6 @@ if (!exists("status_data")) {
   load(file.path(paths$CU, "cu_status_data.Rds"))
 }
 
-# Rename cu_boundary column for the spatial plot function join to work correctly
-if (exists("cu_boundary") && "Species" %in% names(cu_boundary)) {
-  cu_boundary <- cu_boundary %>% rename(SPECIES_NAME = Species)
-}
 
 # Clean up datasets to ensure consistency across plots
 # Join with standardized table to filter to the baseline downscaling models (dsmodel)
@@ -110,11 +106,9 @@ tabsetPanel(
     p(strong("Figure 1:"), "Comprehensive vulnerability scores and indicators across all Pacific Salmon Conservation Units (CUs) in the Fraser River basin."),
     renderPlot({
       indicator_cu_tile_plot(
-        all_std_long = report_dat,
-        scores_tidy = scores_tidy,
+        all_std_long = report_dat %>% filter(rcp == input$rcp_pick, period_code == input$period_pick),
+        scores_tidy = scores_tidy %>% filter(rcp == input$rcp_pick, period_code == input$period_pick),
         indicators_metadata = tbl_indicators,
-        rcp_pick = input$rcp_pick,
-        period_pick = input$period_pick,
         dsmodel_pick = dsmodel_baseline
       )
     }, height = 900, res = 100)
@@ -123,13 +117,11 @@ tabsetPanel(
     tags$br(),
     renderPlot({
       species_category_tile_plot_from_scores(
-        all_std_long = all_std_long,
-        scores_tidy = scores_tidy,
+        all_std_long = all_std_long %>% filter(rcp == input$rcp_pick, period_code == input$period_pick),
+        scores_tidy = scores_tidy %>% filter(rcp == input$rcp_pick, period_code == input$period_pick),
         species_pick = "Chinook",
         species_palette = species_palette,
         indicators_metadata = tbl_indicators,
-        rcp_pick = input$rcp_pick,
-        period_pick = input$period_pick,
         dsmodel_pick = dsmodel_baseline,
         rank_method = input$method_pick
       )
@@ -139,13 +131,11 @@ tabsetPanel(
     tags$br(),
     renderPlot({
       species_category_tile_plot_from_scores(
-        all_std_long = all_std_long,
-        scores_tidy = scores_tidy,
+        all_std_long = all_std_long %>% filter(rcp == input$rcp_pick, period_code == input$period_pick),
+        scores_tidy = scores_tidy %>% filter(rcp == input$rcp_pick, period_code == input$period_pick),
         species_pick = "Sockeye",
         species_palette = species_palette,
         indicators_metadata = tbl_indicators,
-        rcp_pick = input$rcp_pick,
-        period_pick = input$period_pick,
         dsmodel_pick = dsmodel_baseline,
         rank_method = input$method_pick
       )
@@ -155,13 +145,11 @@ tabsetPanel(
     tags$br(),
     renderPlot({
       species_category_tile_plot_from_scores(
-        all_std_long = all_std_long,
-        scores_tidy = scores_tidy,
+        all_std_long = all_std_long %>% filter(rcp == input$rcp_pick, period_code == input$period_pick),
+        scores_tidy = scores_tidy %>% filter(rcp == input$rcp_pick, period_code == input$period_pick),
         species_pick = "Coho",
         species_palette = species_palette,
         indicators_metadata = tbl_indicators,
-        rcp_pick = input$rcp_pick,
-        period_pick = input$period_pick,
         dsmodel_pick = dsmodel_baseline,
         rank_method = input$method_pick
       )
@@ -171,13 +159,11 @@ tabsetPanel(
     tags$br(),
     renderPlot({
       species_category_tile_plot_from_scores(
-        all_std_long = all_std_long,
-        scores_tidy = scores_tidy,
+        all_std_long = all_std_long %>% filter(rcp == input$rcp_pick, period_code == input$period_pick),
+        scores_tidy = scores_tidy %>% filter(rcp == input$rcp_pick, period_code == input$period_pick),
         species_pick = "Chum",
         species_palette = species_palette,
         indicators_metadata = tbl_indicators,
-        rcp_pick = input$rcp_pick,
-        period_pick = input$period_pick,
         dsmodel_pick = dsmodel_baseline,
         rank_method = input$method_pick
       )
@@ -187,13 +173,11 @@ tabsetPanel(
     tags$br(),
     renderPlot({
       species_category_tile_plot_from_scores(
-        all_std_long = all_std_long,
-        scores_tidy = scores_tidy,
+        all_std_long = all_std_long %>% filter(rcp == input$rcp_pick, period_code == input$period_pick),
+        scores_tidy = scores_tidy %>% filter(rcp == input$rcp_pick, period_code == input$period_pick),
         species_pick = "Pink",
         species_palette = species_palette,
         indicators_metadata = tbl_indicators,
-        rcp_pick = input$rcp_pick,
-        period_pick = input$period_pick,
         dsmodel_pick = dsmodel_baseline,
         rank_method = input$method_pick
       )
@@ -231,11 +215,12 @@ render_cvis_lollipop <- function(ind_code) {
   # CUstatus is a categorical indicator; plot_lollipop requires use_standardized = TRUE
   use_std <- (ind_code == "CUstatus")
   
+  plot_dat_filtered <- report_dat %>%
+    filter(rcp == rcp_pick, period_code == period_pick)
+  
   p <- plot_lollipop(
-    all_std_long = report_dat,
+    data = plot_dat_filtered,
     indicator_pick = ind_code,
-    rcp_pick = rcp_pick,
-    period_pick = period_pick,
     indicator_name = name_pick,
     indicator_unit = unit_pick,
     use_standardized = use_std
@@ -290,15 +275,16 @@ render_cvis_spatial <- function(ind_code) {
     pal_dir <- 1
   }
   
+  plot_dat_filtered <- report_dat %>%
+    filter(rcp == rcp_pick, period_code == period_pick)
+  
   p <- spatial_indicator_plot(
-    data = report_dat,
+    data = plot_dat_filtered,
     cu_boundary = get("cu_boundary", envir = .GlobalEnv),
     outline = get("Fr_basin", envir = .GlobalEnv),
     sp_pick = input$species_map_pick,
     indicator_pick = ind_code,
     indicator_name = name_pick,
-    rcp_pick = rcp_pick,
-    period_pick = period_pick,
     use_standardized = FALSE,
     palette_direction = pal_dir
   )

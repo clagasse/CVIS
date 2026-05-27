@@ -1,5 +1,5 @@
 # ==============================================================================
-# CVIS Indicator Sensitivity Summary & Risk Driver Analysis (4c_indicator_sensitivity_summary.R)
+# CVIS Indicator Sensitivity Summary & Risk Driver Analysis (4c_sensitivity_summary.R)
 #
 # Description:
 #   Consolidates sensitivity metrics at both the individual indicator level

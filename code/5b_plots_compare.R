@@ -2441,6 +2441,113 @@ plot_maz_lollipop <- function(maz_all,
   return(combined_plot)
 }
 
+# ==================== 9. Migration Timing Comparison (migration_compare_plot) ====================
+
+migration_compare_plot <- function(migr_daily_all,
+                                   timing = NULL,
+                                   rcp = "45",
+                                   period_choose = c("1981-2010", "2041-2060")) {
+  # Summary plot mode for all CUs
+  if (is.null(timing)) {
+    if (exists("cu_timing_Fr", envir = .GlobalEnv)) {
+      df_timing <- get("cu_timing_Fr", envir = .GlobalEnv)
+    } else {
+      stop("cu_timing_Fr timing data not found in global environment.")
+    }
+  } else {
+    df_timing <- timing
+  }
+
+  df_timing <- df_timing %>%
+    dplyr::filter(!is.na(rt_start), !is.na(sp_peak), !is.na(SPECIES_NAME)) %>%
+    dplyr::arrange(SPECIES_NAME, rt_start) %>%
+    dplyr::mutate(CU_label = factor(FULL_CU_IN, levels = unique(FULL_CU_IN)))
+
+  # Temperature data from calendar
+  if (exists("migr_daily_calendar", envir = .GlobalEnv)) {
+    calendar_df <- get("migr_daily_calendar", envir = .GlobalEnv)
+  } else if (is.data.frame(migr_daily_all) && "day_of_year" %in% names(migr_daily_all)) {
+    calendar_df <- migr_daily_all
+  } else {
+    # Try to load it from migr_stats.Rdata if it exists
+    if (exists("paths") && !is.null(paths$fw)) {
+      load(file.path(paths$fw, "migr_stats.Rdata"))
+      calendar_df <- migr_daily_calendar
+    } else {
+      stop("migr_daily_calendar not found. Please load migr_stats.Rdata first or pass it.")
+    }
+  }
+
+  # Filter to only spatial_path == "CK-12"
+  calendar_sub <- calendar_df %>%
+    dplyr::filter(spatial_path == "CK-12", rcp == !!rcp, period %in% period_choose) %>%
+    dplyr::mutate(day_of_year = as.numeric(day_of_year))
+
+  # Ensemble mean line
+  df_temp_ensemble <- calendar_sub %>%
+    dplyr::filter(gcm_name == "ensemble")
+
+  # Min/max bounds across GCMs (excluding ensemble)
+  df_temp_bounds <- calendar_sub %>%
+    dplyr::filter(gcm_name != "ensemble") %>%
+    dplyr::group_by(period, day_of_year) %>%
+    dplyr::summarise(
+      min_temp = min(migrTproj, na.rm = TRUE),
+      max_temp = max(migrTproj, na.rm = TRUE),
+      .groups = "drop"
+    )
+
+  # Shaded ribbon for mid-century GCM bounds ("2041-2060")
+  df_bounds_mid <- df_temp_bounds %>%
+    dplyr::filter(period == "2041-2060")
+
+  # Fallback for species palette
+  if (exists("species_palette", envir = .GlobalEnv)) {
+    spp_colors <- get("species_palette", envir = .GlobalEnv)
+  } else {
+    spp_colors <- c("Chinook" = "#E69F00", "Chum" = "#56B4E9", "Coho" = "#009E73", "Pink" = "#F0E442", "Sockeye" = "#D55E00")
+  }
+
+  p_upper <- ggplot(df_timing) +
+    # Dotted connector from rt_end to sp_start (transition)
+    geom_segment(aes(x = rt_end, xend = sp_start, y = CU_label, yend = CU_label, color = SPECIES_NAME), linetype = "dotted", linewidth = 1) +
+    # Run timing bar (rt_start to rt_end) - thicker segment
+    geom_segment(aes(x = rt_start, xend = rt_end, y = CU_label, yend = CU_label, color = SPECIES_NAME), linewidth = 3) +
+    # Spawning timing bar (sp_start to sp_peak) - thinner and semi-transparent segment
+    geom_segment(aes(x = sp_start, xend = sp_peak, y = CU_label, yend = CU_label, color = SPECIES_NAME), linewidth = 1.5, alpha = 0.7) +
+    scale_color_manual(values = spp_colors) +
+    labs(x = NULL, y = "CU", color = "Species") +
+    scale_x_continuous(limits = c(1, 365),
+                       breaks = c(1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335),
+                       labels = c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")) +
+    theme_bw() +
+    theme(
+      axis.text.y = element_text(size = 5),
+      panel.grid.major.y = element_blank(),
+      legend.position = "right"
+    )
+
+  p_lower <- ggplot() +
+    # Ribbon for mid-century GCM bounds (daily min and max)
+    geom_ribbon(data = df_bounds_mid, aes(x = day_of_year, ymin = min_temp, ymax = max_temp, fill = period), alpha = 0.2) +
+    # Ensemble mean lines for each period (historical and mid-century)
+    geom_line(data = df_temp_ensemble, aes(x = day_of_year, y = migrTproj, color = period), linewidth = 1) +
+    labs(x = "Month", y = "Temperature (°C)", color = "Period", fill = "Period") +
+    scale_x_continuous(limits = c(1, 365),
+                       breaks = c(1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335),
+                       labels = c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")) +
+    theme_bw() +
+    theme(legend.position = "right")
+
+  # Combine using patchwork
+  if (!requireNamespace("patchwork", quietly = TRUE)) {
+    stop("Package 'patchwork' is required for the multi-CU comparison plot.")
+  }
+  p <- patchwork::wrap_plots(p_upper, p_lower, ncol = 1, heights = c(2.5, 1))
+
+  return(p)
+}
+
 # 
 # plot_maz_lollipop(maz_all)
 # 

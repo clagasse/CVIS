@@ -36,9 +36,10 @@ run_fw_stats       <- FALSE # Run stream intersections, rearing, and migration s
 run_marine_prep    <- FALSE # Run raw marine NetCDF and spatial GDB imports (3a)
 run_marine_stats   <- FALSE # Run marine stats & grid standardization calculations (3b, 3c)
 run_scoring        <- F  # Run core standardization and scoring calculation engine (4a)
-run_report_all     <- F  # Generate the comprehensive multi-CU CVIS HTML report (6_CVIS_report.Rmd)
-run_reports_indiv  <- FALSE # Generate individual CU report HTML files (Deprecated, use Shiny app)
-run_shiny_explorer <- T # Launch local interactive Shiny explorer app (7_CVIS_explorer_app.R)
+run_indicator_report    <- T  # Generate the detailed indicator reports (6a_S1_indicators_description.Rmd)
+run_reports_indiv       <- F # Generate individual CU report HTML files (Static supplement for publication)
+run_sensitivity_report  <- F # Generate individual CU report HTML files (Static supplement for publication)
+run_shiny_explorer      <- FALSE # Launch local interactive Shiny explorer app (7_CVIS_explorer_app.R)
 
 # ==================== 2. Load Core Spatial and Definition Data ====================
 
@@ -98,29 +99,36 @@ if (run_scoring) {
 
 # ==================== 5. Report & App Generation ====================
 
-# 5.1 Main Vulnerability Comparison HTML Report
-if (run_report_all) {
+# 5.1 Indicator description HTML Report
+if (run_indicator_report) {
   cat("\nRendering comprehensive multi-CU CVIS report...\n")
   rmarkdown::render(
-    file.path(paths$code, "6_CVIS_report.Rmd"),
-    output_file = paste(today, "CVIS_report.html", sep = "_"),
+    file.path(paths$code, "6a_S1_indicators_description.Rmd"),
+    output_file = paste(today, "S1_indicators_report.html", sep = "_"),
     output_dir = file.path(paths$reports),
     output_format = "html_document"
   )
   cat("Report rendered in:", file.path(paths$reports), "\n")
 }
 
-# 5.2 Individual CU HTML Reports (Older static approach)
+
+
+# 5.2 Individual CU HTML Reports & Master Dashboard
 if (run_reports_indiv) {
   cat("\nRendering individual CU data reports...\n")
   dir.create(file.path(paths$reports, "CU_reports"), showWarnings = FALSE, recursive = TRUE)
-  for (i in 1:n.CUs) {
-    CU_IN_i <- cu_run$FULL_CU_IN[i]
+  
+  # Default to compiling the first 2 CUs for testing and speed.
+  # To run for all 50 CUs, change this to: cus_to_compile <- cu_run$FULL_CU_IN
+  cus_to_compile <- cu_run$FULL_CU_IN[1:2]
+  
+  for (CU_IN_i in cus_to_compile) {
+    cat("Compiling HTML profile for:", CU_IN_i, "\n")
     default_rcp <- "45"
     default_period <- 3
     
     rmarkdown::render(
-      file.path(paths$code, "6a_CU_indicator_report.Rmd"),
+      file.path(paths$code, "6b_S2_CU_reports.Rmd"),
       output_file = paste(CU_IN_i, "CVIS_Data_report.html", sep = "_"),
       output_dir = file.path(paths$reports, "CU_reports"),
       output_format = "html_document",
@@ -128,12 +136,28 @@ if (run_reports_indiv) {
         FULL_CU_IN = CU_IN_i,
         default_rcp = default_rcp,
         default_period = default_period
-      )
+      ),
+      envir = globalenv()
     )
   }
+  
+  # Generate the master HTML dashboard combining the individual reports
+  source(file.path(paths$code, "generate_dashboard.R"))
 }
 
-# 5.3 Interactive Shiny App Explorer
+# 5.4 Indicator description HTML Report
+if (run_sensitivity_report) {
+  cat("\nRendering sensitivity analysis report...\n")
+  rmarkdown::render(
+    file.path(paths$code, "6c_S3_sensitivity.Rmd"),
+    output_file = paste(today, "S3_sensitivity_report.html", sep = "_"),
+    output_dir = file.path(paths$reports),
+    output_format = "html_document"
+  )
+  cat("Report rendered in:", file.path(paths$reports), "\n")
+}
+
+# 5.4 Interactive Shiny App Explorer
 if (run_shiny_explorer) {
   cat("\nLaunching interactive CVIS explorer Shiny app...\n")
   shiny::runApp(file.path(paths$code, "7_CVIS_explorer_app.R"))

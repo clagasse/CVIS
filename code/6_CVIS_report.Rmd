@@ -142,9 +142,9 @@ for (rcp_pick in rcp_vec)
       period_code == default_period
     )
 
-  make_indicator_plots(filter_std,
-    ind_pick = "tw8proj"
-  )
+  print(plot_lollipop(filter_std, indicator_pick = "tw8proj", use_standardized = FALSE, log_scale = FALSE))
+print(plot_std_vs_raw(filter_std, indicator_pick = "tw8proj"))
+print(plot_indicator_histogram(filter_std, indicator_pick = "tw8proj"))
 
   cat("\n\n")
 }
@@ -168,9 +168,9 @@ for (rcp_pick in rcp_vec)
       dsmodel %in% dsmodel_baseline
     )
 
-  make_indicator_plots(filter_std,
-    ind_pick = "tw8rate"
-  )
+  print(plot_lollipop(filter_std, indicator_pick = "tw8rate", use_standardized = FALSE, log_scale = FALSE))
+print(plot_std_vs_raw(filter_std, indicator_pick = "tw8rate"))
+print(plot_indicator_histogram(filter_std, indicator_pick = "tw8rate"))
 
   cat("\n\n")
 }
@@ -194,10 +194,9 @@ for (rcp_pick in rcp_vec)
       dsmodel %in% dsmodel_baseline
     )
 
-  make_indicator_plots(filter_std,
-    ind_pick = "flow8pdelta",
-    spatial_pal_dir = 1
-  )
+  print(plot_lollipop(filter_std, indicator_pick = "flow8pdelta", use_standardized = FALSE, log_scale = FALSE))
+print(plot_std_vs_raw(filter_std, indicator_pick = "flow8pdelta"))
+print(plot_indicator_histogram(filter_std, indicator_pick = "flow8pdelta"))
 
   cat("\n\n")
 }
@@ -221,9 +220,9 @@ for (rcp_pick in rcp_vec)
       dsmodel %in% dsmodel_baseline
     )
 
-  make_indicator_plots(filter_std,
-    ind_pick = "flow18pdelta"
-  )
+  print(plot_lollipop(filter_std, indicator_pick = "flow18pdelta", use_standardized = FALSE, log_scale = FALSE))
+print(plot_std_vs_raw(filter_std, indicator_pick = "flow18pdelta"))
+print(plot_indicator_histogram(filter_std, indicator_pick = "flow18pdelta"))
 
   cat("\n\n")
 }
@@ -247,10 +246,9 @@ for (rcp_pick in rcp_vec)
       dsmodel %in% dsmodel_baseline
     )
 
-  make_indicator_plots(filter_std,
-    ind_pick = "favchange",
-    spatial_pal_dir = 1
-  )
+  print(plot_lollipop(filter_std, indicator_pick = "favchange", use_standardized = FALSE, log_scale = FALSE))
+print(plot_std_vs_raw(filter_std, indicator_pick = "favchange"))
+print(plot_indicator_histogram(filter_std, indicator_pick = "favchange"))
 
   cat("\n\n")
 }
@@ -264,9 +262,9 @@ For additional description of indicator see [A.6 Cumulative threats to stream ha
 
 ```{r}
 
-make_indicator_plots(report_dat,
-  ind_pick = "cthr"
-)
+print(plot_lollipop(report_dat, indicator_pick = "cthr", use_standardized = FALSE, log_scale = FALSE))
+print(plot_std_vs_raw(report_dat, indicator_pick = "cthr"))
+print(plot_indicator_histogram(report_dat, indicator_pick = "cthr"))
 ```
 
 ### vii. Freshwater residency time
@@ -277,10 +275,9 @@ For additional description of indicator see [A.7 Freshwater residency time (fwre
 
 ```{r}
 
-make_indicator_plots(report_dat,
-  ind_pick = "fwres",
-  make_spatial = F
-)
+print(plot_lollipop(report_dat, indicator_pick = "fwres", use_standardized = FALSE, log_scale = FALSE))
+print(plot_std_vs_raw(report_dat, indicator_pick = "fwres"))
+print(plot_indicator_histogram(report_dat, indicator_pick = "fwres"))
 ```
 
 # Upstream Migration
@@ -315,10 +312,9 @@ for (rcp_pick in rcp_vec)
       period_code == default_period
     )
 
-  make_indicator_plots(filter_std,
-    ind_pick = "migrTproj",
-    make_spatial = F
-  )
+  print(plot_lollipop(filter_std, indicator_pick = "migrTproj", use_standardized = FALSE, log_scale = FALSE))
+print(plot_std_vs_raw(filter_std, indicator_pick = "migrTproj"))
+print(plot_indicator_histogram(filter_std, indicator_pick = "migrTproj"))
 
   cat("\n\n")
 }
@@ -341,10 +337,9 @@ for (rcp_pick in rcp_vec)
       period_code == default_period
     )
 
-  make_indicator_plots(filter_std,
-    ind_pick = "migrQpdelta",
-    make_spatial = F
-  )
+  print(plot_lollipop(filter_std, indicator_pick = "migrQpdelta", use_standardized = FALSE, log_scale = FALSE))
+print(plot_std_vs_raw(filter_std, indicator_pick = "migrQpdelta"))
+print(plot_indicator_histogram(filter_std, indicator_pick = "migrQpdelta"))
 
   cat("\n\n")
 }
@@ -358,10 +353,9 @@ For additional description of indicator see [A.10 Upstream migration distance (m
 
 ```{r}
 
-make_indicator_plots(report_dat,
-                     ind_pick = "migrdist",
-                     make_spatial = F
-)
+print(plot_lollipop(report_dat, indicator_pick = "migrdist", use_standardized = FALSE, log_scale = FALSE))
+print(plot_std_vs_raw(report_dat, indicator_pick = "migrdist"))
+print(plot_indicator_histogram(report_dat, indicator_pick = "migrdist"))
 
 ```
 
@@ -404,11 +398,9 @@ for (rcp_pick in rcp_vec)
       period_code == default_period
     )
 
-  make_indicator_plots(filter_std,
-    ind_pick = "SSTproj",
-    standardized_plots = F,
-    make_spatial = F
-  )
+  print(plot_lollipop(filter_std, indicator_pick = "SSTproj", use_standardized = F, log_scale = FALSE))
+print(plot_std_vs_raw(filter_std, indicator_pick = "SSTproj"))
+print(plot_indicator_histogram(filter_std, indicator_pick = "SSTproj"))
 
   cat("\n\n")
 }
@@ -431,11 +423,9 @@ for (rcp_pick in rcp_vec)
       period_code == default_period
     )
 
-  make_indicator_plots(filter_std,
-    ind_pick = "SSTrate",
-    standardized_plots = F,
-    make_spatial = F
-  )
+  print(plot_lollipop(filter_std, indicator_pick = "SSTrate", use_standardized = F, log_scale = FALSE))
+print(plot_std_vs_raw(filter_std, indicator_pick = "SSTrate"))
+print(plot_indicator_histogram(filter_std, indicator_pick = "SSTrate"))
 
   cat("\n\n")
 }
@@ -449,11 +439,9 @@ For additional description of indicator see [A.13 Cumulative impacts to nearshor
 
 ```{r}
 
-make_indicator_plots(report_dat,
-  ind_pick = "CImpact",
-  standardized_plots = F,
-  make_spatial = F
-)
+print(plot_lollipop(report_dat, indicator_pick = "CImpact", use_standardized = F, log_scale = FALSE))
+print(plot_std_vs_raw(report_dat, indicator_pick = "CImpact"))
+print(plot_indicator_histogram(report_dat, indicator_pick = "CImpact"))
 ```
 
 # Demographics
@@ -474,11 +462,9 @@ For additional description of indicator see [A.14 Conservation status (CUstatus)
 
 ```{r}
 
-make_indicator_plots(report_dat,
-  ind_pick = "CUstatus",
-  standardized_plots = T,
-  make_spatial = F
-)
+print(plot_lollipop(report_dat, indicator_pick = "CUstatus", use_standardized = T, log_scale = FALSE))
+print(plot_std_vs_raw(report_dat, indicator_pick = "CUstatus"))
+print(plot_indicator_histogram(report_dat, indicator_pick = "CUstatus"))
 
 cat("\n\n")
 ```
@@ -491,11 +477,9 @@ For additional description of indicator see [A.15 Recent generational average of
 
 ```{r}
 
-make_indicator_plots(report_dat,
-  ind_pick = "CUnmat",
-  standardized_plots = F,
-  make_spatial = F
-)
+print(plot_lollipop(report_dat, indicator_pick = "CUnmat", use_standardized = F, log_scale = FALSE))
+print(plot_std_vs_raw(report_dat, indicator_pick = "CUnmat"))
+print(plot_indicator_histogram(report_dat, indicator_pick = "CUnmat"))
 
 cat("\n\n")
 ```
@@ -521,11 +505,9 @@ For additional description of indicator see [A.16 Heterozygosity (hetzyg)](#a.16
 ```{r}
 
 
-make_indicator_plots(report_dat,
-  ind_pick = "hetzyg",
-  standardized_plots = F,
-  make_spatial = F
-)
+print(plot_lollipop(report_dat, indicator_pick = "hetzyg", use_standardized = F, log_scale = FALSE))
+print(plot_std_vs_raw(report_dat, indicator_pick = "hetzyg"))
+print(plot_indicator_histogram(report_dat, indicator_pick = "hetzyg"))
 ```
 
 ### ii. Genomic offset
@@ -537,11 +519,9 @@ For additional description of indicator see [A.17 Genomic offset (genoff)](#a.17
 ```{r}
 
 
-make_indicator_plots(report_dat,
-  ind_pick = "genoff",
-  standardized_plots = F,
-  make_spatial = F
-)
+print(plot_lollipop(report_dat, indicator_pick = "genoff", use_standardized = F, log_scale = FALSE))
+print(plot_std_vs_raw(report_dat, indicator_pick = "genoff"))
+print(plot_indicator_histogram(report_dat, indicator_pick = "genoff"))
 ```
 
 # Overall Vulnerability
@@ -562,11 +542,9 @@ for (category_pick in unique(tbl_indicators$long_type))
   type_pick <- tbl_indicators$category[tbl_indicators$long_type == category_pick][1]
 
   fw_p <- indicator_tile_plot(
-    all_std_long,
+    all_std_long %>% filter(rcp == default_rcp, period_code == as.character(default_period)),
     indicators_choose = tbl_indicators$abbrev[tbl_indicators$category == type_pick],
     indicators_metadata = tbl_indicators,
-    rcp_pick = default_rcp,
-    period_pick = as.character(default_period),
     dsmodel_pick = dsmodel_baseline
   )
   print(fw_p)
@@ -582,13 +560,11 @@ for (species_pick in unique(cu_run$SPECIES_NAME))
   cat("#### ", species_pick, "\n\n", sep = "")
 
   p <- species_category_tile_plot_from_scores(
-    all_std_long = all_std_long,
-    scores_tidy = scores_tidy,
+    all_std_long = all_std_long %>% filter(rcp == default_rcp, period_code == as.character(default_period)),
+    scores_tidy = scores_tidy %>% filter(rcp == default_rcp, period_code == as.character(default_period)),
     species_pick = species_pick,
     species_palette = species_palette,
     indicators_metadata = tbl_indicators,
-    rcp_pick = default_rcp,
-    period_pick = as.character(default_period),
     dsmodel_pick = dsmodel_baseline
   )
 

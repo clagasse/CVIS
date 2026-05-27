@@ -353,6 +353,8 @@ species_palette <- c(
 
 # Universal risk score color palette for 0 to 1 risk (Vulnerability)
 cvis_risk_palette <- "RdYlBu"
+cvis_risk_direction <- -1
+
 
 # Indicator palette used for labelling indicator categories
 indicator_palette <- c(
@@ -374,6 +376,7 @@ source(here("code", "4_scoring_utils.R"))
 # load plotting functions
 source(here("code", "5a_plots_CU.R"))
 source(here("code", "5b_plots_compare.R"))
+source(here("code", "5c_plots_sensitivity_indicators.R"))
 
 # load CU tables
 source(here("code", "1a_CU_import.R")) # CU table
@@ -383,6 +386,10 @@ source(here("code", "1f_genetics_import.R"))
 load(file.path(paths$fw, "cu_boundary.Rds")) 
 cu_boundary <- cu_boundary %>% 
   left_join(select(spp_lookup, PSF_species, SPECIES_NAME), join_by(Species == PSF_species))
+
+# Load watershed basins and filter to Fraser River basin for spatial maps
+load(file.path(paths$fw, "basins_shp.Rds"))
+Fr_basin <- filter(basins, BASIN == "FRASER")
 
 
 # ==================== 9. Dynamic SMU Palette Definition ====================

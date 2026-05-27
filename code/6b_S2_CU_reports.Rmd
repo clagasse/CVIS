@@ -1,0 +1,596 @@
+---
+output:
+  html_document:
+    toc: false
+    number-sections: false
+    toc_float: true
+    toc_collapsed: false
+    toc_depth: 3
+    theme: flatly
+params:
+  FULL_CU_IN: "CK-03"
+  default_rcp: "45"
+  default_period: "3"
+title: "CVIS CU Data Report"
+---
+
+```{r custom theme, echo = FALSE, message = F, warning = F}
+knitr::opts_chunk$set(message = F, echo = F, warning = F)
+library(magrittr)
+library(reactable)
+library(htmltools)
+library(sf)
+library(tidyverse)
+```
+
+```{r load data, echo=FALSE, message=FALSE, warning=FALSE}
+# Helper to find the latest date-prefixed file matching a pattern
+get_latest_file <- function(path, pattern) {
+  files <- list.files(path, pattern = pattern, full.names = TRUE)
+  if (length(files) == 0) {
+    files <- list.files(here::here("output"), pattern = pattern, full.names = TRUE)
+  }
+  if (length(files) == 0) {
+    stop("No files matching pattern '", pattern, "' found in ", path)
+  }
+  sorted_files <- sort(files, decreasing = TRUE)
+  return(sorted_files[1])
+}
+
+# Ensure setup and scoring results are loaded
+if (!exists("paths")) {
+  source(here::here("code", "0_setup.R"))
+}
+if (!exists("all_std_long")) {
+  load(file.path(here::here(), "output", "scoring_results.Rdata"))
+}
+if (!exists("fw_all") || !exists("ss_all")) {
+  load(get_latest_file(paths$fw, "fw_rearing_indicators.Rdata"))
+}
+if (!exists("overall_sensitivity")) {
+  load(file.path(here::here(), "output", "sensitivity_analysis.Rdata"))
+}
+if (!exists("stream_cu_picks")) {
+  load(file.path(paths$fw, "fw_streampicks_tscapes.Rdata"))
+}
+if (!exists("migr_list")) {
+  load(file.path(paths$fw, "fw_upstream_paths.Rdata"))
+}
+if (!exists("fw_sp_ind")) {
+  load(file.path(paths$fw, "fw_stream_indicators_sp.Rds"))
+}
+if (!exists("lakes_Fr")) {
+  load(file.path(paths$fw, "BC_FWA_LAKES_FR.Rds"))
+}
+if (!exists("watershed_flow")) {
+  load(file.path(paths$fw, "flow_gauge_data.Rdata"))
+}
+if (!exists("cu_timing_long")) {
+  load(file.path(paths$CU, "cu_timing_data.Rdata"))
+}
+if (!exists("status_data")) {
+  load(file.path(paths$CU, "cu_status_data.Rds"))
+}
+if (!exists("cu_run")) {
+  load(file.path(paths$CU, "cu_run.Rds"))
+}
+if (!exists("cu_boundary")) {
+  load(file.path(paths$fw, "cu_boundary.Rds"))
+  cu_boundary <- cu_boundary %>% 
+    left_join(select(spp_lookup, PSF_species, SPECIES_NAME), join_by(Species == PSF_species))
+}
+if (!exists("migr_daily_all")) {
+  load(get_latest_file(paths$fw, "migr_stats.Rdata"))
+}
+
+# Setup spatial background
+Fr_basin <- filter(basins, BASIN == "FRASER")
+
+# Helper functions for SMU calculations and coloring
+get_CU_indicators_smu <- function(data, cu_i, use_standardized = TRUE, RCP_pick = "45", period_pick = "3") {
+  data_sub <- data %>%
+    filter((rcp == RCP_pick & period_code == period_pick) | (rcp == "0" & period_code == "0")) %>%
+    group_by(FULL_CU_IN, indicator, stat) %>%
+    mutate(has_projection = any(rcp == RCP_pick & period_code == period_pick)) %>%
+    filter(!has_projection | (rcp == RCP_pick & period_code == period_pick)) %>%
+    ungroup() %>%
+    select(-has_projection)
+
+  val_col <- if (use_standardized) "std_value" else "value"
+
+  if ("gcm" %in% names(data_sub)) {
+    if ("gcm_name" %in% names(data_sub)) {
+      data_sub <- data_sub %>% filter(gcm == "9" | gcm == "0" | (is.na(gcm) & is.na(gcm_name)) | gcm_name == "ensemble")
+    } else {
+      data_sub <- data_sub %>% filter(gcm == "9" | gcm == "0" | is.na(gcm))
+    }
+  }
+
+  if (exists("tbl_standardize")) {
+    if ("dsmodel" %in% names(data_sub)) {
+      data_sub <- data_sub %>%
+        left_join(dplyr::select(tbl_standardize, abbrev, dsmodel_baseline_ind = dsmodel_baseline), by = c("indicator" = "abbrev")) %>%
+        filter(is.na(dsmodel) | dsmodel == dsmodel_baseline_ind | is.na(dsmodel_baseline_ind)) %>%
+        dplyr::select(-dsmodel_baseline_ind)
+    }
+    if ("std_method" %in% names(data_sub)) {
+      data_sub <- data_sub %>%
+        left_join(dplyr::select(tbl_standardize, abbrev, std_fun), by = c("indicator" = "abbrev")) %>%
+        mutate(
+          std_fun_base = case_when(
+            std_fun %in% c("linear_std", "invlinear_std") ~ "linear",
+            TRUE ~ "exponential"
+          )
+        ) %>%
+        filter(is.na(std_method) | std_method == std_fun_base) %>%
+        dplyr::select(-std_fun, -std_fun_base)
+    }
+  }
+
+  data_sub <- data_sub %>%
+    filter(
+      indicator %in% tbl_indicators$abbrev,
+      stat %in% c("mean", "qlowgcm", "qhighgcm")
+    ) %>%
+    select(FULL_CU_IN, SPECIES_NAME, SMU_SIMPLE, indicator, stat, !!sym(val_col)) %>%
+    rename(val = !!sym(val_col))
+
+  # Get current CU's SMU
+  cu_row <- cu_run[cu_run$FULL_CU_IN == cu_i, ]
+  smu_pick <- cu_row$SMU_SIMPLE[1]
+
+  # Calculate SMU averages
+  smu_avgs <- data_sub %>%
+    filter(SMU_SIMPLE == smu_pick) %>%
+    group_by(indicator, stat) %>%
+    summarise(val = mean(val, na.rm = TRUE), .groups = "drop") %>%
+    rename(smu = val)
+
+  # Calculate All Species averages
+  all_cu_avgs <- data_sub %>%
+    group_by(indicator, stat) %>%
+    summarise(val = mean(val, na.rm = TRUE), .groups = "drop") %>%
+    rename(allcu = val)
+
+  # Get CU values
+  data_CU <- data_sub %>%
+    filter(FULL_CU_IN == cu_i) %>%
+    select(indicator, stat, val) %>%
+    rename(cu = val)
+
+  # Join all together
+  out_data <- data_CU %>%
+    left_join(smu_avgs, by = c("indicator", "stat")) %>%
+    left_join(all_cu_avgs, by = c("indicator", "stat")) %>%
+    mutate(FULL_CU_IN = cu_i, rcp = RCP_pick, period_code = period_pick) %>%
+    relocate(FULL_CU_IN, rcp, period_code)
+
+  # Rename and pivot
+  out_data <- out_data %>%
+    pivot_wider(
+      names_from = stat,
+      values_from = c("cu", "smu", "allcu"),
+      names_glue = "{.value}_{stat}"
+    ) %>%
+    rename_with(~ str_replace(., "_mean$", "_value"), ends_with("_mean"))
+
+  return(out_data)
+}
+
+# Pastel RdYlBu interpolator (soft/easy-to-read backgrounds)
+get_cvis_table_color <- function(val) {
+  sapply(val, function(v) {
+    if (is.na(v) || is.nan(v)) return("#ffffff")
+    v <- max(0, min(1, v))
+    pal <- colorRamp(c("#e0f3f8", "#ffffeb", "#fde8e8"), space = "rgb")
+    rgb_val <- pal(v)
+    rgb(rgb_val[1,1], rgb_val[1,2], rgb_val[1,3], maxColorValue = 255)
+  })
+}
+``` 
+
+```{r subset CU}
+cu_i <- params$FULL_CU_IN
+cu_run_i <- cu_run[cu_run$FULL_CU_IN == params$FULL_CU_IN,]
+sp_pick <- cu_run$SPECIES_NAME[cu_run$FULL_CU_IN == cu_i] # species abbr
+sp_pick_bcfp <- spp_lookup$spp_abr_bcfp[spp_lookup$SPECIES_NAME == sp_pick] 
+sp_pick_ENM  <- str_to_lower(sp_pick)[1]
+
+# default RCP and period values
+rcp_pick <- params$default_rcp
+period_pick <- params$default_period
+
+# Assign to global environment so lexical-scoping functions in plots can access
+assign("cu_boundary_i", cu_boundary[cu_boundary$FULL_CU_IN == cu_i,], envir = .GlobalEnv)
+assign("nuseds_cu", nuseds_Fr[nuseds_Fr$FULL_CU_IN == cu_i,], envir = .GlobalEnv)
+```
+
+```{r spatial subset, echo = FALSE, message = F, warning = F}
+# indicator dataframe
+cu_std <- get_CU_indicators(all_std_long,
+  cu_i = cu_i,
+  use_standardized = FALSE,
+  period_pick = period_pick,
+  RCP_pick = rcp_pick)
+
+# Stream indicator summary rows (fw_all format)
+fw_cu <- ss_all %>%
+  filter(FULL_CU_IN == cu_i) %>%
+  distinct(FULL_CU_IN, .keep_all = TRUE)
+
+stream_cu_sub <- stream_cu_picks[,colnames(stream_cu_picks) == cu_i]
+
+fw_sp_cu <- subset_fw_models(
+  fw_models = fw_sp_ind,
+  cu_i = cu_i,
+  stream_cu_picks = stream_cu_picks,
+  cu_run = cu_run,
+  spp_lookup = spp_lookup,
+  to_factor = TRUE
+) %>%
+  rename(favchange_45   = contains(paste0("favchange_", sp_pick_ENM, "_45_3")),
+         favchange_85   = contains(paste0("favchange_", sp_pick_ENM, "_85_3")),
+         fav_45   = contains(paste0("fav_", sp_pick_ENM, "_45_3")),
+         fav_85   = contains(paste0("fav_", sp_pick_ENM, "_85_3")))
+
+# make accessible only version for plotting some indicators
+acc_sp_cu <- fw_sp_cu %>%
+  filter(model_access_salmon %in% c("OBSERVED", "INFERRED"))
+
+# subset in CU boundary
+temp <- unlist(st_intersects(cu_boundary_i, watershed_flow))
+watershed_flow_cu <- watershed_flow[temp,]
+
+# subset in cu boundary
+temp <- unlist(st_intersects(cu_boundary_i, stations_flow))
+stations_cu <- stations_flow[temp,]
+
+# Migration spatial layers
+migr_cu <- migr_list[[cu_i]]
+
+# Lakes within CU boundary (for plotting)
+temp <- unlist(st_intersects(cu_boundary_i, lakes_Fr))
+lakes_cu <- lakes_Fr[temp,]
+
+# Timing data
+cu_timing_long_i <- cu_timing_long[cu_timing_long$FULL_CU_IN == cu_i, ]
+cu_timing_i <- cu_timing_Fr[cu_timing_Fr$FULL_CU_IN == cu_i, ]
+
+# get long data frame of standardized indicator values for the CU
+ind_cu <- get_CU_indicators(all_std_long,
+  cu_i,
+  indicators_choose = tbl_indicators$abbrev,
+  RCP_pick = rcp_pick,
+  period_pick = period_pick
+) %>%
+  dplyr::mutate(
+    SPECIES_NAME = unique(all_std_long$SPECIES_NAME[all_std_long$FULL_CU_IN == cu_i])[1],
+    CVIS_NAME = unique(all_std_long$CVIS_NAME[all_std_long$FULL_CU_IN == cu_i])[1]
+  )
+```
+
+```{r prepare indicator table data}
+# Prepare the indicator table data
+cu_all_raw <- get_CU_indicators_smu(all_std_long, cu_i = cu_i, use_standardized = FALSE, RCP_pick = rcp_pick, period_pick = period_pick)
+cu_all_std <- get_CU_indicators_smu(all_std_long, cu_i = cu_i, use_standardized = TRUE, RCP_pick = rcp_pick, period_pick = period_pick)
+
+cu_all <- cu_all_raw %>%
+  left_join(cu_all_std,
+    by = c("FULL_CU_IN", "rcp", "period_code", "indicator"),
+    suffix = c("_raw", "_std")) %>%
+  left_join(select(tbl_indicators, abbrev, long_type), by = c("indicator" = "abbrev")) %>%
+  mutate(
+    across(where(is.numeric), ~ ifelse(is.nan(.), NA_real_, .))
+  )
+
+tbl_view <- cu_all %>%
+  transmute(
+    `Indicator Type` = long_type,
+    `Indicator Code` = indicator,
+    `CU score` = cu_value_std,
+    `SMU score` = smu_value_std,
+    `All Species score` = allcu_value_std,
+    `Mean` = cu_value_raw,
+    `Q10` = cu_qlowgcm_raw,
+    `Q90` = cu_qhighgcm_raw,
+    `SMU Mean` = smu_value_raw,
+    `All Species Mean` = allcu_value_raw
+  )
+```
+
+# CVIS Data Report - `r cu_run_i$CU_NAME` (`r cu_run_i$SPECIES_NAME`) {.tabset .tabset-fade}
+
+## About
+
+This report explores climate vulnerability indicator data for the selected conservation unit (CU) in the Fraser Basin. The report displays maps and summaries of indicator data for the CU.
+
+### Sections
+
+- **Overview:** Summary of all climate vulnerability indicators for the selected conservation unit. 
+- **Demographics:** Conservation status and recent spawner abundance
+- **Timing:** Life stage timing for the CU and indicator time periods
+- **Spawning and Rearing:** Environmental change to streams, cumulative threats to stream habitats, and freshwater residency times
+- **Migration:** Changes to stream temperatures and flows during upstream migration, and distance to spawning sites
+- **Marine:** Changes to sea surface temperature and cumulative impacts to nearshore marine habitat
+
+
+### Default Parameters
+
+All indicators are displayed using:
+
+- **RCP `r params$default_rcp`:** Representative Concentration Pathway (Scenario)
+- **Time Period:** Mid-Century (2041-2060)
+
+### Data Quality
+
+::: {style="background-color: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 4px;"}
+#### ⚠️ Draft Data Disclaimer
+
+**DRAFT - Not for further distribution without permission of the authors**
+
+This data and analysis are preliminary and subject to change. The indicators presented here are under active development and have not been peer-reviewed. Results should be interpreted with caution and are intended for exploratory analysis only. Please contact the authors before citing or using this information in any formal capacity.
+:::
+
+## Overview
+
+### All Climate Vulnerability Indicators
+
+Summary of all climate vulnerability indicators for the selected conservation unit. Red shading on the `SMU Mean` column indicates higher risk score within the indicator, and blue indicates lower risk. The `CU score` and `Mean` columns are bolded.
+
+```{r overview table}
+table_id <- "cu_compact"
+
+# R-based cell renderer for reactable using pastel table color mapping
+smu_mean_cell <- function(value, index, name) {
+  if (is.na(value)) return("—")
+  score_val <- tbl_view$`SMU score`[index]
+  bg_color <- get_cvis_table_color(score_val)
+  
+  htmltools::tags$div(
+    style = list(
+      backgroundColor = bg_color,
+      borderRadius    = "4px",
+      padding         = "2px 6px",
+      display         = "inline-block",
+      width           = "100%",
+      textAlign       = "right",
+      color           = "#0f172a",
+      fontWeight      = "normal"
+    ),
+    sprintf("%.2f", value)
+  )
+}
+
+reactable(
+  tbl_view,
+  elementId = table_id,
+  filterable = F,
+  searchable = F,
+  highlight = T,
+  bordered = TRUE,
+  striped = F,
+  compact = TRUE,
+  pagination = FALSE,
+  defaultSorted = "Indicator Type",
+  defaultSortOrder = "asc",
+
+  defaultColDef = colDef(
+    minWidth = 70,
+    headerVAlign = "center",
+    vAlign = "center"
+  ),
+
+  theme = reactableTheme(
+    borderColor = "#e5e7eb",
+    stripedColor = "#f9fafb",
+    highlightColor = "#eef2ff"
+  ),
+
+  columnGroups = list(
+    colGroup(
+      name = "Standardized Scores",
+      columns = c("CU score", "SMU score", "All Species score")
+    ),
+    colGroup(
+      name = "CU Raw Values",
+      columns = c("Mean", "Q10", "Q90")
+    ),
+    colGroup(
+      name = "Raw Means",
+      columns = c("SMU Mean", "All Species Mean")
+    )
+  ),
+
+  columns = list(
+    `Indicator Type` = colDef(width = 130),
+    `Indicator Code` = colDef(width = 115),
+    `CU score` = colDef(width = 95, style = list(fontWeight = "bold"), format = colFormat(digits = 3), na = "—"),
+    `SMU score` = colDef(width = 95, format = colFormat(digits = 3), na = "—"),
+    `All Species score` = colDef(width = 115, format = colFormat(digits = 3), na = "—"),
+    `Mean` = colDef(width = 95, style = list(fontWeight = "bold"), format = colFormat(digits = 2, separators = TRUE), na = "—"),
+    `Q10` = colDef(width = 85, format = colFormat(digits = 2, separators = TRUE), na = "—"),
+    `Q90` = colDef(width = 85, format = colFormat(digits = 2, separators = TRUE), na = "—"),
+    `SMU Mean` = colDef(width = 95, cell = smu_mean_cell, na = "—"),
+    `All Species Mean` = colDef(width = 95, format = colFormat(digits = 2, separators = TRUE), na = "—")
+  )
+) %>%
+  htmlwidgets::prependContent(
+    htmltools::tags$h4(
+      paste0(cu_i, " Indicator Summary, RCP ",rcp_pick, ", Period ", period_pick),
+      style = "margin: 0 0 6px; font-size: 14px; font-weight: 600;"
+    )
+  ) %>%
+  htmlwidgets::prependContent(tags$style(
+    HTML(sprintf("
+      #%s .rt-table { font-size: 11.5px; }
+      #%s .rt-th, #%s .rt-td { padding: 3px 6px; }
+      #%s .rt-td div { line-height: 1.15; }
+      #%s .rt-col-group > div { padding: 4px 6px; }
+    ", table_id, table_id, table_id, table_id, table_id))
+  ))
+```
+
+### Indicator Vulnerability Scores by Category
+
+```{r overview lollipop plot, fig.height = 7.5, fig.width = 6.5}
+plot_cu_indicators_lollipop(
+  ind_cu,
+  indicators_choose = NULL,
+  group_by_category = TRUE
+)
+```
+
+## Demographics
+
+### Demographic Indicators Summary
+
+Recent conservation status and number of mature individuals indicator values.
+
+```{r demographics plot, fig.height=4, fig.width=6.5}
+plot_cu_indicators_lollipop(
+  ind_cu,
+  indicators_choose = c("CUstatus", "CUnmat")
+)
+```
+
+### Spawner Abundance Time Series
+
+Time series of annual spawner abundance (blue line) and generational geometric average (red line). Points at bottom indicate Wild Salmon Policy status assessment (Red/Amber/Green) with shape indicating data quality confidence.
+
+```{r abundance plot, fig.height=4, fig.width=6.5}
+if(nrow(status_data[status_data$FULL_CU_IN == cu_i,]) > 0)  
+{
+  aplot <- abundance_status_plot(status_data, cu_i)
+  aplot 
+}
+```
+
+## Timing
+
+### Life History Timing
+
+Timing by life history stage is taken from Wilson and Peacock (2025) [<https://cdnsciencepub.com/doi/10.1139/cjfas-2024-0213>]. Data quality is rated on a scale of 1 to 6 based on number of observations and their recentness, with 1 being the highest quality data.
+
+Life stage timing throughout the year showing spawning, upstream migration, ocean entry, and juvenile freshwater migration periods. Shaded areas indicate periods used for calculating specific vulnerability indicators. Point size represents data quality (larger = LOWER quality).
+
+```{r life stage timing, fig.height=4, fig.width=6.5}
+if (nrow(cu_timing_long_i) > 0) {
+  tp <- cu_timing_plot(cu_timing_long_i)
+  tp
+}
+```
+
+## Spawning & Rearing {.tabset .tabset-pills}
+
+### Stream Access & Location
+
+Geographic location of the selected conservation unit (green) relative to all Fraser River basin conservation units (grey outlines), along with summary statistics and the accessible stream network based on BC Fishpass.
+
+```{r cu location, fig.height = 4, fig.width = 5}
+p1 <- cu_boundary_highlight(cu_boundary, cu_pick = cu_i)
+p1
+```
+
+```{r stream stats table}
+if (nrow(fw_cu) > 0) {
+  fw_cu %>%
+    select(c(total_length_acc, n_streams, proportion_rear, proportion_spawn, proportion_rs,
+             avg_elevation, avg_lat, avg_lon)) %>%
+    mutate(
+      total_length_acc = round(total_length_acc / 1000, 1),
+      proportion_rear = round(proportion_rear, 3),
+      proportion_spawn = round(proportion_spawn, 3),
+      proportion_rs = round(proportion_rs, 3),
+      avg_elevation = round(avg_elevation, 1),
+      avg_lat = round(avg_lat, 5),
+      avg_lon = round(avg_lon, 5)
+    ) %>%
+    gt() %>%
+    tab_header(
+      title = md("**CU Boundary Stream Statistics**")
+    ) %>%
+    cols_label(
+      total_length_acc = "Accessible Stream Length (km)",
+      n_streams = "Number of Stream Segments",
+      avg_elevation = "Avg. Elevation (m)",
+      proportion_rear = "Proportion Rearing",
+      proportion_spawn = "Proportion Spawning",
+      proportion_rs = "Proportion Rearing/Spawning"
+    ) %>%
+    tab_spanner(
+      label = "Habitat Model",
+      columns = c(proportion_rear, proportion_spawn, proportion_rs)
+    ) %>%
+    tab_options(
+      table.font.size = "small",
+      data_row.padding = px(1)
+    )
+}
+```
+
+```{r accessibility plot, fig.height = 5.5, fig.width = 6.5}
+acc_plot <- stream_accessible_plot(fw_sp_cu,
+  nuseds_cu,
+  cu_boundary_i,
+  lakes_cu)
+acc_plot
+```
+
+### Spatial Rearing Indicators
+
+Projected changes in August stream temperature, rate of temperature change, stream flow (August and November-January), Environmental Niche Model (ENM) favourability, and cumulative threats within the CU boundary.
+
+```{r rearing multipanel plot, fig.height = 7.5, fig.width = 6.5}
+variables_rearing <- c("favchange_45", "cthr_anad", "tw8proj_9_45_3", "tw8rate_9_45_3", "flow8pdelta_9_45_3", "flow18pdelta_9_45_3")
+titles_rearing <- c("Change in ENM Favourability", "Cumulative Threat Score", "August Mean Temperature", "Rate of Temp. Change", "Change in August Flow", "Change in Nov-Jan Flow")
+palettes_rearing <- c("roma")
+directions_rearing <- c(1, -1, -1, -1, 1, -1)
+
+f2 <- stream_indicator_multipanel_plot(
+  fw_sp_cu,
+  cu_boundary_i,
+  lakes_cu,
+  variables = variables_rearing,
+  plot_titles = titles_rearing,
+  scico_palettes = palettes_rearing,
+  palette_directions = directions_rearing
+)
+f2
+```
+
+## Migration {.tabset .tabset-pills}
+
+### Path
+
+Migration route from river mouth to NuSEDS spawning sites used to calculate indicators, coloured by channel width.
+
+```{r migration path plot, fig.height = 4.5, fig.width = 6.5}
+if (!is.null(migr_cu) && nrow(nuseds_cu) > 0) {
+  mplot <- migration_path_plot(
+    migr_cu,
+    nuseds_cu,
+    cu_boundary_i,
+    colour_var = "channel_width",
+    colour_label = "Channel width (m)",
+    plot_title = paste0("Migration path length = ", cu_std$cu_value[cu_std$indicator == "migrdist"][1], " km")
+  )
+  mplot
+}
+```
+
+### Timing - Migration
+
+Daily projected stream temperatures during upstream migration period. Vertical dashed lines show run timing start/end (blue) and spawn timing start/peak (red). Shaded areas show 10th-90th percentile range across climate models.
+
+```{r migration timing plot, fig.height = 3.5, fig.width = 6.5}
+if (nrow(migr_daily_all[migr_daily_all$FULL_CU_IN == cu_i, ]) > 0) {
+  timeplot <- migr_timing_plot(
+    migr_daily_all,
+    cu_i,
+    cu_timing_i,
+    rcp = rcp_pick,
+    period_choose = c("1981-2010", "2041-2060")
+  )
+  timeplot
+}
+```

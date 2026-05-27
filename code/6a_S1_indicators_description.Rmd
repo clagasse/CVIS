@@ -1,5 +1,5 @@
 ---
-title: "Supplement A - Description of Indicators"
+title: "Supplement 1 - Description of Indicators"
 date: "`r format(Sys.Date(), '%d %B %Y')`"
 output:
   html_document:  

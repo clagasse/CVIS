@@ -1,5 +1,5 @@
 # ==============================================================================
-# CVIS Sensitivity Analysis Engine (4b_CU_sensitivity_analysis.R)
+# CVIS Sensitivity Analysis Engine (4b_sensitivity_analysis.R)
 #
 # Description:
 #   Performs sensitivity analysis on the vulnerability scoring engine.

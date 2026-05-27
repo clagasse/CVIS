@@ -136,7 +136,7 @@ reconstruct_migrT_rcps <- function(migr_daily_all) {
   
   # Unnest daily migration temperature data, dropping period from outer select to avoid duplicate names in unnest
   df_unnested <- migr_daily_all %>%
-    dplyr::filter(attr == "migrT") %>%
+    dplyr::filter(attr == "migrT", gcm_name != "ensemble") %>%
     dplyr::select(FULL_CU_IN, rcp, time) %>%
     tidyr::unnest(time) %>%
     dplyr::mutate(doy = as.integer(time))
@@ -196,7 +196,13 @@ reconstruct_migrT_rcps <- function(migr_daily_all) {
 }
 
 # Subset fw_models by CU and get model_rs, model_spawning, and model_rearing for the CU species
-subset_fw_models <- function(fw_models, cu_i, stream_cu_picks, cu_run, spp_lookup, to_factor = FALSE) {
+subset_fw_models <- function(fw_models, 
+                             cu_i, 
+                             stream_cu_picks, 
+                             cu_run, 
+                             spp_lookup, 
+                             to_factor = FALSE,
+                             filter_rs = FALSE) {
   # Get species abbreviations
   sp_pick <- cu_run$SPECIES_NAME[cu_run$FULL_CU_IN == cu_i]
   if (length(sp_pick) == 0) {
@@ -220,7 +226,7 @@ subset_fw_models <- function(fw_models, cu_i, stream_cu_picks, cu_run, spp_looku
   stream_cu_sub <- stream_cu_picks[, colnames(stream_cu_picks) == cu_i]
   fw_models_cu <- fw_models[stream_cu_sub, ]
   
-  # Calculate reachable/accessible habitat (model_rs)
+  # Calculate rearing/spawning habitat (model_rs)
   avail_h_cols <- intersect(model_h_pick, names(fw_models_cu))
   if (length(avail_h_cols) > 0) {
     fw_models_cu$model_rs <- rowSums(st_drop_geometry(fw_models_cu)[, avail_h_cols, drop = FALSE], na.rm = TRUE) > 0
@@ -228,7 +234,13 @@ subset_fw_models <- function(fw_models, cu_i, stream_cu_picks, cu_run, spp_looku
     fw_models_cu$model_rs <- FALSE
   }
   
-  # Calculate spawning habitat (model_spawning)
+  # Convert model_rs to factor for plotting if requested
+  if (isTRUE(to_factor)) {
+    fw_models_cu$model_rs <- factor(fw_models_cu$model_rs, levels = c(TRUE, FALSE),
+                                    labels = c("1-SPAWNING/REARING", "2-ACCESSIBLE"))
+  }
+  
+  # Calculate spawning habitat only (model_spawning)
   avail_s_cols <- intersect(model_s_pick, names(fw_models_cu))
   if (length(avail_s_cols) > 0) {
     fw_models_cu$model_spawning <- rowSums(st_drop_geometry(fw_models_cu)[, avail_s_cols, drop = FALSE], na.rm = TRUE) > 0
@@ -236,7 +248,7 @@ subset_fw_models <- function(fw_models, cu_i, stream_cu_picks, cu_run, spp_looku
     fw_models_cu$model_spawning <- FALSE
   }
   
-  # Calculate rearing habitat (model_rearing)
+  # Calculate rearing habitat only (model_rearing)
   # Check if species is Chinook, Coho, or Sockeye (using both abbreviations and full names)
   if (sp_pick %in% c("ck", "co", "sk", "Chinook", "Coho", "Sockeye")) {
     avail_r_cols <- intersect(model_r_pick, names(fw_models_cu))
@@ -249,10 +261,9 @@ subset_fw_models <- function(fw_models, cu_i, stream_cu_picks, cu_run, spp_looku
     fw_models_cu$model_rearing <- FALSE
   }
   
-  # Convert model_rs to factor for plotting if requested
-  if (isTRUE(to_factor)) {
-    fw_models_cu$model_rs <- factor(fw_models_cu$model_rs, levels = c(TRUE, FALSE),
-                                    labels = c("1-SPAWNING/REARING", "2-ACCESSIBLE"))
+  if(filter_rs == TRUE) {
+    fw_models_cu <- fw_models_cu %>%
+      filter(model_rs == "1-SPAWNING/REARING")
   }
   
   return(fw_models_cu)

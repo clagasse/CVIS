@@ -217,15 +217,57 @@ migrT_rcps <- list()  # list to store temperature results
 migrQ_rcps <- list()  # list to store discharge results
 #migrA21_rcps <- list()
 
+# Select CUs/paths to use for the calendar list
+calendar_cu_select <- c("PKO-01", "CK-12")
+
+# List to accumulate daily calendar stats per RCP
+migr_cal_list <- list()
+
 #loop over rcp scenarios
 for (j in 1:length(rcp_iter)) {
   
-  print(paste("Starting migration stats for RCP", rcp_iter[j]))
+  cat(paste("Starting migration stats for RCP", rcp_iter[j]))
   
   PCIC_file_name <- paste0("daily_rcp", rcp_iter[j], ".nc")
   
   PCIC_daily <- read_mdim(file.path(PCIC_file_loc, PCIC_file_name)) 
   PCIC_daily <- mutate(PCIC_daily, waterTemperature = waterTemperature - 273.15)
+
+  # Calculate daily calendar stats for selected CUs (all 365 days, stream order >= 8)
+  rcp_cal_stats <- list()
+  for (cu_name in calendar_cu_select) {
+    path_cu <- migr_list[[cu_name]] %>%
+      filter(stream_order >= 8) %>%
+      st_transform(4269)
+      
+    if (nrow(path_cu) == 0) {
+      warning(paste("No stream segments with order >= 8 for", cu_name))
+      next
+    }
+    
+    PCIC_cu_cal <- PCIC_daily[path_cu]
+    
+    t_stats <- summarize_attribute(PCIC_cu_cal, attr_name = "waterTemperature", cu_name = cu_name, rcp_pick = rcp_iter[j])
+    q_stats <- summarize_attribute(PCIC_cu_cal, attr_name = "discharge", cu_name = cu_name, rcp_pick = rcp_iter[j])
+    
+    t_flat <- t_stats %>%
+      select(-attr) %>%
+      mutate(time = map(time, ~select(.x, -period, -model))) %>%
+      unnest(time) %>%
+      select(spatial_path = FULL_CU_IN, rcp, period, model, day_of_year = time, migrTproj = waterTemperature)
+      
+    q_flat <- q_stats %>%
+      select(-attr) %>%
+      mutate(time = map(time, ~select(.x, -period, -model))) %>%
+      unnest(time) %>%
+      select(spatial_path = FULL_CU_IN, rcp, period, model, day_of_year = time, migrQpdelta = pdelta)
+      
+    cu_flat <- left_join(t_flat, q_flat, by = c("spatial_path", "rcp", "period", "model", "day_of_year"))
+    
+    rcp_cal_stats[[cu_name]] <- cu_flat
+  }
+  
+  migr_cal_list[[j]] <- bind_rows(rcp_cal_stats)
 
   migrT_all <- list()  # list to store temperature results
   migrQ_all <- list()  # list to store discharge results
@@ -381,6 +423,18 @@ for (j in 1:length(rcp_iter)) {
 
 }
 
+# Combine RCP iterations and format columns for consistency
+migr_daily_calendar <- bind_rows(migr_cal_list) %>%
+  mutate(day_of_year = as.integer(day_of_year)) %>%
+  rename(gcm_name = any_of("model")) %>%
+  mutate(dsmodel = dsmodel_name,
+         gcm_name = gcm_name %>%
+                  str_to_lower() %>%
+                  str_replace("[-\\.].*$", ""))   %>% 
+  left_join(select(period_lookup, period_code, period, dsmodel), 
+            by = c("period", "dsmodel")) %>%
+  left_join(gcm_codes, by = c("gcm_name"))
+
 #rename and reformat columns for consistency with other workflows
 migr_daily_all <- migr_daily_all %>%
   rename(gcm_name = any_of("model")) %>%
@@ -392,9 +446,62 @@ migr_daily_all <- migr_daily_all %>%
             by = c("period", "dsmodel")) %>%
   left_join(gcm_codes, by = c("gcm_name")) 
 
+# Calculate ensemble GCM for migr_daily_all (taking mean across other GCMs)
+migr_daily_all_unnested <- migr_daily_all %>%
+  mutate(time = map(time, ~select(.x, -any_of(c("period", "model"))))) %>%
+  unnest(time)
 
-  # extract stats across doy within nested rows
+migr_daily_all_ensemble <- migr_daily_all_unnested %>%
+  group_by(FULL_CU_IN, rcp, attr, period, period_code, dsmodel, time) %>%
+  summarise(
+    migrT = if (first(attr) == "migrT") mean(migrT, na.rm = TRUE) else NA_real_,
+    migrQ = if (first(attr) == "migrQ") mean(migrQ, na.rm = TRUE) else NA_real_,
+    baseline_value = mean(baseline_value, na.rm = TRUE),
+    pdelta = mean(pdelta, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    gcm_name = "ensemble",
+    gcm = "9",
+    period_inner = period,
+    model_inner = "ensemble"
+  )
+
+migr_daily_all_ensemble_nested <- migr_daily_all_ensemble %>%
+  group_by(FULL_CU_IN, rcp, attr, period, period_code, dsmodel, gcm_name, gcm) %>%
+  nest(time_df = c(period_inner, model_inner, time, pdelta, migrT, migrQ, baseline_value)) %>%
+  ungroup() %>%
+  mutate(time = map2(time_df, attr, ~ {
+    df <- .x %>% rename(period = period_inner, model = model_inner)
+    if (.y == "migrT") {
+      df %>% select(-migrQ)
+    } else {
+      df %>% select(-migrT)
+    }
+  })) %>%
+  select(-time_df)
+
+migr_daily_all <- bind_rows(migr_daily_all, migr_daily_all_ensemble_nested)
+
+# Calculate ensemble GCM for migr_daily_calendar
+migr_daily_calendar_ensemble <- migr_daily_calendar %>%
+  group_by(spatial_path, rcp, period, period_code, dsmodel, day_of_year) %>%
+  summarise(
+    migrTproj = mean(migrTproj, na.rm = TRUE),
+    migrQpdelta = mean(migrQpdelta, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    gcm_name = "ensemble",
+    gcm = "9"
+  )
+
+migr_daily_calendar <- bind_rows(migr_daily_calendar, migr_daily_calendar_ensemble)
+
+
+  # extract stats across doy within nested rows (excluding ensemble rows to avoid double-counting)
 migr_all <- migr_daily_all %>%
+  filter(gcm_name != "ensemble") %>%
   rowwise() %>%
   mutate(
     # mean of the column named by `attr` in the nested tibble
@@ -469,9 +576,9 @@ migr_all <- migr_all %>%
   mutate(category = "migr")
 
 
-save(migr_all, cu_migr_timing, migr_daily_all,
+save(migr_all, cu_migr_timing, migr_daily_all, migr_daily_calendar,
   file = file.path(paths$fw, paste0(today, "_migr_stats.Rdata")))
-save(migr_all, cu_migr_timing, migr_daily_all,
+save(migr_all, cu_migr_timing, migr_daily_all, migr_daily_calendar,
   file = file.path(paths$fw, "migr_stats.Rdata"))
 
 

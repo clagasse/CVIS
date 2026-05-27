@@ -1,5 +1,5 @@
 # ==============================================================================
-# CVIS Monte Carlo Uncertainty Analysis (4d_CU_uncertainty_analysis.R)
+# CVIS Monte Carlo Uncertainty Analysis (4d_MC_analysis.R)
 #
 # Description:
 #   Conducts a Monte Carlo uncertainty analysis by simultaneously varying multiple
