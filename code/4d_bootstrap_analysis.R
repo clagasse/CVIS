@@ -133,7 +133,7 @@ for (k in 1:N_iterations) {
   
   # Calculate portfolio scores using fixed catavg (overall) and avg (category)
   scores_iter <- res %>%
-    group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, std_method) %>%
+    group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE) %>%
     calculate_combined_scores() %>%
     filter(method == "catavg")
   

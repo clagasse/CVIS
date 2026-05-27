@@ -2699,14 +2699,8 @@ migration_compare_plot <- function(migr_daily_all,
     p_map <- p_map + geom_sf(data = lakes_proj, fill = "aliceblue", color = "aliceblue", linewidth = 0.1)
   }
 
-  if ("august_temp" %in% names(migr_path_filtered) && any(!is.na(migr_path_filtered$august_temp))) {
-    p_map <- p_map +
-      geom_sf(data = migr_path_filtered, aes(color = august_temp), linewidth = 1.2) +
-      scale_color_scico(palette = "roma", name = "August Temp (°C)", direction = -1)
-  } else {
-    p_map <- p_map +
-      geom_sf(data = migr_path_filtered, color = path_color, linewidth = 1.2)
-  }
+  p_map <- p_map +
+    geom_sf(data = migr_path_filtered, color = path_color, linewidth = 1.2)
 
   p_map <- p_map +
     coord_sf(xlim = xlims, ylim = ylims, expand = FALSE) +
@@ -2722,7 +2716,9 @@ migration_compare_plot <- function(migr_daily_all,
   p <- patchwork::wrap_plots(p_left, p_map, ncol = 2, widths = c(2, 1.2)) +
     patchwork::plot_layout(guides = "collect") &
     theme(
-      plot.margin = margin(t = 2, r = 2, b = 2, l = 2, unit = "pt")
+      plot.margin = margin(t = 2, r = 2, b = 2, l = 2, unit = "pt"),
+      legend.box.spacing = unit(4, "pt"),
+      legend.margin = margin(0, 0, 0, 0, "pt")
     )
 
   return(p)

@@ -20,6 +20,7 @@ knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE,
                       fig.align = "center", out.width = "100%")
 
 library(here)
+library(gt)
 source(file.path(here(), "code", "0_setup.R"))
 
 # Load pre-computed sensitivity and uncertainty outputs from scripts 4b, 4c, and 4d
@@ -31,6 +32,34 @@ load(file.path(paths$output, "uncertainty_analysis_results.Rdata"))  # mc_result
 source(file.path(paths$code, "5c_plots_sensitivity_indicators.R"))
 
 source_colors <- sens_source_palette
+
+# Helper function to style gt tables consistently with CVIS Flatly theme
+style_gt_table <- function(data) {
+  data %>%
+    gt() %>%
+    tab_options(
+      table.width = pct(100),
+      column_labels.background.color = "#2c3e50",
+      table.border.top.color = "#2c3e50",
+      table.border.top.width = px(3),
+      table.border.bottom.color = "#2c3e50",
+      table.border.bottom.width = px(3),
+      column_labels.border.bottom.color = "#2c3e50",
+      column_labels.border.bottom.width = px(2),
+      table.background.color = "#ffffff",
+      data_row.padding = px(8)
+    ) %>%
+    opt_row_striping() %>%
+    tab_style(
+      style = cell_text(color = "white", weight = "bold"),
+      locations = cells_column_labels(everything())
+    ) %>%
+    tab_style(
+      style = cell_text(weight = "bold"),
+      locations = cells_body(columns = 1)
+    ) %>%
+    fmt_markdown(columns = everything())
+}
 ```
 
 ---
@@ -54,37 +83,53 @@ The sensitivity analysis evaluates ten discrete sources of variation, organized 
 **Global Climate Model (GCM) Uncertainty**\
 The sensitivity of indicators and scores to individual GCMs is evaluated by substituting the ensemble mean with each of three individual GCMs used across the freshwater and marine climate models in the CVIS framework. All other scenario parameters (RCP, period) are held at the baseline.
 
-| Source label | GCM | Model name |
-|---|---|---|
-| GCM1 | GCM 1 | CanESM2 |
-| GCM4 | GCM 4 | HadGEM2-ES |
-| GCM6 | GCM 6 | MPI-ESM-LR |
+```{r table-gcm, echo=FALSE}
+tibble::tribble(
+  ~`Source label`, ~GCM, ~`Model name`,
+  "GCM1", "GCM 1", "CanESM2",
+  "GCM4", "GCM 4", "HadGEM2-ES",
+  "GCM6", "GCM 6", "MPI-ESM-LR"
+) %>%
+  style_gt_table()
+```
 
 **Emissions Scenario and Time Period**\
 The sensitivity of vulnerability scores to emission pathway and projection horizon is evaluated by substituting the baseline RCP 4.5, mid-century scenario with three alternative combinations of RCP and time period. All other parameters (GCM, method) are held at baseline.
 
-| Source label | Emissions scenario | Time period |
-|---|---|---|
-| RCP45_P5 | RCP 4.5 | End-of-century (2081–2099) |
-| RCP85_P3 | RCP 8.5 | Mid-century (2041–2060) |
-| RCP85_P5 | RCP 8.5 | End-of-century (2081–2099) |
+```{r table-rcp, echo=FALSE}
+tibble::tribble(
+  ~`Source label`, ~`Emissions scenario`, ~`Time period`,
+  "RCP45_P5", "RCP 4.5", "End-of-century (2081–2099)",
+  "RCP85_P3", "RCP 8.5", "Mid-century (2041–2060)",
+  "RCP85_P5", "RCP 8.5", "End-of-century (2081–2099)"
+) %>%
+  style_gt_table()
+```
 
 **Downscaling Method**\
 For indicators derived from statistically downscaled climate data (stream temperatures, flow metrics), multiple downscaling methods are available. The sensitivity of these indicators and their contribution to category scores is evaluated by comparing the baseline downscaling method to alternative methods available for those indicators.
 
-| Source label | Description |
-|---|---|
-| dsmethod | Mean deviation when substituting the alternative statistical downscaling method |
+```{r table-downscaling, echo=FALSE}
+tibble::tribble(
+  ~`Source label`, ~Description,
+  "dsmethod", "Mean deviation when substituting the alternative statistical downscaling method"
+) %>%
+  style_gt_table()
+```
 
 **Scoring Method**\
 The sensitivity of overall and category-level vulnerability scores to the scoring method is evaluated using three alternative methods relative to the baseline `avg`/`catavg` approach.
 
-| Source label | Method | Description |
-|---|---|---|
-| cube | Cubic mean | Category scores use the cubic (power) mean of indicators, emphasizing high risk values |
-| avgcube | Average-of-categories using cubic mean | Category scores from cubic mean, then averaged |
-| flag | Logic model | Indicators are binned into risk classes using fixed thresholds; overall score uses logic rules |
-| avgall | Average of all indicators | All indicators weighted equally regardless of category |
+```{r table-scoring, echo=FALSE}
+tibble::tribble(
+  ~`Source label`, ~Method, ~Description,
+  "cube", "Cubic mean", "Category scores use the cubic (power) mean of indicators, emphasizing high risk values",
+  "avgcube", "Average-of-categories using cubic mean", "Category scores from cubic mean, then averaged",
+  "flag", "Logic model", "Indicators are binned into risk classes using fixed thresholds; overall score uses logic rules",
+  "avgall", "Average of all indicators", "All indicators weighted equally regardless of category"
+) %>%
+  style_gt_table()
+```
 
 > **Note:** Indicator-level sensitivity covers GCM, scenario, and downscaling method variation. Scoring method variation is only relevant at the category and overall vulnerability level.
 
@@ -384,11 +429,21 @@ The plots below trace each CU's within-species vulnerability rank across all sen
 
 CUs clustered at the top (Rank 1 = Highest Risk) that remain there across all scenarios represent the most robustly high-risk units; CUs with highly crossed lines indicate that their relative vulnerability ranking is sensitive to climate and methodological assumptions.
 
-```{r species-bump, echo=FALSE, warning=FALSE, message=FALSE, fig.width=13, fig.height=10}
+```{r ck-bump, echo=FALSE, warning=FALSE, message=FALSE, fig.width=13, fig.height=10}
 p_ck <- plot_species_bump_plot(overall_sensitivity, "Chinook")
+p_ck + plot_annotation(title = "Vulnerability Rank Stability Across Sensitivity Scenarios", subtitle = "Rank 1 = Highest Risk. Baseline in centre. Lines coloured by SMU. MRD = Mean Rank Displacement.")
+```
+
+
+```{r sk-bump, echo=FALSE, warning=FALSE, message=FALSE, fig.width=13, fig.height=10}
 p_sk <- plot_species_bump_plot(overall_sensitivity, "Sockeye")
+p_sk 
+```
+
+```{r co-bump, echo=FALSE, warning=FALSE, message=FALSE, fig.width=13, fig.height=10}
+
 p_co <- plot_species_bump_plot(overall_sensitivity, "Coho")
-p_ck / p_sk / p_co + plot_annotation(title = "Vulnerability Rank Stability Across Sensitivity Scenarios", subtitle = "Rank 1 = Highest Risk. Baseline in centre. Lines coloured by SMU. MRD = Mean Rank Displacement.")
+p_co 
 ```
 
 ---
@@ -524,25 +579,33 @@ plot_uncertainty_variance_decomposition(anova_unc)
 
 The sensitivity analysis is implemented across the following scripts in the CVIS pipeline:
 
-| Script | Role |
-|---|---|
-| `4a_CU_scoring.R` | **Scoring engine.** Aggregates all environmental and demographic indicators; standardizes values (0–1) using scenario-specific ranges (GCM/RCP/Period); calculates multi-scale vulnerability scores and ranks. |
-| `4b_CU_sensitivity_analysis.R` | **Sensitivity engine.** Calculates directional and absolute deviations in scores across all climate scenarios, time periods, and downscaling methods; performs Jackknife leverage analysis; quantifies Mean Rank Displacement (MRD). |
-| `4c_indicator_sensitivity_summary.R` | **Consolidation & risk driver analysis.** Summarizes score- and indicator-level sensitivity metrics; identifies dominant risk drivers via ANOVA; performs PCA-based multivariate risk profiling and indicator collinearity analysis. |
-| `4d_bootstrap_analysis.R` | **Bootstrap uncertainty engine.** Conducts bootstrap simulation (100 iterations) to quantify combined uncertainty spread, rank confidence intervals, robustness profiles, and performs ANOVA-based variance decomposition. |
-| `5c_plots_sensitivity_indicators.R` | **Consolidated plotting library.** Defines plotting functions for indicator sensitivity, score deviations, Jackknife leverage, rank consistency, risk drivers (ANOVA & PCA), species rank bumps, and bootstrap spread and rank stability. |
+```{r table-scripts, echo=FALSE}
+tibble::tribble(
+  ~Script, ~Role,
+  "`4a_CU_scoring.R`", "**Scoring engine.** Aggregates all environmental and demographic indicators; standardizes values (0–1) using scenario-specific ranges (GCM/RCP/Period); calculates multi-scale vulnerability scores and ranks.",
+  "`4b_sensitivity_analysis.R`", "**Sensitivity engine.** Calculates directional and absolute deviations in scores across all climate scenarios, time periods, and downscaling methods; performs Jackknife leverage analysis; quantifies Mean Rank Displacement (MRD).",
+  "`4c_sensitivity_summary.R`", "**Consolidation & risk driver analysis.** Summarizes score- and indicator-level sensitivity metrics; identifies dominant risk drivers via ANOVA; performs PCA-based multivariate risk profiling and indicator collinearity analysis.",
+  "`4d_bootstrap_analysis.R`", "**Bootstrap uncertainty engine.** Conducts bootstrap simulation (100 iterations) to quantify combined uncertainty spread, rank confidence intervals, robustness profiles, and performs ANOVA-based variance decomposition.",
+  "`5c_plots_sensitivity_indicators.R`", "**Consolidated plotting library.** Defines plotting functions for indicator sensitivity, score deviations, Jackknife leverage, rank consistency, risk drivers (ANOVA & PCA), species rank bumps, and bootstrap spread and rank stability."
+) %>%
+  style_gt_table()
+```
 
 ## Scoring Methods
 
 Five scoring methods are evaluated in the sensitivity analysis at the category and overall vulnerability level:
 
-| Method code | Description |
-|---|---|
-| `avg` / `catavg` | **Baseline method.** Category scores = arithmetic mean of standardized indicator values; overall = average of category scores |
-| `cube` | Category scores = cubic (power) mean of indicators; emphasizes high values |
-| `avgcube` | Category scores from cubic mean, then averaged across categories |
-| `avgall` | All indicators weighted equally regardless of category (no category aggregation step) |
-| `flag` | Logic model: indicators binned to low/moderate/high (thresholds at 0.33 and 0.66); overall score from logic rules |
+```{r table-scoring-methods, echo=FALSE}
+tibble::tribble(
+  ~`Method code`, ~Description,
+  "`avg` / `catavg`", "**Baseline method.** Category scores = arithmetic mean of standardized indicator values; overall = average of category scores",
+  "`cube`", "Category scores = cubic (power) mean of indicators; emphasizes high values",
+  "`avgcube`", "Category scores from cubic mean, then averaged across categories",
+  "`avgall`", "All indicators weighted equally regardless of category (no category aggregation step)",
+  "`flag`", "Logic model: indicators binned to low/moderate/high (thresholds at 0.33 and 0.66); overall score from logic rules"
+) %>%
+  style_gt_table()
+```
 
 ## Standardization and Score Scaling
 

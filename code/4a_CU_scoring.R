@@ -40,6 +40,9 @@ source(file.path(here(), "code", "0_setup.R"))
 scale_baseline_rcp <- NA # e.g. "45"
 scale_baseline_period <- NA # e.g. "3"
 
+#which variables are used when grouping CU indicator results for standardization?
+# This determines what min-max range is applied when standardizing from 0 to 1
+# default is to group separately across all scenarios and climate models
 grouping_vars_pick <- c("gcm", "rcp", "period_code", "dsmodel")
 
 # --- Load Data ---
