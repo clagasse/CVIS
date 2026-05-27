@@ -642,4 +642,4 @@ overall_sensitivity <- list(
 
 save(overall_sensitivity, file = file.path(paths$output, "sensitivity_analysis.Rdata"))
 
-cat("Script 4b complete. Results saved to sensitivity_analysis_4b_directional.Rdata\n")
+cat("Script 4b complete. Results saved to sensitivity_analysis.Rdata\n")

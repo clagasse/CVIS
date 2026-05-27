@@ -1049,8 +1049,8 @@ plot_cu_indicators_lollipop <- function(data,
     stroke = 1
   ) +
     scale_fill_distiller(
-      palette = "RdYlGn",
-      direction = -1, # Reversed: red for high values (high risk)
+      palette = cvis_risk_palette,
+      direction = cvis_risk_direction, # Reversed: red for high values (high risk)
       limits = c(0, 1),
       name = "Risk Score",
       guide = guide_colorbar(order = 1)

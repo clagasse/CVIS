@@ -52,7 +52,7 @@ library(gridExtra) # grid-based plots, used for indicator plots
 
 formals(read_csv)$show_col_types <- F # use read_csv quietly
 
-`%notin%` <- Negate(`%in%`) # function that is opposite of %in%
+`%notin%` <- Negate(`%in%`) # opposite of %in%
 
 # ==================== 2. Directory Setup ====================
 # setwd("C:/Users/LAGASSEC/OneDrive - DFO-MPO/0.Workspace/CVIS")
@@ -351,6 +351,9 @@ species_palette <- c(
   "Chum" = "goldenrod4"
 )
 
+# Universal risk score color palette for 0 to 1 risk (Vulnerability)
+cvis_risk_palette <- "RdYlBu"
+
 # Indicator palette used for labelling indicator categories
 indicator_palette <- c(
   "Demographics" = "purple",
@@ -362,9 +365,6 @@ indicator_palette <- c(
 
 
 # ==================== 8. Load Sourced Scripts & Data ====================
-
-# load CU boundaries
-load(file.path(paths$fw, "cu_boundary.Rds"))
 
 # load utility functions
 source(here("code", "2_fw_utils.R"))
@@ -378,6 +378,12 @@ source(here("code", "5b_plots_compare.R"))
 # load CU tables
 source(here("code", "1a_CU_import.R")) # CU table
 source(here("code", "1f_genetics_import.R"))
+
+# load CU boundaries and add alternative species name columns
+load(file.path(paths$fw, "cu_boundary.Rds")) 
+cu_boundary <- cu_boundary %>% 
+  left_join(select(spp_lookup, PSF_species, SPECIES_NAME), join_by(Species == PSF_species))
+
 
 # ==================== 9. Dynamic SMU Palette Definition ====================
 # Created following 1a_CU_import.R to ensure cu_run is loaded

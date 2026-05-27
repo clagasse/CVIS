@@ -42,18 +42,6 @@ scale_baseline_period <- NA # e.g. "3"
 
 grouping_vars_pick <- c("gcm", "rcp", "period_code", "dsmodel")
 
-# Helper to find latest file by pattern
-get_latest_file <- function(path, pattern) {
-  files <- list.files(path, pattern = pattern, full.names = TRUE)
-  if (length(files) == 0) stop("No files found matching ", pattern)
-  # filter out files starting with ~ (temp files)
-  files <- files[!grepl("^~", basename(files))]
-  file_info <- file.info(files)
-  latest_file <- rownames(file_info)[which.max(file_info$mtime)]
-  cat("Loading latest file:", basename(latest_file), "\n")
-  return(latest_file)
-}
-
 # --- Load Data ---
 
 # Freshwater
@@ -63,7 +51,6 @@ load(fw_file) # loads fw_all, ss_all
 # Migration
 migr_file <- get_latest_file(paths$fw, "migr_stats.Rdata")
 load(migr_file) # loads migr_all, etc.
-
 
 # Marine
 mar_file <- get_latest_file(paths$marine, "marine_stats.Rdata") # look for .Rds
@@ -383,5 +370,33 @@ ind_avgs_tidy <- all_std_long %>%
 
 # ==================== 5. Save Outputs ====================
 
+# Make baseline scenario filtered version of all_std_long and scores_tidy
+# Sourced from tbl_indicators for default std_method per indicator
+all_std_long_baseline <- all_std_long %>%
+  left_join(tbl_indicators %>% select(indicator = abbrev, std_fun), by = "indicator") %>%
+  mutate(default_method = if_else(std_fun %in% c("linear_std", "invlinear_std"), "linear", "exponential")) %>%
+  filter(std_method == default_method) %>%
+  select(-std_fun, -default_method) %>%
+  left_join(tbl_standardize %>% select(indicator = abbrev, dsmodel_baseline_ind = dsmodel_baseline), by = "indicator") %>%
+  filter(
+    is.na(dsmodel) | dsmodel == dsmodel_baseline_ind,
+    period_code %in% c("0", sens_period_base),
+    rcp %in% c("0", sens_rcp_base),
+    gcm %in% c("0", sens_gcm_base)
+  ) %>%
+  select(-dsmodel_baseline_ind) %>%
+  group_by(indicator, FULL_CU_IN) %>%
+  filter(!(any(period_code != "0") & period_code == "0")) %>%
+  ungroup()
+
+
+scores_tidy_baseline <- scores_tidy %>%
+  filter(
+    std_method == "exponential",
+    period_code %in% c("0", sens_period_base),
+    rcp %in% c("0", sens_rcp_base),
+    gcm %in% c("0", sens_gcm_base)
+  )
+
 # Save as R objects — primary output for all downstream scripts
-save(all_std_long, scores_tidy, file = file.path(paths$output, "scoring_results.Rdata"))
+save(all_std_long, scores_tidy, all_std_long_baseline, scores_tidy_baseline, file = file.path(paths$output, "scoring_results.Rdata"))

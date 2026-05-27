@@ -96,7 +96,7 @@ spp_lookup <- tibble(
   spp_abr_bcfp = c("ch", "cm", "co", "pk", "pk", "sk", "sk"),
   Species = c("Chinook", "Chum", "Coho", "Pink-Even", "Pink-Odd", "Sockeye (Lake Type)", "Sockeye (River Type)"),
   SPECIES_NAME = c("Chinook", "Chum", "Coho", "Pink", "Pink", "Sockeye", "Sockeye"),
-  PSF_species = c("Chinook", "Chum", "Coho", "Pink", "Pink", "Sockeye-Lake", "Sockeye-River")
+  PSF_species = c("Chinook", "Chum", "Coho", "Pink-Even", "Pink-Odd", "Sockeye-Lake", "Sockeye-River")
 )
 
 

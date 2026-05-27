@@ -25,6 +25,20 @@
 #   - dplyr, stringr, tidyr, purrr, tibble
 # ==============================================================================
 
+
+# Helper to find latest file by pattern
+get_latest_file <- function(path, pattern) {
+  files <- list.files(path, pattern = pattern, full.names = TRUE)
+  if (length(files) == 0) stop("No files found matching ", pattern)
+  # filter out files starting with ~ (temp files)
+  files <- files[!grepl("^~", basename(files))]
+  file_info <- file.info(files)
+  latest_file <- rownames(file_info)[which.max(file_info$mtime)]
+  cat("Loading latest file:", basename(latest_file), "\n")
+  return(latest_file)
+}
+
+
 # ==================== 1. Indicator Standardization Functions ====================
 
 

@@ -60,7 +60,7 @@ all_std_clean <- all_std_long %>%
   )
 
 # ==================== 2. Define Sampling Space ====================
-N_iterations <- 100
+N_iterations <- 1000
 target_period <- "3" # Only period 3 (2041-2060)
 
 # Uncertainty Sources:
@@ -245,74 +245,4 @@ write_csv(cu_summary, file.path(paths$output, "CU_robustness_summary.csv"))
 write_csv(anova_unc %>% select(Source, Source_Label, df = Df, sum_sq = `Sum Sq`, mean_sq = `Mean Sq`, F_value = `F value`, p_value = `Pr(>F)`, pct_uncertainty_variance),
           file.path(paths$output, "uncertainty_variance_decomposition.csv"))
 
-# ==================== 7. Visualizations ====================
-cat("Generating professional figures...\n")
-
-# 7a. Figure 1: Combined Uncertainty Boxplots
-# Highlight robustness profile with color outline or facet
-p_spread <- ggplot(all_scores, aes(x = reorder(CVIS_NAME, score100, FUN = mean), y = score100)) +
-  geom_boxplot(aes(fill = SPECIES_NAME), alpha = 0.6, outlier.size = 0.8) +
-  coord_flip() +
-  scale_fill_manual(values = species_palette, name = "Species") +
-  labs(
-    title = "Combined Uncertainty in overall CVIS Vulnerability",
-    subtitle = "Vulnerability scores (0-100) across 100 Monte Carlo iterations (Period 3)\nCUs sorted by mean vulnerability score; box plot shows median and IQR",
-    x = "Conservation Unit (CU)",
-    y = "Vulnerability Score"
-  ) +
-  theme_cvis() +
-  theme(
-    axis.text.y = element_text(size = 7),
-    plot.title = element_text(face = "bold", size = 14)
-  )
-
-ggsave(file.path(uncertainty_fig_path, "combined_uncertainty_spread.png"), p_spread, width = 12, height = 9, dpi = 300)
-
-# 7b. Figure 2: Rank Uncertainty Intervals
-rank_summary <- cu_summary
-
-p_rank <- ggplot(rank_summary, aes(x = reorder(CVIS_NAME, -mean_rank), y = mean_rank)) +
-  geom_pointrange(aes(ymin = q5_rank, ymax = q95_rank, color = robustness_profile), size = 0.5) +
-  coord_flip() +
-  scale_color_manual(
-    values = c(
-      "Robust High" = "#d73027", 
-      "Robust Low" = "#4575b4", 
-      "Highly Uncertain" = "#fee090", 
-      "Intermediate / Moderate" = "grey60"
-    ), 
-    name = "Robustness Profile"
-  ) +
-  labs(
-    title = "Vulnerability Rank Stability & Confidence Intervals",
-    subtitle = "Mean rank and 90% uncertainty intervals across all assumptions (Period 3)\nRank 1 = Highest Risk. Sorted by mean vulnerability rank.",
-    x = "Conservation Unit (CU)",
-    y = "Vulnerability Rank (1 to 50)"
-  ) +
-  theme_cvis() +
-  theme(
-    axis.text.y = element_text(size = 7),
-    plot.title = element_text(face = "bold", size = 14)
-  )
-
-ggsave(file.path(uncertainty_fig_path, "rank_uncertainty.png"), p_rank, width = 12, height = 9, dpi = 300)
-
-# 7c. Figure 3: Uncertainty Variance Decomposition
-p_var <- ggplot(anova_unc, aes(x = reorder(Source_Label, pct_uncertainty_variance), y = pct_uncertainty_variance, fill = Source_Label)) +
-  geom_col(show.legend = FALSE, alpha = 0.85, width = 0.6) +
-  coord_flip() +
-  scale_fill_brewer(palette = "Set1") +
-  labs(
-    title = "Decomposition of CVIS Combined Uncertainty",
-    subtitle = "Relative contribution (% variance explained) of GCMs, RCPs, and downscalers to score variance\n(Controlled for geographical variation between CUs)",
-    x = NULL,
-    y = "% Uncertainty Variance Explained"
-  ) +
-  theme_cvis() +
-  theme(
-    plot.title = element_text(face = "bold", size = 14)
-  )
-
-ggsave(file.path(uncertainty_fig_path, "variance_decomposition.png"), p_var, width = 10, height = 6, dpi = 300)
-
-cat("Script 4d complete. Outputs and figures successfully saved!\n")
+cat("Script 4d complete. Analysis results successfully saved!\n")
