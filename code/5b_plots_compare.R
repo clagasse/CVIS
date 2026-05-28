@@ -21,7 +21,7 @@
 #   4. WSP Abundance and Status Table (cu_status_table)
 #   5. Life History Timing Comparison (plot_timing_comparison)
 #   6. Combined Tile Plot for All CUs & Indicators (indicator_cu_tile_plot)
-#   7. Marine Adaptive Zone Lollipop Chart (plot_maz_lollipop)
+#   7. Marine Adaptive Zone Spatial Map Plot (spatial_maz_indicators_plot) & Combined Map (combined_maz_marine_plot)
 #
 # Dependencies:
 #   - Requires ggplot2, sf, dplyr, stringr, patchwork, ggtext, and standard CVIS data inputs.
@@ -2235,210 +2235,513 @@ plot_methods_compare_tile <- function(scores_tidy,
 
 
 
-# ==================== 8. Marine Adaptive Zone Lollipop Chart ====================
+# ==================== 8. Marine Adaptive Zone Spatial Map Plot ====================
 
-#' Lollipop plot (long-format) for a single RCP/period with GCM variation
+#' Mapped indicators for Marine Adaptive Zones (MAZs)
+#'
+#' @param maz_all            Marine Adaptive Zone indicator dataset (raw values).
+#' @param MAZ                Marine Adaptive Zone spatial sf object.
+#' @param outline            Optional background coastline sf object.
+#' @param use_standardized   If TRUE, standardizes raw values to a 0-1 risk score.
+#' @param brewer_palette     RColorBrewer palette (default: cvis_risk_palette).
+#' @param palette_direction  Direction for brewer palette (default: -1).
+#' @param ncol               Number of columns in the facet layout (default: 3).
+#' @return A ggplot object.
+spatial_maz_indicators_plot <- function(maz_all,
+                                        MAZ,
+                                        outline = NULL,
+                                        use_standardized = FALSE,
+                                        brewer_palette = cvis_risk_palette,
+                                        palette_direction = -1,
+                                        ncol = 3) {
+  require(dplyr)
+  require(ggplot2)
+  require(sf)
+  require(tidyr)
+  require(patchwork)
 
-plot_maz_lollipop <- function(maz_all,
-                          indicator_picks = c("SSTproj", "SSTrate", "CImpact"),
-                          dsmodel_pick = NULL,
-                          indicator_name = NULL,
-                          indicator_unit = NULL,
-                          use_standardized = FALSE, # default FALSE (Y uses raw)
-                          show_gcm_points = FALSE,
-                          tbl = tbl_indicators) {
-  # ---- CU roster (ensures all CUs are shown regardless of data presence) 
-  maz_roster <- maz_all %>%
-    distinct(MAZ)
-  
-  # ---- Resolve value column for plotting Y (ranges & center_y) 
-  val_col <- if (use_standardized) {
-    if (!"std_value" %in% names(maz_all)) {
-      stop("Column 'std_value' not found in maz_all.")
-    }
-    "std_value"
-  } else {
-    if ("raw_value" %in% names(maz_all)) {
-      "raw_value"
-    } else if ("value" %in% names(maz_all)) {
-      "value"
-    } else {
-      stop("No raw value column found. Provide 'raw_value' or 'value', or set use_standardized = TRUE.")
-    }
-  }
-  
-  plot_list <- list()
-  
-  for (i in seq_along(indicator_picks)) {
-    ind <- indicator_picks[i]
-    
-    # ---- Filter scenarios/models ----
-    dat_full <- maz_all %>%
-      filter(
-        .data$indicator == ind
-      )
-    
-    if (nrow(dat_full) == 0) {
-      p_empty <- ggplot() + 
-        theme_void() + 
-        labs(title = ind, subtitle = "No data found")
-      plot_list[[i]] <- p_empty
-      next
-    }
-    
-    if (!is.null(dsmodel_pick) && length(dsmodel_pick) > 0 && "dsmodel" %in% names(dat_full)) {
-      dat_full <- dat_full %>% filter(.data$dsmodel %in% dsmodel_pick)
-    }
-    
-    # Ensure rcp and dsmodel are factor-like for plotting
-    dat_full <- dat_full %>%
-      mutate(
-        rcp = factor(rcp),
-        dsmodel = if ("dsmodel" %in% names(.)) factor(dsmodel) else factor("default")
-      )
-    
-    # ---- Reduce to needed columns ----
-    dat <- dat_full %>%
-      select(MAZ, gcm, rcp, dsmodel,
-             val = dplyr::all_of(val_col)
-      )
-    
-    # ---- Summaries across GCM per CU/Scenario/Model 
-    maz_summary <- dat %>%
-      group_by(MAZ, rcp, dsmodel) %>%
-      summarise(
-        n_gcm      = dplyr::n_distinct(gcm[!is.na(val)]),
-        min_gcm    = if (sum(!is.na(val)) > 0) min(val, na.rm = TRUE) else NA_real_,
-        max_gcm    = if (sum(!is.na(val)) > 0) max(val, na.rm = TRUE) else NA_real_,
-        center_y   = if (sum(!is.na(val)) > 0) mean(val, na.rm = TRUE) else NA_real_, # Y position
-        .groups    = "drop"
-      )
-    
-    # ---- Right-join summaries to the full CU roster to ensure all CUs are present 
-    maz_plot <- maz_roster %>%
-      left_join(maz_summary, by = c("MAZ"))
-    
-    # ---- Plot ----
-    dodge_width <- 0.8
-    p <- ggplot(maz_plot, aes(x = MAZ, color = rcp, group = interaction(rcp, dsmodel)))
-    
-    
-    # 1. Background "Cloud" for GCM uncertainty (wide grey bar)
-    p <- p +
-      geom_segment(aes(xend = MAZ, y = min_gcm, yend = max_gcm),
-                   color = "grey92", linewidth = 6, alpha = 0.8, na.rm = TRUE,
-                   position = position_dodge(width = dodge_width)
-      )
-    
-    # 2. Inner GCM range line (thin line for contrast)
-    p <- p +
-      geom_segment(aes(xend = MAZ, y = min_gcm, yend = max_gcm),
-                   linewidth = 1.5, alpha = 0.8, na.rm = TRUE,
-                   position = position_dodge(width = dodge_width)
-      )
-    
-    # 3. Lollipop Head (Future ensemble mean color-coded by risk score)
-    p <- p +
-      geom_point(aes(y = center_y, shape = dsmodel),
-                 color = "black", size = 3.2, stroke = 0.8, na.rm = TRUE,
-                 position = position_dodge(width = dodge_width)
-      ) 
-    
-    # Saturated Scenario Colors
-    p <- p +
-      scale_color_manual(
-        name = "Scenario (RCP)",
-        values = c("45" = "darkblue", "85" = "#B22222", "0" = "black"),
-        na.translate = FALSE
-      ) +
-      scale_shape_manual(
-        name = "Downscaling method",
-        values = c(21, 24, 22, 23, 25),
-        na.translate = FALSE
-      )
-    
-    # Labels
-    ind_name <- if (is.null(indicator_name) || length(indicator_name) < i || is.na(indicator_name[i])) {
-      if (!is.null(tbl) && ind %in% tbl$abbrev) {
-        tbl$name[tbl$abbrev == ind][1]
-      } else {
-        ind
-      }
-    } else {
-      indicator_name[i]
-    }
-    
-    ind_unit <- if (is.null(indicator_unit) || length(indicator_unit) < i || is.na(indicator_unit[i])) {
-      if (!is.null(tbl) && ind %in% tbl$abbrev) {
-        tbl$unit[tbl$abbrev == ind][1]
-      } else {
-        ""
-      }
-    } else {
-      indicator_unit[i]
-    }
-    
-    subtitle_lab <- ind_name
-    y_lab <- if (isTRUE(use_standardized)) {
-      "Standardized score"
-    } else {
-      if (is.null(ind_unit) || is.na(ind_unit) || ind_unit == "") "Value" else ind_unit
-    }
-    
-    p <- p +
-      labs(
-        subtitle = subtitle_lab,
-        y = y_lab,
-        x = NULL
-      ) +
-      coord_flip() +
-      theme_minimal(base_size = 11) +
-      theme(
-        axis.text.y = ggtext::element_markdown(size = 8.5),
-        panel.grid.major.y = element_blank()
-      )
-    
-    # Hide y-axis labels and ticks for panels after the first to prevent repetition
-    if (i > 1) {
-      p <- p + theme(
-        axis.text.y = element_blank(),
-        axis.ticks.y = element_blank()
-      )
-    }
-    
-    plot_list[[i]] <- p
-  }
-  
-  # Determine common caption info
-  dsmodel_lab <- if (!is.null(dsmodel_pick) && length(dsmodel_pick) > 0 && "dsmodel" %in% names(maz_all)) {
-    paste(unique(maz_all$dsmodel[maz_all$dsmodel %in% dsmodel_pick]), collapse = ", ")
-  } else {
-    NA_character_
-  }
-  
-  unique_rcps <- if ("rcp" %in% names(maz_all)) unique(maz_all$rcp) else NULL
-  unique_periods <- if ("period_code" %in% names(maz_all)) unique(maz_all$period_code) else NULL
-  
-  shared_caption <- paste0(
-    if (!is.null(unique_rcps) && length(unique_rcps) > 0) paste0("RCP ", paste(unique_rcps, collapse = "/"), " • ") else "",
-    if (!is.null(unique_periods) && length(unique_periods) > 0) paste0("Period ", paste(unique_periods, collapse = "/"), " • ") else "",
-    if (!is.na(dsmodel_lab) && dsmodel_lab != "") paste0("dsmodel: ", dsmodel_lab, " • ") else "",
-    "Point = mean across GCMs; Segment = min–max across GCMs",
-    if (!use_standardized) " (Y: raw; colour: standardized)" else " (Y & colour: standardized)"
-  )
-  
-  # Assemble with patchwork
-  combined_plot <- patchwork::wrap_plots(plot_list, ncol = length(indicator_picks)) +
-    patchwork::plot_layout(guides = "collect") &
-    theme(legend.position = "right")
-  
-  combined_plot <- combined_plot +
-    patchwork::plot_annotation(
-      caption = shared_caption
+  # Filter out Offshore MAZ
+  MAZ <- MAZ %>% filter(MAZ_Acrony != "Offshore")
+
+  # Prep maz_all for standardize_long_indicator
+  maz_prep <- maz_all %>%
+    filter(MAZ != "Offshore") %>%
+    mutate(
+      FULL_CU_IN = as.character(MAZ),
+      SPECIES_NAME = "Chinook",
+      rcp = as.character(rcp),
+      period_code = as.character(period_code),
+      gcm = as.character(gcm),
+      value = as.numeric(value)
     )
-  
-  return(combined_plot)
+
+  grouping_vars_pick <- c("gcm", "rcp", "period_code", "dsmodel")
+
+  # Standardize each indicator using tbl_standardize parameters
+  std_results <- list()
+  for (ind in c("SSTproj", "SSTrate", "CImpact")) {
+    row_idx <- which(tbl_standardize$abbrev == ind)
+    std_params_i <- as.list(tbl_standardize[row_idx, ])
+    
+    std_res <- standardize_long_indicator(
+      data = maz_prep,
+      calibration_data = maz_prep,
+      grouping_vars = grouping_vars_pick,
+      indicator_pick = ind,
+      std_fun = tbl_standardize$std_fun[row_idx],
+      std_params = std_params_i,
+      calibration_gcm = "9"
+    )
+    
+    default_method <- if (tbl_standardize$std_fun[row_idx] %in% c("linear_std", "invlinear_std")) "linear" else "exponential"
+    std_res <- std_res %>% mutate(std_method = default_method)
+    std_results[[ind]] <- std_res
+  }
+
+  std_maz_all <- bind_rows(std_results)
+
+  # Filter to baseline scenario
+  baseline_maz_std <- std_maz_all %>%
+    filter(
+      (indicator == "CImpact" & rcp == "0" & period_code == "0" & gcm == "0" & stat == "mean") |
+      (indicator %in% c("SSTproj", "SSTrate") & rcp == "45" & period_code == "3" & gcm == "9" & stat == "mean" & dsmodel == "qdm")
+    )
+
+  value_var <- if (use_standardized) "std_value" else "value"
+  baseline_maz_std <- baseline_maz_std %>%
+    rename(plot_value = !!sym(value_var))
+
+  # Load/determine background outline (coastline)
+  if (is.null(outline)) {
+    if (exists("bc_coast", envir = .GlobalEnv)) {
+      outline <- get("bc_coast", envir = .GlobalEnv)
+    } else if (exists("paths") && !is.null(paths$marine) && file.exists(file.path(paths$marine, "bc_coast.Rds"))) {
+      outline <- readRDS(file.path(paths$marine, "bc_coast.Rds"))
+    } else {
+      library(pacea)
+      outline <- pacea::bc_coast
+    }
+  }
+
+  outline_proj <- sf::st_transform(outline, sf::st_crs(MAZ))
+
+  # Compute bounding box with margin based on filtered MAZ (excluding Offshore)
+  bbox <- sf::st_bbox(MAZ)
+  x_range <- bbox["xmax"] - bbox["xmin"]
+  y_range <- bbox["ymax"] - bbox["ymin"]
+  margin_factor <- 0.05
+  xlims <- c(bbox["xmin"] - margin_factor * x_range, bbox["xmax"] + margin_factor * x_range)
+  ylims <- c(bbox["ymin"] - margin_factor * y_range, bbox["ymax"] + margin_factor * y_range)
+
+  plot_list <- list()
+  indicators_picks <- c("SSTproj", "SSTrate", "CImpact")
+
+  for (i in seq_along(indicators_picks)) {
+    ind <- indicators_picks[i]
+    
+    # Filter data for this indicator
+    dat_ind <- baseline_maz_std %>% filter(indicator == ind)
+    
+    # Join with spatial sf object
+    maz_sf_ind <- MAZ %>%
+      left_join(
+        select(dat_ind, MAZ_Acrony = MAZ, plot_value),
+        by = "MAZ_Acrony"
+      ) %>%
+      filter(!is.na(plot_value))
+    
+    # Get friendly name and unit
+    ind_name <- ind
+    ind_unit <- ""
+    if (exists("tbl_indicators")) {
+      ind_row <- tbl_indicators %>% filter(abbrev == ind)
+      if (nrow(ind_row) > 0) {
+        ind_name <- ind_row$name[1]
+        ind_unit <- ind_row$unit[1]
+      }
+    }
+    
+    legend_label <- if (use_standardized) {
+      "Risk Score"
+    } else {
+      if (ind == "SSTproj") {
+        "SST (°C)"
+      } else if (ind == "SSTrate") {
+        "°C/decade"
+      } else if (ind == "CImpact") {
+        "Score"
+      } else {
+        if (is.na(ind_unit) || ind_unit == "") "Value" else ind_unit
+      }
+    }
+
+    # Plot this specific indicator with independent fill scale
+    p_ind <- ggplot() +
+      geom_sf(data = outline_proj, fill = "grey90", color = "grey75", linewidth = 0.3) +
+      geom_sf(data = maz_sf_ind, aes(fill = plot_value), color = "black", linewidth = 0.4) +
+      scale_fill_distiller(
+        palette = brewer_palette, 
+        direction = palette_direction,
+        limits = if (use_standardized) c(0, 1) else NULL
+      ) +
+      labs(
+        title = ind_name,
+        fill = legend_label
+      ) +
+      coord_sf(xlim = xlims, ylim = ylims, datum = NA, expand = FALSE) +
+      theme_void() +
+      theme(
+        plot.title = element_text(face = "bold", size = 10, hjust = 0.5, margin = margin(b = 10)),
+        legend.position = "right",
+        legend.title = element_text(size = 8),
+        legend.text = element_text(size = 7.5),
+        panel.spacing = grid::unit(12, "pt")
+      )
+      
+    plot_list[[i]] <- p_ind
+  }
+
+  # Combine plots using patchwork
+  p <- patchwork::wrap_plots(plot_list, ncol = ncol)
+  return(p)
 }
+
+
+#' Combined Marine Adaptive Zone (MAZ) Indicators Map (Regional & Local Point-Level)
+#'
+#' @param maz_all            Marine Adaptive Zone indicator dataset (raw values).
+#' @param MAZ                Marine Adaptive Zone spatial sf object.
+#' @param CMIP6_SST          Optional CMIP6 SST points sf dataset.
+#' @param CImpact_points     Optional Cumulative impacts points sf dataset.
+#' @param selected_maz       MAZ area to show high-resolution points for (default: "GStr").
+#' @param outline            Optional background coastline sf object.
+#' @param use_standardized   If TRUE, standardizes raw values to a 0-1 risk score.
+#' @param brewer_palette     RColorBrewer palette (default: cvis_risk_palette).
+#' @param palette_direction  Direction for brewer palette (default: -1).
+#' @return A patchwork ggplot object.
+combined_maz_marine_plot <- function(maz_all,
+                                     MAZ,
+                                     CMIP6_SST = NULL,
+                                     CImpact_points = NULL,
+                                     selected_maz = "GStr",
+                                     outline = NULL,
+                                     use_standardized = FALSE,
+                                     brewer_palette = NULL,
+                                     palette_direction = -1) {
+  require(dplyr)
+  require(ggplot2)
+  require(sf)
+  require(tidyr)
+  require(patchwork)
+
+  # Fallback for palette
+  if (is.null(brewer_palette)) {
+    brewer_palette <- if (exists("cvis_risk_palette", envir = .GlobalEnv)) get("cvis_risk_palette", envir = .GlobalEnv) else "RdYlBu"
+  }
+
+  # 1. Filter out Offshore MAZ for regional view
+  MAZ_reg <- MAZ %>% filter(MAZ_Acrony != "Offshore")
+
+  # 2. Get local MAZ boundary
+  MAZ_local <- MAZ %>% filter(MAZ_Acrony == selected_maz)
+  if (nrow(MAZ_local) == 0) {
+    stop(paste("Selected MAZ", selected_maz, "not found in MAZ dataset."))
+  }
+
+  # 3. Load/determine background outline (coastline)
+  if (is.null(outline)) {
+    if (exists("bc_coast", envir = .GlobalEnv)) {
+      outline <- get("bc_coast", envir = .GlobalEnv)
+    } else if (exists("paths") && !is.null(paths$marine) && file.exists(file.path(paths$marine, "bc_coast.Rds"))) {
+      outline <- readRDS(file.path(paths$marine, "bc_coast.Rds"))
+    } else {
+      library(pacea)
+      outline <- pacea::bc_coast
+    }
+  }
+  outline_proj <- sf::st_transform(outline, sf::st_crs(MAZ))
+
+  # 4. Load point-level datasets if NULL
+  if (is.null(CMIP6_SST)) {
+    if (exists("CMIP6_SST", envir = .GlobalEnv)) {
+      CMIP6_SST <- get("CMIP6_SST", envir = .GlobalEnv)
+    } else if (exists("paths") && !is.null(paths$marine) && file.exists(file.path(paths$marine, "CMIP6_SST_periods.Rds"))) {
+      load(file.path(paths$marine, "CMIP6_SST_periods.Rds"))
+    } else {
+      stop("CMIP6_SST data not found.")
+    }
+  }
+  if (is.null(CImpact_points)) {
+    if (exists("CImpact_points", envir = .GlobalEnv)) {
+      CImpact_points <- get("CImpact_points", envir = .GlobalEnv)
+    } else if (exists("paths") && !is.null(paths$marine) && file.exists(file.path(paths$marine, "CImpact_points.Rds"))) {
+      load(file.path(paths$marine, "CImpact_points.Rds"))
+    } else {
+      stop("CImpact_points data not found.")
+    }
+  }
+
+  # 5. Prep maz_all for standardization
+  maz_prep <- maz_all %>%
+    filter(MAZ != "Offshore") %>%
+    mutate(
+      FULL_CU_IN = as.character(MAZ),
+      SPECIES_NAME = "Chinook",
+      rcp = as.character(rcp),
+      period_code = as.character(period_code),
+      gcm = as.character(gcm),
+      value = as.numeric(value)
+    )
+
+  grouping_vars_pick <- c("gcm", "rcp", "period_code", "dsmodel")
+
+  # Standardize each indicator using tbl_standardize parameters
+  std_results <- list()
+  for (ind in c("SSTproj", "SSTrate", "CImpact")) {
+    row_idx <- which(tbl_standardize$abbrev == ind)
+    std_params_i <- as.list(tbl_standardize[row_idx, ])
+    
+    std_res <- standardize_long_indicator(
+      data = maz_prep,
+      calibration_data = maz_prep,
+      grouping_vars = grouping_vars_pick,
+      indicator_pick = ind,
+      std_fun = tbl_standardize$std_fun[row_idx],
+      std_params = std_params_i,
+      calibration_gcm = "9"
+    )
+    
+    default_method <- if (tbl_standardize$std_fun[row_idx] %in% c("linear_std", "invlinear_std")) "linear" else "exponential"
+    std_res <- std_res %>% mutate(std_method = default_method)
+    std_results[[ind]] <- std_res
+  }
+  std_maz_all <- bind_rows(std_results)
+
+  # Filter to baseline scenario
+  baseline_maz_std <- std_maz_all %>%
+    filter(
+      (indicator == "CImpact" & rcp == "0" & period_code == "0" & gcm == "0" & stat == "mean") |
+      (indicator %in% c("SSTproj", "SSTrate") & rcp == "45" & period_code == "3" & gcm == "9" & stat == "mean" & dsmodel == "qdm")
+    )
+
+  value_var <- if (use_standardized) "std_value" else "value"
+  baseline_maz_std <- baseline_maz_std %>%
+    rename(plot_value = !!sym(value_var))
+
+  # 6. Prep Point-Level Data for local zoom of selected MAZ
+  start_month <- if (exists("ns_start_static", envir = .GlobalEnv)) get("ns_start_static", envir = .GlobalEnv) else 3
+  end_month <- if (exists("ns_end_static", envir = .GlobalEnv)) get("ns_end_static", envir = .GlobalEnv) else 5
+  months_include <- seq(start_month, end_month)
+  month_chars <- sprintf("%02d", months_include)
+  month_cols <- paste0("SST_", month_chars)
+
+  p0 <- CMIP6_SST %>% filter(MAZ_Acrony == selected_maz, period_code == 0)
+  p3 <- CMIP6_SST %>% filter(MAZ_Acrony == selected_maz, period_code == 3, rcp == "45")
+
+  if (nrow(p0) > 0 && nrow(p3) > 0) {
+    coords_0 <- as.data.frame(st_coordinates(p0))
+    p0$X <- coords_0$X
+    p0$Y <- coords_0$Y
+    p0_df <- p0 %>%
+      st_drop_geometry() %>%
+      mutate(SST_hist = rowMeans(across(all_of(month_cols)), na.rm = TRUE)) %>%
+      select(X, Y, SST_hist)
+
+    coords_3 <- as.data.frame(st_coordinates(p3))
+    p3$X <- coords_3$X
+    p3$Y <- coords_3$Y
+
+    sst_points <- p3 %>%
+      mutate(SSTproj = rowMeans(across(all_of(month_cols)), na.rm = TRUE)) %>%
+      left_join(p0_df, by = c("X", "Y")) %>%
+      mutate(SSTrate = (SSTproj - SST_hist) / 5.5)
+  } else {
+    sst_points <- p3 %>% mutate(SSTproj = NA_real_, SSTrate = NA_real_)
+  }
+
+  ci_points <- CImpact_points %>% filter(MAZ_Acrony == selected_maz)
+
+  # Standardize points if needed
+  get_calib_limits <- function(ind_name, rcp_val, period_val, gcm_val) {
+    val <- maz_prep %>%
+      filter(indicator == ind_name, rcp == rcp_val, period_code == period_val, gcm == gcm_val, stat == "mean") %>%
+      pull(value)
+    val <- val[!is.na(val)]
+    row_idx <- which(tbl_standardize$abbrev == ind_name)
+    std_params <- as.list(tbl_standardize[row_idx, ])
+    use_95 <- if (!is.null(std_params$use_95)) std_params$use_95 else TRUE
+    xmin_val <- std_params$xmin
+    xmax_val <- std_params$xmax
+    if (is.na(xmin_val)) {
+      xmin_val <- min(val, na.rm = TRUE)
+      if (use_95) xmin_val <- unlist(quantile(val, na.rm = T, probs = 0.025))
+    }
+    if (is.na(xmax_val)) {
+      xmax_val <- max(val, na.rm = TRUE)
+      if (use_95) xmax_val <- unlist(quantile(val, na.rm = T, probs = 0.975))
+    }
+    list(xmin = xmin_val, xmax = xmax_val)
+  }
+
+  std_value_func <- function(x, ind_name, xmin_val, xmax_val) {
+    row_idx <- which(tbl_standardize$abbrev == ind_name)
+    std_fun_name <- tbl_standardize$std_fun[row_idx]
+    std_fun <- get(std_fun_name)
+    std_params <- as.list(tbl_standardize[row_idx, ])
+    std_fun(x, xmin = xmin_val, xmax = xmax_val, lambda = std_params$lambda)
+  }
+
+  if (use_standardized) {
+    lims_proj <- get_calib_limits("SSTproj", "45", 3, "9")
+    sst_points$plot_value_SSTproj <- std_value_func(sst_points$SSTproj, "SSTproj", lims_proj$xmin, lims_proj$xmax)
+
+    lims_rate <- get_calib_limits("SSTrate", "45", 3, "9")
+    sst_points$plot_value_SSTrate <- std_value_func(sst_points$SSTrate, "SSTrate", lims_rate$xmin, lims_rate$xmax)
+
+    lims_ci <- get_calib_limits("CImpact", "0", 0, "0")
+    ci_points$plot_value_CImpact <- std_value_func(ci_points$Cumul_Impact_ALL, "CImpact", lims_ci$xmin, lims_ci$xmax)
+  } else {
+    sst_points$plot_value_SSTproj <- sst_points$SSTproj
+    sst_points$plot_value_SSTrate <- sst_points$SSTrate
+    ci_points$plot_value_CImpact <- ci_points$Cumul_Impact_ALL
+  }
+
+  # 7. Compute bounding boxes
+  bbox_reg <- sf::st_bbox(MAZ_reg)
+  x_range_reg <- bbox_reg["xmax"] - bbox_reg["xmin"]
+  y_range_reg <- bbox_reg["ymax"] - bbox_reg["ymin"]
+  margin_reg <- 0.05
+  xlims_reg <- c(bbox_reg["xmin"] - margin_reg * x_range_reg, bbox_reg["xmax"] + margin_reg * x_range_reg)
+  ylims_reg <- c(bbox_reg["ymin"] - margin_reg * y_range_reg, bbox_reg["ymax"] + margin_reg * y_range_reg)
+
+  bbox_local <- sf::st_bbox(MAZ_local)
+  x_range_local <- bbox_local["xmax"] - bbox_local["xmin"]
+  y_range_local <- bbox_local["ymax"] - bbox_local["ymin"]
+  margin_local <- 0.05
+  xlims_local <- c(bbox_local["xmin"] - margin_local * x_range_local, bbox_local["xmax"] + margin_local * x_range_local)
+  ylims_local <- c(bbox_local["ymin"] - margin_local * y_range_local, bbox_local["ymax"] + margin_local * y_range_local)
+
+  # 8. Loop and build maps
+  plot_list <- list()
+  indicators_picks <- c("SSTproj", "SSTrate", "CImpact")
+
+  for (i in seq_along(indicators_picks)) {
+    ind <- indicators_picks[i]
+    
+    # Filter data for this indicator (regional)
+    dat_ind <- baseline_maz_std %>% filter(indicator == ind)
+    
+    # Join with spatial sf object
+    maz_sf_ind <- MAZ_reg %>%
+      left_join(
+        select(dat_ind, MAZ_Acrony = MAZ, plot_value),
+        by = "MAZ_Acrony"
+      ) %>%
+      filter(!is.na(plot_value))
+    
+    # Get friendly name and unit
+    ind_name <- ind
+    ind_unit <- ""
+    if (exists("tbl_indicators")) {
+      ind_row <- tbl_indicators %>% filter(abbrev == ind)
+      if (nrow(ind_row) > 0) {
+        ind_name <- ind_row$name[1]
+        ind_unit <- ind_row$unit[1]
+      }
+    }
+    
+    # Condense legend titles
+    legend_label <- if (use_standardized) {
+      "Risk Score"
+    } else {
+      if (ind == "SSTproj") {
+        "SST (°C)"
+      } else if (ind == "SSTrate") {
+        "°C/decade"
+      } else if (ind == "CImpact") {
+        "Score"
+      } else {
+        if (is.na(ind_unit) || ind_unit == "") "Value" else ind_unit
+      }
+    }
+
+    val_range <- range(dat_ind$plot_value, na.rm = TRUE)
+
+    # Top Plot (Regional MAZ map)
+    p_reg <- ggplot() +
+      geom_sf(data = outline_proj, fill = "grey90", color = "grey75", linewidth = 0.3) +
+      geom_sf(data = maz_sf_ind, aes(fill = plot_value), color = "black", linewidth = 0.4) +
+      geom_sf(data = MAZ_local, fill = NA, color = "black", linewidth = 1.0) + # Highlight local MAZ
+      scale_fill_distiller(
+        palette = brewer_palette, 
+        direction = palette_direction,
+        limits = if (use_standardized) c(0, 1) else val_range,
+        oob = scales::squish
+      ) +
+      labs(
+        title = ind_name,
+        fill = legend_label
+      ) +
+      coord_sf(xlim = xlims_reg, ylim = ylims_reg, datum = NA, expand = FALSE) +
+      theme_void() +
+      theme(
+        plot.title = element_text(face = "bold", size = 10, hjust = 0.5, margin = margin(b = 6)),
+        legend.position = "right",
+        legend.title = element_text(size = 8),
+        legend.text = element_text(size = 7.5),
+        panel.spacing = grid::unit(12, "pt")
+      )
+      
+    # Bottom Plot (Local points map inside selected MAZ)
+    local_points <- if (ind == "CImpact") {
+      ci_points %>% rename(plot_val_col = plot_value_CImpact)
+    } else if (ind == "SSTproj") {
+      sst_points %>% rename(plot_val_col = plot_value_SSTproj)
+    } else {
+      sst_points %>% rename(plot_val_col = plot_value_SSTrate)
+    }
+
+    local_title <- if (ind == "SSTproj") {
+      paste("Projected SST (", selected_maz, ")", sep = "")
+    } else if (ind == "SSTrate") {
+      paste("SST Rate (", selected_maz, ")", sep = "")
+    } else {
+      paste("Cumulative Impacts (", selected_maz, ")", sep = "")
+    }
+
+    p_local <- ggplot() +
+      geom_sf(data = outline_proj, fill = "grey90", color = "grey75", linewidth = 0.3) +
+      geom_sf(data = MAZ_local, fill = NA, color = "black", linewidth = 0.5) +
+      geom_sf(data = local_points, aes(color = plot_val_col), size = 1.2, alpha = 0.8) +
+      scale_color_distiller(
+        palette = brewer_palette, 
+        direction = palette_direction,
+        limits = if (use_standardized) c(0, 1) else val_range,
+        oob = scales::squish
+      ) +
+      labs(
+        title = local_title,
+        color = legend_label
+      ) +
+      coord_sf(xlim = xlims_local, ylim = ylims_local, datum = NA, expand = FALSE) +
+      theme_void() +
+      theme(
+        plot.title = element_text(face = "bold", size = 10, hjust = 0.5, margin = margin(b = 6)),
+        legend.position = "right",
+        legend.title = element_text(size = 8),
+        legend.text = element_text(size = 7.5),
+        panel.spacing = grid::unit(12, "pt")
+      )
+
+    plot_list[[i]] <- p_reg
+    plot_list[[i + 3]] <- p_local
+  }
+
+  # Combine plots using patchwork: 2 rows of 3 columns
+  p <- patchwork::wrap_plots(plot_list, ncol = 3)
+  return(p)
+}
+
 
 # ==================== 9. Migration Timing Comparison (migration_compare_plot) ====================
 
@@ -2448,6 +2751,15 @@ migration_compare_plot <- function(migr_daily_all,
                                    period_choose = c("1981-2010", "2041-2060"),
                                    spatial_path_choose = "CK-12",
                                    min_stream_order = 9) {
+  require(ggtext)
+
+  # Fallback for species palette
+  if (exists("species_palette", envir = .GlobalEnv)) {
+    spp_colors <- get("species_palette", envir = .GlobalEnv)
+  } else {
+    spp_colors <- c("Chinook" = "#E69F00", "Chum" = "#56B4E9", "Coho" = "#009E73", "Pink" = "#F0E442", "Sockeye" = "#D55E00")
+  }
+
   # Summary plot mode for all CUs
   if (is.null(timing)) {
     if (exists("cu_timing_Fr", envir = .GlobalEnv)) {
@@ -2462,7 +2774,11 @@ migration_compare_plot <- function(migr_daily_all,
   df_timing <- df_timing %>%
     dplyr::filter(!is.na(rt_start), !is.na(sp_peak), !is.na(SPECIES_NAME)) %>%
     dplyr::arrange(SPECIES_NAME, rt_start) %>%
-    dplyr::mutate(CU_label = factor(FULL_CU_IN, levels = unique(FULL_CU_IN)))
+    dplyr::mutate(
+      label_color = spp_colors[as.character(SPECIES_NAME)],
+      id_label_html = paste0("<span style='color:", label_color, "'>", FULL_CU_IN, "</span>"),
+      CU_label = factor(id_label_html, levels = unique(id_label_html))
+    )
 
   # Temperature data from calendar
   if (exists("migr_daily_calendar", envir = .GlobalEnv)) {
@@ -2502,13 +2818,6 @@ migration_compare_plot <- function(migr_daily_all,
   df_bounds_mid <- df_temp_bounds %>%
     dplyr::filter(period == "2041-2060")
 
-  # Fallback for species palette
-  if (exists("species_palette", envir = .GlobalEnv)) {
-    spp_colors <- get("species_palette", envir = .GlobalEnv)
-  } else {
-    spp_colors <- c("Chinook" = "#E69F00", "Chum" = "#56B4E9", "Coho" = "#009E73", "Pink" = "#F0E442", "Sockeye" = "#D55E00")
-  }
-
   p_upper <- ggplot(df_timing) +
     # Dotted connector from rt_end to sp_start (transition)
     geom_segment(aes(x = rt_end, xend = sp_start, y = CU_label, yend = CU_label, color = SPECIES_NAME), linetype = "dotted", linewidth = 0.6) +
@@ -2520,12 +2829,16 @@ migration_compare_plot <- function(migr_daily_all,
     labs(x = NULL, y = "CU", color = "Species") +
     scale_x_continuous(limits = c(1, 365),
                        breaks = c(1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335),
-                       labels = c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")) +
+                       labels = NULL) +
     theme_bw() +
     theme(
-      axis.text.y = element_text(size = 5),
+      axis.text.y = ggtext::element_markdown(size = 5),
+      axis.text.x = element_blank(),
+      axis.ticks.x = element_blank(),
+      axis.title.x = element_blank(),
       panel.grid.major.y = element_blank(),
-      legend.position = "right"
+      legend.position = "right",
+      plot.margin = margin(t = 2, r = 2, b = -2, l = 2, unit = "pt")
     ) +
     annotation_custom(grid::textGrob("a", x = unit(0.96, "npc"), y = unit(0.92, "npc"), gp = grid::gpar(fontface = "bold", fontsize = 12)))
 
@@ -2553,7 +2866,8 @@ migration_compare_plot <- function(migr_daily_all,
                        labels = c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")) +
     theme_bw() +
     theme(
-      legend.position = "right"
+      legend.position = "right",
+      plot.margin = margin(t = -2, r = 2, b = 2, l = 2, unit = "pt")
     ) +
     annotation_custom(grid::textGrob("b", x = unit(0.96, "npc"), y = unit(0.85, "npc"), gp = grid::gpar(fontface = "bold", fontsize = 12)))
 
@@ -2676,17 +2990,15 @@ migration_compare_plot <- function(migr_daily_all,
   xlims <- c(bbox["xmin"] - margin_factor * x_range, bbox["xmax"] + margin_factor * x_range)
   ylims <- c(bbox["ymin"] - margin_factor * y_range, bbox["ymax"] + margin_factor * y_range)
 
-  # Map path prefix to species color
-  path_prefix <- toupper(substr(spatial_path_choose, 1, 2))
-  species_name <- switch(path_prefix,
-    "CK" = "Chinook",
-    "CO" = "Coho",
-    "SE" = "Sockeye",
-    "CM" = "Chum",
-    "PK" = "Pink",
-    "Chinook" # Default fallback
-  )
-  path_color <- if (species_name %in% names(spp_colors)) spp_colors[species_name] else "#E69F00"
+  # Calculate max temperature from data
+  max_temp_val <- if ("august_temp" %in% names(migr_path_filtered)) {
+    max(migr_path_filtered$august_temp, na.rm = TRUE)
+  } else {
+    NA_real_
+  }
+  if (is.null(max_temp_val) || is.na(max_temp_val) || !is.finite(max_temp_val)) {
+    max_temp_val <- 20
+  }
 
   p_map <- ggplot() +
     geom_sf(data = bc_coast_proj, fill = "grey90", color = "grey75", linewidth = 0.3)
@@ -2700,14 +3012,21 @@ migration_compare_plot <- function(migr_daily_all,
   }
 
   p_map <- p_map +
-    geom_sf(data = migr_path_filtered, color = path_color, linewidth = 1.2)
+    geom_sf(data = migr_path_filtered, aes(color = august_temp), linewidth = 1.2) +
+    scico::scale_color_scico(
+      palette = "roma",
+      name = "August Temp (°C)",
+      direction = -1,
+      limits = c(15, max_temp_val),
+      oob = scales::squish
+    )
 
   p_map <- p_map +
     coord_sf(xlim = xlims, ylim = ylims, expand = FALSE) +
     theme_void() +
     theme(
       plot.subtitle = element_text(size = 9, face = "bold", hjust = 0.5),
-      plot.margin = margin(5, 5, 5, 5),
+      plot.margin = margin(t = 2, r = 2, b = 2, l = 2, unit = "pt"),
       panel.border = element_rect(color = "black", fill = NA, linewidth = 0.8)
     ) +
     annotation_custom(grid::textGrob("c", x = unit(0.94, "npc"), y = unit(0.94, "npc"), gp = grid::gpar(fontface = "bold", fontsize = 12)))
@@ -2716,7 +3035,6 @@ migration_compare_plot <- function(migr_daily_all,
   p <- patchwork::wrap_plots(p_left, p_map, ncol = 2, widths = c(2, 1.2)) +
     patchwork::plot_layout(guides = "collect") &
     theme(
-      plot.margin = margin(t = 2, r = 2, b = 2, l = 2, unit = "pt"),
       legend.box.spacing = unit(4, "pt"),
       legend.margin = margin(0, 0, 0, 0, "pt")
     )
@@ -2725,7 +3043,8 @@ migration_compare_plot <- function(migr_daily_all,
 }
 
 # 
-# plot_maz_lollipop(maz_all)
+# # spatial_maz_indicators_plot(maz_all, MAZ)
+# # combined_maz_marine_plot(maz_all, MAZ)
 # 
 
 

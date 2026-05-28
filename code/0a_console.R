@@ -37,8 +37,8 @@ run_marine_prep    <- FALSE # Run raw marine NetCDF and spatial GDB imports (3a)
 run_marine_stats   <- FALSE # Run marine stats & grid standardization calculations (3b, 3c)
 run_scoring        <- F  # Run core standardization and scoring calculation engine (4a)
 run_indicator_report    <- F  # Generate the detailed indicator reports (6a_S1_indicators_description.Rmd)
-run_reports_indiv       <- F # Generate individual CU report HTML files (Static supplement for publication)
-run_sensitivity_report  <- T # Generate individual CU report HTML files (Static supplement for publication)
+run_reports_indiv       <- T # Generate individual CU report HTML files (Static supplement for publication)
+run_sensitivity_report  <- F # Generate individual CU report HTML files (Static supplement for publication)
 run_shiny_explorer      <- FALSE # Launch local interactive Shiny explorer app (7_CVIS_explorer_app.R)
 
 # ==================== 2. Load Core Spatial and Definition Data ====================

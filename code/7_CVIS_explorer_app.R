@@ -181,11 +181,7 @@ ui <- dashboardPage(
         menuSubItem("ENM", tabName = "spawning_enm"),
         menuSubItem("Threats", tabName = "spawning_threats")
       ),
-      menuItem("Migration",
-        tabName = "migration_menu", icon = icon("route"),
-        menuSubItem("Path", tabName = "migration_path"),
-        menuSubItem("Timing - Migration", tabName = "migration_timing")
-      ),
+      menuItem("Migration", tabName = "migration_path", icon = icon("route")),
       menuItem("Marine",
         tabName = "marine_menu", icon = icon("ship"),
         menuSubItem("SST", tabName = "marine_sst"),
@@ -523,7 +519,7 @@ ui <- dashboardPage(
         )
       ),
 
-      # MIGRATION PATH TAB
+      # MIGRATION PATH & TIMING TAB
       tabItem(
         tabName = "migration_path",
         fluidRow(
@@ -539,29 +535,13 @@ ui <- dashboardPage(
         ),
         fluidRow(
           box(
-            width = 12, title = "Migration Route",
+            width = 12, title = "Migration Route, Timing & Temperature",
             status = "primary", solidHeader = TRUE,
             tags$p(
               style = "margin: 5px 0 10px 0; color: #666; font-size: 12px;",
-              "Migration route from river mouth to NuSEDS spawning sites used to calculate indicators, coloured by channel width."
+              "Daily projected stream temperatures during upstream migration period with migration events (left) and geographic migration path coloured by August temperature (right)."
             ),
-            plotOutput("migration_path_plot", height = "700px")
-          )
-        )
-      ),
-
-      # MIGRATION TIMING TAB
-      tabItem(
-        tabName = "migration_timing",
-        fluidRow(
-          box(
-            width = 12, title = "Migration Timing and Temperature",
-            status = "warning", solidHeader = TRUE,
-            tags$p(
-              style = "margin: 5px 0 10px 0; color: #666; font-size: 12px;",
-              "Daily projected stream temperatures during upstream migration period. Vertical dashed lines show run timing start/end (blue) and spawn timing start/peak (red). Shaded areas show 10th-90th percentile range across climate models."
-            ),
-            plotOutput("migration_timing_plot", height = "500px")
+            plotOutput("migration_path_plot", height = "550px")
           )
         )
       ),
@@ -1387,38 +1367,25 @@ server <- function(input, output, session) {
   })
 
   output$migration_path_plot <- renderPlot({
-    req(input$cu_select, cu_spatial())
+    req(input$cu_select, cu_spatial(), cu_timing_data())
 
     spatial <- cu_spatial()
+    cu_timing_i <- cu_timing_Fr %>% filter(FULL_CU_IN == input$cu_select)
 
     if (input$cu_select %in% names(migr_list)) {
       migr_cu <- migr_list[[input$cu_select]]
 
-      migrdist_row <- cu_data() %>% filter(indicator == "migrdist")
-      migrdist_val <- if (nrow(migrdist_row) > 0) {
-        val <- migrdist_row$value[!is.na(migrdist_row$value)][1]
-        if (!is.null(val) && !is.na(val)) round(as.numeric(val), 0) else "Unknown"
-      } else {
-        "Unknown"
-      }
-
-      migration_path_plot(migr_cu, spatial$nuseds, spatial$boundary,
-        colour_var = "channel_width",
-        colour_label = "Channel Width (m)",
-        plot_title = paste0("Migration Distance: ", migrdist_val, " km")
+      migration_path_timing_plot(
+        migr_path = migr_cu,
+        nuseds_data = spatial$nuseds,
+        cu_boundary = spatial$boundary,
+        migr_daily_all = migr_daily_all,
+        cu_i = input$cu_select,
+        timing = cu_timing_i,
+        rcp = "45",
+        period_choose = c("1981-2010", "2041-2060")
       )
     }
-  })
-
-  output$migration_timing_plot <- renderPlot({
-    req(input$cu_select, cu_timing_data())
-
-    cu_timing_i <- cu_timing_Fr %>% filter(FULL_CU_IN == input$cu_select)
-
-    migr_timing_plot(migr_daily_all, input$cu_select, cu_timing_i,
-      rcp = "45",
-      period_choose = c("1981-2010", "2041-2060")
-    )
   })
 
   # MARINE OUTPUTS

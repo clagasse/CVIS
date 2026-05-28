@@ -12,15 +12,14 @@
 #   2. stream_accessible_plot()         - Maps accessible streams and NUSEDS sites.
 #   3. stream_indicator_plot()          - Stream map + histogram of a given indicator.
 #   4. stream_indicator_multipanel_plot()- Side-by-side stream network panels.
-#   5. migration_path_plot()            - Maps migration paths from river mouth to spawning.
-#   6. migr_timing_plot()               - Water temperature trends along migration route.
-#   7. cu_boundary_highlight()          - General locator map highlighting a single CU.
-#   8. cu_hydrologic_regime()           - Maps CU boundaries with flow gauges and regimes.
-#   9. plot_cu_lolli()                  - Lollipop chart comparing CU vs species means.
-#   10. marine_indicator_plot()         - Maps marine SST and SSS indicators.
-#   11. abundance_status_plot()         - Timeline of wild spawner abundance and WSP status.
-#   12. plot_cu_indicators_lollipop()   - Comprehensive multi-indicator CU risk profile.
-#   13. MAZ_boundary_highlight()        - General locator map highlighting a single MAZ.
+#   5. migration_path_timing_plot()     - Combined geographic migration route map and projected mainstem temperatures plot.
+#   6. cu_boundary_highlight()          - General locator map highlighting a single CU.
+#   7. cu_hydrologic_regime()           - Maps CU boundaries with flow gauges and regimes.
+#   8. plot_cu_lolli()                  - Lollipop chart comparing CU vs species means.
+#   9. marine_indicator_plot()          - Maps marine SST and SSS indicators.
+#   10. abundance_status_plot()         - Timeline of wild spawner abundance and WSP status.
+#   11. plot_cu_indicators_lollipop()   - Comprehensive multi-indicator CU risk profile.
+#   12. MAZ_boundary_highlight()        - General locator map highlighting a single MAZ.
 #
 # Dependencies:
 #   - Requires ggplot2, sf, scico, patchwork, and standard CVIS data inputs.
@@ -34,12 +33,62 @@
 # Shows life stage timing with indicator calculation periods
 
 cu_timing_plot <- function(data, show_indicator_periods = FALSE) {
-  # Extract CU name and ocean entry age for labels
-  cu_name <- unique(data$FULL_CU_IN)[1]
-  oe_age <- unique(data$oe_age)[1]
+  require(dplyr)
+  require(ggplot2)
+  require(ggtext)
+  require(stringr)
 
-  # Create cleaner life stage labels
-  data <- data %>%
+  # 1. Identify selected CU and its species
+  selected_cu <- unique(data$FULL_CU_IN)[1]
+  selected_species <- unique(data$SPECIES_NAME)[1]
+  if (is.na(selected_species)) {
+    selected_species <- unique(data$species)[1]
+  }
+
+  # Translate species code if necessary
+  species_map <- c("CK" = "Chinook", "CM" = "Chum", "CO" = "Coho", "PK" = "Pink", "SE" = "Sockeye")
+  if (selected_species %in% names(species_map)) {
+    selected_species_name <- species_map[selected_species]
+  } else {
+    selected_species_name <- selected_species
+  }
+
+  # 1b. Get species color palette
+  if (exists("species_palette", envir = .GlobalEnv)) {
+    spp_palette <- get("species_palette", envir = .GlobalEnv)
+  } else {
+    spp_palette <- c(
+      "Chinook" = "#1b9e77",
+      "Coho" = "darkblue",
+      "Sockeye" = "firebrick4",
+      "Pink" = "purple3",
+      "Chum" = "goldenrod4"
+    )
+  }
+
+  # 2. Get full dataset of CUs
+  if (exists("cu_timing_long", envir = .GlobalEnv)) {
+    timing_all <- get("cu_timing_long", envir = .GlobalEnv)
+  } else {
+    timing_file <- file.path("processed_data", "CU", "cu_timing_data.Rdata")
+    if (file.exists(timing_file)) {
+      temp_env <- new.env()
+      load(timing_file, envir = temp_env)
+      timing_all <- temp_env$cu_timing_long
+    } else {
+      timing_all <- data
+    }
+  }
+
+  # We show all CUs (all species)
+  df_all_cus <- timing_all
+
+  if (nrow(df_all_cus) == 0) {
+    df_all_cus <- data
+  }
+
+  # 3. Clean and prepare labels
+  df_all_cus <- df_all_cus %>%
     mutate(
       life_stage_label = case_when(
         life_stage == "spawning" ~ "Spawning",
@@ -56,24 +105,89 @@ cu_timing_plot <- function(data, show_indicator_periods = FALSE) {
       )
     )
 
-  # Calculate freshwater residency period
-  spawn_data <- data %>% filter(life_stage == "spawning")
-  ocean_data <- data %>% filter(life_stage == "ocean_entry")
+  df_plot <- df_all_cus %>%
+    filter(!is.na(start), !is.na(end)) %>%
+    mutate(
+      date_start = as.Date("2000-01-01") + start,
+      date_peak = as.Date("2000-01-01") + peak,
+      date_end = as.Date("2000-01-01") + end
+    )
 
-  # Calculate FW residency accounting for ocean entry age
-  fw_residency_days <- NA
-  if (nrow(spawn_data) > 0 && nrow(ocean_data) > 0 && !is.na(oe_age)) {
-    # Calculate base residency (spawn peak to ocean entry peak)
-    fw_residency_days <- ocean_data$peak[1] - spawn_data$peak[1]
-    if (fw_residency_days < 0) fw_residency_days <- fw_residency_days + 365
+  # 4. Extract data quality info and timing events for the selected CU
+  sel_timing <- df_plot %>% filter(FULL_CU_IN == selected_cu)
+  
+  get_dq_str <- function(stage_name) {
+    dq <- sel_timing %>% filter(life_stage == stage_name) %>% pull(dat_qual)
+    if (length(dq) > 0 && !is.na(dq[1])) as.character(dq[1]) else "N/A"
+  }
+  
+  fm_dq <- get_dq_str("freshwater_migration")
+  oe_dq <- get_dq_str("ocean_entry")
+  rt_dq <- get_dq_str("run_timing")
+  sp_dq <- get_dq_str("spawning")
+  
+  dq_summary <- sprintf("Data Quality: Spawning=%s, Run Timing=%s, Ocean Entry=%s, FW Migration=%s (1=Best, 6=Worst)", 
+                        sp_dq, rt_dq, oe_dq, fm_dq)
 
-    # Add 365 days for each year of ocean entry age = 1 or greater
-    if (oe_age >= 1) {
-      fw_residency_days <- fw_residency_days + (floor(oe_age) * 365)
-    }
+  # Get vertical line values for selected CU timing milestones
+  rt_start_val <- sel_timing %>% filter(life_stage == "run_timing") %>% pull(start)
+  rt_end_val <- sel_timing %>% filter(life_stage == "run_timing") %>% pull(end)
+  sp_start_val <- sel_timing %>% filter(life_stage == "spawning") %>% pull(start)
+  sp_peak_val <- sel_timing %>% filter(life_stage == "spawning") %>% pull(peak)
+  
+  rt_start_date <- if (length(rt_start_val) > 0) as.Date("2000-01-01") + rt_start_val[1] else NULL
+  rt_end_date <- if (length(rt_end_val) > 0) as.Date("2000-01-01") + rt_end_val[1] else NULL
+  sp_start_date <- if (length(sp_start_val) > 0) as.Date("2000-01-01") + sp_start_val[1] else NULL
+  sp_peak_date <- if (length(sp_peak_val) > 0) as.Date("2000-01-01") + sp_peak_val[1] else NULL
+
+  # 5. Build y-axis factors and highlights
+  cu_labels_df <- df_plot %>%
+    select(FULL_CU_IN, CVIS_NAME, culabel, SPECIES_NAME) %>%
+    distinct()
+  
+  if (!selected_cu %in% cu_labels_df$FULL_CU_IN) {
+    selected_row <- data %>% 
+      select(FULL_CU_IN, CVIS_NAME, culabel, SPECIES_NAME) %>% 
+      distinct()
+    cu_labels_df <- bind_rows(cu_labels_df, selected_row) %>% distinct()
   }
 
-  # Define colors for life stages (colorblind-friendly palette)
+  cu_labels_df <- cu_labels_df %>%
+    mutate(
+      color_hex = spp_palette[SPECIES_NAME],
+      color_hex = if_else(is.na(color_hex), "#4B5563", color_hex),
+      label_clean = paste0(culabel, " (", FULL_CU_IN, ")"),
+      label_formatted = if_else(
+        FULL_CU_IN == selected_cu,
+        paste0("<span style='color:", color_hex, "; font-size:8.5pt;'><b>▶ ", label_clean, "</b></span>"),
+        paste0("<span style='color:", color_hex, "; font-size:5.2pt;'>", label_clean, "</span>")
+      )
+    )
+
+  # Sort all CUs by species (descending) and name (descending) so they list Chinook to Sockeye alphabetically A-Z from top to bottom
+  # (No special treatment for selected CU position)
+  cu_labels_ordered <- cu_labels_df %>%
+    arrange(desc(SPECIES_NAME), desc(CVIS_NAME))
+
+  df_plot <- df_plot %>%
+    left_join(select(cu_labels_df, FULL_CU_IN, label_clean, label_formatted), by = "FULL_CU_IN")
+  
+  levels_ordered <- cu_labels_ordered$label_formatted
+  df_plot$y_axis_factor <- factor(df_plot$label_formatted, levels = levels_ordered)
+
+  highlight_idx <- which(levels_ordered == cu_labels_df$label_formatted[cu_labels_df$FULL_CU_IN == selected_cu])
+
+  # Add data quality category columns
+  df_plot <- df_plot %>%
+    mutate(dat_qual_cat = case_when(
+      dat_qual %in% c(1, 2) ~ "High (1-2)",
+      dat_qual %in% c(3, 4) ~ "Medium (3-4)",
+      dat_qual %in% c(5, 6) ~ "Low (5-6)",
+      TRUE ~ "Unknown"
+    )) %>%
+    mutate(dat_qual_cat = factor(dat_qual_cat, levels = c("High (1-2)", "Medium (3-4)", "Low (5-6)", "Unknown")))
+
+  # 6. Define colors for life stages
   stage_colors <- c(
     "Spawning" = "#66C2A5",
     "Upstream Run Timing" = "#FC8D62",
@@ -81,151 +195,146 @@ cu_timing_plot <- function(data, show_indicator_periods = FALSE) {
     "Juvenile FW Migration" = "#E78AC3"
   )
 
-  # Create base plot
-  p <- ggplot(data, aes(
-    x = life_stage_label, xend = life_stage_label,
-    y = as.Date("2000-01-01") + start,
-    yend = as.Date("2000-01-01") + end
-  )) +
-    # Life stage duration bars (5th-95th percentile)
-    geom_segment(aes(color = life_stage_label),
-      linewidth = 8, alpha = 1
-    ) +
-    # Peak timing points
-    geom_point(
-      aes(
-        y = as.Date("2000-01-01") + peak,
-        size = dat_qual, fill = life_stage_label
-      ),
-      shape = 21, color = "gray20", stroke = 0.8
-    ) +
-    scale_color_manual(values = stage_colors, guide = "none") +
-    scale_fill_manual(values = stage_colors, guide = "none") +
-    scale_size_area(
-      name = "Data Quality",
-      max_size = 3, # overall max point radius; adjust to taste
-      trans = "reverse",
-      breaks = c(1, 2, 3, 4, 5),
-      limits = c(6, 1)
-    ) +
-    scale_y_date(
-      date_breaks = "1 month",
-      date_labels = "%b",
-      limits = c(as.Date("2000-01-01"), as.Date("2000-12-31")),
-      expand = c(0.02, 0)
-    ) +
-    coord_flip() +
-    theme(
-      panel.grid.major.y = element_blank(),
-      panel.grid.minor = element_blank(),
-      panel.spacing = unit(0.1, "lines"),
-      axis.title.y = element_blank(),
-      axis.text.y = element_text(size = 10, margin = margin(r = 2)),
-      plot.title = element_text(face = "bold", size = 12, margin = margin(b = 2)),
-      plot.subtitle = element_text(size = 10, color = "grey40", margin = margin(b = 3)),
-      plot.caption = element_text(size = 8, color = "grey50", hjust = 0, margin = margin(t = 2)),
-      legend.position = "bottom",
-      legend.margin = margin(t = 2),
-      legend.box.spacing = unit(0.1, "lines"),
-      plot.margin = margin(3, 5, 3, 3),
-      aspect.ratio = 0.4
-    )
+  p <- ggplot(df_plot, aes(y = y_axis_factor))
 
-  # Add indicator period highlights if requested
-  if (show_indicator_periods) {
-    # Define indicator periods with different colors
-    indicator_rects <- data.frame(
-      period_name = character(),
-      ymin = as.Date(character()),
-      ymax = as.Date(character()),
-      xmin = numeric(),
-      xmax = numeric(),
-      color_fill = character(),
-      stringsAsFactors = FALSE
-    )
-
-    # August period (for temperature and flow indicators) - Light orange
-    august_start <- as.Date("2000-08-01")
-    august_end <- as.Date("2000-08-31")
-    indicator_rects <- rbind(indicator_rects, data.frame(
-      period_name = "Stream T/Flow \n\n",
-      ymin = august_start,
-      ymax = august_end,
-      xmin = 0.5,
-      xmax = 4.1,
-      color_fill = "#FFE0B2" # Light orange
-    ))
-
-    # Peak ocean entry period (for marine SST) - Light blue
-    if (nrow(ocean_data) > 0) {
-      # Use ±1 month around peak ocean entry
-      oe_peak_date <- as.Date("2000-01-01") + ocean_data$peak[1]
-      ns_start_plot <- as.Date("2000-01-01") + (ocean_data$ns_start_month * 30) - 15
-      ns_end_plot <- as.Date("2000-01-01") + (ocean_data$ns_end_month * 30) - 15
-
-      indicator_rects <- rbind(indicator_rects, data.frame(
-        period_name = "Nearshore marine (SST)",
-        ymin = ns_start_plot,
-        ymax = ns_end_plot,
-        xmin = 0.5,
-        xmax = 4.1,
-        color_fill = "#B3E5FC" # Light blue
-      ))
-    }
-
-    # Run timing to spawning period (for migration indicators) - Light green
-    run_data <- data %>% filter(life_stage == "run_timing")
-    if (nrow(run_data) > 0 && nrow(spawn_data) > 0) {
-      migr_start <- as.Date("2000-01-01") + run_data$start[1]
-      migr_end <- as.Date("2000-01-01") + spawn_data$peak[1]
-
-      indicator_rects <- rbind(indicator_rects, data.frame(
-        period_name = "Upstream Migration",
-        ymin = migr_start,
-        ymax = migr_end,
-        xmin = 0.5,
-        xmax = 4.1,
-        color_fill = "#C8E6C9" # Light green
-      ))
-    }
-
-    # Add shaded rectangles for indicator periods with different colors
-    p <- p +
-      geom_rect(
-        data = indicator_rects,
-        aes(
-          xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax,
-          fill = I(color_fill)
-        ),
-        alpha = 0.4, inherit.aes = FALSE
-      ) +
-      geom_text(
-        data = indicator_rects,
-        aes(
-          x = xmax + 0.1, y = ymin + (ymax - ymin) / 2,
-          label = period_name
-        ),
-        hjust = 0, size = 2.8, color = "grey20",
-        lineheight = 0.85, inherit.aes = FALSE
-      )
-  }
-
-  # Add title and subtitle with FW residency
-  subtitle_text <- sprintf("Ocean Entry Age: %s", oe_age)
-  if (!is.na(fw_residency_days)) {
-    subtitle_text <- sprintf(
-      "Ocean Entry Age: %s  |  Freshwater Residency: ~%d days",
-      oe_age, round(fw_residency_days)
+  # Background highlight for the selected CU using annotate
+  if (length(highlight_idx) > 0) {
+    p <- p + annotate("rect",
+      xmin = as.Date("2000-01-01"), xmax = as.Date("2000-12-31"),
+      ymin = highlight_idx - 0.45, ymax = highlight_idx + 0.45,
+      fill = "#FFE0B2", alpha = 0.35
     )
   }
+
+  # Draw timing events as vertical dashed lines (from migration_path_timing_plot)
+  # Highlight timing milestones of the selected CU vertically across all CUs
+  if (!is.null(rt_start_date)) {
+    p <- p + geom_vline(xintercept = rt_start_date, linetype = "dashed", color = "#3498db", linewidth = 0.5, alpha = 0.6)
+  }
+  if (!is.null(rt_end_date)) {
+    p <- p + geom_vline(xintercept = rt_end_date, linetype = "dashed", color = "#3498db", linewidth = 0.5, alpha = 0.6)
+  }
+  if (!is.null(sp_start_date)) {
+    p <- p + geom_vline(xintercept = sp_start_date, linetype = "dashed", color = "#e74c3c", linewidth = 0.5, alpha = 0.6)
+  }
+  if (!is.null(sp_peak_date)) {
+    p <- p + geom_vline(xintercept = sp_peak_date, linetype = "dashed", color = "#e74c3c", linewidth = 0.5, alpha = 0.6)
+  }
+
+  # Draw thin timing segments for other CUs
+  p <- p + geom_segment(
+    data = filter(df_plot, FULL_CU_IN != selected_cu),
+    aes(
+      x = date_start, xend = date_end,
+      yend = y_axis_factor,
+      color = life_stage_label
+    ),
+    linewidth = 1.4, alpha = 0.65
+  )
+
+  # Draw thick timing segments for the selected CU
+  p <- p + geom_segment(
+    data = filter(df_plot, FULL_CU_IN == selected_cu),
+    aes(
+      x = date_start, xend = date_end,
+      yend = y_axis_factor,
+      color = life_stage_label
+    ),
+    linewidth = 5.5, alpha = 0.95
+  )
+
+  # Draw small peak points for other CUs
+  p <- p + geom_point(
+    data = filter(df_plot, FULL_CU_IN != selected_cu),
+    aes(
+      x = date_peak,
+      fill = life_stage_label,
+      shape = dat_qual_cat
+    ),
+    color = "grey30", size = 1.4, stroke = 0.3
+  )
+
+  # Draw large peak points for the selected CU
+  p <- p + geom_point(
+    data = filter(df_plot, FULL_CU_IN == selected_cu),
+    aes(
+      x = date_peak,
+      fill = life_stage_label,
+      shape = dat_qual_cat
+    ),
+    color = "black", size = 4.0, stroke = 1.2
+  )
 
   p <- p +
+    scale_color_manual(values = stage_colors, name = "Life Stage") +
+    scale_fill_manual(values = stage_colors, name = "Life Stage") +
+    scale_shape_manual(
+      name = "Data Quality",
+      values = c(
+        "High (1-2)" = 21,
+        "Medium (3-4)" = 24,
+        "Low (5-6)" = 22,
+        "Unknown" = 4
+      ),
+      guide = guide_legend(override.aes = list(size = 3, fill = "white", stroke = 1.0))
+    )
+
+  if (show_indicator_periods) {
+    p <- p + geom_rect(
+      aes(xmin = as.Date("2000-08-01"), xmax = as.Date("2000-08-31"), ymin = -Inf, ymax = Inf),
+      fill = "#FFE0B2", alpha = 0.08, inherit.aes = FALSE
+    )
+  }
+
+  # Zoom x-axis: range of the selected CU plus 1 month padding on each end (user request 2)
+  pad_start <- min(sel_timing$date_start, na.rm = TRUE)
+  pad_end <- max(sel_timing$date_end, na.rm = TRUE)
+  
+  if (!is.na(pad_start) && !is.na(pad_end)) {
+    xlim_start <- pad_start - 30
+    xlim_end <- pad_end + 30
+    if (xlim_start < as.Date("2000-01-01")) xlim_start <- as.Date("2000-01-01")
+    if (xlim_end > as.Date("2000-12-31")) xlim_end <- as.Date("2000-12-31")
+  } else {
+    xlim_start <- as.Date("2000-01-01")
+    xlim_end <- as.Date("2000-12-31")
+  }
+
+  cu_name_clean <- unique(sel_timing$culabel)[1]
+  if (is.na(cu_name_clean)) cu_name_clean <- selected_cu
+
+  p <- p +
+    scale_y_discrete(limits = levels_ordered) +
+    scale_x_date(
+      date_breaks = "1 month",
+      date_labels = "%b",
+      limits = c(xlim_start, xlim_end),
+      expand = c(0.01, 0)
+    ) +
     labs(
-      title = sprintf("Life Stage Timing: %s", cu_name),
-      subtitle = subtitle_text,
-      x = NULL,
-      y = "Date",
-      caption = "Bars = 5th-95th percentile range | Points = peak timing (size = data quality: 1=best, 6=worst)\nShaded areas = periods used for indicator calculations"
+      title = sprintf("Life History Timing: %s relative to all Fraser River CUs", cu_name_clean),
+      subtitle = dq_summary,
+      x = "Date",
+      y = NULL,
+      caption = "Bars represent 5th-95th percentile duration. Points represent peak timing.\nSelected CU highlighted in orange and bold. Peak symbols show data quality: Circle (High), Triangle (Medium), Square (Low).\nVertical lines show Selected CU milestones: blue dashed (Upstream Run Timing Start/End), red dashed (Spawning Start/Peak)."
+    ) +
+    theme_minimal() +
+    theme(
+      axis.text.x = element_text(size = 9),
+      axis.text.y = ggtext::element_markdown(lineheight = 0.8),
+      axis.text.y.left = ggtext::element_markdown(lineheight = 0.8),
+      axis.title.x = element_text(size = 10, face = "bold"),
+      panel.grid.major.y = element_blank(),
+      panel.grid.minor = element_blank(),
+      legend.position = "bottom",
+      legend.box = "horizontal",
+      legend.margin = margin(t = 0),
+      legend.title = element_text(size = 9, face = "bold"),
+      legend.text = element_text(size = 8.5),
+      plot.title = element_text(face = "bold", size = 12),
+      plot.subtitle = element_text(size = 9.5, face = "italic", color = "grey30"),
+      plot.caption = element_text(size = 8, color = "grey50", hjust = 0),
+      plot.margin = margin(5, 5, 5, 5)
     )
 
   return(p)
@@ -481,144 +590,440 @@ stream_indicator_multipanel_plot <- function(fwModels,
   
   wrap_plots(plots, ncol = ncol, nrow = nrow)
 }
-
-
-
-
 # ==================== 4. Migration Path Map ====================
 
-migration_path_plot <- function(migr_path,
-                                nuseds_data,
-                                cu_boundary,
-                                plot_title = "",
-                                colour_var = "mad_m3s",
-                                colour_label = "Mean Annual Discharge (m3s)") {
-  p <- ggplot() +
-    annotation_map_tile(type = "cartolight") +
-    geom_sf(
-      data = cu_boundary,
-      fill = "grey",
-      alpha = 0.1
-    ) +
-    geom_sf(data = migr_path, aes(colour = !!sym(colour_var)), linewidth = 2) +
-    scale_color_scico(palette = "batlow") +
-    geom_sf(
-      data = nuseds_data, aes(fill = SPECIES_LOOKUP),
-      color = "black", # outline color
-      size = 3, # increase point size
-      shape = 21
-    ) +
-    labs(
-      color = colour_label, fill = "NuSEDS sites",
-      subtitle = plot_title
-    )
+migration_path_timing_plot <- function(migr_path = NULL,
+                                       nuseds_data = NULL,
+                                       cu_boundary = NULL,
+                                       migr_daily_all = NULL,
+                                       cu_i = NULL,
+                                       timing = NULL,
+                                       rcp = "45",
+                                       period_choose = c("1981-2010", "2041-2060"),
+                                       plot_title = "") {
 
-  return(p)
-}
-
-
-# ==================== 5. Migration Temperature Timing ====================
-
-migr_timing_plot <- function(migr_daily_all,
-                             cu_i,
-                             timing,
-                             rcp = "45",
-                             period_choose = c("1981-2010", "2041-2060")) {
-  # Names of the components you want to process
-  components <- c("mean", "0.1", "0.9")
-
-  if (is.list(migr_daily_all) && !is.data.frame(migr_daily_all)) {
-    # Backward compatibility with migrT_rcps list structure
-    migrT_select <- migr_daily_all[[rcp]][[cu_i]][["doy"]]
-    long_list <- components %>%
-      purrr::set_names() %>%
-      map(~ migrT_select[[.x]] %>%
-        as.data.frame() %>%
-        mutate(doy = as.numeric(rownames(.))) %>%
-        pivot_longer(-doy, names_to = "period", values_to = .x))
-    df_all <- reduce(long_list, left_join, by = c("doy", "period")) %>%
-      drop_na() %>%
-      mutate(period = factor(period, levels = rev(sort(unique(period))))) %>%
-      filter(period %in% period_choose)
-  } else {
-    # Direct extraction from migr_daily_all tibble
-    if (exists("period_lookup")) {
-      period_codes <- period_lookup %>%
-        dplyr::filter(dsmodel == "pcicgrid", period %in% period_choose) %>%
-        dplyr::pull(period_code) %>%
-        unique()
-    } else {
-      period_codes <- NULL
+    # Retrieve missing variables from global environment if available
+  if (is.null(cu_i)) {
+    if (exists("cu_i", envir = .GlobalEnv)) {
+      cu_i <- get("cu_i", envir = .GlobalEnv)
+    } else if (exists("params", envir = .GlobalEnv)) {
+      params_obj <- get("params", envir = .GlobalEnv)
+      if ("FULL_CU_IN" %in% names(params_obj)) {
+        cu_i <- params_obj$FULL_CU_IN
+      }
     }
-
-    query <- migr_daily_all %>%
-      dplyr::filter(
-        FULL_CU_IN == cu_i,
-        rcp == !!rcp,
-        attr == "migrT"
-      )
-
-    if (!is.null(period_codes) && length(period_codes) > 0) {
-      query <- query %>% dplyr::filter(period_code %in% period_codes)
-    } else {
-      query <- query %>% dplyr::filter(period %in% period_choose)
-    }
-
-    df_unnested <- query %>%
-      dplyr::select(time) %>%
-      tidyr::unnest(time) %>%
-      dplyr::mutate(doy = as.numeric(time))
-
-    df_all <- df_unnested %>%
-      dplyr::group_by(period, doy) %>%
-      dplyr::summarise(
-        mean = mean(migrT, na.rm = TRUE),
-        `0.1` = as.numeric(stats::quantile(migrT, probs = 0.1, na.rm = TRUE)),
-        `0.9` = as.numeric(stats::quantile(migrT, probs = 0.9, na.rm = TRUE)),
-        .groups = "drop"
-      ) %>%
-      dplyr::mutate(period = factor(period, levels = rev(sort(unique(df_unnested$period))))) %>%
-      dplyr::filter(period %in% period_choose) %>%
-      dplyr::select(doy, period, mean, `0.1`, `0.9`)
   }
 
-  overall_mean <- df_all %>%
-    summarise(mean_temp = mean(mean, na.rm = TRUE)) %>%
-    pull(mean_temp)
+  if (is.null(migr_daily_all)) {
+    if (exists("migr_daily_all", envir = .GlobalEnv)) {
+      migr_daily_all <- get("migr_daily_all", envir = .GlobalEnv)
+    }
+  }
 
-  p <- ggplot(df_all, aes(x = doy, y = mean, color = period)) +
-    geom_ribbon(aes(ymin = `0.1`, ymax = `0.9`, group = period), alpha = 0.2, fill = "grey70") +
-    geom_path(alpha = 0.6, position = "identity") +
-    # Add vertical lines for rt_start, rt_end, sp_start
-    geom_vline(xintercept = timing$rt_start, linetype = "dashed", color = "blue", linewidth = 0.8) +
-    geom_vline(xintercept = timing$rt_end, linetype = "dashed", color = "blue", linewidth = 0.8) +
-    geom_vline(xintercept = timing$sp_start, linetype = "dashed", color = "red", linewidth = 0.8) +
-    geom_vline(xintercept = timing$sp_peak, linetype = "dashed", color = "red", linewidth = 0.8) +
+  if (is.null(timing)) {
+    if (exists("cu_timing_i", envir = .GlobalEnv)) {
+      timing <- get("cu_timing_i", envir = .GlobalEnv)
+    } else if (exists("cu_timing_Fr", envir = .GlobalEnv) && !is.null(cu_i)) {
+      cu_timing_Fr_obj <- get("cu_timing_Fr", envir = .GlobalEnv)
+      timing <- cu_timing_Fr_obj %>% dplyr::filter(FULL_CU_IN == cu_i)
+    }
+  }
 
-    # Add text annotations
-    annotate("text", x = timing$rt_start, y = Inf, label = "RT Start", vjust = 2, color = "blue") +
-    annotate("text", x = timing$rt_end, y = Inf, label = "RT End", vjust = 2, color = "blue") +
-    annotate("text", x = timing$sp_start, y = Inf, label = "SP Start", vjust = 2, color = "red") +
-    annotate("text", x = timing$sp_peak, y = Inf, label = "SP Peak", vjust = 2, color = "red") +
+  if (is.null(migr_path)) {
+    if (exists("migr_cu", envir = .GlobalEnv)) {
+      migr_path <- get("migr_cu", envir = .GlobalEnv)
+    } else if (exists("migr_list", envir = .GlobalEnv) && !is.null(cu_i)) {
+      migr_list_obj <- get("migr_list", envir = .GlobalEnv)
+      if (cu_i %in% names(migr_list_obj)) {
+        migr_path <- migr_list_obj[[cu_i]]
+      }
+    }
+  }
 
-    # Add overall mean line
-    # geom_hline(yintercept = overall_mean, linetype = "dotdash", color = "black", linewidth = 0.8) +
-    # annotate("text", x = max(df_all$doy), y = overall_mean, label = paste0("Overall Mean: ", round(overall_mean, 2), "°C"),
-    #   hjust = 1.1, vjust = -0.5, color = "black", size = 3.5) +
+  if (is.null(nuseds_data)) {
+    if (exists("nuseds_cu", envir = .GlobalEnv)) {
+      nuseds_data <- get("nuseds_cu", envir = .GlobalEnv)
+    } else if (exists("nuseds_Fr", envir = .GlobalEnv) && !is.null(cu_i)) {
+      nuseds_Fr_obj <- get("nuseds_Fr", envir = .GlobalEnv)
+      nuseds_data <- nuseds_Fr_obj %>% dplyr::filter(FULL_CU_IN == cu_i)
+    }
+  }
 
-    scale_fill_brewer(palette = "Spectral") +
-    labs(
-      title = "Temperature Trends with 10–90% Quantile Bounds",
-      x = "Day of Year (DOY)",
-      y = "Temperature (°C)",
-      fill = "Time Period"
-    )
+  if (is.null(cu_boundary)) {
+    if (exists("cu_boundary_i", envir = .GlobalEnv)) {
+      cu_boundary <- get("cu_boundary_i", envir = .GlobalEnv)
+    } else if (exists("cu_boundary", envir = .GlobalEnv) && !is.null(cu_i)) {
+      cu_boundary_full <- get("cu_boundary", envir = .GlobalEnv)
+      cu_boundary <- cu_boundary_full %>% dplyr::filter(FULL_CU_IN == cu_i)
+    }
+  }
 
-  return(p)
+  # Build the Temperature & Timing Plot (p_temp)
+  p_temp <- NULL
+  df_all <- NULL
+  if (!is.null(migr_daily_all) && !is.null(cu_i) && !is.null(timing) && nrow(timing) > 0) {
+    components <- c("mean", "0.1", "0.9")
+
+    if (is.list(migr_daily_all) && !is.data.frame(migr_daily_all)) {
+      migrT_select <- migr_daily_all[[rcp]][[cu_i]][["doy"]]
+      long_list <- components %>%
+        purrr::set_names() %>%
+        map(~ migrT_select[[.x]] %>%
+          as.data.frame() %>%
+          mutate(doy = as.numeric(rownames(.))) %>%
+          pivot_longer(-doy, names_to = "period", values_to = .x))
+      df_all <- reduce(long_list, left_join, by = c("doy", "period")) %>%
+        drop_na() %>%
+        mutate(period = factor(period, levels = rev(sort(unique(period))))) %>%
+        filter(period %in% period_choose)
+    } else {
+      if (exists("period_lookup")) {
+        period_codes <- period_lookup %>%
+          dplyr::filter(dsmodel == "pcicgrid", period %in% period_choose) %>%
+          dplyr::pull(period_code) %>%
+          unique()
+      } else {
+        period_codes <- NULL
+      }
+
+      query <- migr_daily_all %>%
+        dplyr::filter(
+          FULL_CU_IN == cu_i,
+          rcp == !!rcp,
+          attr == "migrT"
+        )
+
+      if (!is.null(period_codes) && length(period_codes) > 0) {
+        query <- query %>% dplyr::filter(period_code %in% period_codes)
+      } else {
+        query <- query %>% dplyr::filter(period %in% period_choose)
+      }
+
+      df_unnested <- query %>%
+        dplyr::select(time) %>%
+        tidyr::unnest(time) %>%
+        dplyr::mutate(doy = as.numeric(time))
+
+      df_all <- df_unnested %>%
+        dplyr::group_by(period, doy) %>%
+        dplyr::summarise(
+          mean = mean(migrT, na.rm = TRUE),
+          `0.1` = as.numeric(stats::quantile(migrT, probs = 0.1, na.rm = TRUE)),
+          `0.9` = as.numeric(stats::quantile(migrT, probs = 0.9, na.rm = TRUE)),
+          .groups = "drop"
+        ) %>%
+        dplyr::mutate(period = factor(period, levels = rev(sort(unique(df_unnested$period))))) %>%
+        dplyr::filter(period %in% period_choose) %>%
+        dplyr::select(doy, period, mean, `0.1`, `0.9`)
+    }
+
+    # Determine x-axis range based on CU timing limits + 1 month padding
+    events <- c(timing$rt_start, timing$rt_end, timing$sp_start, timing$sp_peak)
+    events <- events[!is.na(events)]
+    if (length(events) > 0) {
+      min_event <- min(events)
+      max_event <- max(events)
+    } else {
+      min_event <- 150
+      max_event <- 280
+    }
+
+    x_min <- max(1, min_event - 30)
+    x_max <- min(365, max_event + 30)
+
+    month_breaks <- c(1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335)
+    month_labels <- c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+    in_range <- month_breaks >= x_min & month_breaks <= x_max
+    breaks_to_use <- month_breaks[in_range]
+    labels_to_use <- month_labels[in_range]
+    if (length(breaks_to_use) == 0) {
+      breaks_to_use <- month_breaks
+      labels_to_use <- month_labels
+    }
+
+    # Filter future projection period for GCM range ribbon (exclude historical range)
+    future_period <- tail(period_choose, 1)
+    df_future_ribbon <- df_all %>% dplyr::filter(period == future_period)
+
+    p_temp <- ggplot(df_all, aes(x = doy, y = mean, color = period)) +
+      # Show GCM ribbon ONLY for the projection period
+      geom_ribbon(data = df_future_ribbon, aes(x = doy, ymin = `0.1`, ymax = `0.9`, group = period), alpha = 0.15, fill = "#e74c3c", color = NA, inherit.aes = FALSE) +
+      geom_path(linewidth = 1) +
+      geom_vline(xintercept = timing$rt_start, linetype = "dashed", color = "#3498db", linewidth = 0.8) +
+      geom_vline(xintercept = timing$rt_end, linetype = "dashed", color = "#3498db", linewidth = 0.8) +
+      geom_vline(xintercept = timing$sp_start, linetype = "dashed", color = "#e74c3c", linewidth = 0.8) +
+      geom_vline(xintercept = timing$sp_peak, linetype = "dashed", color = "#e74c3c", linewidth = 0.8) +
+      annotate("text", x = timing$rt_start, y = Inf, label = "Run Timing Start", vjust = 2, color = "#3498db", angle = 90, hjust = 1.1, size = 3, fontface = "bold") +
+      annotate("text", x = timing$rt_end, y = Inf, label = "Run Timing End", vjust = 2, color = "#3498db", angle = 90, hjust = 1.1, size = 3, fontface = "bold") +
+      annotate("text", x = timing$sp_start, y = Inf, label = "Spawning Start", vjust = -1, color = "#e74c3c", angle = 90, hjust = 1.1, size = 3, fontface = "bold") +
+      annotate("text", x = timing$sp_peak, y = Inf, label = "Spawning Peak", vjust = -1, color = "#e74c3c", angle = 90, hjust = 1.1, size = 3, fontface = "bold") +
+      labs(
+        x = "Month",
+        y = "Migration temperature (°C)",
+        color = "Period"
+      ) +
+      scale_color_manual(
+        values = c(
+          "1981-2010" = "#2c3e50",
+          "2041-2060" = "#e74c3c",
+          "1981-2000" = "#2c3e50"
+        )
+      ) +
+      scale_x_continuous(
+        breaks = breaks_to_use,
+        labels = labels_to_use
+      ) +
+      coord_cartesian(xlim = c(x_min, x_max), expand = FALSE) +
+      theme_bw() +
+      theme(
+        plot.margin = margin(t = 5, r = 5, b = 5, l = 5, unit = "pt"),
+        legend.position = "bottom"
+      ) +
+      annotation_custom(grid::textGrob("a", x = unit(0.96, "npc"), y = unit(0.92, "npc"), gp = grid::gpar(fontface = "bold", fontsize = 12)))
+  }
+
+  # Build the Map Plot (p_map)
+  p_map <- NULL
+  if (!is.null(migr_path) && nrow(migr_path) > 0) {
+    target_crs <- sf::st_crs(migr_path)
+
+    # Reproject other map layers
+    if (exists("bc_coast", envir = .GlobalEnv)) {
+      bc_coast_proj <- sf::st_transform(get("bc_coast", envir = .GlobalEnv), target_crs)
+    } else if (exists("paths") && !is.null(paths$marine) && file.exists(file.path(paths$marine, "bc_coast.Rds"))) {
+      bc_coast_proj <- sf::st_transform(readRDS(file.path(paths$marine, "bc_coast.Rds")), target_crs)
+    } else {
+      library(pacea)
+      bc_coast_proj <- sf::st_transform(pacea::bc_coast, target_crs)
+    }
+
+    if (exists("Fr_basin", envir = .GlobalEnv)) {
+      Fr_basin_proj <- sf::st_transform(get("Fr_basin", envir = .GlobalEnv), target_crs)
+    } else {
+      if (exists("paths") && !is.null(paths$fw) && file.exists(file.path(paths$fw, "basins_shp.Rds"))) {
+        load(file.path(paths$fw, "basins_shp.Rds"))
+        Fr_basin_proj <- sf::st_transform(dplyr::filter(basins, BASIN == "FRASER"), target_crs)
+      } else {
+        Fr_basin_proj <- NULL
+      }
+    }
+
+    if (exists("lakes_Fr", envir = .GlobalEnv)) {
+      lakes_proj <- sf::st_transform(get("lakes_Fr", envir = .GlobalEnv), target_crs)
+    } else {
+      if (exists("paths") && !is.null(paths$fw) && file.exists(file.path(paths$fw, "BC_FWA_LAKES_FR.Rds"))) {
+        load(file.path(paths$fw, "BC_FWA_LAKES_FR.Rds"))
+        lakes_proj <- sf::st_transform(lakes_Fr, target_crs)
+      } else {
+        lakes_proj <- NULL
+      }
+    }
+
+    # Reproject cu_boundary
+    if (!is.null(cu_boundary) && nrow(cu_boundary) > 0) {
+      cu_boundary <- sf::st_transform(cu_boundary, target_crs)
+    }
+
+    # Crop bounding box with margin, incorporating the ENTIRE CU boundary if available
+    bbox_path <- sf::st_bbox(migr_path)
+    if (!is.null(cu_boundary) && nrow(cu_boundary) > 0) {
+      bbox_boundary <- sf::st_bbox(cu_boundary)
+      bbox <- c(
+        xmin = min(bbox_path["xmin"], bbox_boundary["xmin"], na.rm = TRUE),
+        ymin = min(bbox_path["ymin"], bbox_boundary["ymin"], na.rm = TRUE),
+        xmax = max(bbox_path["xmax"], bbox_boundary["xmax"], na.rm = TRUE),
+        ymax = max(bbox_path["ymax"], bbox_boundary["ymax"], na.rm = TRUE)
+      )
+      class(bbox) <- "bbox"
+    } else {
+      bbox <- bbox_path
+    }
+
+    x_range <- bbox["xmax"] - bbox["xmin"]
+    y_range <- bbox["ymax"] - bbox["ymin"]
+    margin_factor <- 0.08
+    xlims <- c(bbox["xmin"] - margin_factor * x_range, bbox["xmax"] + margin_factor * x_range)
+    ylims <- c(bbox["ymin"] - margin_factor * y_range, bbox["ymax"] + margin_factor * y_range)
+
+    # Fallback for species palette
+    if (exists("species_palette", envir = .GlobalEnv)) {
+      spp_colors <- get("species_palette", envir = .GlobalEnv)
+    } else {
+      spp_colors <- c("Chinook" = "#E69F00", "Chum" = "#56B4E9", "Coho" = "#009E73", "Pink" = "#F0E442", "Sockeye" = "#D55E00")
+    }
+
+    # Calculate average historical flow for that CU during migration period
+    avg_migr_flow <- NA_real_
+    df_flow_all <- NULL
+
+    if (is.data.frame(migr_daily_all)) {
+      if (exists("period_lookup")) {
+        period_codes <- period_lookup %>%
+          dplyr::filter(dsmodel == "pcicgrid", period %in% period_choose) %>%
+          dplyr::pull(period_code) %>%
+          unique()
+      } else {
+        period_codes <- NULL
+      }
+
+      query_flow <- migr_daily_all %>%
+        dplyr::filter(
+          FULL_CU_IN == cu_i,
+          rcp == !!rcp,
+          attr == "migrQ"
+        )
+
+      if (!is.null(period_codes) && length(period_codes) > 0) {
+        query_flow <- query_flow %>% dplyr::filter(period_code %in% period_codes)
+      } else {
+        query_flow <- query_flow %>% dplyr::filter(period %in% period_choose)
+      }
+
+      if (nrow(query_flow) > 0) {
+        df_flow_unnested <- query_flow %>%
+          dplyr::select(time) %>%
+          tidyr::unnest(time) %>%
+          dplyr::mutate(doy = as.numeric(time))
+
+        df_flow_all <- df_flow_unnested %>%
+          dplyr::group_by(period, doy) %>%
+          dplyr::summarise(
+            mean = mean(migrQ, na.rm = TRUE),
+            .groups = "drop"
+          )
+      }
+    } else if (is.list(migr_daily_all) && exists("migrQ_rcps", envir = .GlobalEnv)) {
+      migrQ_rcps_obj <- get("migrQ_rcps", envir = .GlobalEnv)
+      if (!is.null(migrQ_rcps_obj) && rcp %in% names(migrQ_rcps_obj) && cu_i %in% names(migrQ_rcps_obj[[rcp]])) {
+        migrQ_select <- migrQ_rcps_obj[[rcp]][[cu_i]][["doy"]]
+        df_flow_all <- migrQ_select[["mean"]] %>%
+          as.data.frame() %>%
+          mutate(doy = as.numeric(rownames(.))) %>%
+          pivot_longer(-doy, names_to = "period", values_to = "mean")
+      }
+    }
+
+    # Extract historical flow component within the migration timing window
+    df_hist_flow <- NULL
+    if (!is.null(df_flow_all) && nrow(df_flow_all) > 0) {
+      hist_period <- period_choose[1]
+      df_hist_flow <- df_flow_all %>% dplyr::filter(period == hist_period)
+      if (nrow(df_hist_flow) == 0) {
+        df_hist_flow <- df_flow_all %>% dplyr::filter(period == unique(df_flow_all$period)[1])
+      }
+      
+      rt_s <- timing$rt_start[1]
+      rt_e <- timing$rt_end[1]
+      if (is.na(rt_s)) rt_s <- 1
+      if (is.na(rt_e)) rt_e <- 365
+
+      if (rt_s <= rt_e) {
+        df_migr_flow <- df_hist_flow %>% dplyr::filter(doy >= rt_s, doy <= rt_e)
+      } else {
+        df_migr_flow <- df_hist_flow %>% dplyr::filter(doy >= rt_s | doy <= rt_e)
+      }
+      
+      avg_migr_flow <- mean(df_migr_flow$mean, na.rm = TRUE)
+      if (is.na(avg_migr_flow) || !is.finite(avg_migr_flow)) {
+        avg_migr_flow <- mean(df_hist_flow$mean, na.rm = TRUE)
+      }
+    }
+
+    # Fallback default value
+    if (is.na(avg_migr_flow) || !is.finite(avg_migr_flow)) {
+      avg_migr_flow <- 10.0
+    }
+
+    migr_path_temp <- migr_path
+    migr_path_temp$migr_flow <- avg_migr_flow
+
+    # Color scale limits derived from historical flow range
+    if (!is.null(df_hist_flow) && nrow(df_hist_flow) > 0) {
+      min_flow_val <- min(df_hist_flow$mean, na.rm = TRUE)
+      max_flow_val <- max(df_hist_flow$mean, na.rm = TRUE)
+    } else {
+      min_flow_val <- 0
+      max_flow_val <- 100
+    }
+    if (is.na(min_flow_val) || !is.finite(min_flow_val)) min_flow_val <- 0
+    if (is.na(max_flow_val) || !is.finite(max_flow_val)) max_flow_val <- 100
+
+    p_map <- ggplot() +
+      geom_sf(data = bc_coast_proj, fill = "grey90", color = "grey75", linewidth = 0.3)
+    
+    if (!is.null(Fr_basin_proj)) {
+      p_map <- p_map + geom_sf(data = Fr_basin_proj, fill = "antiquewhite", color = "grey60", linewidth = 0.4)
+    }
+    
+    if (!is.null(lakes_proj)) {
+      p_map <- p_map + geom_sf(data = lakes_proj, fill = "aliceblue", color = "aliceblue", linewidth = 0.1)
+    }
+
+    # Draw CU boundary outline
+    if (!is.null(cu_boundary) && nrow(cu_boundary) > 0) {
+      p_map <- p_map +
+        geom_sf(
+          data = cu_boundary,
+          fill = "grey",
+          alpha = 0.1
+        )
+    }
+
+    # Color migration path dynamically by the average historical flow using the batlow palette
+    p_map <- p_map +
+      geom_sf(data = migr_path_temp, aes(color = migr_flow), linewidth = 1.2) +
+      scico::scale_color_scico(
+        palette = "batlow",
+        name = "Historic Flow\n(m³/s)",
+        direction = 1,
+        limits = c(min_flow_val, max_flow_val),
+        oob = scales::squish,
+        labels = function(x) {
+          ifelse(x >= 1000, paste0(format(round(x/1000, 1), nsmall = 0), "k"), round(x, 0))
+        }
+      )
+
+    # Add NuSEDS sites points
+    if (!is.null(nuseds_data) && nrow(nuseds_data) > 0) {
+      p_map <- p_map +
+        geom_sf(
+          data = nuseds_data, aes(fill = SPECIES_LOOKUP),
+          color = "black", # outline color
+          size = 3, # increase point size
+          shape = 21
+        ) +
+        scale_fill_manual(values = spp_colors, name = "NuSEDS sites")
+    }
+
+    p_map <- p_map +
+      coord_sf(xlim = xlims, ylim = ylims, expand = FALSE) +
+      theme_void() +
+      theme(
+        plot.margin = margin(t = 5, r = 5, b = 5, l = 5, unit = "pt"),
+        panel.border = element_rect(color = "black", fill = NA, linewidth = 0.8),
+        legend.position = "bottom"
+      ) +
+      annotation_custom(grid::textGrob("b", x = unit(0.94, "npc"), y = unit(0.94, "npc"), gp = grid::gpar(fontface = "bold", fontsize = 12)))
+  }
+
+  # Combine them side-by-side using patchwork
+  if (!is.null(p_temp) && !is.null(p_map)) {
+    p <- patchwork::wrap_plots(p_temp, p_map, ncol = 2, widths = c(1.8, 1.2)) +
+      patchwork::plot_layout(guides = "collect") &
+      theme(
+        legend.box.spacing = unit(4, "pt"),
+        legend.margin = margin(0, 0, 0, 0, "pt"),
+        legend.position = "bottom"
+      )
+    return(p)
+  } else if (!is.null(p_temp)) {
+    return(p_temp)
+  } else if (!is.null(p_map)) {
+    return(p_map)
+  } else {
+    stop("No data available to generate map or timing plot.")
+  }
 }
-
-
-
 
 
 
@@ -1225,14 +1630,8 @@ MAZ_boundary_highlight <- function(MAZ,
 #
 # # migr_UFR <- filter(migr_cu, watershed_group_code == "UFRA")
 # #
-# # migration_path_plot(migr_cu,
-# #   nuseds_cu,
-# #   cu_boundary_i,
-# #   colour_var = "downstream_distance",
-# # )
+# # migration_path_timing_plot(migr_cu, nuseds_cu, cu_boundary_i, migr_daily_all, cu_i, cu_timing_i)
 # # # #
 # # cu_timing_plot(cu_timing_long_i)
 # #
-# migr_timing_plot(migrT_rcps, cu_i, cu_timing_i)
-#
 # migrT_cu <- migrT_rcps[["45"]][[cu_i]]

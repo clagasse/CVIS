@@ -28,6 +28,11 @@
 
 library(here)
 
+# Configure Pandoc path if not found (needed for rendering Rmd files on Windows)
+if (Sys.getenv("RSTUDIO_PANDOC") == "") {
+  Sys.setenv(RSTUDIO_PANDOC = "C:/Program Files/RStudio/resources/app/bin/quarto/bin/tools")
+}
+
 library(janitor)
 
 library(tidyverse)
@@ -378,10 +383,11 @@ source(here("code", "2_fw_utils.R"))
 source(here("code", "3_marine_utils.R"))
 source(here("code", "4_scoring_utils.R"))
 
-# load plotting functions
+# load plotting functions and table summaries
 source(here("code", "5a_plots_CU.R"))
 source(here("code", "5b_plots_compare.R"))
 source(here("code", "5c_plots_sensitivity_indicators.R"))
+source(here("code", "5d_table_summaries.R"))
 
 # load CU tables
 source(here("code", "1a_CU_import.R")) # CU table
@@ -431,8 +437,28 @@ if (exists("cu_run")) {
       names(cols) <- smus
       smu_colors <- c(smu_colors, cols)
     } else if (n_smus > 1) {
-      ramp <- colorRampPalette(c("white", base_col, "black"))
-      cols <- ramp(n_smus + 4)[3:(n_smus + 2)]
+      base_rgb <- col2rgb(base_col)
+      base_hsv <- rgb2hsv(base_rgb)
+      h <- base_hsv[1, 1]
+      s <- base_hsv[2, 1]
+      v <- base_hsv[3, 1]
+      
+      cols <- character(n_smus)
+      for (i in 1:n_smus) {
+        # Spread hue slightly around the base hue
+        hue_offset <- ((i - 1) / (n_smus - 1) - 0.5) * 0.12
+        new_h <- (h + hue_offset) %% 1
+        
+        # Spread saturation slightly
+        sat_offset <- ((i - 1) / (n_smus - 1) - 0.5) * 0.20
+        new_s <- max(0.4, min(1, s - sat_offset))
+        
+        # Spread value/lightness
+        val_offset <- ((i - 1) / (n_smus - 1) - 0.5) * 0.40
+        new_v <- max(0.3, min(1, v - val_offset))
+        
+        cols[i] <- hsv(new_h, new_s, new_v)
+      }
       names(cols) <- smus
       smu_colors <- c(smu_colors, cols)
     }
