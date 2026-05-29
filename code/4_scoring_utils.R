@@ -889,8 +889,11 @@ rank_scores <- function(data, score_col, group_cols, rank_col = "score_rank", de
 scale_0_100 <- function(x) {
   mn <- suppressWarnings(min(x, na.rm = TRUE))
   mx <- suppressWarnings(max(x, na.rm = TRUE))
-  if (!is.finite(mn) || !is.finite(mx) || mx <= mn) {
-    return(rep(NA_real_, length(x))) # constant or all-NA -> no scale
+  if (!is.finite(mn) || !is.finite(mx)) {
+    return(rep(NA_real_, length(x))) # all-NA or non-finite -> no scale
+  }
+  if (mx <= mn) {
+    return(x * 100) # constant values: yield same score for all CUs
   }
   (x - mn) / (mx - mn) * 100
 }

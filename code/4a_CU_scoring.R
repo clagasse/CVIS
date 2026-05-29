@@ -100,7 +100,8 @@ all_long <- bind_rows(cu_long_prep, genetic_long_prep, fw_long, migr_long, mar_l
 all_long <- select(cu_run, FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE) %>%
   left_join(all_long, by = "FULL_CU_IN")
 
-calibration_input <- maz_all
+calibration_input <- maz_all %>%
+  filter(MAZ != "Offshore")  #remove offshore areas from the calibration data for MAZ, since it's not actually a MAZ
 
 
 # ==================== 2. Calculate Standardized Scores ====================
@@ -284,7 +285,7 @@ if (!is.na(scale_baseline_rcp) && !is.na(scale_baseline_period)) {
 
   score100_cross <- score100_cross %>%
     left_join(bounds_cross, by = c("std_method", "gcm", "method", "category")) %>%
-    mutate(score100_all = if_else(!is.finite(mn) | !is.finite(mx) | mx <= mn, NA_real_, (score - mn) / (mx - mn) * 100)) %>%
+    mutate(score100_all = if_else(!is.finite(mn) | !is.finite(mx), NA_real_, if_else(mx <= mn, score * 100, (score - mn) / (mx - mn) * 100))) %>%
     select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, std_method, gcm, rcp, period_code, method, category, score100_all)
 } else {
   score100_cross <- score100_cross %>%
@@ -309,7 +310,7 @@ if (!is.na(scale_baseline_rcp) && !is.na(scale_baseline_period)) {
 
   score100_within <- score100_within %>%
     left_join(bounds_within, by = c("std_method", "SPECIES_NAME", "gcm", "method", "category")) %>%
-    mutate(score100_species = if_else(!is.finite(mn) | !is.finite(mx) | mx <= mn, NA_real_, (score - mn) / (mx - mn) * 100)) %>%
+    mutate(score100_species = if_else(!is.finite(mn) | !is.finite(mx), NA_real_, if_else(mx <= mn, score * 100, (score - mn) / (mx - mn) * 100))) %>%
     select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, std_method, gcm, rcp, period_code, method, category, score100_species)
 } else {
   score100_within <- score100_within %>%

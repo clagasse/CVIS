@@ -51,20 +51,20 @@ html_template <- r"---(<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CVIS Supplemental CU Data Report</title>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <title>Climate Vulnerability Indicators for Salmon (CVIS) Supplemental CU Data Report</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --primary: #1A365D;
-      --primary-light: #2B6CB0;
-      --primary-hover: #2B6CB0;
-      --bg: #F7FAFC;
-      --sidebar-bg: #1A202C;
-      --sidebar-hover: #2D3748;
-      --text: #2D3748;
-      --text-muted: #718096;
+      --primary: #334155;
+      --primary-light: #475569;
+      --primary-hover: #475569;
+      --bg: #F8FAFC;
+      --sidebar-bg: #0F172A;
+      --sidebar-hover: #1E293B;
+      --text: #0F172A;
+      --text-muted: #475569;
       --border: #E2E8F0;
-      --active-bg: #2B6CB0;
+      --active-bg: #334155;
       --active-text: #FFFFFF;
     }
     
@@ -75,7 +75,7 @@ html_template <- r"---(<!DOCTYPE html>
     }
     
     body {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background-color: var(--bg);
       color: var(--text);
       display: flex;
@@ -96,20 +96,22 @@ html_template <- r"---(<!DOCTYPE html>
     
     .sidebar-header {
       padding: 20px;
-      border-bottom: 1px solid #2D3748;
+      border-bottom: 1px solid #1E293B;
     }
     
     .sidebar-header h1 {
-      font-family: 'Outfit', sans-serif;
-      font-size: 1.25rem;
+      font-family: 'Inter', sans-serif;
+      font-size: 1.15rem;
       font-weight: 700;
       color: #FFFFFF;
       margin-bottom: 5px;
     }
     
     .sidebar-header p {
-      font-size: 0.75rem;
-      color: #A0AEC0;
+      font-size: 0.7rem;
+      color: #94A3B8;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
     }
     
     .btn-home {
@@ -118,10 +120,10 @@ html_template <- r"---(<!DOCTYPE html>
       text-align: left;
       background: none;
       border: none;
-      color: #A0AEC0;
-      font-size: 0.85rem;
+      color: #94A3B8;
+      font-size: 0.8rem;
       font-weight: 600;
-      margin-top: 10px;
+      margin-top: 12px;
       cursor: pointer;
       transition: color 0.2s;
     }
@@ -132,15 +134,15 @@ html_template <- r"---(<!DOCTYPE html>
     
     .search-container {
       padding: 15px 20px;
-      border-bottom: 1px solid #2D3748;
+      border-bottom: 1px solid #1E293B;
     }
     
     .search-input {
       width: 100%;
-      padding: 10px 15px;
-      background-color: #2D3748;
-      border: 1px solid #4A5568;
-      border-radius: 6px;
+      padding: 8px 12px;
+      background-color: #1E293B;
+      border: 1px solid #334155;
+      border-radius: 4px;
       color: #FFFFFF;
       font-size: 0.85rem;
       outline: none;
@@ -162,23 +164,23 @@ html_template <- r"---(<!DOCTYPE html>
     }
     
     .species-title {
-      font-family: 'Outfit', sans-serif;
-      font-size: 0.8rem;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.75rem;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: #A0AEC0;
+      color: #64748B;
       margin-bottom: 8px;
       padding-left: 5px;
     }
     
     .cu-item {
       display: block;
-      padding: 8px 12px;
-      border-radius: 6px;
-      color: #CBD5E0;
+      padding: 6px 10px;
+      border-radius: 4px;
+      color: #CBD5E1;
       text-decoration: none;
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       margin-bottom: 4px;
       cursor: pointer;
       transition: all 0.2s;
@@ -231,15 +233,17 @@ html_template <- r"---(<!DOCTYPE html>
     }
     
     .about-header h2 {
-      font-family: 'Outfit', sans-serif;
-      font-size: 2.25rem;
-      font-weight: 800;
+      font-family: 'Inter', sans-serif;
+      font-size: 1.75rem;
+      font-weight: 700;
       color: var(--primary);
       margin-bottom: 10px;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 15px;
     }
     
     .about-header p {
-      font-size: 1.1rem;
+      font-size: 1rem;
       color: var(--text-muted);
       line-height: 1.6;
     }
@@ -247,21 +251,21 @@ html_template <- r"---(<!DOCTYPE html>
     .about-section {
       background: #FFFFFF;
       padding: 25px;
-      border-radius: 8px;
+      border-radius: 4px;
       border: 1px solid var(--border);
-      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.02);
     }
     
     .about-section h3 {
-      font-family: 'Outfit', sans-serif;
-      font-size: 1.25rem;
+      font-family: 'Inter', sans-serif;
+      font-size: 1.15rem;
       font-weight: 700;
       color: var(--primary);
       margin-bottom: 15px;
     }
     
     .about-section p, .about-section li {
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       line-height: 1.6;
       margin-bottom: 10px;
     }
@@ -272,16 +276,16 @@ html_template <- r"---(<!DOCTYPE html>
     }
     
     .disclaimer-box {
-      background-color: #FFFDF5;
-      border: 1px solid #F6AD55;
+      background-color: #FEF2F2;
+      border: 1px solid #FCA5A5;
       padding: 20px;
-      border-radius: 8px;
-      color: #C05621;
+      border-radius: 4px;
+      color: #991B1B;
     }
     
     .disclaimer-box h4 {
-      font-family: 'Outfit', sans-serif;
-      font-size: 1.05rem;
+      font-family: 'Inter', sans-serif;
+      font-size: 1rem;
       font-weight: 700;
       margin-bottom: 8px;
       display: flex;
@@ -290,19 +294,19 @@ html_template <- r"---(<!DOCTYPE html>
     }
     
     .disclaimer-box p {
-      font-size: 0.9rem;
+      font-size: 0.85rem;
       line-height: 1.6;
     }
   </style>
 </head>
 <body>
-
+ 
   <!-- Sidebar -->
   <div class="sidebar">
     <div class="sidebar-header">
       <h1>CVIS Database</h1>
-      <p>Climate Vulnerability Suite</p>
-      <button class="btn-home" onclick="showAbout()">&#127969; Home / About Project</button>
+      <p>Climate Vulnerability Indicators for Salmon</p>
+      <button class="btn-home" onclick="showAbout()">Home / About Project</button>
     </div>
     <div class="search-container">
       <input type="text" id="search-box" class="search-input" placeholder="Search Conservation Units..." onkeyup="filterCUs()">
@@ -311,45 +315,47 @@ html_template <- r"---(<!DOCTYPE html>
       <!-- Dynamic list injected by JS -->
     </div>
   </div>
-
+ 
   <!-- Main Viewer Content -->
   <div class="content-area">
     <!-- About Landing screen -->
     <div class="about-screen" id="about-landing">
       <div class="about-header">
-        <h2>Climate Vulnerability Indicator Suite (CVIS)</h2>
+        <h2>Climate Vulnerability Indicators for Salmon (CVIS)</h2>
         <p>Supplemental Conservation Unit Reports for publication.</p>
       </div>
-
+ 
       <div class="about-section">
         <h3>About the Project</h3>
-        <p>This supplement explores climate vulnerability indicator data for Conservation Units (CUs) within the Fraser River Basin. Click on any of the CUs in the left sidebar to view its individual profile, maps, life-stage timing, and indicator summary tables.</p>
+        <p>This supplemental report presents individual Conservation Unit (CU) profiles and indicator data for the Climate Vulnerability Indicators for Salmon (CVIS) framework. Click on any of the CUs in the left sidebar to view its individual profile, maps, life-stage timing, and indicator summary tables.</p>
         
         <p>Each individual report contains the following sections:</p>
         <ul>
-          <li><strong>Overview:</strong> A structured summary of all demographic, freshwater, genetics, and migration vulnerability scores.</li>
-          <li><strong>Demographics:</strong> Recent conservation status and spawner abundance trends.</li>
-          <li><strong>Timing:</strong> Life-history stage timing throughout the year.</li>
-          <li><strong>Spawning & Rearing:</strong> Freshwater stream access, temperature projections, streamflow changes, and cumulative threat maps.</li>
-          <li><strong>Migration:</strong> Channel width, migratory distance, and daily stream temperatures during upstream migration.</li>
+          <li><strong>Overview:</strong> A composite summary of Overall Vulnerability and category vulnerability scores compared across all CUs, alongside a complete baseline raw and standardized indicator table and locator maps.</li>
+          <li><strong>Demographics:</strong> Recent Wild Salmon Policy (WSP) status assessments and generational spawner abundance trends.</li>
+          <li><strong>Timing:</strong> Timeline of annual life-history stage schedules (run timing, migration, and peak spawning).</li>
+          <li><strong>Spawning & Rearing:</strong> Freshwater rearing habitat stream networks, stream temperature projections, warming rates, summer/winter flow alterations, and habitat niche suitability.</li>
+          <li><strong>Migration:</strong> Upstream adult migration route characteristics, including migration distance and daily mainstem stream temperatures synced to CU migration windows.</li>
+          <li><strong>Marine:</strong> Nearshore marine climate exposure (SST projections, decadal warming rates, and cumulative human impacts) across Marine Adaptive Zones (MAZs).</li>
+          <li><strong>Sensitivity Analysis:</strong> Variations in overall scoring and standardized risk scores across different climate models (GCMs), downscaling methods, and aggregation algorithms.</li>
         </ul>
       </div>
-
+ 
       <div class="about-section">
-        <h3>Analysis Default Parameters</h3>
+        <h3>Analysis Assumptions</h3>
         <ul>
-          <li><strong>RCP 4.5:</strong> Representative Concentration Pathway (Scenario)</li>
-          <li><strong>Time Period:</strong> Mid-Century (2041-2060)</li>
+          <li><strong>Climate Scenario:</strong> Baseline vulnerability scores evaluate the RCP 4.5 emission pathway.</li>
+          <li><strong>Time Period:</strong> Projections evaluate Mid-Century (2041-2060) changes.</li>
         </ul>
       </div>
-
+ 
       <div class="disclaimer-box">
-        <h4>&#9888; Draft Data Disclaimer</h4>
+        <h4>Draft Data Disclaimer</h4>
         <p><strong>DRAFT - Not for further distribution without permission of the authors</strong></p>
         <p>This data and analysis are preliminary and subject to change. The indicators presented here are under active development and have not been peer-reviewed. Results should be interpreted with caution and are intended for exploratory analysis only.</p>
       </div>
     </div>
-
+ 
     <!-- Report Frame -->
     <iframe id="report-iframe"></iframe>
   </div>
@@ -407,7 +413,9 @@ html_template <- r"---(<!DOCTYPE html>
 
       // Decode and inject report
       try {
-        const decodedHtml = decodeURIComponent(escape(atob(cu.base64)));
+        let decodedHtml = decodeURIComponent(escape(atob(cu.base64)));
+        // Inject <base href="CU_reports/"> right after <head> so relative links to shared libs/ and unique files/ resolve correctly
+        decodedHtml = decodedHtml.replace('<head>', '<head><base href="CU_reports/">');
         aboutLanding.style.display = 'none';
         iframe.style.display = 'block';
         iframe.srcdoc = decodedHtml;

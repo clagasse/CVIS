@@ -2,8 +2,8 @@
 # CVIS Console - Pipeline Runner (0a_console.R)
 #
 # Description:
-#   This is the master orchestration script for the Climate Vulnerability Indicator
-#   Suite (CVIS). It configures the pipeline options, loads baseline spatial datasets,
+#   This is the master orchestration script for the Climate Vulnerability Indicators
+#   for Salmon (CVIS). It configures the pipeline options, loads baseline spatial datasets,
 #   runs optional data processing and statistical steps, and executes scoring and
 #   report generation.
 #
@@ -117,10 +117,9 @@ if (run_indicator_report) {
 if (run_reports_indiv) {
   cat("\nRendering individual CU data reports...\n")
   dir.create(file.path(paths$reports, "CU_reports"), showWarnings = FALSE, recursive = TRUE)
-  
   # Default to compiling the first 2 CUs for testing and speed.
   # To run for all 50 CUs, change this to: cus_to_compile <- cu_run$FULL_CU_IN
-  cus_to_compile <- cu_run$FULL_CU_IN[1:2]
+  cus_to_compile <- cu_run$FULL_CU_IN[1]
   
   for (CU_IN_i in cus_to_compile) {
     cat("Compiling HTML profile for:", CU_IN_i, "\n")
@@ -132,6 +131,7 @@ if (run_reports_indiv) {
       output_file = paste(CU_IN_i, "CVIS_Data_report.html", sep = "_"),
       output_dir = file.path(paths$reports, "CU_reports"),
       output_format = "html_document",
+      output_options = list(self_contained = FALSE, lib_dir = file.path(paths$reports, "CU_reports", "libs")),
       params = list(
         FULL_CU_IN = CU_IN_i,
         default_rcp = default_rcp,
@@ -142,7 +142,7 @@ if (run_reports_indiv) {
   }
   
   # Generate the master HTML dashboard combining the individual reports
-  source(file.path(paths$code, "generate_dashboard.R"))
+  source(file.path(paths$code, "6d_generate_dashboard.R"))
 }
 
 # 5.4 Indicator description HTML Report

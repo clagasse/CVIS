@@ -25,8 +25,42 @@
 #   - Requires ggplot2, sf, scico, patchwork, and standard CVIS data inputs.
 # ==============================================================================
 
+# Helper function for geometry simplification to reduce HTML file sizes and rendering times
+simplify_geom_if_needed <- function(sf_obj, dTolerance = NULL) {
+  if (is.null(sf_obj) || !inherits(sf_obj, "sf")) {
+    return(sf_obj)
+  }
+  
+  tol <- dTolerance
+  if (is.null(tol)) {
+    if (exists("geom_simplify_tol")) {
+      tol <- get("geom_simplify_tol")
+    } else {
+      tol <- 0
+    }
+  }
+  
+  if (!is.null(tol) && !is.na(tol) && tol > 0) {
+    if (nrow(sf_obj) == 0) {
+      return(sf_obj)
+    }
+    
+    sf_obj_simple <- tryCatch({
+      sf::st_simplify(sf_obj, preserveTopology = TRUE, dTolerance = tol)
+    }, error = function(e) {
+      warning("Geometry simplification failed: ", e$message)
+      sf_obj
+    })
+    return(sf_obj_simple)
+  }
+  
+  return(sf_obj)
+}
+
+
 # ==================== 1. CU Timing Plot ====================
 # Improved CU timing plot function - Version 2
+
 # Shows life stage timing with indicator calculation periods
 
 # Improved CU timing plot function - Version 2
@@ -354,6 +388,15 @@ stream_accessible_plot <- function(stream_data,
                                    nuseds_data,
                                    cu_boundary,
                                    lakes_cu) {
+  # Simplify geometries if needed
+  if (exists("cu_boundary_i", envir = .GlobalEnv)) {
+    cu_boundary_i <- simplify_geom_if_needed(get("cu_boundary_i", envir = .GlobalEnv))
+  } else {
+    cu_boundary_i <- simplify_geom_if_needed(cu_boundary)
+  }
+  lakes_cu <- simplify_geom_if_needed(lakes_cu)
+  stream_data <- simplify_geom_if_needed(stream_data)
+
   p1 <- ggplot() +
     geom_sf(data = cu_boundary_i, color = "black", alpha = 0.3)
 
@@ -389,6 +432,11 @@ stream_indicator_plot <- function(fwModels,
                                   temp_stations = FALSE,
                                   scico_palette = "roma",
                                   palette_direction = 1) {
+  # Simplify geometries if needed
+  fwModels <- simplify_geom_if_needed(fwModels)
+  cu_boundary <- simplify_geom_if_needed(cu_boundary)
+  lakes_cu <- simplify_geom_if_needed(lakes_cu)
+
   var_sym <- sym(variable)
   hist_sym <- sym(histogram_fill)
 
@@ -508,6 +556,11 @@ stream_indicator_multipanel_plot <- function(fwModels,
                                             palette_directions = 1,
                                             ncol = NULL,
                                             nrow = NULL) {
+  # Simplify geometries if needed
+  fwModels <- simplify_geom_if_needed(fwModels)
+  cu_boundary <- simplify_geom_if_needed(cu_boundary)
+  lakes_cu <- simplify_geom_if_needed(lakes_cu)
+
   # Helper to resolve parameter by index or name
   get_param_by_name <- function(param, var_name, idx, default_val) {
     if (is.null(param)) {
@@ -657,6 +710,10 @@ migration_path_timing_plot <- function(migr_path = NULL,
       cu_boundary <- cu_boundary_full %>% dplyr::filter(FULL_CU_IN == cu_i)
     }
   }
+
+  # Simplify geometries if needed
+  migr_path <- simplify_geom_if_needed(migr_path)
+  cu_boundary <- simplify_geom_if_needed(cu_boundary)
 
   # Build the Temperature & Timing Plot (p_temp)
   p_temp <- NULL
@@ -822,6 +879,15 @@ migration_path_timing_plot <- function(migr_path = NULL,
     # Reproject cu_boundary
     if (!is.null(cu_boundary) && nrow(cu_boundary) > 0) {
       cu_boundary <- sf::st_transform(cu_boundary, target_crs)
+    }
+
+    # Simplify projected layers if needed to reduce file size and speed up rendering
+    bc_coast_proj <- simplify_geom_if_needed(bc_coast_proj)
+    if (!is.null(Fr_basin_proj)) {
+      Fr_basin_proj <- simplify_geom_if_needed(Fr_basin_proj)
+    }
+    if (!is.null(lakes_proj)) {
+      lakes_proj <- simplify_geom_if_needed(lakes_proj)
     }
 
     # Crop bounding box with margin, incorporating the ENTIRE CU boundary if available

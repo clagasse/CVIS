@@ -523,7 +523,7 @@ Under the bootstrap framework, we performed $B = 100$ iterations focusing on the
 1. **Global Climate Models (GCMs):** Randomly sampled from the three common GCMs (`CanESM2`, `HadGEM2-ES`, and `MPI-ESM-LR`).
 2. **Emissions Scenarios (RCPs):** Randomly sampled from `RCP 4.5` and `RCP 8.5`.
 3. **Freshwater Temperature Downscaling:** Randomly sampled from `pcicgrid` (PCIC gridded downscaled temperature projections) and `tscapes` (Thermalscapes).
-4. **Freshwater Flow Downscaling:** Randomly sampled from `station` (station-based downscaled flow projections) and `streamdyn` (dynamic streamflow modeling). Due to data constraints, when the `station` downscaler is sampled, flow indicators default to the GCM ensemble mean (GCM 9) instead of the sampled individual GCM.
+4. **Freshwater Flow Downscaling:** Randomly sampled from `station` (station-based downscaled flow projections) and `streamdyn` (dynamic streamflow modeling). Due to data constraints, when the `station` downscaling method is sampled, flow indicators default to the GCM ensemble mean (GCM 9) instead of the sampled individual GCM.
 5. **Marine SST Downscaling:** Gridded sea surface temperature projections are randomly sampled from `qdm` (bias-corrected QDM) and `bccmssc` (spatial downscaling).
 
 During this bootstrapping process, the following parameters were held fixed to ensure isolation of environmental uncertainty:

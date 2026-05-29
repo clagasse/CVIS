@@ -2,7 +2,7 @@
 # CVIS Environment Setup & Configuration (0_setup.R)
 #
 # Description:
-#   Sets up the global environment for the Climate Vulnerability Indicator Suite
+#   Sets up the global environment for the Climate Vulnerability Indicators for Salmon
 #   (CVIS). Configures folder paths, sets analysis options (CUs to run, models,
 #   GCM quantiles), defines indicator translation/standardization lookup tables,
 #   establishes the custom CVIS ggplot theme, and sources utility and plotting scripts.
@@ -54,6 +54,7 @@ library(RColorBrewer)
 library(scico) # scientific colour palettes
 library(gridExtra) # grid-based plots, used for indicator plots
 # library(ggsci)   # colour palettes - pal_futurama
+library(ggdist) # for half-violin / raincloud plots
 
 formals(read_csv)$show_col_types <- F # use read_csv quietly
 
@@ -467,3 +468,11 @@ if (exists("cu_run")) {
 } else {
   smu_palette <- character() # Fallback
 }
+
+
+# ==================== 10. Report Optimization Configurations ====================
+# Geometry simplification tolerance (in meters for projected layers like BC Albers EPSG:3005).
+# Set to 15 meters to reduce vertex count in stream networks and lake boundaries.
+# Set to 0, NA, or NULL to completely disable geometry simplification.
+geom_simplify_tol <- 15
+

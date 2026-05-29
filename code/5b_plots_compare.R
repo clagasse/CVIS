@@ -3042,10 +3042,439 @@ migration_compare_plot <- function(migr_daily_all,
   return(p)
 }
 
+
+# ==================== 10. Baseline Raw Indicator Value Distributions (plot_raw_baseline_violins) ====================
+
+plot_raw_baseline_violins <- function(all_std_long_baseline, tbl_indicators, cu_code = NULL) {
+  # Filter to baseline scenario and 'mean' stat
+  plot_data <- all_std_long_baseline %>%
+    dplyr::filter(stat == "mean")
+
+  # Retrieve indicator colors from global environment if available
+  if (exists("indicator_palette", envir = .GlobalEnv)) {
+    ind_colors <- get("indicator_palette", envir = .GlobalEnv)
+  } else {
+    ind_colors <- c(
+      "Demographics" = "purple",
+      "Spawning & Rearing" = "turquoise",
+      "Upstream Migration" = "royalblue",
+      "Nearshore Marine" = "green4",
+      "Genetics" = "orange3"
+    )
+  }
+
+  # Retrieve species colors from global environment if available
+  if (exists("species_palette", envir = .GlobalEnv)) {
+    spp_colors <- get("species_palette", envir = .GlobalEnv)
+  } else {
+    spp_colors <- c(
+      "Chinook" = "#E69F00",
+      "Chum" = "#56B4E9",
+      "Coho" = "#009E73",
+      "Pink" = "#F0E442",
+      "Sockeye" = "#D55E00"
+    )
+  }
+
+  # Short units lookup map
+  short_units <- c(
+    "favchange" = "ENM Fav",
+    "cthr" = "Threat",
+    "tw8rate" = "°C/decade",
+    "tw8proj" = "°C",
+    "flow8pdelta" = "Aug Flow",
+    "flow18pdelta" = "Win Flow",
+    "fwres" = "days",
+    "migrTproj" = "°C",
+    "migrQpdelta" = "Discharge",
+    "migrdist" = "km",
+    "SSTproj" = "°C",
+    "SSTrate" = "°C/decade",
+    "CImpact" = "Threat",
+    "CUstatus" = "Status",
+    "CUnmat" = "spawners",
+    "hetzyg" = "Heterozygosity",
+    "genoff" = "Offset"
+  )
+
+  # Set category labels matching indicator_palette keys
+  category_names <- c(
+    "fwrs" = "Spawning & Rearing",
+    "migr" = "Upstream Migration",
+    "mar" = "Nearshore Marine",
+    "dem" = "Demographics",
+    "gen" = "Genetics"
+  )
+
+  # Map raw migrdist values from meters to kilometers if they are large
+  if (any(plot_data$indicator == "migrdist" & plot_data$value > 1000, na.rm = TRUE)) {
+    plot_data <- plot_data %>%
+      dplyr::mutate(value = ifelse(indicator == "migrdist", value / 1000, value))
+  }
+
+  plot_data <- plot_data %>%
+    dplyr::mutate(
+      unit_short = ifelse(indicator %in% names(short_units), short_units[indicator], ""),
+      facet_label = paste0(indicator, " (", unit_short, ")"),
+      category_label = factor(category_names[category], levels = category_names)
+    )
+
+  # Group panes by category first, then order alphabetically within category
+  facet_order <- plot_data %>%
+    dplyr::select(category_label, indicator, facet_label) %>%
+    dplyr::distinct() %>%
+    dplyr::arrange(category_label, indicator) %>%
+    dplyr::pull(facet_label)
+
+  # Ensure SPECIES_NAME is a factor with consistent levels matching spp_colors
+  plot_data <- plot_data %>%
+    dplyr::mutate(
+      SPECIES_NAME = factor(SPECIES_NAME, levels = names(spp_colors)),
+      facet_label = factor(facet_label, levels = facet_order)
+    )
+
+  # Extract highlighted CU data if cu_code is provided
+  cu_point_data <- NULL
+  if (!is.null(cu_code)) {
+    target_cu_info <- plot_data %>%
+      dplyr::filter(FULL_CU_IN == cu_code)
+    
+    if (nrow(target_cu_info) > 0) {
+      all_species <- names(spp_colors)
+      # Create dummy grid for all categories and species so position_dodge aligns correctly
+      cu_point_data <- expand.grid(
+        facet_label = unique(as.character(plot_data$facet_label)),
+        SPECIES_NAME = all_species,
+        stringsAsFactors = FALSE
+      ) %>%
+        dplyr::left_join(
+          target_cu_info %>% 
+            dplyr::mutate(facet_label = as.character(facet_label),
+                          SPECIES_NAME = as.character(SPECIES_NAME)) %>%
+            dplyr::select(facet_label, SPECIES_NAME, value),
+          by = c("facet_label", "SPECIES_NAME")
+        )
+      
+      # Fill category and category_label from plot_data mapping (guaranteed complete)
+      facet_cat_map <- plot_data %>% 
+        dplyr::select(facet_label, category, category_label) %>% 
+        dplyr::distinct() %>%
+        dplyr::mutate(
+          facet_label = as.character(facet_label),
+          category_label = as.character(category_label)
+        )
+      
+      cu_point_data <- cu_point_data %>%
+        dplyr::left_join(facet_cat_map, by = "facet_label") %>%
+        dplyr::mutate(
+          SPECIES_NAME = factor(SPECIES_NAME, levels = all_species),
+          category_label = factor(category_label, levels = levels(plot_data$category_label)),
+          facet_label = factor(facet_label, levels = levels(plot_data$facet_label))
+        )
+    }
+  }
+
+  # Subtitle depends on whether cu_code is provided
+  sub_text <- if (!is.null(cu_code)) {
+    paste0("Showing raw values (stat = 'mean') for all CUs under the baseline scenario. The orange diamond highlights ", cu_code, ".")
+  } else {
+    "Showing raw values (stat = 'mean') for all CUs under the baseline scenario. Violins show category-level distributions; points show CUs colored by species (dodged side-by-side inside violins)."
+  }
+
+  # Helper to make a subplot for a subset of categories/indicators
+  make_sub_plot <- function(sub_data, sub_cu_point_data, ncol = 4) {
+    p_sub <- ggplot(sub_data, aes(x = category_label, y = value, fill = category_label)) +
+      geom_violin(alpha = 0.3, color = "grey50", scale = "width", linewidth = 0.5)
+
+    # Beeswarm-like symmetric dots inside the violin (grouped and dodged by species)
+    p_sub <- p_sub + ggdist::stat_dots(
+      aes(color = SPECIES_NAME, group = SPECIES_NAME),
+      side = "both",
+      justification = 0.5,
+      position = position_dodge(width = 0.6),
+      binwidth = unit(0.06, "npc"),
+      dotsize = 1.0,
+      alpha = if (!is.null(cu_code)) 0.35 else 0.65,
+      shape = 19,
+      inherit.aes = TRUE
+    )
+
+    # Highlighted CU point aligned with the dodged species stack
+    if (!is.null(sub_cu_point_data) && nrow(sub_cu_point_data) > 0) {
+      p_sub <- p_sub + geom_point(
+        data = sub_cu_point_data,
+        aes(x = category_label, y = value, group = SPECIES_NAME),
+        shape = 23,
+        size = 3.5,
+        fill = "#ED8936",
+        color = "black",
+        stroke = 1.2,
+        position = position_dodge(width = 0.6),
+        inherit.aes = FALSE
+      )
+    }
+
+    p_sub <- p_sub +
+      facet_wrap(~facet_label, scales = "free", ncol = ncol) +
+      scale_fill_manual(values = ind_colors, name = "Indicator Category") +
+      scale_color_manual(values = spp_colors, name = "Species") +
+      guides(
+        fill = "none",
+        color = guide_legend(title.position = "top", nrow = 1, order = 2)
+      ) +
+      labs(x = NULL, y = NULL) +
+      theme_minimal(base_size = 11) +
+      theme(
+        strip.text = element_text(face = "bold", size = 9, color = "#1A365D"),
+        strip.background = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.line.y = element_line(color = "#CBD5E0", linewidth = 0.5),
+        panel.grid.minor = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.border = element_blank()
+      )
+    
+    return(p_sub)
+  }
+
+  # Split data into category subsets
+  data_fwrs <- plot_data %>% dplyr::filter(category == "fwrs")
+  data_migr <- plot_data %>% dplyr::filter(category == "migr")
+  data_mar  <- plot_data %>% dplyr::filter(category == "mar")
+  data_dem_gen <- plot_data %>% dplyr::filter(category %in% c("dem", "gen"))
+
+  # Split highlighted CU point data into category subsets
+  cu_fwrs <- if (!is.null(cu_point_data)) cu_point_data %>% dplyr::filter(category == "fwrs") else NULL
+  cu_migr <- if (!is.null(cu_point_data)) cu_point_data %>% dplyr::filter(category == "migr") else NULL
+  cu_mar  <- if (!is.null(cu_point_data)) cu_point_data %>% dplyr::filter(category == "mar") else NULL
+  cu_dem_gen <- if (!is.null(cu_point_data)) cu_point_data %>% dplyr::filter(category %in% c("dem", "gen")) else NULL
+
+  # Create individual subplots (each starting on a new row)
+  # Spawning and rearing occupies first 2 rows of panes (7 indicators, wrapped in 4 columns)
+  p_fwrs <- make_sub_plot(data_fwrs, cu_fwrs, ncol = 4)
+  # Migration occupies the 3rd row of panes (3 indicators, wrapped in 4 columns)
+  p_migr <- make_sub_plot(data_migr, cu_migr, ncol = 4)
+  # Marine occupies the 4th row of panes (3 indicators, wrapped in 4 columns)
+  p_mar  <- make_sub_plot(data_mar, cu_mar, ncol = 4)
+  # Demographics & Genetics occupy the last row together (4 indicators, wrapped in 4 columns)
+  p_dem_gen <- make_sub_plot(data_dem_gen, cu_dem_gen, ncol = 4)
+
+  # Combine using patchwork to align columns and collect legends
+  p_combined <- (p_fwrs / p_migr / p_mar / p_dem_gen) +
+    plot_layout(guides = "collect", heights = c(2, 1, 1, 1)) &
+    theme(
+      legend.position = "bottom",
+      legend.box = "vertical"
+    )
+
+  # Add global titles and caption via plot_annotation
+  p_combined <- p_combined +
+    plot_annotation(
+      title = if (!is.null(cu_code)) paste("Raw baseline indicator values relative to all CUs for", cu_code) else "Distribution of Raw Baseline Indicator Values across Fraser CUs",
+      subtitle = sub_text,
+      caption = "Raw Value (units vary by indicator)",
+      theme = theme(
+        plot.title = element_text(face = "bold", size = 12, color = "#1A365D", margin = margin(b = 4)),
+        plot.subtitle = element_text(size = 9, color = "grey40", margin = margin(b = 8)),
+        plot.caption = element_text(size = 9, hjust = 0.5, color = "grey40", face = "italic")
+      )
+    )
+
+  return(p_combined)
+}
+
+
+# ==================== 11. Vulnerability Score Distributions (plot_cvis_vulnerability_violins) ====================
+
+plot_cvis_vulnerability_violins <- function(scores_tidy_baseline, cu_code = NULL) {
+  # 1. Category scores
+  cat_scores <- scores_tidy_baseline %>%
+    dplyr::filter(method == "avg", category %in% c("dem", "fwrs", "gen", "mar", "migr")) %>%
+    dplyr::select(FULL_CU_IN, SPECIES_NAME, SMU_SIMPLE, category, score = score100_all)
+
+  # 2. Overall scores
+  overall_scores <- scores_tidy_baseline %>%
+    dplyr::filter(method == "catavg", category == "all") %>%
+    dplyr::select(FULL_CU_IN, SPECIES_NAME, SMU_SIMPLE, category, score = score100_all)
+
+  # Combine
+  plot_data <- dplyr::bind_rows(cat_scores, overall_scores)
+
+  # Short names/pretty labels - Overall Vulnerability first
+  category_labels <- c(
+    "all"  = "Overall Vulnerability",
+    "dem"  = "Demographics",
+    "fwrs" = "Spawning & Rearing",
+    "gen"  = "Genetics",
+    "mar"  = "Nearshore Marine",
+    "migr" = "Upstream Migration"
+  )
+
+  plot_data <- plot_data %>%
+    dplyr::mutate(
+      category_label = factor(category_labels[category], levels = category_labels)
+    )
+
+  # Retrieve indicator colors from global environment if available
+  if (exists("indicator_palette", envir = .GlobalEnv)) {
+    ind_colors <- get("indicator_palette", envir = .GlobalEnv)
+  } else {
+    ind_colors <- c(
+      "Demographics" = "purple",
+      "Spawning & Rearing" = "turquoise",
+      "Upstream Migration" = "royalblue",
+      "Nearshore Marine" = "green4",
+      "Genetics" = "orange3"
+    )
+  }
+  vuln_colors <- c(ind_colors, "Overall Vulnerability" = "#1A365D")
+
+  # Retrieve species colors from global environment if available
+  if (exists("species_palette", envir = .GlobalEnv)) {
+    spp_colors <- get("species_palette", envir = .GlobalEnv)
+  } else {
+    spp_colors <- c(
+      "Chinook" = "#E69F00",
+      "Chum" = "#56B4E9",
+      "Coho" = "#009E73",
+      "Pink" = "#F0E442",
+      "Sockeye" = "#D55E00"
+    )
+  }
+
+  # Ensure SPECIES_NAME is a factor with consistent levels matching spp_colors
+  plot_data <- plot_data %>%
+    dplyr::mutate(
+      SPECIES_NAME = factor(SPECIES_NAME, levels = names(spp_colors))
+    )
+
+  # Highlighted CU point
+  cu_point_data <- NULL
+  if (!is.null(cu_code)) {
+    target_cu_info <- plot_data %>%
+      dplyr::filter(FULL_CU_IN == cu_code)
+    
+    if (nrow(target_cu_info) > 0) {
+      all_species <- names(spp_colors)
+      # Create dummy grid for all categories and species so position_dodge aligns correctly
+      cu_point_data <- expand.grid(
+        category_label = as.character(levels(plot_data$category_label)),
+        SPECIES_NAME = all_species,
+        stringsAsFactors = FALSE
+      ) %>%
+        dplyr::left_join(
+          target_cu_info %>% 
+            dplyr::mutate(category_label = as.character(category_label),
+                          SPECIES_NAME = as.character(SPECIES_NAME)) %>%
+            dplyr::select(category_label, SPECIES_NAME, score),
+          by = c("category_label", "SPECIES_NAME")
+        ) %>%
+        dplyr::mutate(
+          SPECIES_NAME = factor(SPECIES_NAME, levels = all_species),
+          category_label = factor(category_label, levels = levels(plot_data$category_label))
+        )
+    }
+  }
+
+  # Subtitle
+  sub_text <- if (!is.null(cu_code)) {
+    paste0("Violins show distributions across all CUs. The orange diamond highlights ", cu_code, ".")
+  } else {
+    "Violins show distributions across all CUs; points show CUs colored by species."
+  }
+
+  # Ensure ggdist is loaded if available, otherwise fallback to standard violin
+  if (!requireNamespace("ggdist", quietly = TRUE)) {
+    p <- ggplot(plot_data, aes(x = category_label, y = score, fill = category_label)) +
+      geom_vline(xintercept = 1.5, linetype = "dashed", color = "grey60", linewidth = 0.6) +
+      geom_violin(alpha = 0.3, color = "grey50", scale = "width", linewidth = 0.5)
+
+    if (!is.null(cu_code)) {
+      p <- p + geom_jitter(width = 0.12, height = 0, alpha = 0.35, size = 2.0, aes(color = SPECIES_NAME), shape = 16)
+    } else {
+      p <- p + geom_jitter(width = 0.12, height = 0, alpha = 0.65, size = 2.2, aes(color = SPECIES_NAME), shape = 16)
+    }
+
+    if (!is.null(cu_point_data) && nrow(cu_point_data) > 0) {
+      p <- p + geom_point(data = cu_point_data, aes(x = category_label, y = score),
+                          shape = 23, size = 4.0, fill = "#ED8936", color = "black", stroke = 1.2, inherit.aes = FALSE)
+    }
+  } else {
+    library(ggdist)
+    p <- ggplot(plot_data, aes(x = category_label, y = score, fill = category_label)) +
+      # Line separator between Overall Vulnerability and individual categories
+      geom_vline(xintercept = 1.5, linetype = "dashed", color = "grey60", linewidth = 0.6) +
+      
+      # Full violin centered
+      geom_violin(alpha = 0.3, color = "grey50", scale = "width", linewidth = 0.5) +
+
+      # Beeswarm-like symmetric dots inside the violin (grouped and dodged by species)
+      ggdist::stat_dots(
+        aes(color = SPECIES_NAME, group = SPECIES_NAME),
+        side = "both",
+        justification = 0.5,
+        position = position_dodge(width = 0.6),
+        binwidth = 1.2,
+        dotsize = 1.8,
+        alpha = if (!is.null(cu_code)) 0.35 else 0.65,
+        shape = 19,
+        inherit.aes = TRUE
+      )
+
+      # Highlighted CU point aligned with the dodged species stack
+      if (!is.null(cu_point_data) && nrow(cu_point_data) > 0) {
+        p <- p + geom_point(
+          data = cu_point_data,
+          aes(x = category_label, y = score, group = SPECIES_NAME),
+          shape = 23,
+          size = 4.0,
+          fill = "#ED8936",
+          color = "black",
+          stroke = 1.2,
+          position = position_dodge(width = 0.6),
+          inherit.aes = FALSE
+        )
+      }
+  }
+
+  p <- p +
+    scale_fill_manual(values = vuln_colors, name = "Vulnerability Category") +
+    scale_color_manual(values = spp_colors, name = "Species") +
+    guides(
+      fill = "none",
+      color = guide_legend(title.position = "top", nrow = 1)
+    ) +
+    labs(
+      title = if (!is.null(cu_code)) paste("Vulnerability score distribution and highlights for", cu_code) else "Vulnerability Score Distributions across Fraser CUs",
+      subtitle = sub_text,
+      x = NULL,
+      y = "Vulnerability Score (0 - 100)"
+    ) +
+    theme_minimal(base_size = 11) +
+    theme(
+      plot.title = element_text(face = "bold", size = 12, color = "#1A365D"),
+      plot.subtitle = element_text(size = 9, color = "grey40"),
+      axis.text.x = element_text(face = "bold", size = 9, color = "#1A365D"),
+      axis.line.y = element_line(color = "#CBD5E0", linewidth = 0.5),
+      panel.grid.minor = element_blank(),
+      panel.grid.major.x = element_blank(),
+      legend.position = "bottom"
+    )
+
+  return(p)
+}
+
+
+
+
+
+
 # 
 # # spatial_maz_indicators_plot(maz_all, MAZ)
 # # combined_maz_marine_plot(maz_all, MAZ)
 # 
+
 
 
 

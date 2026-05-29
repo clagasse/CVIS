@@ -150,42 +150,48 @@ f2 <- stream_indicator_multipanel_plot(fw_sp_ind_cu,
   palette_directions = c(1, -1, -1, -1, 1, -1))
 
 #save as png
-ggsave(filename = file.path(output_dir, "figure_2.png"), plot = f2, width = 10, height = 6) 
+ggsave(filename = file.path(output_dir, "figure_2.png"), plot = f2, width = 9, height = 9) 
 
-# Figure 3 - Summary of migration timing and temperatures across CUs
+# Figure 3 - Mapped vulnerability scores for freshwater spawning and rearing category.
+
+f3 <- spatial_fw_rearing_indicators_plot(all_std_long_baseline,
+                                         cu_boundary,
+                                         outline = Fr_basin,
+                                         species_pick = "Chinook")
+
+ggsave(filename = file.path(output_dir, "figure_3.png"), plot = f3, width = 10, height = 9)                                
+
+
+# Figure 4 - Summary of migration timing and temperatures across CUs
 # Uses migration_compare_plot from 5b to show all CUs' timing and temperatures for all 365 days (months)
-f3 <- migration_compare_plot(
+f4 <- migration_compare_plot(
   migr_daily_calendar,
   timing = cu_timing_Fr,
   rcp = "45",
   period_choose = c("1981-2010", "2041-2060")
 )
 
-ggsave(filename = file.path(output_dir, "figure_3.png"), plot = f3, width = 8, height = 6)
+ggsave(filename = file.path(output_dir, "figure_4.png"), plot = f4, width = 8, height = 6)
 
             
-# Figure 4 - Lollilop plot of indicator values and standardization function for change in August flow
+                   
+# Figure 5 - Marine adaptive zones and associated mean indicator scores for each indicator - SSTproj, SSTrate, CImpact (Regional & Local Point-level zoom in GStr).
 
-f4 <- plot_lollipop(all_std_long_baseline,
-                    indicator_pick = "migrTproj")
+f5 <- combined_maz_marine_plot(maz_all, MAZ)
 
-ggsave(filename = file.path(output_dir, "figure_4.png"), plot = f4,
-       width = 5, height = 6) 
+ggsave(filename = file.path(output_dir, "figure_5.png"), plot = f5, width = 12, height = 9)   
 
-# Figure 5 - Mapped vulnerability scores for freshwater spawning and rearing category.
 
-f5 <- spatial_fw_rearing_indicators_plot(all_std_long_baseline,
-                                         cu_boundary,
-                                         outline = Fr_basin,
-                                         species_pick = "Chinook")
-    
-ggsave(filename = file.path(output_dir, "figure_5.png"), plot = f5, width = 10, height = 9)                                
-                                   
-# Figure 6 - Marine adaptive zones and associated mean indicator scores for each indicator - SSTproj, SSTrate, CImpact (Regional & Local Point-level zoom in GStr).
+# Figure 6 - Violin plot of raw indicator values for all CUs across all indicators under the baseline scenario.
 
-f6 <- combined_maz_marine_plot(maz_all, MAZ)
+f6 <- plot_raw_baseline_violins(
+  all_std_long_baseline = all_std_long_baseline,
+  tbl_indicators = tbl_indicators
+)
 
-ggsave(filename = file.path(output_dir, "figure_6.png"), plot = f6, width = 12, height = 9)   
+ggsave(filename = file.path(output_dir, "figure_6.png"), plot = f6,
+       width = 11, height = 8.5, dpi = 150) 
+
 
 # Figure 7 - INdicator tile plot of overall vulnerability scores and individual indicator scores.
 
@@ -194,26 +200,42 @@ f7 <- indicator_cu_tile_plot(all_std_long_baseline,
 
 
 ggsave(filename = file.path(output_dir, "figure_7.png"), plot = f7,
-       width = 8, height = 10) 
+       width = 8, height = 9) 
 
 
 # Figure 8 - Violin plot of spread of indicator values for 50 CUs across different scenarios.
 
-#see plots created in script 5c
+f8 <- plot_indicator_directional_shifts(overall_sensitivity, 
+                                        tbl_indicators)
 
+ggsave(filename = file.path(output_dir, "figure_8.png"), plot = f8, width = 9, height = 7) 
 
 # Figure 9 - Tile plot with comparison of category scores and overall vulnerability scores by method. 
 
 f9 <- plot_methods_compare_tile(scores_tidy_baseline)
 
-ggsave(filename = file.path(output_dir, "figure_9.png"), plot = f9)
+ggsave(filename = file.path(output_dir, "figure_9.png"), plot = f9, width = 9, height = 10)
 
 
 # Figure 10 - Deviations in overall vulnerability scores across sources of variation.
 
-# see plots created in script 5d
+f10 <- plot_score_deviations(overall_sensitivity$deviations)
+
+ggsave(filename = file.path(output_dir, "figure_10.png"), plot = f10, width = 9, height = 9)
 
 # Figure 11 - Species-level bump plots of change in vulnerability rank for each CU across different sources of variation.
+
+f11 <- plot_species_bump_plot(overall_sensitivity, "Chinook")
+f11b <- plot_species_bump_plot(overall_sensitivity, "Sockeye")
+f11c <- plot_species_bump_plot(overall_sensitivity, "Coho")
+
+ggsave(filename = file.path(output_dir, "figure_11.png"), plot = f11, width = 8, height = 7)
+
+
+# Figure 12 - Vulnerability score violins
+f12 <- plot_cvis_vulnerability_violins(scores_tidy_baseline)
+
+ggsave(filename = file.path(output_dir, "figure_12.png"), plot = f12)
 
 
 # ==================== 5. Summary Table for Manuscript ====================

@@ -23,7 +23,7 @@ library(ggrepel)
 # ==================== 1. Indicator-Level Plotting Functions ====================
 
 # 1a. Indicator-Level Sensitivity (MAD Bar Chart)
-plot_indicator_sensitivity <- function(ind_sens_summary, source_colors) {
+plot_indicator_sensitivity <- function(ind_sens_summary, source_colors = sens_source_palette) {
   ggplot(ind_sens_summary %>% filter(SPECIES_NAME == "ALL"), 
          aes(x = reorder(indicator, mean_abs_dev, mean), y = mean_abs_dev, fill = source)) +
     geom_bar(stat = "identity", position = "dodge") +
@@ -42,7 +42,10 @@ plot_indicator_sensitivity <- function(ind_sens_summary, source_colors) {
 }
 
 # 1b. Indicator Directional Shift Violins
-plot_indicator_directional_shifts <- function(overall_sensitivity, tbl_indicators, source_colors) {
+plot_indicator_directional_shifts <- function(overall_sensitivity, tbl_indicators, source_colors = sens_source_palette) {
+  ind_source_levels <- c("Baseline", "GCM1", "GCM4", "GCM6", "RCP45_P5", "RCP85_P3", "RCP85_P5", "dsmethod", "stdmethod")
+  ind_source_labels <- c("Baseline", "CanESM2 (GCM 1)", "HadGEM2 (GCM 4)", "MPI (GCM 6)", "RCP 4.5 (P5)", "RCP 8.5 (P3)", "RCP 8.5 (P5)", "Downscaling Method", "Standardize Meth")
+
   ind_shift_cus <- overall_sensitivity$indicator_metrics %>%
     filter(FULL_CU_IN != "ALL") %>%
     mutate(
@@ -63,11 +66,17 @@ plot_indicator_directional_shifts <- function(overall_sensitivity, tbl_indicator
     mutate(has_variation = source == "Baseline" | any(abs(val - base_raw_mean) > 1e-10, na.rm = TRUE)) %>%
     filter(has_variation) %>%
     group_by(indicator) %>% filter(n_distinct(source) > 1) %>% ungroup() %>%
-    mutate(source = factor(source, levels = rev(c("Baseline", "GCM1", "GCM4", "GCM6", "RCP45_P5", "RCP85_P3", "RCP85_P5", "dsmethod", "stdmethod"))))
+    filter(source %in% ind_source_levels) %>%
+    mutate(source = factor(source, levels = rev(ind_source_levels), labels = rev(ind_source_labels)))
   
   baseline_refs <- ind_shift_cus %>% group_by(indicator) %>% summarise(ref_mean = mean(base_raw_mean, na.rm = TRUE), .groups = "drop")
   ind_label_units <- tbl_indicators %>% mutate(facet_label = paste0(abbrev, "\n(", unit, ")")) %>% select(abbrev, facet_label) %>% tibble::deframe()
+  
   shift_colors <- c("Baseline" = "black", source_colors)
+  names(shift_colors) <- sapply(names(shift_colors), function(x) {
+    idx <- match(x, ind_source_levels)
+    if (!is.na(idx)) ind_source_labels[idx] else x
+  })
 
   ggplot(ind_shift_cus, aes(y = source, x = val, fill = source, color = source)) +
     geom_vline(data = baseline_refs, aes(xintercept = ref_mean), linetype = "dashed", color = "grey30", alpha = 0.6) +
@@ -132,7 +141,7 @@ plot_indicator_correlation_clusters <- function(cor_matrix_pearson) {
 # ==================== 2. Score-Level Plotting Functions ====================
 
 # 2a. Overall and Category Score Deviations
-plot_score_deviations <- function(deviations, source_colors, cat_label_map) {
+plot_score_deviations <- function(deviations, source_colors = sens_source_palette, cat_label_mapping = cat_label_map) {
   dev_raw <- deviations %>%
     select(FULL_CU_IN, category, starts_with("raw_dev_")) %>%
     pivot_longer(cols = starts_with("raw_dev_"), names_to = "source_label", values_to = "raw_deviation") %>%
@@ -173,7 +182,7 @@ plot_score_deviations <- function(deviations, source_colors, cat_label_map) {
     ggplot(aes(x = source, y = raw_deviation, fill = source)) +
     geom_violin(alpha = 0.8, draw_quantiles = c(0.25, 0.5, 0.75), linewidth = 1, scale = "width") +
     geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
-    facet_wrap(~category, scales = "free_x", labeller = labeller(category = cat_label_map)) +
+    facet_wrap(~category, scales = "free_x", labeller = labeller(category = cat_label_mapping)) +
     scale_fill_manual(values = source_colors, na.value = "grey50", guide = "none") +
     labs(
         title = "Category-Level Score Sensitivity",
@@ -192,7 +201,7 @@ plot_score_deviations <- function(deviations, source_colors, cat_label_map) {
 }
 
 # 2b. Mean Rank Displacement
-plot_mean_rank_displacement <- function(score_mrd_global, source_colors) {
+plot_mean_rank_displacement <- function(score_mrd_global, source_colors = sens_source_palette) {
   ggplot(score_mrd_global, aes(x = reorder(source, mrd), y = mrd, fill = source)) +
     geom_bar(stat = "identity") +
     facet_wrap(~category, scales = "free_x") +
@@ -302,23 +311,40 @@ plot_species_bump_plot <- function(overall_sensitivity, species_name) {
     ungroup()
   
   source_order <- c("GCM1", "GCM4", "GCM6", "Baseline", "RCP45_P5", "RCP85_P3", "dsmethod", "Method_cube", "Method_avgcube", "Method_flag", "stdmethod")
-  source_labels_bump <- c("CanESM2", "HadGEM2", "MPI-ESM", "Baseline", "RCP 4.5", "RCP 8.5", "DS Meth", "Cube-M", "Avg-Cube", "Flag", "Std Meth")
+  source_labels_bump <- c("CanESM2", "HadGEM2", "MPI-ESM", "Baseline", "RCP 4.5 (P5)", "RCP 8.5 (P3)", "DS Method", "Cube-M", "Avg-Cube", "Flag", "Std Meth")
   dev_full <- dev_full %>% mutate(source = factor(source, levels = source_order, labels = source_labels_bump))
   
   mrd_stats_sp <- overall_sensitivity$species_score_summary %>%
     filter(category == "all" & SPECIES_NAME == species_name) %>%
-    mutate(mrd_label = paste0("MRD: ", round(mrd_sp, 1))) %>%
-    mutate(source = factor(source, levels = source_order, labels = source_labels_bump))
+    mutate(mrd_label = paste0("MRD\n", round(mrd_sp, 1))) %>%
+    mutate(source = factor(source, levels = source_order, labels = source_labels_bump)) %>%
+    filter(!is.na(source))
   
   n_cus <- length(unique(dev_full$FULL_CU_IN))
   x_faces <- ifelse(source_labels_bump == "Baseline", "bold", "plain")
   
+  # Determine label size dynamically based on number of CUs to reduce clutter
+  label_size <- if (n_cus > 20) 1.3 else if (n_cus > 10) 1.4 else 1.6
+  
+  mrd_y <- 1 - 0.10 * (n_cus - 1)
+  
   ggplot(dev_full, aes(x = source, y = scen_rank, group = FULL_CU_IN)) +
     geom_line(aes(color = SMU_SIMPLE), alpha = 0.5, linewidth = 1) +
-    geom_label_repel(aes(label = FULL_CU_IN, color = SMU_SIMPLE), alpha = 1, size = 2, fontface = "bold", box.padding = 0.1) +
-    geom_text(data = mrd_stats_sp, aes(x = source, y = n_cus + 1, label = mrd_label, group = NULL), 
-              size = 2.5, fontface = "italic", vjust = 1, color = "grey30") +
-    scale_y_reverse(breaks = 1:n_cus, expand = expansion(mult = c(0.1, 0.15))) +
+    geom_label_repel(
+      aes(label = FULL_CU_IN, color = SMU_SIMPLE),
+      alpha = 1,
+      size = label_size,
+      fontface = "bold",
+      box.padding = 0.05,
+      label.padding = 0.1,
+      direction = "y",
+      min.segment.length = 0,
+      segment.size = 0.2,
+      segment.alpha = 0.4
+    ) +
+    geom_text(data = mrd_stats_sp, aes(x = source, y = mrd_y, label = mrd_label, group = NULL), 
+              size = 3.2, fontface = "bold.italic", vjust = 0.5, color = "black") +
+    scale_y_reverse(breaks = 1:n_cus, expand = expansion(mult = c(0.20, 0.1))) +
     scale_color_brewer(palette = "Set1", name = "SMU") +
     labs(title = paste0(species_name, ": Vulnerability Rank Stability"), subtitle = "Rank 1 = Highest Risk.", x = NULL, y = "In-Species Rank") +
     theme_minimal(base_size = 10) +
@@ -383,7 +409,7 @@ plot_uncertainty_variance_decomposition <- function(anova_unc) {
     scale_fill_brewer(palette = "Set1") +
     labs(
       title = "Decomposition of CVIS Combined Uncertainty",
-      subtitle = "Relative contribution (% variance explained) of GCMs, RCPs, and downscalers to score variance\n(Controlled for geographical variation between CUs)",
+      subtitle = "Relative contribution (% variance explained) of GCMs, RCPs, and downscaling methods to score variance\n(Controlled for geographical variation between CUs)",
       x = NULL,
       y = "% Uncertainty Variance Explained"
     ) +
@@ -391,6 +417,328 @@ plot_uncertainty_variance_decomposition <- function(anova_unc) {
     theme(
       plot.title = element_text(face = "bold", size = 14)
     )
+}
+
+
+# ==================== 4. Single-CU Sensitivity Plotting Functions ====================
+
+plot_cu_sensitivity_scores <- function(
+  overall_sensitivity,
+  cu_code
+) {
+  # Categories mapping including all categories and overall vulnerability
+  cat_labels <- c(
+    "all"  = "Overall Vulnerability",
+    "dem"  = "Demographics",
+    "fwrs" = "Spawning & Rearing",
+    "migr" = "Upstream Migration",
+    "mar"  = "Nearshore Marine",
+    "gen"  = "Genetics"
+  )
+
+  # 1. Prepare score deviations data
+  dev_raw <- overall_sensitivity$deviations %>%
+    filter(category %in% names(cat_labels), FULL_CU_IN != "ALL") %>%
+    select(FULL_CU_IN, category, starts_with("raw_dev_")) %>%
+    pivot_longer(cols = starts_with("raw_dev_"), names_to = "source_label", values_to = "raw_deviation") %>%
+    mutate(
+        source_label = str_remove(source_label, "raw_dev_"),
+        source_type = case_when(
+            str_detect(source_label, "^GCM") ~ "GCM",
+            str_detect(source_label, "^RCP") ~ "Scenario",
+            str_detect(source_label, "^Method") ~ "Method",
+            str_detect(source_label, "^Model") ~ "dsmethod",
+            str_detect(source_label, "^dsmethod") ~ "dsmethod",
+            str_detect(source_label, "^stdmethod") ~ "stdmethod",
+            TRUE ~ "Other"
+        ),
+        source = case_when(
+            source_type == "Method" ~ str_remove(source_label, "^Method_"),
+            TRUE ~ source_label
+        )
+    ) %>%
+    filter(!source %in% c("cube", "flag", "cube_all")) %>%
+    mutate(
+      category_label = factor(cat_labels[category], levels = cat_labels)
+    )
+
+  # Factor levels for consistency
+  source_levels <- c("GCM1", "GCM4", "GCM6", "RCP45_P5", "RCP85_P3", "RCP85_P5", "dsmethod", "stdmethod", "avgall", "avgcube")
+  source_labels <- c("CanESM2 (GCM 1)", "HadGEM2 (GCM 4)", "MPI (GCM 6)", "RCP 4.5 (P5)", "RCP 8.5 (P3)", "RCP 8.5 (P5)", "Downscaling Method", "Standardize Meth", "Avg All Scoring", "Avg Cube Scoring")
+  
+  dev_raw <- dev_raw %>%
+    filter(source %in% source_levels) %>%
+    mutate(source = factor(source, levels = rev(source_levels), labels = rev(source_labels)))
+
+  # Selected CU data
+  dev_raw_cu <- dev_raw %>% filter(FULL_CU_IN == cu_code)
+  # All other CUs
+  dev_raw_others <- dev_raw %>% filter(FULL_CU_IN != cu_code)
+
+  # Retrieve colors using sens_source_palette
+  sens_palette <- if (exists("sens_source_palette")) {
+    get("sens_source_palette")
+  } else {
+    c(
+      "GCM1" = "#e31a1c", "GCM4" = "#ff7f00", "GCM6" = "#fdbf6f",
+      "RCP45_P5" = "#33a02c", "RCP85_P3" = "#1f78b4", "RCP85_P5" = "#a6cee3",
+      "avgcube" = "#cab2d6", "avgall" = "#fb9a99",
+      "dsmethod" = "#8dd3c7", "stdmethod" = "#8c564b"
+    )
+  }
+  
+  # Retrieve indicator colors from global environment for coloring violins
+  if (exists("indicator_palette", envir = .GlobalEnv)) {
+    ind_colors <- get("indicator_palette", envir = .GlobalEnv)
+  } else {
+    ind_colors <- c(
+      "Demographics" = "purple",
+      "Spawning & Rearing" = "turquoise",
+      "Upstream Migration" = "royalblue",
+      "Nearshore Marine" = "green4",
+      "Genetics" = "orange3"
+    )
+  }
+  ind_colors["Overall Vulnerability"] <- "grey30"
+  
+  y_colors <- sapply(rev(source_levels), function(x) {
+    if (x %in% names(sens_palette)) sens_palette[[x]] else "black"
+  })
+  y_colors <- unname(y_colors)
+
+  # Plot: Score deviations faceted and colored by category
+  p1 <- ggplot(dev_raw_others, aes(y = source, x = raw_deviation, fill = category_label)) +
+    geom_violin(color = "grey60", alpha = 0.4, scale = "width") +
+    geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") +
+    geom_point(data = dev_raw_cu, aes(x = raw_deviation, y = source), color = "#E67E22", size = 4, shape = 18) +
+    facet_wrap(~category_label, ncol = 3) +
+    scale_fill_manual(values = ind_colors, guide = "none") +
+    labs(
+      title = paste("Vulnerability Score Shifts for CU:", cu_code),
+      subtitle = "Violins show Fraser CUs distribution; Orange diamond shows selected CU",
+      x = "Score Deviation (Scenario - Baseline)",
+      y = "Assumption / Scenario"
+    ) +
+    theme_minimal(base_size = 11) +
+    theme(
+      plot.title = element_text(face = "bold", size = 12, color = "#1A365D"),
+      plot.subtitle = element_text(size = 9, color = "grey40"),
+      panel.grid.minor = element_blank(),
+      axis.text.y = element_text(color = y_colors, face = "bold", size = 9),
+      strip.text = element_text(face = "bold", size = 10, color = "#1A365D"),
+      strip.background = element_blank()
+    )
+
+  return(p1)
+}
+
+
+plot_cu_sensitivity_indicators <- function(
+  overall_sensitivity,
+  tbl_indicators,
+  cu_code
+) {
+  # Prepare indicator directional shifts data relative to baseline
+  ind_shift_cus <- overall_sensitivity$indicator_metrics %>%
+    filter(FULL_CU_IN != "ALL") %>%
+    mutate(
+        val_Baseline = base_raw_mean,
+        val_GCM1 = base_raw_mean + raw_dev_GCM1,
+        val_GCM4 = base_raw_mean + raw_dev_GCM4,
+        val_GCM6 = base_raw_mean + raw_dev_GCM6,
+        val_RCP45_P5 = base_raw_mean + raw_dev_RCP45_P5,
+        val_RCP85_P3 = base_raw_mean + raw_dev_RCP85_P3,
+        val_RCP85_P5 = base_raw_mean + raw_dev_RCP85_P5,
+        val_dsmethod = base_raw_mean + raw_dev_dsmethod,
+        val_stdmethod = base_raw_mean + raw_dev_stdmethod
+    ) %>%
+    select(FULL_CU_IN, indicator, category, base_raw_mean, starts_with("val_")) %>%
+    pivot_longer(cols = starts_with("val_"), names_to = "source", names_prefix = "val_", values_to = "val") %>%
+    filter(!is.na(val))
+
+  # Keep only indicators that have non-NA values for the selected CU
+  valid_indicators <- ind_shift_cus %>%
+    filter(FULL_CU_IN == cu_code, !is.na(val)) %>%
+    pull(indicator) %>%
+    unique()
+
+  # Categories mapping for ordering and coloring
+  cat_labels <- c(
+    "dem"  = "Demographics",
+    "fwrs" = "Spawning & Rearing",
+    "migr" = "Upstream Migration",
+    "mar"  = "Nearshore Marine",
+    "gen"  = "Genetics"
+  )
+
+  # Calculate variation for each indicator for this CU
+  var_indicators_df <- ind_shift_cus %>%
+    filter(FULL_CU_IN == cu_code) %>%
+    group_by(indicator, category) %>%
+    summarise(
+      val_range = max(val, na.rm = TRUE) - min(val, na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    filter(!is.na(val_range), val_range > 1e-5) %>%
+    arrange(desc(val_range))
+
+  # If there are no varying indicators, fall back to all valid indicators
+  if (nrow(var_indicators_df) == 0) {
+    var_indicators <- valid_indicators
+  } else {
+    # Take top 9 varying indicators
+    if (nrow(var_indicators_df) > 9) {
+      var_indicators_df <- var_indicators_df[1:9, ]
+    }
+    # Sort those 9 indicators by category order, then name
+    category_order <- c("dem", "fwrs", "migr", "mar", "gen")
+    var_indicators_df <- var_indicators_df %>%
+      mutate(category_factor = factor(category, levels = category_order)) %>%
+      arrange(category_factor, indicator)
+    var_indicators <- var_indicators_df$indicator
+  }
+
+  ind_shift_cus <- ind_shift_cus %>%
+    filter(indicator %in% var_indicators) %>%
+    mutate(
+      indicator = factor(indicator, levels = var_indicators),
+      category_label = factor(cat_labels[category], levels = cat_labels)
+    )
+
+  # Scenario levels for indicators
+  ind_source_levels <- c("Baseline", "GCM1", "GCM4", "GCM6", "RCP45_P5", "RCP85_P3", "RCP85_P5", "dsmethod", "stdmethod")
+  ind_source_labels <- c("Baseline", "CanESM2 (GCM 1)", "HadGEM2 (GCM 4)", "MPI (GCM 6)", "RCP 4.5 (P5)", "RCP 8.5 (P3)", "RCP 8.5 (P5)", "Downscaling Method", "Standardize Meth")
+
+  ind_shift_cus <- ind_shift_cus %>%
+    filter(source %in% ind_source_levels) %>%
+    mutate(source = factor(source, levels = rev(ind_source_levels), labels = rev(ind_source_labels)))
+
+  ind_shift_cu <- ind_shift_cus %>% filter(FULL_CU_IN == cu_code)
+  ind_shift_others <- ind_shift_cus %>% filter(FULL_CU_IN != cu_code)
+
+  # Label map with units
+  short_units <- c(
+    "favchange" = "ENM Fav",
+    "cthr" = "Threat",
+    "tw8rate" = "°C/decade",
+    "tw8proj" = "°C",
+    "flow8pdelta" = "Aug Flow",
+    "flow18pdelta" = "Win Flow",
+    "fwres" = "days",
+    "migrTproj" = "°C",
+    "migrQpdelta" = "Discharge",
+    "migrdist" = "km",
+    "SSTproj" = "°C",
+    "SSTrate" = "°C/decade",
+    "CImpact" = "Threat",
+    "CUstatus" = "Status",
+    "CUnmat" = "spawners",
+    "hetzyg" = "Heterozygosity",
+    "genoff" = "Offset"
+  )
+
+  ind_label_units <- tbl_indicators %>% 
+    mutate(
+      unit_short = ifelse(abbrev %in% names(short_units), short_units[abbrev], unit),
+      facet_label = paste0(abbrev, " (", unit_short, ")")
+    ) %>% 
+    select(abbrev, facet_label) %>% 
+    tibble::deframe()
+
+  # Retrieve colors using sens_source_palette
+  sens_palette <- if (exists("sens_source_palette")) {
+    get("sens_source_palette")
+  } else {
+    c(
+      "GCM1" = "#e31a1c", "GCM4" = "#ff7f00", "GCM6" = "#fdbf6f",
+      "RCP45_P5" = "#33a02c", "RCP85_P3" = "#1f78b4", "RCP85_P5" = "#a6cee3",
+      "avgcube" = "#cab2d6", "avgall" = "#fb9a99",
+      "dsmethod" = "#8dd3c7", "stdmethod" = "#8c564b"
+    )
+  }
+  
+  # Retrieve indicator colors from global environment for coloring violins
+  if (exists("indicator_palette", envir = .GlobalEnv)) {
+    ind_colors <- get("indicator_palette", envir = .GlobalEnv)
+  } else {
+    ind_colors <- c(
+      "Demographics" = "purple",
+      "Spawning & Rearing" = "turquoise",
+      "Upstream Migration" = "royalblue",
+      "Nearshore Marine" = "green4",
+      "Genetics" = "orange3"
+    )
+  }
+  
+  ind_y_colors <- sapply(rev(ind_source_levels), function(x) {
+    if (x == "Baseline") {
+      "black"
+    } else if (x %in% names(sens_palette)) {
+      sens_palette[[x]]
+    } else {
+      "black"
+    }
+  })
+  ind_y_colors <- unname(ind_y_colors)
+
+  # Extract baseline value for vertical reference lines
+  baseline_line_data <- ind_shift_cu %>%
+    filter(source == "Baseline") %>%
+    select(indicator, x_intercept = val)
+
+  # Plot: Indicator values across scenarios
+  p2 <- ggplot(ind_shift_others, aes(y = source, x = val, fill = category_label)) +
+    geom_vline(data = baseline_line_data, aes(xintercept = x_intercept), linetype = "dashed", color = "grey50") +
+    geom_violin(color = "#CBD5E0", alpha = 0.5, scale = "width") +
+    geom_point(data = ind_shift_cu, aes(x = val, y = source), color = "#E67E22", size = 3, shape = 18) +
+    facet_wrap(~indicator, scales = "free_x", ncol = 3, labeller = labeller(indicator = ind_label_units)) +
+    scale_fill_manual(values = ind_colors, guide = "none") +
+    labs(
+      title = paste("Raw Indicator Value Sensitivity for CU:", cu_code),
+      subtitle = "Violins show distributions across all CUs; Orange diamond highlights the selected CU. Dashed line indicates baseline.",
+      x = "Actual Raw Indicator Value (units vary)",
+      y = "Assumption / Scenario"
+    ) +
+    theme_minimal(base_size = 11) +
+    theme(
+      plot.title = element_text(face = "bold", size = 12, color = "#1A365D"),
+      plot.subtitle = element_text(size = 9, color = "grey40"),
+      strip.text = element_text(face = "bold", size = 9),
+      panel.grid.minor = element_blank(),
+      axis.text.y = element_text(color = ind_y_colors, face = "bold", size = 9)
+    )
+
+  return(p2)
+}
+
+
+plot_cu_sensitivity_summary <- function(
+  overall_sensitivity,
+  tbl_indicators,
+  cu_code
+) {
+  p1 <- plot_cu_sensitivity_scores(overall_sensitivity, cu_code)
+  
+  # Strip some titles for combined presentation
+  p1 <- p1 + labs(title = "Category Vulnerability Score Shifts", subtitle = NULL)
+  
+  p2 <- plot_cu_sensitivity_indicators(overall_sensitivity, tbl_indicators, cu_code)
+  p2 <- p2 + labs(title = "Raw Indicator Value Sensitivity", subtitle = NULL) +
+    theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(), axis.title.y = element_blank())
+
+  # Combine using patchwork
+  p_combined <- p1 + p2 + 
+    plot_layout(widths = c(1, 2.2)) +
+    plot_annotation(
+      title = paste("Sensitivity Analysis Plots for CU:", cu_code),
+      subtitle = "Visualizing how overall vulnerability score and individual indicators shift across uncertainty assumptions relative to other Fraser CUs",
+      theme = ggplot2::theme(
+        plot.title = ggplot2::element_text(face = "bold", size = 14, color = "#1A365D"),
+        plot.subtitle = ggplot2::element_text(size = 10, color = "#4A5568")
+      )
+    )
+
+  return(p_combined)
 }
 
 
