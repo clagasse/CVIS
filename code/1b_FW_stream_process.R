@@ -31,6 +31,12 @@ setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
 
 library(janitor)
+library(future.apply)
+
+# Set up parallel backend if not already configured
+if (inherits(future::plan(), "sequential")) {
+  future::plan(future::multisession, workers = max(1, parallelly::availableCores() - 1))
+}
 
 # ==================== 1. Stream Network & Spatial Layer Loading ====================
 

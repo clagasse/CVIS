@@ -165,22 +165,6 @@ generate_cvis_summary_table <- function(
     }
   }
 
-  # Default titles
-  if (is.null(title)) {
-    if (!is.null(cu_code)) {
-      title <- paste("CVIS Climate and Vulnerability Indicators for CU:", cu_code)
-    } else {
-      title <- "Summary of CVIS Climate and Vulnerability Indicators"
-    }
-  }
-  if (is.null(subtitle)) {
-    if (!is.null(cu_code)) {
-      subtitle <- "Baseline scenario mean and variation, and comparison against all CUs and species"
-    } else {
-      subtitle <- "Baseline scenario mean and variation in raw units and standardized scores"
-    }
-  }
-
   # Select columns in the desired order
   select_cols <- c(
     "indicator", "category_pretty", "name", "unit"
@@ -459,7 +443,7 @@ generate_cvis_vulnerability_table <- function(
 
   # 3. Extract overall vulnerability scores for specific GCMs 1, 4, and 6
   gcm_scores <- scores_tidy %>%
-    filter(std_method == "exponential", rcp == "45", period_code == "3", category == "all", method == "catavg") %>%
+    filter(std_method == std_method_base, rcp == "45", period_code == "3", category == "all", method == "catavg") %>%
     filter(gcm %in% c("1", "4", "6")) %>%
     select(FULL_CU_IN, gcm, score100_all) %>%
     mutate(gcm = paste0("gcm", gcm)) %>%
@@ -470,7 +454,7 @@ generate_cvis_vulnerability_table <- function(
 
   # 4. Extract different scoring methods for overall vulnerability (ensemble GCM 9)
   method_scores <- scores_tidy %>%
-    filter(std_method == "exponential", rcp == "45", period_code == "3", category == "all", gcm == "9") %>%
+    filter(std_method == std_method_base, rcp == "45", period_code == "3", category == "all", gcm == "9") %>%
     filter(method %in% c("avgall", "avgcube")) %>%
     select(FULL_CU_IN, method, score100_all) %>%
     pivot_wider(

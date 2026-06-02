@@ -51,7 +51,7 @@ html_template <- r"---(<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Climate Vulnerability Indicators for Salmon (CVIS) Supplemental CU Data Report</title>
+  <title>Climate Vulnerability Indicators for Salmon (CVIS) Supplement - CU Data Reports</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -304,7 +304,7 @@ html_template <- r"---(<!DOCTYPE html>
   <!-- Sidebar -->
   <div class="sidebar">
     <div class="sidebar-header">
-      <h1>CVIS Database</h1>
+      <h1>CU Reports</h1>
       <p>Climate Vulnerability Indicators for Salmon</p>
       <button class="btn-home" onclick="showAbout()">Home / About Project</button>
     </div>
@@ -322,7 +322,7 @@ html_template <- r"---(<!DOCTYPE html>
     <div class="about-screen" id="about-landing">
       <div class="about-header">
         <h2>Climate Vulnerability Indicators for Salmon (CVIS)</h2>
-        <p>Supplemental Conservation Unit Reports for publication.</p>
+        <p>Supplement - Conservation Unit Reports</p>
       </div>
  
       <div class="about-section">

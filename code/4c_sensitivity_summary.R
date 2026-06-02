@@ -33,12 +33,12 @@ source(file.path(here(), "code", "0_setup.R"))
 
 load(file.path(paths$output, "scoring_results.Rdata")) # Ensure all_std_long and scores_tidy are fresh
 
-# Filter to default exponential standardization to keep downstream analyses consistent
+# Filter to default mix standardization to keep downstream analyses consistent
 if ("std_method" %in% names(all_std_long)) {
-  all_std_long <- all_std_long %>% filter(std_method == "exponential")
+  all_std_long <- all_std_long %>% filter(std_method == std_method_base)
 }
 if ("std_method" %in% names(scores_tidy)) {
-  scores_tidy <- scores_tidy %>% filter(std_method == "exponential")
+  scores_tidy <- scores_tidy %>% filter(std_method == std_method_base)
 }
 
 # Load outputs from 4b (Indicator metrics and sensitivity analysis)

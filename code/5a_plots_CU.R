@@ -66,71 +66,105 @@ simplify_geom_if_needed <- function(sf_obj, dTolerance = NULL) {
 # Improved CU timing plot function - Version 2
 # Shows life stage timing with indicator calculation periods
 
-cu_timing_plot <- function(data, show_indicator_periods = FALSE) {
-  require(dplyr)
-  require(ggplot2)
-  require(ggtext)
-  require(stringr)
+plot_timing_comparison <- function(cu_timing_long,
+                                   selected_cu = NULL,
+                                   cu_select = NULL,
+                                   species_select = NULL,
+                                   life_stages = c(
+                                     "spawning", "run_timing",
+                                     "ocean_entry", "freshwater_migration"
+                                   ),
+                                   sort_by = "species",
+                                   show_peaks = TRUE,
+                                   show_indicator_periods = FALSE,
+                                   species_palette = NULL,
+                                   life_stage_palette = NULL,
+                                   date_breaks = "1 month",
+                                   y_text_size = NULL,
+                                   zoom_to_selected = FALSE) {
 
-  # 1. Identify selected CU and its species
-  selected_cu <- unique(data$FULL_CU_IN)[1]
-  selected_species <- unique(data$SPECIES_NAME)[1]
-  if (is.na(selected_species)) {
-    selected_species <- unique(data$species)[1]
+  # 1. Clean and filter input dataset
+  data_plot <- cu_timing_long
+
+  if (!is.null(cu_select)) {
+    data_plot <- data_plot %>% filter(FULL_CU_IN %in% cu_select)
   }
 
-  # Translate species code if necessary
-  species_map <- c("CK" = "Chinook", "CM" = "Chum", "CO" = "Coho", "PK" = "Pink", "SE" = "Sockeye")
-  if (selected_species %in% names(species_map)) {
-    selected_species_name <- species_map[selected_species]
-  } else {
-    selected_species_name <- selected_species
-  }
-
-  # 1b. Get species color palette
-  if (exists("species_palette", envir = .GlobalEnv)) {
-    spp_palette <- get("species_palette", envir = .GlobalEnv)
-  } else {
-    spp_palette <- c(
-      "Chinook" = "#1b9e77",
-      "Coho" = "darkblue",
-      "Sockeye" = "firebrick4",
-      "Pink" = "purple3",
-      "Chum" = "goldenrod4"
-    )
-  }
-
-  # 2. Get full dataset of CUs
-  if (exists("cu_timing_long", envir = .GlobalEnv)) {
-    timing_all <- get("cu_timing_long", envir = .GlobalEnv)
-  } else {
-    timing_file <- file.path("processed_data", "CU", "cu_timing_data.Rdata")
-    if (file.exists(timing_file)) {
-      temp_env <- new.env()
-      load(timing_file, envir = temp_env)
-      timing_all <- temp_env$cu_timing_long
-    } else {
-      timing_all <- data
+  if (!is.null(species_select)) {
+    if ("SPECIES_NAME" %in% names(data_plot)) {
+      data_plot <- data_plot %>% filter(SPECIES_NAME %in% species_select)
+    } else if ("species" %in% names(data_plot)) {
+      data_plot <- data_plot %>% filter(species %in% species_select)
     }
   }
 
-  # We show all CUs (all species)
-  df_all_cus <- timing_all
+  if (!is.null(life_stages)) {
+    data_plot <- data_plot %>% filter(life_stage %in% life_stages)
+  }
 
-  if (nrow(df_all_cus) == 0) {
-    df_all_cus <- data
+  # If there is a selected_cu, make sure it is set
+  if (is.null(selected_cu) && length(unique(data_plot$FULL_CU_IN)) == 1) {
+    selected_cu <- unique(data_plot$FULL_CU_IN)[1]
+  }
+
+  # 1b. Pull full dataset for comparison if selected_cu is active and we only have that CU in our data_plot
+  # (This matches the behavior of cu_timing_plot where it compares the single CU against all others)
+  if (!is.null(selected_cu) && length(unique(data_plot$FULL_CU_IN)) == 1) {
+    if (exists("cu_timing_long", envir = .GlobalEnv)) {
+      timing_all <- get("cu_timing_long", envir = .GlobalEnv)
+    } else {
+      timing_file <- file.path("processed_data", "CU", "cu_timing_data.Rdata")
+      if (file.exists(timing_file)) {
+        temp_env <- new.env()
+        load(timing_file, envir = temp_env)
+        timing_all <- temp_env$cu_timing_long
+      } else {
+        timing_all <- data_plot
+      }
+    }
+    # Keep the filter criteria on the timing_all for the plot
+    if (!is.null(life_stages)) {
+      timing_all <- timing_all %>% filter(life_stage %in% life_stages)
+    }
+    # Ensure the selected_cu is in the plot dataset
+    data_plot <- timing_all
+  }
+
+  if (nrow(data_plot) == 0) {
+    return(NULL)
+  }
+
+  # 2. Get species color palette
+  if (is.null(species_palette)) {
+    if (exists("species_palette", envir = .GlobalEnv)) {
+      species_palette <- get("species_palette", envir = .GlobalEnv)
+    } else {
+      species_palette <- c(
+        "Chinook" = "#1b9e77",
+        "Coho" = "darkblue",
+        "Sockeye" = "firebrick4",
+        "Pink" = "purple3",
+        "Chum" = "goldenrod4"
+      )
+    }
   }
 
   # 3. Clean and prepare labels
-  df_all_cus <- df_all_cus %>%
+  if (!"life_stage_label" %in% names(data_plot)) {
+    data_plot <- data_plot %>%
+      mutate(
+        life_stage_label = case_when(
+          life_stage == "spawning" ~ "Spawning",
+          life_stage == "run_timing" ~ "Upstream Run Timing",
+          life_stage == "ocean_entry" ~ "Ocean Entry",
+          life_stage == "freshwater_migration" ~ "Juvenile FW Migration",
+          TRUE ~ life_stage
+        )
+      )
+  }
+
+  data_plot <- data_plot %>%
     mutate(
-      life_stage_label = case_when(
-        life_stage == "spawning" ~ "Spawning",
-        life_stage == "run_timing" ~ "Upstream Run Timing",
-        life_stage == "ocean_entry" ~ "Ocean Entry",
-        life_stage == "freshwater_migration" ~ "Juvenile FW Migration",
-        TRUE ~ life_stage
-      ),
       life_stage_label = factor(life_stage_label,
         levels = c(
           "Spawning", "Upstream Run Timing",
@@ -139,7 +173,7 @@ cu_timing_plot <- function(data, show_indicator_periods = FALSE) {
       )
     )
 
-  df_plot <- df_all_cus %>%
+  df_plot <- data_plot %>%
     filter(!is.na(start), !is.na(end)) %>%
     mutate(
       date_start = as.Date("2000-01-01") + start,
@@ -148,68 +182,120 @@ cu_timing_plot <- function(data, show_indicator_periods = FALSE) {
     )
 
   # 4. Extract data quality info and timing events for the selected CU
-  sel_timing <- df_plot %>% filter(FULL_CU_IN == selected_cu)
-  
-  get_dq_str <- function(stage_name) {
-    dq <- sel_timing %>% filter(life_stage == stage_name) %>% pull(dat_qual)
-    if (length(dq) > 0 && !is.na(dq[1])) as.character(dq[1]) else "N/A"
-  }
-  
-  fm_dq <- get_dq_str("freshwater_migration")
-  oe_dq <- get_dq_str("ocean_entry")
-  rt_dq <- get_dq_str("run_timing")
-  sp_dq <- get_dq_str("spawning")
-  
-  dq_summary <- sprintf("Data Quality: Spawning=%s, Run Timing=%s, Ocean Entry=%s, FW Migration=%s (1=Best, 6=Worst)", 
-                        sp_dq, rt_dq, oe_dq, fm_dq)
+  dq_summary <- NULL
+  rt_start_date <- rt_end_date <- sp_start_date <- sp_peak_date <- NULL
+  sel_timing <- NULL
 
-  # Get vertical line values for selected CU timing milestones
-  rt_start_val <- sel_timing %>% filter(life_stage == "run_timing") %>% pull(start)
-  rt_end_val <- sel_timing %>% filter(life_stage == "run_timing") %>% pull(end)
-  sp_start_val <- sel_timing %>% filter(life_stage == "spawning") %>% pull(start)
-  sp_peak_val <- sel_timing %>% filter(life_stage == "spawning") %>% pull(peak)
-  
-  rt_start_date <- if (length(rt_start_val) > 0) as.Date("2000-01-01") + rt_start_val[1] else NULL
-  rt_end_date <- if (length(rt_end_val) > 0) as.Date("2000-01-01") + rt_end_val[1] else NULL
-  sp_start_date <- if (length(sp_start_val) > 0) as.Date("2000-01-01") + sp_start_val[1] else NULL
-  sp_peak_date <- if (length(sp_peak_val) > 0) as.Date("2000-01-01") + sp_peak_val[1] else NULL
+  if (!is.null(selected_cu)) {
+    sel_timing <- df_plot %>% filter(FULL_CU_IN == selected_cu)
+    if (nrow(sel_timing) > 0) {
+      get_dq_str <- function(stage_name) {
+        dq <- sel_timing %>% filter(life_stage == stage_name) %>% pull(dat_qual)
+        if (length(dq) > 0 && !is.na(dq[1])) as.character(dq[1]) else "N/A"
+      }
+      
+      fm_dq <- get_dq_str("freshwater_migration")
+      oe_dq <- get_dq_str("ocean_entry")
+      rt_dq <- get_dq_str("run_timing")
+      sp_dq <- get_dq_str("spawning")
+      
+      dq_summary <- sprintf("Data Quality: Spawning=%s, Run Timing=%s, Ocean Entry=%s, FW Migration=%s (1=Best, 6=Worst)", 
+                            sp_dq, rt_dq, oe_dq, fm_dq)
+
+      # Get vertical line values for selected CU timing milestones
+      rt_start_val <- sel_timing %>% filter(life_stage == "run_timing") %>% pull(start)
+      rt_end_val <- sel_timing %>% filter(life_stage == "run_timing") %>% pull(end)
+      sp_start_val <- sel_timing %>% filter(life_stage == "spawning") %>% pull(start)
+      sp_peak_val <- sel_timing %>% filter(life_stage == "spawning") %>% pull(peak)
+      
+      rt_start_date <- if (length(rt_start_val) > 0) as.Date("2000-01-01") + rt_start_val[1] else NULL
+      rt_end_date <- if (length(rt_end_val) > 0) as.Date("2000-01-01") + rt_end_val[1] else NULL
+      sp_start_date <- if (length(sp_start_val) > 0) as.Date("2000-01-01") + sp_start_val[1] else NULL
+      sp_peak_date <- if (length(sp_peak_val) > 0) as.Date("2000-01-01") + sp_peak_val[1] else NULL
+    }
+  }
 
   # 5. Build y-axis factors and highlights
   cu_labels_df <- df_plot %>%
     select(FULL_CU_IN, CVIS_NAME, culabel, SPECIES_NAME) %>%
     distinct()
   
-  if (!selected_cu %in% cu_labels_df$FULL_CU_IN) {
-    selected_row <- data %>% 
+  if (!is.null(selected_cu) && !selected_cu %in% cu_labels_df$FULL_CU_IN) {
+    selected_row <- cu_timing_long %>% 
+      filter(FULL_CU_IN == selected_cu) %>%
       select(FULL_CU_IN, CVIS_NAME, culabel, SPECIES_NAME) %>% 
       distinct()
-    cu_labels_df <- bind_rows(cu_labels_df, selected_row) %>% distinct()
+    if (nrow(selected_row) > 0) {
+      cu_labels_df <- bind_rows(cu_labels_df, selected_row) %>% distinct()
+    }
   }
+
+  # Define label sizes based on selected_cu mode
+  default_size <- if (!is.null(selected_cu)) "5.2pt" else "8pt"
+  y_sz <- if (!is.null(y_text_size)) paste0(y_text_size, "pt") else default_size
 
   cu_labels_df <- cu_labels_df %>%
     mutate(
-      color_hex = spp_palette[SPECIES_NAME],
+      color_hex = species_palette[SPECIES_NAME],
       color_hex = if_else(is.na(color_hex), "#4B5563", color_hex),
-      label_clean = paste0(culabel, " (", FULL_CU_IN, ")"),
-      label_formatted = if_else(
-        FULL_CU_IN == selected_cu,
-        paste0("<span style='color:", color_hex, "; font-size:8.5pt;'><b>▶ ", label_clean, "</b></span>"),
-        paste0("<span style='color:", color_hex, "; font-size:5.2pt;'>", label_clean, "</span>")
-      )
+      label_clean = paste0(culabel, " (", FULL_CU_IN, ")")
     )
 
-  # Sort all CUs by species (descending) and name (descending) so they list Chinook to Sockeye alphabetically A-Z from top to bottom
-  # (No special treatment for selected CU position)
-  cu_labels_ordered <- cu_labels_df %>%
-    arrange(desc(SPECIES_NAME), desc(CVIS_NAME))
+  if (!is.null(selected_cu)) {
+    cu_labels_df <- cu_labels_df %>%
+      mutate(
+        label_formatted = if_else(
+          FULL_CU_IN == selected_cu,
+          paste0("<span style='color:", color_hex, "; font-size:8.5pt;'><b>▶ ", label_clean, "</b></span>"),
+          paste0("<span style='color:", color_hex, "; font-size:", y_sz, ";'>", label_clean, "</span>")
+        )
+      )
+  } else {
+    cu_labels_df <- cu_labels_df %>%
+      mutate(
+        label_formatted = paste0("<span style='color:", color_hex, "; font-size:", y_sz, ";'>", label_clean, "</span>")
+      )
+  }
+
+  # Sort CUs
+  if (sort_by == "species") {
+    cu_labels_ordered <- cu_labels_df %>%
+      arrange(desc(SPECIES_NAME), desc(CVIS_NAME))
+  } else if (sort_by == "peak_spawn") {
+    sp_peaks <- df_plot %>%
+      filter(life_stage == "spawning") %>%
+      arrange(desc(peak)) %>%
+      left_join(select(cu_labels_df, FULL_CU_IN, label_formatted), by = "FULL_CU_IN") %>%
+      select(label_formatted) %>%
+      distinct()
+    cu_labels_ordered <- cu_labels_df %>%
+      mutate(label_formatted = factor(label_formatted, levels = unique(c(sp_peaks$label_formatted, label_formatted)))) %>%
+      arrange(label_formatted)
+  } else if (sort_by == "peak_oe") {
+    oe_peaks <- df_plot %>%
+      filter(life_stage == "ocean_entry") %>%
+      arrange(desc(peak)) %>%
+      left_join(select(cu_labels_df, FULL_CU_IN, label_formatted), by = "FULL_CU_IN") %>%
+      select(label_formatted) %>%
+      distinct()
+    cu_labels_ordered <- cu_labels_df %>%
+      mutate(label_formatted = factor(label_formatted, levels = unique(c(oe_peaks$label_formatted, label_formatted)))) %>%
+      arrange(label_formatted)
+  } else {
+    cu_labels_ordered <- cu_labels_df
+  }
 
   df_plot <- df_plot %>%
     left_join(select(cu_labels_df, FULL_CU_IN, label_clean, label_formatted), by = "FULL_CU_IN")
   
-  levels_ordered <- cu_labels_ordered$label_formatted
+  levels_ordered <- unique(cu_labels_ordered$label_formatted)
   df_plot$y_axis_factor <- factor(df_plot$label_formatted, levels = levels_ordered)
 
-  highlight_idx <- which(levels_ordered == cu_labels_df$label_formatted[cu_labels_df$FULL_CU_IN == selected_cu])
+  highlight_idx <- if (!is.null(selected_cu)) {
+    which(levels_ordered == cu_labels_df$label_formatted[cu_labels_df$FULL_CU_IN == selected_cu])
+  } else {
+    integer(0)
+  }
 
   # Add data quality category columns
   df_plot <- df_plot %>%
@@ -222,16 +308,18 @@ cu_timing_plot <- function(data, show_indicator_periods = FALSE) {
     mutate(dat_qual_cat = factor(dat_qual_cat, levels = c("High (1-2)", "Medium (3-4)", "Low (5-6)", "Unknown")))
 
   # 6. Define colors for life stages
-  stage_colors <- c(
-    "Spawning" = "#66C2A5",
-    "Upstream Run Timing" = "#FC8D62",
-    "Ocean Entry" = "#8DA0CB",
-    "Juvenile FW Migration" = "#E78AC3"
-  )
+  if (is.null(life_stage_palette)) {
+    life_stage_palette <- c(
+      "Spawning" = "#66C2A5",
+      "Upstream Run Timing" = "#FC8D62",
+      "Ocean Entry" = "#8DA0CB",
+      "Juvenile FW Migration" = "#E78AC3"
+    )
+  }
 
   p <- ggplot(df_plot, aes(y = y_axis_factor))
 
-  # Background highlight for the selected CU using annotate
+  # Background highlight for the selected CU
   if (length(highlight_idx) > 0) {
     p <- p + annotate("rect",
       xmin = as.Date("2000-01-01"), xmax = as.Date("2000-12-31"),
@@ -240,8 +328,7 @@ cu_timing_plot <- function(data, show_indicator_periods = FALSE) {
     )
   }
 
-  # Draw timing events as vertical dashed lines (from migration_path_timing_plot)
-  # Highlight timing milestones of the selected CU vertically across all CUs
+  # Highlight timing milestones of the selected CU vertically
   if (!is.null(rt_start_date)) {
     p <- p + geom_vline(xintercept = rt_start_date, linetype = "dashed", color = "#3498db", linewidth = 0.5, alpha = 0.6)
   }
@@ -255,53 +342,51 @@ cu_timing_plot <- function(data, show_indicator_periods = FALSE) {
     p <- p + geom_vline(xintercept = sp_peak_date, linetype = "dashed", color = "#e74c3c", linewidth = 0.5, alpha = 0.6)
   }
 
-  # Draw thin timing segments for other CUs
-  p <- p + geom_segment(
-    data = filter(df_plot, FULL_CU_IN != selected_cu),
-    aes(
-      x = date_start, xend = date_end,
-      yend = y_axis_factor,
-      color = life_stage_label
-    ),
-    linewidth = 1.4, alpha = 0.65
-  )
+  # Draw range segments
+  if (!is.null(selected_cu)) {
+    # Thick segments for selected CU, thin for others
+    p <- p + geom_segment(
+      data = filter(df_plot, FULL_CU_IN != selected_cu),
+      aes(x = date_start, xend = date_end, yend = y_axis_factor, color = life_stage_label),
+      linewidth = 1.4, alpha = 0.65
+    ) + geom_segment(
+      data = filter(df_plot, FULL_CU_IN == selected_cu),
+      aes(x = date_start, xend = date_end, yend = y_axis_factor, color = life_stage_label),
+      linewidth = 5.5, alpha = 0.95
+    )
+  } else {
+    # Standard width segments for comparison plot
+    p <- p + geom_segment(
+      aes(x = date_start, xend = date_end, yend = y_axis_factor, color = life_stage_label),
+      linewidth = 4, alpha = 0.7
+    )
+  }
 
-  # Draw thick timing segments for the selected CU
-  p <- p + geom_segment(
-    data = filter(df_plot, FULL_CU_IN == selected_cu),
-    aes(
-      x = date_start, xend = date_end,
-      yend = y_axis_factor,
-      color = life_stage_label
-    ),
-    linewidth = 5.5, alpha = 0.95
-  )
-
-  # Draw small peak points for other CUs
-  p <- p + geom_point(
-    data = filter(df_plot, FULL_CU_IN != selected_cu),
-    aes(
-      x = date_peak,
-      fill = life_stage_label,
-      shape = dat_qual_cat
-    ),
-    color = "grey30", size = 1.4, stroke = 0.3
-  )
-
-  # Draw large peak points for the selected CU
-  p <- p + geom_point(
-    data = filter(df_plot, FULL_CU_IN == selected_cu),
-    aes(
-      x = date_peak,
-      fill = life_stage_label,
-      shape = dat_qual_cat
-    ),
-    color = "black", size = 4.0, stroke = 1.2
-  )
+  # Draw peak points if show_peaks is TRUE
+  if (show_peaks) {
+    if (!is.null(selected_cu)) {
+      # Large points for selected CU, small for others
+      p <- p + geom_point(
+        data = filter(df_plot, FULL_CU_IN != selected_cu),
+        aes(x = date_peak, fill = life_stage_label, shape = dat_qual_cat),
+        color = "grey30", size = 1.4, stroke = 0.3
+      ) + geom_point(
+        data = filter(df_plot, FULL_CU_IN == selected_cu),
+        aes(x = date_peak, fill = life_stage_label, shape = dat_qual_cat),
+        color = "black", size = 4.0, stroke = 1.2
+      )
+    } else {
+      # Standard size points for comparison plot
+      p <- p + geom_point(
+        aes(x = date_peak, fill = life_stage_label, shape = dat_qual_cat),
+        color = "grey30", size = 3, stroke = 1.0
+      )
+    }
+  }
 
   p <- p +
-    scale_color_manual(values = stage_colors, name = "Life Stage") +
-    scale_fill_manual(values = stage_colors, name = "Life Stage") +
+    scale_color_manual(values = life_stage_palette, name = "Life Stage") +
+    scale_fill_manual(values = life_stage_palette, name = "Life Stage") +
     scale_shape_manual(
       name = "Data Quality",
       values = c(
@@ -320,47 +405,45 @@ cu_timing_plot <- function(data, show_indicator_periods = FALSE) {
     )
   }
 
-  # Zoom x-axis: range of the selected CU plus 1 month padding on each end (user request 2)
-  pad_start <- min(sel_timing$date_start, na.rm = TRUE)
-  pad_end <- max(sel_timing$date_end, na.rm = TRUE)
+  # Zoom x-axis
+  xlim_start <- as.Date("2000-01-01")
+  xlim_end <- as.Date("2000-12-31")
   
-  if (!is.na(pad_start) && !is.na(pad_end)) {
-    xlim_start <- pad_start - 30
-    xlim_end <- pad_end + 30
-    if (xlim_start < as.Date("2000-01-01")) xlim_start <- as.Date("2000-01-01")
-    if (xlim_end > as.Date("2000-12-31")) xlim_end <- as.Date("2000-12-31")
-  } else {
-    xlim_start <- as.Date("2000-01-01")
-    xlim_end <- as.Date("2000-12-31")
+  if (zoom_to_selected && !is.null(sel_timing) && nrow(sel_timing) > 0) {
+    pad_start <- min(sel_timing$date_start, na.rm = TRUE)
+    pad_end <- max(sel_timing$date_end, na.rm = TRUE)
+    if (!is.na(pad_start) && !is.na(pad_end)) {
+      xlim_start <- pad_start - 30
+      xlim_end <- pad_end + 30
+      if (xlim_start < as.Date("2000-01-01")) xlim_start <- as.Date("2000-01-01")
+      if (xlim_end > as.Date("2000-12-31")) xlim_end <- as.Date("2000-12-31")
+    }
   }
-
-  cu_name_clean <- unique(sel_timing$culabel)[1]
-  if (is.na(cu_name_clean)) cu_name_clean <- selected_cu
 
   p <- p +
     scale_y_discrete(limits = levels_ordered) +
     scale_x_date(
-      date_breaks = "1 month",
+      date_breaks = date_breaks,
       date_labels = "%b",
       limits = c(xlim_start, xlim_end),
       expand = c(0.01, 0)
     ) +
     labs(
-      title = sprintf("Life History Timing: %s relative to all Fraser River CUs", cu_name_clean),
-      subtitle = dq_summary,
+      title = title_text,
+      subtitle = subtitle_text,
       x = "Date",
       y = NULL,
-      caption = "Bars represent 5th-95th percentile duration. Points represent peak timing.\nSelected CU highlighted in orange and bold. Peak symbols show data quality: Circle (High), Triangle (Medium), Square (Low).\nVertical lines show Selected CU milestones: blue dashed (Upstream Run Timing Start/End), red dashed (Spawning Start/Peak)."
+      caption = caption_text
     ) +
     theme_minimal() +
     theme(
-      axis.text.x = element_text(size = 9),
+      axis.text.x = element_text(size = 9, angle = if (is.null(selected_cu)) 45 else 0, hjust = if (is.null(selected_cu)) 1 else 0.5),
       axis.text.y = ggtext::element_markdown(lineheight = 0.8),
       axis.text.y.left = ggtext::element_markdown(lineheight = 0.8),
       axis.title.x = element_text(size = 10, face = "bold"),
       panel.grid.major.y = element_blank(),
       panel.grid.minor = element_blank(),
-      legend.position = "bottom",
+      legend.position = if (is.null(selected_cu)) "right" else "bottom",
       legend.box = "horizontal",
       legend.margin = margin(t = 0),
       legend.title = element_text(size = 9, face = "bold"),
@@ -372,6 +455,17 @@ cu_timing_plot <- function(data, show_indicator_periods = FALSE) {
     )
 
   return(p)
+}
+
+cu_timing_plot <- function(data, show_indicator_periods = FALSE) {
+  # Wrapper that detects selected_cu and delegates to consolidated plot_timing_comparison
+  selected_cu <- unique(data$FULL_CU_IN)[1]
+  plot_timing_comparison(
+    cu_timing_long = data,
+    selected_cu = selected_cu,
+    show_indicator_periods = show_indicator_periods,
+    zoom_to_selected = TRUE
+  )
 }
 
 # # # Load your timing data
@@ -430,12 +524,20 @@ stream_indicator_plot <- function(fwModels,
                                   xlim = NA,
                                   unit_label = NULL,
                                   temp_stations = FALSE,
-                                  scico_palette = "roma",
+                                  risk_palette = cvis_risk_palette,
                                   palette_direction = 1) {
+
   # Simplify geometries if needed
   fwModels <- simplify_geom_if_needed(fwModels)
   cu_boundary <- simplify_geom_if_needed(cu_boundary)
   lakes_cu <- simplify_geom_if_needed(lakes_cu)
+
+  # Filter stream segments to those that intersect with the CU boundary polygon
+  cu_boundary_union <- sf::st_union(cu_boundary)
+  intersects_mask <- sf::st_intersects(fwModels, cu_boundary_union, sparse = FALSE)[, 1]
+  if (any(intersects_mask)) {
+    fwModels <- fwModels[intersects_mask, ]
+  }
 
   var_sym <- sym(variable)
   hist_sym <- sym(histogram_fill)
@@ -445,8 +547,8 @@ stream_indicator_plot <- function(fwModels,
   ## stream map
   p1 <- ggplot() +
     geom_sf(data = fwModels, aes(color = !!var_sym), linewidth = 1.) +
-    scale_color_scico(
-      palette = scico_palette,
+    scale_color_cvis(
+      palette = risk_palette,
       direction = palette_direction,
       limits = color_range
     ) +
@@ -464,7 +566,7 @@ stream_indicator_plot <- function(fwModels,
   if (nrow(lakes_cu) > 0) p1 <- p1 + geom_sf(data = lakes_cu, color = "darkblue", alpha = 0.7)
 
   if (sum(!is.na(xlim)) > 0) {
-    p1 <- p1 + scale_color_scico(palette = scico_palette, direction = palette_direction, limits = xlim)
+    p1 <- p1 + scale_color_cvis(palette = risk_palette, direction = palette_direction, limits = xlim)
   }
 
   if (temp_stations == TRUE) {
@@ -516,9 +618,10 @@ stream_indicator_plot <- function(fwModels,
     theme_void() +
     theme(
       axis.line.x = element_line(color = "black"),
-      axis.text.x = element_text(color = "black"),
+      axis.text.x = element_text(color = "black", margin = margin(t = 6)),
       axis.ticks.x = element_line(color = "black"),
-      axis.title.x = element_text(color = "black")
+      axis.title.x = element_text(color = "black", margin = margin(t = 6)),
+      plot.margin = margin(1, 2, 12, 2)
     )
 
   if (sum(!is.na(xlim)) > 0) {
@@ -532,7 +635,7 @@ stream_indicator_plot <- function(fwModels,
 
 #' Multi-panel stream network plot of indicator values within a CU boundary
 #' 
-#' Plots multiple indicators side-by-side using patchwork without histograms,
+#' Plots multiple indicators side-by-side using patchwork with histograms,
 #' using compact legends.
 #'
 #' @param fwModels sf object containing stream network and model outputs.
@@ -541,21 +644,21 @@ stream_indicator_plot <- function(fwModels,
 #' @param variables Character vector of variables (indicators) to plot.
 #' @param plot_titles Optional character vector or named vector of titles.
 #' @param unit_labels Optional character vector or named vector of unit labels.
-#' @param scico_palettes Character vector or named vector of palettes. Default "roma".
+#' @param risk_palette Character vector or named vector of palettes. Default cvis_risk_palette.
 #' @param palette_directions Integer vector or named vector of directions. Default 1.
 #' @param ncol Integer. Number of columns in layout.
 #' @param nrow Integer. Number of rows in layout.
 #'
 stream_indicator_multipanel_plot <- function(fwModels,
-                                            cu_boundary,
-                                            lakes_cu = NULL,
-                                            variables = c("CT_anad"),
-                                            plot_titles = NULL,
-                                            unit_labels = NULL,
-                                            scico_palettes = "roma",
-                                            palette_directions = 1,
-                                            ncol = NULL,
-                                            nrow = NULL) {
+                                             cu_boundary,
+                                             lakes_cu = NULL,
+                                             variables = c("CT_anad"),
+                                             plot_titles = NULL,
+                                             unit_labels = NULL,
+                                             risk_palette = cvis_risk_palette,
+                                             palette_directions = 1,
+                                             ncol = NULL,
+                                             nrow = NULL) {
   # Simplify geometries if needed
   fwModels <- simplify_geom_if_needed(fwModels)
   cu_boundary <- simplify_geom_if_needed(cu_boundary)
@@ -588,24 +691,79 @@ stream_indicator_multipanel_plot <- function(fwModels,
     
     p_title <- get_param_by_name(plot_titles, var_name, i, var_name)
     u_label <- get_param_by_name(unit_labels, var_name, i, NULL)
-    p_palette <- get_param_by_name(scico_palettes, var_name, i, "roma")
+    
+    # Try loading unit from tbl_indicators if not provided
+    if (is.null(u_label) && exists("tbl_indicators")) {
+      match_idx <- sapply(tbl_indicators$abbrev, function(ab) {
+        startsWith(var_name, ab)
+      })
+      if (any(match_idx)) {
+        u_label <- tbl_indicators$unit[which(match_idx)[1]]
+      }
+    }
+    
+    # Shorten unit names for display in the histogram
+    if (!is.null(u_label)) {
+      u_label <- case_when(
+        u_label == "Temperature change per decade (°C)" ~ "°C / decade",
+        u_label == "Temperature (°C)" ~ "°C",
+        u_label == "Proportion change from baseline" ~ "Prop. change",
+        u_label == "Threat score" ~ "Threat",
+        u_label == "Favourability" ~ "Fav. change",
+        TRUE ~ u_label
+      )
+    }
+    
+    p_palette <- get_param_by_name(risk_palette, var_name, i, "roma")
     p_dir <- get_param_by_name(palette_directions, var_name, i, 1)
     
     # Filter out stream segments with NA values for this indicator
     panel_data <- fwModels[!is.na(st_drop_geometry(fwModels)[[var_name]]), ]
     
+    # Filter stream segments to those that intersect with the CU boundary polygon (not just the bounding box)
+    cu_boundary_union <- sf::st_union(cu_boundary)
+    intersects_mask <- sf::st_intersects(panel_data, cu_boundary_union, sparse = FALSE)[, 1]
+    if (any(intersects_mask)) {
+      panel_data <- panel_data[intersects_mask, ]
+    }
+    
+    # Crop to the bounding box of the CU boundary so data/ranges only include visible streams
+    panel_data <- suppressWarnings(sf::st_crop(panel_data, sf::st_bbox(cu_boundary)))
+    
+    if (nrow(panel_data) == 0) {
+      warning("No visible stream data inside the CU boundary for variable '", var_name, "'. Skipping.")
+      next
+    }
+    
     # Calculate limits for this indicator to avoid issues with NA or empty ranges
-    val_range <- range(panel_data[[var_name]], na.rm = TRUE)
+    vals <- panel_data[[var_name]]
+    val_range <- range(vals, na.rm = TRUE)
     if (any(is.infinite(val_range)) || any(is.nan(val_range))) {
       val_range <- c(0, 1) # Fallback range
+    } else {
+      # Clamp to IQR-based outlier thresholds: [Q1 - 1.5*IQR, Q3 + 1.5*IQR]
+      q <- quantile(vals, probs = c(0.25, 0.75), na.rm = TRUE)
+      iqr <- q[2] - q[1]
+      if (iqr > 0) {
+        val_range[1] <- max(val_range[1], q[1] - 1.5 * iqr)
+        val_range[2] <- min(val_range[2], q[2] + 1.5 * iqr)
+      }
+    }
+    
+    # Constrain range to [-1, 1] for favourability and proportion change indicators
+    if (startsWith(var_name, "favchange") || startsWith(var_name, "flow8pdelta") || startsWith(var_name, "flow18pdelta")) {
+      val_range[1] <- max(val_range[1], -1)
+      val_range[2] <- min(val_range[2], 1)
     }
     
     p <- ggplot() +
       geom_sf(data = panel_data, aes(color = !!var_sym)) +
-      scale_color_scico(
+      scale_color_cvis(
         palette = p_palette,
         direction = p_dir,
-        limits = val_range
+        limits = val_range,
+        guide = "none",
+        oob = scales::squish
       ) +
       geom_sf(data = cu_boundary, color = "black", alpha = 0.05)
       
@@ -619,22 +777,49 @@ stream_indicator_multipanel_plot <- function(fwModels,
         ylim = st_bbox(cu_boundary)[c(2, 4)],
         datum = NA
       ) +
-      labs(
-        title = p_title,
-        color = u_label
-      ) +
+      labs(title = p_title) +
       theme_void() +
       theme(
         plot.title = element_text(size = 11, face = "bold", hjust = 0.5),
-        legend.title = element_text(size = 8, face = "bold"),
-        legend.text = element_text(size = 7),
-        legend.key.width = unit(0.3, "cm"),
-        legend.key.height = unit(0.4, "cm"),
-        legend.margin = margin(t = 2, r = 2, b = 2, l = 2),
-        legend.box.spacing = unit(2, "pt")
+        plot.margin = margin(5, 5, 5, 5)
       )
+
+    # Inset histogram for distribution of values across stream segments
+    p_hist <- ggplot(st_drop_geometry(panel_data), aes(x = !!var_sym)) +
+      geom_histogram(aes(fill = after_stat(x)), bins = 15, color = "white", linewidth = 0.1, show.legend = FALSE, na.rm = TRUE) +
+      scale_fill_cvis(
+        palette = p_palette,
+        direction = p_dir,
+        limits = val_range,
+        oob = scales::squish
+      ) +
+      scale_x_continuous(
+        limits = val_range,
+        oob = scales::squish,
+        breaks = c(val_range[1], (val_range[1] + val_range[2])/2, val_range[2]),
+        labels = function(x) sprintf("%.1f", x)
+      ) +
+      labs(x = u_label) +
+      theme_void() +
+      theme(
+        axis.line.x = element_line(color = "black", linewidth = 0.5),
+        axis.text.x = element_text(color = "black", size = 7, face = "bold", margin = margin(t = 6)),
+        axis.ticks.x = element_line(color = "black", linewidth = 0.5),
+        axis.title.x = if (!is.null(u_label)) element_text(color = "black", size = 6.5, face = "bold", margin = margin(t = 6)) else element_blank(),
+        plot.background = element_rect(fill = "white", color = NA),
+        plot.margin = margin(1, 2, 12, 2)
+      )
+
+    p_combined <- p + patchwork::inset_element(
+      p_hist,
+      left = 0.03,
+      bottom = 0.03,
+      right = 0.38,
+      top = 0.32,
+      align_to = "panel"
+    )
       
-    plots[[length(plots) + 1]] <- p
+    plots[[length(plots) + 1]] <- p_combined
   }
   
   if (length(plots) == 0) {
@@ -1245,14 +1430,15 @@ marine_indicator_plot <- function(data,
                                   MAZ_sp,
                                   var = "SST_oe",
                                   unit_label = "Degrees C",
-                                  scico_palette = "roma",
+                                  risk_palette = cvis_risk_palette,
                                   plot_title = "",
                                   palette_direction = -1,
                                   palette_limits = c(9, 14)) {
+
   p <- ggplot() +
     geom_sf(data = data, aes(colour = !!sym(var))) +
-    scico::scale_color_scico(
-      palette   = scico_palette,
+    scale_color_cvis(
+      palette   = risk_palette,
       direction = palette_direction,
       limits    = palette_limits # <-- set your min/max here
     ) +
@@ -1519,7 +1705,7 @@ plot_cu_indicators_lollipop <- function(data,
     size = 4,
     stroke = 1
   ) +
-    scale_fill_distiller(
+    scale_fill_cvis(
       palette = cvis_risk_palette,
       direction = cvis_risk_direction, # Reversed: red for high values (high risk)
       limits = c(0, 1),

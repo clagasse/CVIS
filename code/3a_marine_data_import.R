@@ -93,54 +93,21 @@ T85[T85 == fillvalue$value] <- NA
 NEPlon <- as.vector(lon)
 NEPlat <- as.vector(lat)
 
-# Extract surface data (3rd dimension) for each month (4th dimension) as vectors
-SST_H_01 <- as.vector(TH[, , 1, 1])
-SST_H_02 <- as.vector(TH[, , 1, 2])
-SST_H_03 <- as.vector(TH[, , 1, 3])
-SST_H_04 <- as.vector(TH[, , 1, 4])
-SST_H_05 <- as.vector(TH[, , 1, 5])
-SST_H_06 <- as.vector(TH[, , 1, 6])
-SST_H_07 <- as.vector(TH[, , 1, 7])
-SST_H_08 <- as.vector(TH[, , 1, 8])
-SST_H_09 <- as.vector(TH[, , 1, 9])
-SST_H_10 <- as.vector(TH[, , 1, 10])
-SST_H_11 <- as.vector(TH[, , 1, 11])
-SST_H_12 <- as.vector(TH[, , 1, 12])
+# Extract surface data (3rd dimension) for each month (4th dimension) as vectors dynamically
+extract_surface_months <- function(array_data, prefix) {
+  months_data <- list()
+  for (m in 1:12) {
+    months_data[[sprintf("%s_%02d", prefix, m)]] <- as.vector(array_data[, , 1, m])
+  }
+  return(as.data.frame(months_data))
+}
 
-SST_45_01 <- as.vector(T45[, , 1, 1])
-SST_45_02 <- as.vector(T45[, , 1, 2])
-SST_45_03 <- as.vector(T45[, , 1, 3])
-SST_45_04 <- as.vector(T45[, , 1, 4])
-SST_45_05 <- as.vector(T45[, , 1, 5])
-SST_45_06 <- as.vector(T45[, , 1, 6])
-SST_45_07 <- as.vector(T45[, , 1, 7])
-SST_45_08 <- as.vector(T45[, , 1, 8])
-SST_45_09 <- as.vector(T45[, , 1, 9])
-SST_45_10 <- as.vector(T45[, , 1, 10])
-SST_45_11 <- as.vector(T45[, , 1, 11])
-SST_45_12 <- as.vector(T45[, , 1, 12])
-
-SST_85_01 <- as.vector(T85[, , 1, 1])
-SST_85_02 <- as.vector(T85[, , 1, 2])
-SST_85_03 <- as.vector(T85[, , 1, 3])
-SST_85_04 <- as.vector(T85[, , 1, 4])
-SST_85_05 <- as.vector(T85[, , 1, 5])
-SST_85_06 <- as.vector(T85[, , 1, 6])
-SST_85_07 <- as.vector(T85[, , 1, 7])
-SST_85_08 <- as.vector(T85[, , 1, 8])
-SST_85_09 <- as.vector(T85[, , 1, 9])
-SST_85_10 <- as.vector(T85[, , 1, 10])
-SST_85_11 <- as.vector(T85[, , 1, 11])
-SST_85_12 <- as.vector(T85[, , 1, 12])
-
-# Recombine information as spatial data frame in CRS 3005
-NEP_SST <- data.frame(x = NEPlon, y = NEPlat,
-  SST_H_01, SST_H_02, SST_H_03, SST_H_04, SST_H_05, SST_H_06,
-  SST_H_07, SST_H_08, SST_H_09, SST_H_10, SST_H_11, SST_H_12,
-  SST_45_01, SST_45_02, SST_45_03, SST_45_04, SST_45_05, SST_45_06,
-  SST_45_07, SST_45_08, SST_45_09, SST_45_10, SST_45_11, SST_45_12,
-  SST_85_01, SST_85_02, SST_85_03, SST_85_04, SST_85_05, SST_85_06,
-  SST_85_07, SST_85_08, SST_85_09, SST_85_10, SST_85_11, SST_85_12) %>%
+NEP_SST <- cbind(
+  data.frame(x = NEPlon, y = NEPlat),
+  extract_surface_months(TH, "SST_H"),
+  extract_surface_months(T45, "SST_45"),
+  extract_surface_months(T85, "SST_85")
+) %>%
   st_as_sf(coords = c("x", "y"),
     crs = "EPSG:4326") %>%
   st_transform(crs = "EPSG:3005")
@@ -148,13 +115,7 @@ NEP_SST <- data.frame(x = NEPlon, y = NEPlat,
 
 
 # remove unneeded variables
-rm(T45, TH, T85,
-  SST_H_01, SST_H_02, SST_H_03, SST_H_04, SST_H_05, SST_H_06,
-  SST_H_07, SST_H_08, SST_H_09, SST_H_10, SST_H_11, SST_H_12,
-  SST_45_01, SST_45_02, SST_45_03, SST_45_04, SST_45_05, SST_45_06,
-  SST_45_07, SST_45_08, SST_45_09, SST_45_10, SST_45_11, SST_45_12,
-  SST_85_01, SST_85_02, SST_85_03, SST_85_04, SST_85_05, SST_85_06,
-  SST_85_07, SST_85_08, SST_85_09, SST_85_10, SST_85_11, SST_85_12)
+rm(T45, TH, T85)
 
 
 # Load NEP 36 salinity data

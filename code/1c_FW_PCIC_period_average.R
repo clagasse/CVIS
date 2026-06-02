@@ -159,7 +159,8 @@ for(i in 1:length(PCIC_file_models)) {
   m_out <- paste0("monthly_", output_name)
   d_out <- paste0("daily_", output_name)
   
-  d_out <- "test.nc"
+  # Removed hardcoded test.nc override to write files correctly
+  # d_out <- "test.nc"
   
   print(paste0("Writing output to ", m_out))
   write_mdim(PCIC_month, file.path(paths$climate, "PCIC_processed", m_out))

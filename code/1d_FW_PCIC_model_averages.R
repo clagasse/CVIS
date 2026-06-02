@@ -53,7 +53,7 @@ time_levels <- c("daily",
 time_periods <- tribble(
   ~start, ~end, ~abbrev,
   1981, 2010, 0,
-  #2011, 2020, 1,
+  2011, 2020, 1,
   2021, 2040, 2,
   2041, 2060, 3,
   2061, 2080, 4,

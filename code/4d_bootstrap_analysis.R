@@ -138,13 +138,13 @@ for (k in 1:N_iterations) {
     filter(method == "catavg")
   
   # Scale to 0-100 and compute ranks across CUs
-  scores_scaled <- scores_iter %>%
-    group_by(category) %>%
-    mutate(
-      score100 = scale_0_100(score),
-      rank_val = rank(-score, ties.method = "average", na.last = "keep")
-    ) %>%
-    ungroup()
+  scores_scaled <- scale_and_rank_scores(
+    scores_iter,
+    group_vars = "category",
+    within_species = FALSE,
+    rank_descending = TRUE
+  ) %>%
+    rename(score100 = score100_all, rank_val = rankall)
   
   # Append metadata of assumptions
   scores_scaled <- scores_scaled %>%

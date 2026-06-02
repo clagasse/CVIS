@@ -1209,7 +1209,7 @@ server <- function(input, output, session) {
           plot_title = "Change in August Flow - 2041-2060",
           unit_label = "Proportional Change",
           xlim = c(-1, 0),
-          scico_palette = "lajolla",
+          risk_palette = "lajolla",
           palette_direction = 1,
           temp_stations = FALSE
         )
@@ -1234,7 +1234,7 @@ server <- function(input, output, session) {
           plot_title = "Change in Nov-Jan Flow - 2041-2060",
           unit_label = "Proportional Change",
           xlim = c(0, 1),
-          scico_palette = "lajolla",
+          risk_palette = "lajolla",
           palette_direction = -1,
           temp_stations = FALSE
         )
@@ -1263,7 +1263,7 @@ server <- function(input, output, session) {
           variable = "tw8proj_9_45_3",
           plot_title = "August Mean Temperature - 2041-2060",
           unit_label = "Temperature (°C)",
-          scico_palette = "roma",
+          risk_palette = "roma",
           palette_direction = -1,
           temp_stations = TRUE
         )
@@ -1286,7 +1286,7 @@ server <- function(input, output, session) {
           variable = "tw8rate_9_45_3",
           plot_title = "Rate of Temperature Change - 1981-2000 to 2041-2060",
           unit_label = "°C per decade",
-          scico_palette = "roma",
+          risk_palette = "roma",
           palette_direction = -1,
           temp_stations = TRUE
         )
@@ -1318,7 +1318,7 @@ server <- function(input, output, session) {
           unit_label = "Change in Favourability",
           histogram_fill = "model_access_salmon",
           xlim = c(-1, 1),
-          scico_palette = "berlin",
+          risk_palette = "berlin",
           palette_direction = -1,
           temp_stations = FALSE
         )
@@ -1348,7 +1348,7 @@ server <- function(input, output, session) {
           variable = "cthr_anad",
           plot_title = "Cumulative Threats to Stream Habitat",
           unit_label = "Cumulative Threat Score",
-          scico_palette = "lajolla",
+          risk_palette = "lajolla",
           palette_direction = -1,
           temp_stations = FALSE
         )
@@ -1427,7 +1427,7 @@ server <- function(input, output, session) {
         var = "SST_oe",
         unit_label = "Temperature (°C)",
         plot_title = "Projected SST - 2041-2060, RCP 4.5",
-        scico_palette = "roma",
+        risk_palette = "roma",
         palette_direction = -1,
         palette_limits = c(9, 16)
       )
@@ -1453,7 +1453,7 @@ server <- function(input, output, session) {
       var = "Cumul_Impact_ALL",
       unit_label = "Cumulative Impact Score",
       plot_title = "Cumulative Impacts on Marine Habitat",
-      scico_palette = "lajolla",
+      risk_palette = "lajolla",
       palette_direction = -1,
       palette_limits = c(NA, NA)
     )

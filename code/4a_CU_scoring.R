@@ -40,6 +40,9 @@ source(file.path(here(), "code", "0_setup.R"))
 scale_baseline_rcp <- NA # e.g. "45"
 scale_baseline_period <- NA # e.g. "3"
 
+# Threshold for station coverage overlap (exclude CUs below this for flow8pdelta)
+min_station_coverage <- 0.1
+
 #which variables are used when grouping CU indicator results for standardization?
 # This determines what min-max range is applied when standardizing from 0 to 1
 # default is to group separately across all scenarios and climate models
@@ -50,6 +53,19 @@ grouping_vars_pick <- c("gcm", "rcp", "period_code", "dsmodel")
 # Freshwater
 fw_file <- get_latest_file(paths$fw, "fw_rearing_indicators.Rdata")
 load(fw_file) # loads fw_all, ss_all
+
+# Exclude flow8pdelta station-model results for CUs with low station coverage
+low_coverage_cus <- ss_all %>%
+  filter(as.numeric(prop_coverage) < min_station_coverage) %>%
+  pull(FULL_CU_IN)
+
+if (length(low_coverage_cus) > 0) {
+  cat("Excluding flow8pdelta station-model results for", length(low_coverage_cus), "CUs with station coverage <", min_station_coverage, ":\n")
+  cat("  ", paste(low_coverage_cus, collapse = ", "), "\n")
+  fw_all <- fw_all %>%
+    filter(!(indicator == "flow8pdelta" & dsmodel == "station" & FULL_CU_IN %in% low_coverage_cus))
+}
+
 
 # Migration
 migr_file <- get_latest_file(paths$fw, "migr_stats.Rdata")
@@ -205,13 +221,24 @@ for (i in 1:nrow(tbl_standardize)) {
 
 all_std_long <- bind_rows(all_std_long)
 
+# Define "mix" standardization method (using indicator-specific default curves)
+mix_std_long <- all_std_long %>%
+  left_join(tbl_indicators %>% select(indicator = abbrev, std_fun), by = "indicator") %>%
+  mutate(default_method = if_else(std_fun %in% c("linear_std", "invlinear_std"), "linear", "exponential")) %>%
+  filter(std_method == default_method) %>%
+  mutate(std_method = "mix") %>%
+  select(-std_fun, -default_method)
+
+all_std_long <- bind_rows(all_std_long, mix_std_long)
+
 # ==================== 3. Scoring and Ranks Across Indicators ====================
 
 ## first we need to make sure that indicators without projections (e.g. status)
 # get applied when calculating scores for each rcp/gcm/scenario combination
 
-# Keep only specific baseline models for each indicator as defined in tbl_standardize
+# Keep only specific baseline models for each indicator as defined in tbl_standardize, and filter for mean stat
 dat <- all_std_long %>%
+  filter(stat == "mean") %>%
   left_join(tbl_standardize %>% select(abbrev, dsmodel_baseline_ind = dsmodel_baseline), by = c("indicator" = "abbrev")) %>%
   filter(dsmodel == dsmodel_baseline_ind)
 
@@ -268,86 +295,15 @@ scores_base <- vals %>%
   group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, std_method, gcm, rcp, period_code) %>%
   calculate_combined_scores()
 
-# (scale_0_100 now in 4_scoring_utils.R)
-
-# Cross-species 0-100 within
-score100_cross <- scores_base
-
-if (!is.na(scale_baseline_rcp) && !is.na(scale_baseline_period)) {
-  bounds_cross <- score100_cross %>%
-    filter(rcp == scale_baseline_rcp, period_code == scale_baseline_period) %>%
-    group_by(std_method, gcm, method, category) %>%
-    summarise(
-      mn = suppressWarnings(min(score, na.rm = TRUE)),
-      mx = suppressWarnings(max(score, na.rm = TRUE)),
-      .groups = "drop"
-    )
-
-  score100_cross <- score100_cross %>%
-    left_join(bounds_cross, by = c("std_method", "gcm", "method", "category")) %>%
-    mutate(score100_all = if_else(!is.finite(mn) | !is.finite(mx), NA_real_, if_else(mx <= mn, score * 100, (score - mn) / (mx - mn) * 100))) %>%
-    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, std_method, gcm, rcp, period_code, method, category, score100_all)
-} else {
-  score100_cross <- score100_cross %>%
-    group_by(std_method, rcp, period_code, gcm, method, category) %>%
-    mutate(score100_all = scale_0_100(score)) %>%
-    ungroup() %>%
-    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, std_method, gcm, rcp, period_code, method, category, score100_all)
-}
-
-# Within-species 0-100
-score100_within <- scores_base
-
-if (!is.na(scale_baseline_rcp) && !is.na(scale_baseline_period)) {
-  bounds_within <- score100_within %>%
-    filter(rcp == scale_baseline_rcp, period_code == scale_baseline_period) %>%
-    group_by(std_method, SPECIES_NAME, gcm, method, category) %>%
-    summarise(
-      mn = suppressWarnings(min(score, na.rm = TRUE)),
-      mx = suppressWarnings(max(score, na.rm = TRUE)),
-      .groups = "drop"
-    )
-
-  score100_within <- score100_within %>%
-    left_join(bounds_within, by = c("std_method", "SPECIES_NAME", "gcm", "method", "category")) %>%
-    mutate(score100_species = if_else(!is.finite(mn) | !is.finite(mx), NA_real_, if_else(mx <= mn, score * 100, (score - mn) / (mx - mn) * 100))) %>%
-    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, std_method, gcm, rcp, period_code, method, category, score100_species)
-} else {
-  score100_within <- score100_within %>%
-    group_by(std_method, SPECIES_NAME, rcp, period_code, gcm, method, category) %>%
-    mutate(score100_species = scale_0_100(score)) %>%
-    ungroup() %>%
-    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, std_method, gcm, rcp, period_code, method, category, score100_species)
-}
-
-
-# ---- Existing ranks ----
-ranks_cross <- scores_base %>%
-  group_by(std_method, rcp, period_code, gcm, method, category) %>%
-  mutate(rankall = rank(score, ties.method = "average", na.last = "keep")) %>%
-  ungroup() %>%
-  select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, std_method, gcm, rcp, period_code, method, category, rankall)
-
-ranks_within <- scores_base %>%
-  group_by(std_method, SPECIES_NAME, rcp, period_code, gcm, method, category) %>%
-  mutate(rankspecies = rank(score, ties.method = "average", na.last = "keep")) %>%
-  ungroup() %>%
-  select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, std_method, gcm, rcp, period_code, method, category, rankspecies)
-
-# 3) Final tidy table with new 0–100 scores alongside ranks
-scores_tidy <- scores_base %>%
-  left_join(score100_cross,
-    by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "CU_COMMON_NAME", "SMU_SIMPLE", "std_method", "gcm", "rcp", "period_code", "method", "category")
-  ) %>%
-  left_join(score100_within,
-    by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "CU_COMMON_NAME", "SMU_SIMPLE", "std_method", "gcm", "rcp", "period_code", "method", "category")
-  ) %>%
-  left_join(ranks_cross,
-    by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "CU_COMMON_NAME", "SMU_SIMPLE", "std_method", "gcm", "rcp", "period_code", "method", "category")
-  ) %>%
-  left_join(ranks_within,
-    by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "CU_COMMON_NAME", "SMU_SIMPLE", "std_method", "gcm", "rcp", "period_code", "method", "category")
-  ) %>%
+# Calculate combined 0-100 scores and ranks
+scores_tidy <- scale_and_rank_scores(
+  scores_base,
+  scale_baseline_rcp = scale_baseline_rcp,
+  scale_baseline_period = scale_baseline_period,
+  group_vars = c("std_method", "gcm", "rcp", "period_code", "method", "category"),
+  within_species = TRUE,
+  rank_descending = FALSE
+) %>%
   arrange(std_method, rcp, period_code, gcm, SPECIES_NAME, FULL_CU_IN, method, category)
 
 # ==================== 4. Averaging Scores ====================
@@ -377,10 +333,7 @@ ind_avgs_tidy <- all_std_long %>%
 # Make baseline scenario filtered version of all_std_long and scores_tidy
 # Sourced from tbl_indicators for default std_method per indicator
 all_std_long_baseline <- all_std_long %>%
-  left_join(tbl_indicators %>% select(indicator = abbrev, std_fun), by = "indicator") %>%
-  mutate(default_method = if_else(std_fun %in% c("linear_std", "invlinear_std"), "linear", "exponential")) %>%
-  filter(std_method == default_method) %>%
-  select(-std_fun, -default_method) %>%
+  filter(std_method == std_method_base) %>%
   left_join(tbl_standardize %>% select(indicator = abbrev, dsmodel_baseline_ind = dsmodel_baseline), by = "indicator") %>%
   filter(
     is.na(dsmodel) | dsmodel == dsmodel_baseline_ind,
@@ -396,7 +349,7 @@ all_std_long_baseline <- all_std_long %>%
 
 scores_tidy_baseline <- scores_tidy %>%
   filter(
-    std_method == "exponential",
+    std_method == std_method_base,
     period_code %in% c("0", sens_period_base),
     rcp %in% c("0", sens_rcp_base),
     gcm %in% c("0", sens_gcm_base)

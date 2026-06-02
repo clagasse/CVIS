@@ -961,4 +961,3 @@ fw_all <- fw_all %>%
 
 save(fw_all, ss_all, file = file.path(paths$fw, paste0(today, "_fw_rearing_indicators.Rdata")))
 save(fw_all, ss_all, file = file.path(paths$fw, "fw_rearing_indicators.Rdata"))
-save(fw_all, ss_all, file = file.path(paths$output, "fw_rearing_indicators.Rdata"))

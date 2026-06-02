@@ -356,23 +356,84 @@ plot_species_bump_plot <- function(overall_sensitivity, species_name) {
 # ==================== 4. Combined Uncertainty Plotting Functions ====================
 
 # 4a. Combined Uncertainty Spread Boxplot (from 4d)
-plot_combined_uncertainty_spread <- function(all_scores, species_palette) {
-  ggplot(all_scores, aes(x = reorder(CVIS_NAME, score100, FUN = mean), y = score100)) +
-    geom_boxplot(aes(fill = SPECIES_NAME), alpha = 0.6, outlier.size = 0.8) +
+plot_combined_uncertainty_spread <- function(all_scores, species_palette = NULL) {
+  # Retrieve species_palette from argument, environment, or fallback
+  spec_pal <- if (!is.null(species_palette) && "Chinook" %in% names(species_palette)) {
+    species_palette
+  } else if (exists("species_palette")) {
+    get("species_palette")
+  } else {
+    c(
+      "Chinook" = "#1b9e77",
+      "Coho" = "darkblue",
+      "Sockeye" = "firebrick4",
+      "Pink" = "purple3",
+      "Chum" = "goldenrod4"
+    )
+  }
+
+  # Calculate mean score for each CU to find the sort order
+  cu_order <- all_scores %>%
+    group_by(CVIS_NAME, SPECIES_NAME) %>%
+    summarise(mean_score = mean(score100, na.rm = TRUE), .groups = "drop") %>%
+    arrange(mean_score)
+  
+  cu_colors <- spec_pal[cu_order$SPECIES_NAME]
+  cu_colors <- ifelse(is.na(cu_colors), "black", cu_colors)
+
+  # Retrieve baseline overall scores from sensitivity_analysis.Rdata if available
+  # Retrieve baseline overall scores from scoring_results.Rdata
+  baseline_scores <- NULL
+  scoring_file <- file.path(paths$output, "scoring_results.Rdata")
+  if (file.exists(scoring_file)) {
+    temp_env <- new.env()
+    load(scoring_file, envir = temp_env)
+    if (exists("scores_tidy_baseline", envir = temp_env)) {
+      baseline_scores <- temp_env$scores_tidy_baseline %>%
+        dplyr::filter(category == "all", method == "catavg") %>%
+        dplyr::select(CVIS_NAME, base_score = score100_all)
+    } else if (exists("scores_tidy", envir = temp_env)) {
+      baseline_scores <- temp_env$scores_tidy %>%
+        dplyr::filter(category == "all", method == "catavg") %>%
+        dplyr::select(CVIS_NAME, base_score = score100_all)
+    }
+  }
+  
+  # Fallback if not found: calculate mean of bootstrap scores as proxy baseline
+  if (is.null(baseline_scores)) {
+    baseline_scores <- all_scores %>%
+      group_by(CVIS_NAME) %>%
+      summarise(base_score = mean(score100, na.rm = TRUE), .groups = "drop")
+  }
+
+  # Merge baseline score into all_scores (done before converting CVIS_NAME to factor)
+  all_scores <- all_scores %>%
+    left_join(baseline_scores, by = "CVIS_NAME")
+
+  # Reorder CVIS_NAME factor levels by mean_score (done after left_join to preserve factor class)
+  all_scores <- all_scores %>%
+    mutate(CVIS_NAME = factor(CVIS_NAME, levels = cu_order$CVIS_NAME))
+
+  ggplot(all_scores, aes(x = CVIS_NAME, y = score100)) +
+    geom_boxplot(aes(fill = SPECIES_NAME), alpha = 0.6, color = "grey60", scale = "width") +
+    geom_segment(aes(x = as.numeric(CVIS_NAME) - 0.25, xend = as.numeric(CVIS_NAME) + 0.25, 
+                     y = base_score, yend = base_score), 
+                 color = "black", linewidth = 1.2) +
     coord_flip() +
-    scale_fill_manual(values = species_palette, name = "Species") +
+    scale_fill_manual(values = spec_pal, name = "Species") +
     labs(
       title = "Combined Uncertainty in overall CVIS Vulnerability",
-      subtitle = "Vulnerability scores (0-100) across 100 Monte Carlo iterations (Period 3)\nCUs sorted by mean vulnerability score; box plot shows median and IQR",
-      x = "Conservation Unit (CU)",
+      subtitle = "Vulnerability scores (0-100) across 100 Monte Carlo iterations (Period 3)\nCUs sorted by mean vulnerability score; box plot shows median and IQR; bold line indicates baseline score",
+      x = NULL,
       y = "Vulnerability Score"
     ) +
     theme_cvis() +
     theme(
-      axis.text.y = element_text(size = 7),
+      axis.text.y = element_text(size = 7, color = cu_colors, face = "bold"),
       plot.title = element_text(face = "bold", size = 14)
     )
 }
+
 
 # 4b. Rank Uncertainty pointrange plot (from 4d)
 plot_rank_uncertainty <- function(rank_summary) {
@@ -606,8 +667,8 @@ plot_cu_sensitivity_indicators <- function(
     )
 
   # Scenario levels for indicators
-  ind_source_levels <- c("Baseline", "GCM1", "GCM4", "GCM6", "RCP45_P5", "RCP85_P3", "RCP85_P5", "dsmethod", "stdmethod")
-  ind_source_labels <- c("Baseline", "CanESM2 (GCM 1)", "HadGEM2 (GCM 4)", "MPI (GCM 6)", "RCP 4.5 (P5)", "RCP 8.5 (P3)", "RCP 8.5 (P5)", "Downscaling Method", "Standardize Meth")
+  ind_source_levels <- c("Baseline", "GCM1", "GCM4", "GCM6", "RCP45_P5", "RCP85_P3", "RCP85_P5", "dsmethod")
+  ind_source_labels <- c("Baseline", "CanESM2 (GCM 1)", "HadGEM2 (GCM 4)", "MPI (GCM 6)", "RCP 4.5 (P5)", "RCP 8.5 (P3)", "RCP 8.5 (P5)", "Downscaling Method")
 
   ind_shift_cus <- ind_shift_cus %>%
     filter(source %in% ind_source_levels) %>%
@@ -693,11 +754,8 @@ plot_cu_sensitivity_indicators <- function(
     geom_point(data = ind_shift_cu, aes(x = val, y = source), color = "#E67E22", size = 3, shape = 18) +
     facet_wrap(~indicator, scales = "free_x", ncol = 3, labeller = labeller(indicator = ind_label_units)) +
     scale_fill_manual(values = ind_colors, guide = "none") +
-    labs(
-      title = paste("Raw Indicator Value Sensitivity for CU:", cu_code),
-      subtitle = "Violins show distributions across all CUs; Orange diamond highlights the selected CU. Dashed line indicates baseline.",
-      x = "Actual Raw Indicator Value (units vary)",
-      y = "Assumption / Scenario"
+    labs( x = "Raw Indicator Value (units vary)",
+      y = "Scenario"
     ) +
     theme_minimal(base_size = 11) +
     theme(
@@ -890,3 +948,5 @@ if (sys.nframe() == 0) {
   
   cat("Standalone plot generation complete. All figures saved.\n")
 }
+
+

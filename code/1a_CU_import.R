@@ -175,6 +175,8 @@ status_data <- status_data %>%
   mutate(FULL_CU_IN = if_else(FULL_CU_IN == "SEL-06-03/SEL-06-02", "SEL-06-03", FULL_CU_IN)) %>% # change Chilko ES-S to Chilko S
   add_row(FULL_CU_IN = "SEL-06-02", RapidStatus = "None", Species = "Sockeye", Year = 2023) %>% # add data deficient recent entry for Chilko ES
   # calculate geometric average across generations, to fill in for NA values
+  # Group by CU to avoid contamination across boundary years of different CUs
+  group_by(FULL_CU_IN, Species) %>%
   mutate(roll_avg_gen = sapply(seq_along(SpnForAbd_Wild), function(i) {
     k <- gen_length[i] # window size from gen_length column
     if (i < k | is.na(k)) {
@@ -185,6 +187,7 @@ status_data <- status_data %>%
   })) %>%
   mutate(roll_avg_gen = if_else(is.na(SpnForAbd_Wild), roll_avg_gen, SpnForAbd_Wild)) %>%
   mutate(CVIS_RapidStatus = if_else(RapidStatus == "None" & roll_avg_gen < min_gen_red, "Red", RapidStatus)) %>%
+  ungroup() %>%
   relocate(roll_avg_gen, .after = GenAvgUsed)
 
 

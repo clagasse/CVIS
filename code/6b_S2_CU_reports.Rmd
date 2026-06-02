@@ -4,18 +4,14 @@ output:
     mathjax: null
     toc: false
     number-sections: false
-    toc_float: true
-    toc_collapsed: false
-    toc_depth: 3
     theme: flatly
+    css: "scientific_style.css"
 params:
   FULL_CU_IN: "CK-03"
   default_rcp: "45"
   default_period: "3"
-title: "Climate Vulnerability Indicators for Salmon - CU Data Report"
+title: "Supplement S2: Climate Vulnerability Indicators for Salmon - Conservation Unit Reports"
 ---
-
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
 ```{r custom theme, echo = FALSE, message = F, warning = F}
 knitr::opts_chunk$set(message = F, echo = F, warning = F, dev = "jpeg", jpegquality = 75, dpi = 90)
@@ -26,6 +22,7 @@ library(sf)
 library(tidyverse)
 library(gt)
 source(here::here("code", "5d_table_summaries.R"))
+source(here::here("code", "5b_plots_compare.R"))
 ```
 
 ```{r load data, echo=FALSE, message=FALSE, warning=FALSE}
@@ -195,7 +192,7 @@ get_cvis_table_color <- function(val) {
     rgb(rgb_val[1,1], rgb_val[1,2], rgb_val[1,3], maxColorValue = 255)
   })
 }
-``` 
+```
 
 ```{r subset CU}
 cu_i <- params$FULL_CU_IN
@@ -305,76 +302,64 @@ tbl_view <- cu_all %>%
   )
 ```
 
-# CVIS Data Report - `r cu_run_i$CU_NAME` (`r cu_run_i$SPECIES_NAME`) {.tabset .tabset-fade}
+# `r cu_run_i$CU_NAME` (`r cu_run_i$SPECIES_NAME`) {.tabset .tabset-fade}
 
 ## Overview {.tabset .tabset-fade}
 
 ### Vulnerability Summary
 
-Comparison of overall vulnerability scores, ranks, and category vulnerability across all CUs. The current CU is displayed in the first row, bolded and highlighted.
-
-**Technical details**:
-
-- **Composite Vulnerability**: Overall vulnerability scores are calculated by aggregating standardized category scores using specified scoring methodologies (e.g., category average `catavg`, simple average `avgall`, or cubic average `avgcube`).
-- **GCM Projections**: The table shows the overall vulnerability scores projected across specific Global Climate Models (CanESM2, HadGEM2, and MPI) to illustrate climate model sensitivity.
-
 ```{r vulnerability distribution plot, echo = FALSE, message = FALSE, warning = FALSE, fig.height = 5, fig.width = 8.5, out.width = "100%"}
 plot_cvis_vulnerability_violins(
   scores_tidy_baseline = scores_tidy_baseline,
   cu_code = cu_i
+) + labs(title = NULL, subtitle = NULL)
+```
+
+**Fig. S2.1.** Summary of overall vulnerability scores and scores by indicator category across all CUs. Violins show the distributions of overall vulnerability scores while individual dots represent CU scores coloured by species.  The orange diamond highlights the selected CU. Overall vulnerability scores in this plot are calculated using the category average (`catavg`) that averages the standardized value of indicators within each category, and then average the values across all categories.  Vulnerability scores are rescaled from 0 to 100, with 0 represent the CU with lowest vulnerability and 100 represent the highest vulnerability. 
+
+```{r comparative indicators tile plot, fig.height = 10, fig.width = 12, out.width = "100%"}
+indicator_cu_tile_plot(
+  all_std_long = all_std_long_baseline,
+  scores_tidy = scores_tidy_baseline,
+  indicators_metadata = tbl_indicators,
+  cu_code_emphasize = cu_i
 )
 ```
 
-```{r overall vulnerability table}
-generate_cvis_vulnerability_table(
-  scores_tidy = scores_tidy,
-  scores_tidy_baseline = scores_tidy_baseline,
-  cu_code = cu_i,
-  title = "Fraser CU Climate Vulnerability Summary",
-  subtitle = "Overall vulnerability scores, ranks, and category vulnerability across all CUs"
-)
-```
+**Fig. S2.2.** Comparative heat map of climate vulnerability indicators across all Fraser River basin Conservation Units (CUs). Each cell displays the standardized vulnerability score (0 = lowest risk, 1 = highest risk) by indicator, with the current CU's row emphasized in bold and outlined in black. 
 
 ### All Climate Vulnerability Indicators
-
-Summary of all climate vulnerability indicators for the selected conservation unit. The table shows baseline scenario mean and variation in raw units across all CUs, along with raw means by Species and the specific raw and standardized values for the current CU. Red shading indicates higher vulnerability, and blue indicates lower vulnerability.
-
-**Technical details & Data Sources:**
-
-- **Indicator Framework**: The Climate Vulnerability Indicators for Salmon (CVIS) evaluates risk across five categories: Demographics, Freshwater Spawning & Rearing, Genetics, Marine Exposure, and Upstream Migration.
-- **Climate Projections**: Freshwater projections utilize stream thermalscapes scenarios (Weller et al. 2024) and downscaled PCIC VIC-GL macroscale hydrology model projections (Schnorbus et al. 2022) under the RCP 4.5 emission scenario (with RCP 8.5 evaluated in sensitivity analyses) and GCM ensembles. Marine indicators are derived from CMIP6 global climate models and ROMS regional ocean model datasets.
-- **Sensitivity & Ranks**: Status assessments are sourced from the WSP Rapid Status Assessment evaluations.
 
 ```{r raw baseline violins plot, echo = FALSE, message = FALSE, warning = FALSE, fig.height = 7, fig.width = 11, out.width = "100%"}
 plot_raw_baseline_violins(
   all_std_long_baseline = all_std_long_baseline,
   tbl_indicators = tbl_indicators,
   cu_code = cu_i
-)
+) + plot_annotation(title = NULL, subtitle = NULL)
 ```
+
+**Fig. S2.3.** Distribution of raw indicator values (stat = 'mean') under the baseline scenario across all Conservation Units (CUs). Violins show the distributions across all CUs, and the orange diamond highlights the value for the selected CU. Baseline scenario evaluations utilize stream thermalscapes scenarios (Weller et al. 2024), downscaled PCIC VIC-GL macroscale hydrology model projections (Schnorbus et al. 2022) under RCP 4.5, and ROMS regional ocean model datasets.
+
+**Table S2.1.** Summary of all climate vulnerability indicators for the selected Conservation Unit (CU). The table shows baseline scenario mean and variation in raw units across all CUs, along with raw means by Species and the specific raw and standardized values for the current CU. Vulnerability risk is evaluated across five core categories: Demographics (sourced from WSP Rapid Status Assessments), Freshwater Spawning & Rearing, Genetics, Marine Exposure, and Upstream Migration.
 
 ```{r overview table}
 generate_cvis_summary_table(
   all_std_long_baseline = all_std_long_baseline,
   cu_code = cu_i,
-  group_by = "species",
-  title = paste("Climate Vulnerability Indicators for CU:", cu_i),
-  subtitle = paste0("Baseline scenario mean and variation, and comparison against all CUs and species (RCP ", rcp_pick, ", Period ", period_pick, ")")
+  group_by = "species"
 )
 ```
 
-### CU Location
-
-Geographic location of the selected conservation unit (left) and its Marine Adaptive Zone (right) relative to other boundaries.
+### CU Boundary & MAZ
 
 ```{r cu and maz boundary highlights, fig.height = 4, fig.width = 10, dev = "jpeg", jpegquality = 75, dpi = 90}
 # CU locator plot
-p_cu <- cu_boundary_highlight(cu_boundary, cu_pick = cu_i)
+p_cu <- cu_boundary_highlight(cu_boundary, cu_pick = cu_i) + labs(tag = "a")
 
 # MAZ locator plot
 cu_MAZ <- cvis_cu_list$MAZ[cvis_cu_list$FULL_CU_IN == cu_i][1]
 if (!is.na(cu_MAZ) && cu_MAZ != "") {
-  p_maz <- MAZ_boundary_highlight(MAZ, MAZ_pick = cu_MAZ)
+  p_maz <- MAZ_boundary_highlight(MAZ, MAZ_pick = cu_MAZ) + labs(tag = "b")
   
   # Combine side-by-side
   p_combined <- p_cu + p_maz
@@ -384,31 +369,23 @@ if (!is.na(cu_MAZ) && cu_MAZ != "") {
 }
 ```
 
+**Fig. S2.4.** Geographic location of the selected Conservation Unit (CU) boundary (a) and its associated Marine Adaptive Zone (MAZ) (b).
+
 ## Demographics
 
 ### Demographic Indicators Summary
 
-Recent conservation status and number of mature individuals indicator values.
-
-**Technical details & Data Sources**:
-
-- **Conservation Status (CUstatus)**: Represents the Wild Salmon Policy (WSP) status assessed using the Rapid Status Assessment Approach. It uses a decision tree taking into account recent spawners, trends in abundance, and biological benchmarks. Standardized as: Green = 0, Amber = 0.5, Red = 1.
-- **Generational Average of Spawners (CUnmat)**: The geometric mean of natural-origin spawners over the most recent generation, representing demographic buffers against stochastic events (derived from rapid status stock assessment data). Standardized inversely with abundance below a 10,000 spawner threshold.
+**Table S2.2.** Demographic indicator values for the selected Conservation Unit (CU), compared against all CUs and species. Demographics evaluate Wild Salmon Policy (WSP) status (standardized as Green = 0, Amber = 0.5, Red = 1) and the geometric average of natural-origin spawners from the most recent generation (CUnmat).
 
 ```{r demographics table}
 generate_cvis_summary_table(
   all_std_long_baseline = all_std_long_baseline,
   cu_code = cu_i,
   group_by = "species",
-  categories = "dem",
-  title = "Demographic Indicators Summary",
-  subtitle = paste0("Comparison against all CUs and species (RCP ", rcp_pick, ", Period ", period_pick, ")")
-)
+  categories = "dem")
 ```
 
 ### Spawner Abundance Time Series
-
-Time series of annual spawner abundance (blue line) and generational geometric average (red line). Points at bottom indicate Wild Salmon Policy status assessment (Red/Amber/Green) with shape indicating data quality confidence.
 
 ```{r abundance plot, fig.height=4, fig.width=6.5}
 if(nrow(status_data[status_data$FULL_CU_IN == cu_i,]) > 0)  
@@ -418,31 +395,26 @@ if(nrow(status_data[status_data$FULL_CU_IN == cu_i,]) > 0)
 }
 ```
 
-## Timing
+**Fig. S2.5.** Annual spawner abundance time series (blue line) and generational geometric average (red line) for the selected Conservation Unit (CU). Points at the bottom indicate Wild Salmon Policy (WSP) status assessments (Green, Amber, Red).
 
-### Life History Timing
-
-Timing by life history stage is taken from Wilson and Peacock (2025) [<https://cdnsciencepub.com/doi/10.1139/cjfas-2024-0213>]. Data quality is rated on a scale of 1 to 6 based on number of observations and their recentness, with 1 being the highest quality data.
-
-Life stage timing throughout the year showing spawning, upstream migration, ocean entry, and juvenile freshwater migration periods relative to all Fraser River basin CUs. Shaded orange row and bold text highlight the selected CU. Point shapes represent data quality (Circle = High, Triangle = Medium, Square = Low).
+## Life History Timing
 
 ```{r life stage timing, fig.height=10, fig.width=9.5, out.width="100%"}
 if (nrow(cu_timing_long_i) > 0) {
-  tp <- cu_timing_plot(cu_timing_long_i)
+  tp <- cu_timing_plot(cu_timing_long_i) + labs(title = NULL, subtitle = NULL)
   tp
 }
 ```
+
+**Fig. S2.6.** Life history stage timing (spawning, adult upstream migration, ocean entry, and juvenile freshwater migration) throughout the year for the selected Conservation Unit (CU) relative to all Fraser River basin CUs. Bars represent 5th-95th percentile duration,  points represent peak timing. Point shapes represent data quality (Circle = High 1-2, Triangle = Medium 3-4, Square = Low 5-6). Data are taken from Wilson and Peacock (2025) [<https://cdnsciencepub.com/doi/10.1139/cjfas-2024-0213>].
 
 ## Spawning & Rearing {.tabset .tabset-pills}
 
 ### Spawning & Rearing Indicators Summary
 
-**Technical details & Data Sources**:
+Spawning and rearing indicators are summarized in **Table S2.3**, with detailed CU boundary stream statistics in **Table S2.4**. The accessible stream network is shown in **Fig. S2.7**, and spatial distributions of habitat indicators are mapped in **Fig. S2.8**.
 
-- **August Stream Temperature (tw8proj) & Warming Rate (tw8rate)**: August mean temperatures and decadal rate of warming are projected over accessible stream segments within the CU boundary, using covariates like catchment area, elevation, glacial cover, and air temperature from stream thermalscapes scenarios (Weller et al. 2024).
-- **Proportional Stream Flow Changes (flow8pdelta, flow18pdelta)**: Changes in August low flows and winter high flows (November to January) represent drought exposure and winter redd scour risk, respectively. Simulated using the PCIC Variable Infiltration Capacity (VIC-GL) macroscale hydrology model (Schnorbus et al. 2022) downscaled to the Freshwater Atlas (FWA) stream network.
-- **Habitat Favourability (favchange)**: Projected net changes in natal habitat suitability derived from Environmental Niche Models (ENMs) mapping August stream temperature and annual precipitation against historical spawning occurrences.
-- **Cumulative Threats (cthr)**: Pre-existing anthropogenic watershed impairment calculated using a composite index of nine threat categories (including flow alteration, fragmentation, sedimentation, and pollution) mapped across the FWA stream network.
+**Table S2.3.** Spawning and rearing indicator values for the selected Conservation Unit (CU), compared against all CUs and species under baseline and climate projection scenarios. Includes August mean temperature (tw8proj) and warming rate (tw8rate) from stream thermalscapes scenarios (Weller et al. 2024), proportional flow changes in August (flow8pdelta) and winter (flow18pdelta) from the PCIC VIC-GL macroscale hydrology model (Schnorbus et al. 2022), ENM habitat suitability changes (favchange), and watershed cumulative threats (cthr).
 
 ```{r spawning rearing indicators table}
 generate_cvis_summary_table(
@@ -455,9 +427,9 @@ generate_cvis_summary_table(
 )
 ```
 
-### Stream Access & Location
+### Stream Access (BC Fishpass)
 
-Summary statistics and the accessible stream network for the selected conservation unit based on BC Fishpass.
+**Table S2.4.** Summary of the stream network and modelled rearing and spawning habitat within the Conservation Unit (CU) boundary using the BC Freshwater Atlas and the BC Fishpass access model and linear spawning/rearing habitat model [<https://smnorris.github.io/bcfishpass/>].
 
 ```{r stream stats table}
 if (nrow(fw_cu) > 0) {
@@ -504,14 +476,14 @@ acc_plot <- stream_accessible_plot(fw_sp_cu,
 acc_plot
 ```
 
-### Spatial Rearing Indicators
+**Fig. S2.7.** Accessible streams within the CU boundary coloured by BC Fishpass modelled linear/spawning habitat (red = spawning or rearing habitat; blue = accessible but not spawning or rearing habitat). NuSEDS spawning sites are also shown. Stream segments that are not accessible are not shown.
 
-Projected changes in August stream temperature, rate of temperature change, stream flow (August and November-January), Environmental Niche Model (ENM) favourability, and cumulative threats within the CU boundary.
+### Indicator Maps
 
 ```{r rearing multipanel plot, fig.height = 9, fig.width = 8.5, out.width = "100%", dev = "jpeg", jpegquality = 75, dpi = 90}
 variables_rearing <- c("favchange_45", "cthr_anad", "tw8proj_9_45_3", "tw8rate_9_45_3", "flow8pdelta_9_45_3", "flow18pdelta_9_45_3")
 titles_rearing <- c("Change in ENM Favourability", "Cumulative Threat Score", "August Mean Temperature", "Rate of Temp. Change", "Change in August Flow", "Change in Nov-Jan Flow")
-palettes_rearing <- c("roma")
+palettes_rearing <- cvis_risk_palette
 directions_rearing <- c(1, -1, -1, -1, 1, -1)
 
 f2 <- stream_indicator_multipanel_plot(
@@ -520,35 +492,29 @@ f2 <- stream_indicator_multipanel_plot(
   lakes_cu,
   variables = variables_rearing,
   plot_titles = titles_rearing,
-  scico_palettes = palettes_rearing,
+  risk_palette = palettes_rearing,
   palette_directions = directions_rearing
 )
 f2
 ```
 
+**Fig. S2.8.** Projected values of spawning and rearing indicators across accessible stream segments within the selected CU boundary. Stream segments shown represent all accessible streams, however, only those modelled as potential rearing/spawning habitat are included when calculating mean indicator values by CU. Inset histograms show the distribution of values across accessible stream segments.
+
 ## Migration
 
-### Upstream Migration Indicators Summary
-
-**Technical details & Data Sources**:
-
-- **Projected Migration Temperature (migrTproj) & Flow Changes (migrQpdelta)**: Assess environmental exposure during adult upstream migration. Daily stream temperatures and flows along the FWA migration path from the river mouth to spawning grounds are averaged over a moving window corresponding to the CU-specific migration timing and spawn dates (Wilson & Peacock 2025). Hydrology and water temperature data are derived from the PCIC VIC-GL model (Schnorbus et al. 2022).
-- **Upstream Migration Distance (migrdist)**: Total stream network length (km) from the river mouth to NuSEDS spawning grounds, reflecting migration energetics. Longer migration paths impose higher energetic costs and increase exposure to potential thermal barriers.
+### Migration Indicators Summary
+**Table S2.5.** Upstream migration indicator values for the selected Conservation Unit (CU), compared against all CUs and species. Indicators include projected migration temperature (migrTproj) and flow changes (migrQpdelta) averaged over a moving window corresponding to migration timing (Wilson & Peacock 2025) using VIC-GL model projections, and total upstream migration distance (migrdist) reflecting energetics.
 
 ```{r migration indicators table}
 generate_cvis_summary_table(
   all_std_long_baseline = all_std_long_baseline,
   cu_code = cu_i,
   group_by = "species",
-  categories = "migr",
-  title = "Upstream Migration Indicators Summary",
-  subtitle = paste0("Baseline scenario mean and variation, and comparison against all CUs and species (RCP ", rcp_pick, ", Period ", period_pick, ")")
+  categories = "migr"
 )
 ```
 
-### Path & Timing
-
-Geographic migration route from river mouth to NuSEDS spawning grounds (right panel) and projected daily temperatures with 10–90% quantile bounds overlaid with migration timing events (left panel).
+### Migration Path and Temperature
 
 ```{r migration path timing plot, fig.height = 5, fig.width = 9.5, dev = "jpeg", jpegquality = 75, dpi = 90}
 if (!is.null(migr_cu) && nrow(nuseds_cu) > 0 && nrow(migr_daily_all[migr_daily_all$FULL_CU_IN == cu_i, ]) > 0) {
@@ -566,29 +532,24 @@ if (!is.null(migr_cu) && nrow(nuseds_cu) > 0 && nrow(migr_daily_all[migr_daily_a
 }
 ```
 
+**Fig. S2.9.** Projected daily stream temperatures overlaid with upstream run timing and spawn timing (a), and upstream migration route from the river mouth to NuSEDS spawning sites (b). Uncertainty bands around projected daily temperatures represent 10-90% quantile ranges across global climate models, while the bolded line represents the ensemble mean across global climate models.
+
 ## Marine
 
 ### Marine Indicators Summary
 
-**Technical details & Data Sources**:
-
-- **Projected Sea Surface Temperature (SSTproj) & Warming Rate (SSTrate)**: Mean SST and decadal rate of warming in nearshore marine areas during the 6-month ocean entry period (Wilson & Peacock 2025), averaged across the specific Marine Adaptive Zone (MAZ) associated with the CU. Sourced from CMIP6 global climate models and ROMS regional ocean model projections.
-- **Cumulative Impacts (CImpact)**: Composite spatial index representing localized anthropogenic stressors (including habitat disturbance, pollution, and climate drivers) in coastal marine environments.
+**Table S2.6.** Marine indicator values for the selected Conservation Unit (CU), compared against all CUs and species. Includes projected sea surface temperature (SSTproj) and warming rate (SSTrate) in nearshore marine areas during the 6-month ocean entry period (Wilson & Peacock 2025) averaged across the CU's Marine Adaptive Zone (MAZ), and coastal cumulative human impacts (CImpact) derived from CMIP6 projections and ROMS datasets.
 
 ```{r marine indicators table}
 generate_cvis_summary_table(
   all_std_long_baseline = all_std_long_baseline,
   cu_code = cu_i,
   group_by = "species",
-  categories = "mar",
-  title = "Marine Indicators Summary",
-  subtitle = paste0("Comparison against all CUs and species (RCP ", rcp_pick, ", Period ", period_pick, ")")
+  categories = "mar"
 )
 ```
 
-### Marine Adaptive Zones & Spatial Indicators
-
-This plot shows regional Marine Adaptive Zones (MAZs) and local point-level indicators for sea surface temperature (SST) and cumulative impacts.
+### Marine Indicators Values for Marine Adaptive Zones
 
 ```{r marine plot, echo=FALSE, out.width="100%"}
 # Optimize by generating/saving the plot only once (compressed JPEG format)
@@ -620,9 +581,9 @@ if (!file.exists(marine_plot_path)) {
 knitr::include_graphics(marine_plot_path)
 ```
 
-## Sensitivity Analysis {.tabset .tabset-fade}
+**Fig. S2.10.** Mean indicator values for projected sea surface temperature, rate of sea surface temperature change, and cumulative habitat impacts for Marine Adaptive Zones (MAZs) of British Columbia (top panes) and the spatial distribution of indicator values within the Georgia Strait MAZ (bottom pane).
 
-We visualize how overall vulnerability scores shift, and how actual raw indicator values vary, across uncertainty assumptions relative to other Fraser CUs. Bolder orange diamonds show the values for the selected CU against the background distribution of all other CUs (light blue/grey violins).
+## Sensitivity Analysis {.tabset .tabset-fade}
 
 ### Score Sensitivity
 
@@ -630,8 +591,10 @@ We visualize how overall vulnerability scores shift, and how actual raw indicato
 plot_cu_sensitivity_scores(
   overall_sensitivity = overall_sensitivity,
   cu_code = cu_i
-)
+) + labs(title = NULL, subtitle = NULL)
 ```
+
+**Fig. S2.11.** Sensitivity of vulnerability scores (scaled from 0 to 100) for the selected Conservation Unit (CU) across different scoring methodologies, emission scenarios, and global climate models. The dotted line represents the value for the selected CU under the default scenario, while orange diamonds represent change in values by scenario. The violins show the distributions of score deviations across all Fraser CUs.
 
 ### Indicator Sensitivity
 
@@ -640,8 +603,7 @@ plot_cu_sensitivity_indicators(
   overall_sensitivity = overall_sensitivity,
   tbl_indicators = tbl_indicators,
   cu_code = cu_i
-)
+) + labs(title = NULL, subtitle = NULL)
 ```
 
-
-
+**Fig. S2.12.** Sensitivity of raw climate indicator values across climate projection scenarios and global climate models for the selected Conservation Unit (CU). The dotted line represents the value for the selected CU under the default scenario, while orange diamonds represent change in values by scenario. Violins show the distribution of values for that scenario across all Fraser CUs.

@@ -137,14 +137,8 @@ plot_lollipop <- function(data,
   cu_plot <- cu_roster %>%
     left_join(cu_summary, by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "SMU_SIMPLE"))
 
-  # ---- HTML labels coloured by SMU (matching indicator_cu_tile_plot) ----
-  # Pre-calculate colors to avoid length mismatch errors in case_when
-  smu_col_vec <- if (exists("smu_palette")) {
-    smu_palette[as.character(cu_plot$SMU_SIMPLE)]
-  } else {
-    rep(NA_character_, nrow(cu_plot))
-  }
-  
+  # ---- HTML labels coloured by species ----
+  # Pre-calculate colors to avoid length mismatch errors
   sp_col_vec <- if (exists("species_palette")) {
     species_palette[as.character(cu_plot$SPECIES_NAME)]
   } else {
@@ -153,7 +147,7 @@ plot_lollipop <- function(data,
   
   cu_plot <- cu_plot %>%
     mutate(
-      label_color = coalesce(as.character(smu_col_vec), as.character(sp_col_vec), "#666666"),
+      label_color = coalesce(as.character(sp_col_vec), "#666666"),
       id_label_html = paste0("<span style='color:", label_color, "'>", CVIS_NAME, "</span>")
     ) %>%
     arrange(SPECIES_NAME, CVIS_NAME) %>%
@@ -198,7 +192,7 @@ plot_lollipop <- function(data,
       color = "black", size = 3.2, stroke = 0.8, na.rm = TRUE,
       position = position_dodge(width = dodge_width)
     ) +
-    scale_fill_distiller(
+    scale_fill_cvis(
       name = "Standardized Score",
       palette = cvis_risk_palette, direction = -1,
       limits = c(0, 1), na.value = "transparent"
@@ -207,17 +201,22 @@ plot_lollipop <- function(data,
   # # Saturated Scenario Colors - supporting both "45"/"85" and "4.5"/"8.5" formats
   p <- p +
     scale_color_manual(
-      name = "Scenario (RCP)",
+      name = "GCM variation",
       values = c(
         "45" = "darkblue", "4.5" = "darkblue",
         "85" = "#B22222", "8.5" = "#B22222"
+      ),
+      labels = c(
+        "45" = "10-90% range", "4.5" = "10-90% range",
+        "85" = "10-90% range", "8.5" = "10-90% range"
       ),
       na.translate = FALSE
     ) +
     scale_shape_manual(
       name = "Downscaling method",
       values = c(21, 24, 22, 23, 25),
-      na.translate = FALSE
+      na.translate = FALSE,
+      guide = "none"
     )
 
   # Axis scale
@@ -247,7 +246,6 @@ plot_lollipop <- function(data,
 
   p <- p +
     labs(
-      subtitle = subtitle_lab,
       y = y_lab,
       x = NULL
     ) +
@@ -315,7 +313,7 @@ plot_std_vs_raw <- function(data,
     }
   }
   
-  x_label <- paste0("Raw (", if (!is.null(indicator_unit) && !is.na(indicator_unit) && indicator_unit != "") indicator_unit else "value", ")")
+  x_label <- paste0(if (!is.null(indicator_unit) && !is.na(indicator_unit) && indicator_unit != "") indicator_unit else "value")
   
   p <- ggplot(scatter_dat, aes(x = value, y = std_value, color = SPECIES_NAME)) +
     geom_point(size = 2.5) +
@@ -359,7 +357,7 @@ spatial_indicator_plot <- function(data,
                                    indicator_name = NULL,
                                    use_standardized = TRUE,
                                    id_col = "FULL_CU_IN",
-                                   brewer_palette = cvis_risk_palette,
+                                   risk_palette = cvis_risk_palette,
                                    palette_direction = -1,
                                    tbl = tbl_indicators) {
   # Dynamically load Fr_basin if outline is NULL and it's not in the environment
@@ -446,8 +444,8 @@ spatial_indicator_plot <- function(data,
   small_spp_present <- intersect(small_spp, present_spp)
 
   val_range <- range(cu_boundary_plot$plot_value, na.rm = TRUE)
-  fill_scale <- scale_fill_distiller(
-    palette = brewer_palette, 
+  fill_scale <- scale_fill_cvis(
+    palette = risk_palette, 
     direction = palette_direction, 
     limits = val_range,
     name = indicator_pick
@@ -543,9 +541,10 @@ spatial_indicator_plot <- function(data,
 #' @param sp_col_name        Column name for species in the data and boundary (default: "SPECIES_NAME").
 #' @param use_standardized   Logical; if TRUE, uses std_value (0-1), else uses raw value (default: TRUE).
 #' @param id_col             CU ID column (default: "FULL_CU_IN").
-#' @param brewer_palette     RColorBrewer palette (default: "RdYlGn").
+#' @param risk_palette       Color palette (default: cvis_risk_palette).
 #' @param palette_direction  Direction for brewer palette (default: -1).
 #' @param ncol               Number of columns in the facet layout (default: 3).
+#' @param brewer_palette     Deprecated alias for risk_palette
 #' @return A ggplot object.
 spatial_fw_rearing_indicators_plot <- function(data,
                                                cu_boundary,
@@ -554,7 +553,7 @@ spatial_fw_rearing_indicators_plot <- function(data,
                                                sp_col_name = "SPECIES_NAME",
                                                use_standardized = TRUE,
                                                id_col = "FULL_CU_IN",
-                                               brewer_palette = cvis_risk_palette,
+                                               risk_palette = cvis_risk_palette,
                                                palette_direction = -1,
                                                ncol = 3) {
   
@@ -632,7 +631,8 @@ spatial_fw_rearing_indicators_plot <- function(data,
       filter(abbrev %in% fw_indicators) %>% 
       select(abbrev, name) %>%
       mutate(abbrev = factor(abbrev, levels = fw_indicators)) %>%
-      arrange(abbrev)
+      arrange(abbrev) %>%
+      mutate(name = as.character(name))
     
     cu_boundary_plot <- cu_boundary_plot %>%
       left_join(indicator_names, by = c("indicator" = "abbrev")) %>%
@@ -650,8 +650,8 @@ spatial_fw_rearing_indicators_plot <- function(data,
   
   p <- ggplot() +
     geom_sf(data = cu_boundary_plot, aes(fill = plot_value), alpha = 0.3) +
-    scale_fill_distiller(
-      palette = brewer_palette, 
+    scale_fill_cvis(
+      palette = risk_palette, 
       direction = palette_direction, 
       limits = if (use_standardized) c(0, 1) else NULL
     ) +
@@ -683,7 +683,7 @@ spatial_fw_rearing_indicators_plot <- function(data,
 #'   std_value, (optional) gcm, dsmodel, (optional) ensemble (logical)
 #' @param indicators_choose  Character vector of indicator codes to include.
 #' @param indicators_metadata Data frame with columns: abbrev (code), name (description).
-#' @param brewer_palette     RColorBrewer palette name.
+#' @param risk_palette       RColorBrewer palette name.
 #' @param palette_direction  1 or -1 for palette direction.
 #' @param plot_colours       Named or unnamed vector of species colors; if named, names match SPECIES_NAME.
 #' @param dsmodel_pick       Optional character scalar/vector; filter to these dsmodel(s) if supplied.
@@ -693,12 +693,13 @@ spatial_fw_rearing_indicators_plot <- function(data,
 #' @param overall_score_cols Character vector of indicator codes to move to the end (if present).
 #' @param category_name      Optional overall title for the assembled plot.
 #' @param ensemble_regex     Regex pattern for detecting ensemble codes in character `gcm`.
+#' @param brewer_palette     Deprecated alias for risk_palette
 #'
 #' @return A patchwork ggplot object with one tile panel per species + indicator key.
 indicator_tile_plot <- function(all_std_long,
                                 indicators_choose = c("migrT", "migrQ", "migrA21", "migrdist"),
                                 indicators_metadata = tbl_indicators,
-                                brewer_palette = cvis_risk_palette,
+                                risk_palette = cvis_risk_palette,
                                 palette_direction = -1,
                                 plot_colours = species_palette,
                                 dsmodel_pick = NULL,
@@ -893,8 +894,8 @@ indicator_tile_plot <- function(all_std_long,
       geom_text(aes(label = ifelse(is.na(value), "", sprintf("%.1f", value))),
         size = tile_text_size, color = "black", na.rm = TRUE
       ) +
-      scale_fill_distiller(
-        palette = brewer_palette,
+      scale_fill_cvis(
+        palette = risk_palette,
         direction = palette_direction,
         na.value = "grey95",
         limits = c(0, 1)
@@ -1053,7 +1054,7 @@ species_category_tile_plot_from_scores <- function(all_std_long,
                                                    cu_name_col = "CVIS_NAME",
                                                    indicators_metadata = tbl_indicators, # must have: abbrev, category
                                                    species_palette = NULL,
-                                                   brewer_palette = cvis_risk_palette,
+                                                   risk_palette = cvis_risk_palette,
                                                    palette_direction = -1,
                                                    rank_method = "catavgs", # "catavgs"|"avgall"|"avgcube"
                                                    show_values = TRUE,
@@ -1299,8 +1300,8 @@ species_category_tile_plot_from_scores <- function(all_std_long,
           )
         }
       } +
-      scale_fill_distiller(
-        palette = brewer_palette, direction = palette_direction,
+      scale_fill_cvis(
+        palette = risk_palette, direction = palette_direction,
         na.value = "grey95", limits = c(0, 1)
       ) +
       theme_minimal(base_size = 9) +
@@ -1338,8 +1339,8 @@ species_category_tile_plot_from_scores <- function(all_std_long,
         )
       }
     } +
-    scale_fill_distiller(
-      palette = brewer_palette, direction = palette_direction,
+    scale_fill_cvis(
+      palette = risk_palette, direction = palette_direction,
       na.value = "grey95", limits = c(0, 1)
     ) +
     theme_minimal(base_size = 9) +
@@ -1697,203 +1698,8 @@ cu_status_table <- function(status_data,
 #' # Focus on spawning and run timing only
 #' plot_timing_comparison(cu_timing_long, life_stages = c("run_timing", "spawning"))
 #'
-plot_timing_comparison <- function(cu_timing_long,
-                                   cu_select = NULL,
-                                   species_select = NULL,
-                                   life_stages = c(
-                                     "spawning", "run_timing",
-                                     "ocean_entry", "freshwater_migration"
-                                   ),
-                                   sort_by = "species",
-                                   show_peaks = TRUE,
-                                   species_palette = NULL,
-                                   life_stage_palette = NULL,
-                                   date_breaks = "1 month",
-                                   y_text_size = 8) {
-  # Default species palette if not provided
-  if (is.null(species_palette)) {
-    species_palette <- c(
-      "Chinook" = "#E69F00",
-      "Chum" = "#56B4E9",
-      "Coho" = "#009E73",
-      "Pink" = "#F0E442",
-      "Sockeye" = "#D55E00"
-    )
-  }
-
-  # Default life stage palette if not provided
-  if (is.null(life_stage_palette)) {
-    life_stage_palette <- c(
-      "Spawning" = "#66C2A5",
-      "Upstream Run Timing" = "#FC8D62",
-      "Ocean Entry" = "#8DA0CB",
-      "Juvenile FW Migration" = "#E78AC3"
-    )
-  }
-
-  # Filter data
-  data_plot <- cu_timing_long
-
-  if (!is.null(cu_select)) {
-    data_plot <- data_plot %>% filter(FULL_CU_IN %in% cu_select)
-  }
-
-  if (!is.null(species_select)) {
-    data_plot <- data_plot %>% filter(SPECIES_NAME %in% species_select)
-  }
-
-  if (!is.null(life_stages)) {
-    data_plot <- data_plot %>% filter(life_stage %in% life_stages)
-  }
-
-  # Check if life_stage_label column exists, if not create it from life_stage
-  if (!"life_stage_label" %in% names(data_plot)) {
-    data_plot <- data_plot %>%
-      mutate(life_stage_label = case_when(
-        life_stage == "spawning" ~ "Spawning",
-        life_stage == "run_timing" ~ "Upstream Run Timing",
-        life_stage == "ocean_entry" ~ "Ocean Entry",
-        life_stage == "freshwater_migration" ~ "Juvenile FW Migration",
-        TRUE ~ life_stage
-      ))
-  }
-
-  # Ensure life_stage_label is a factor with correct levels
-  data_plot <- data_plot %>%
-    mutate(life_stage_label = factor(life_stage_label,
-      levels = c(
-        "Spawning", "Upstream Run Timing",
-        "Ocean Entry", "Juvenile FW Migration"
-      )
-    ))
-
-  # Convert day of year to date for plotting
-  data_plot <- data_plot %>%
-    mutate(
-      date_start = as.Date("2000-01-01") + start,
-      date_peak = as.Date("2000-01-01") + peak,
-      date_end = as.Date("2000-01-01") + end
-    ) %>%
-    filter(!is.na(start), !is.na(end))
-
-  # Create data quality categories for shape mapping
-  data_plot <- data_plot %>%
-    mutate(dat_qual_category = case_when(
-      dat_qual %in% c(1, 2) ~ "High (1-2)",
-      dat_qual %in% c(3, 4) ~ "Medium (3-4)",
-      dat_qual %in% c(5, 6) ~ "Low (5-6)",
-      TRUE ~ "Unknown"
-    )) %>%
-    mutate(dat_qual_category = factor(dat_qual_category,
-      levels = c(
-        "High (1-2)", "Medium (3-4)",
-        "Low (5-6)", "Unknown"
-      )
-    ))
-
-  # Create colored CU labels using species colors
-  data_plot <- data_plot %>%
-    mutate(cu_label_colored = paste0(
-      "<span style='color:", species_palette[SPECIES_NAME], "'>",
-      CVIS_NAME, " (", FULL_CU_IN, ")", "</span>"
-    ))
-
-  # Sort CUs
-  if (sort_by == "species") {
-    data_plot <- data_plot %>%
-      arrange(SPECIES_NAME, FULL_CU_IN) %>%
-      mutate(cu_label_colored = factor(cu_label_colored, levels = unique(cu_label_colored)))
-  } else if (sort_by == "peak_spawn") {
-    sp_peaks <- data_plot %>%
-      filter(life_stage == "spawning") %>%
-      arrange(peak)
-    data_plot <- data_plot %>%
-      mutate(cu_label_colored = factor(cu_label_colored,
-        levels = unique(sp_peaks$cu_label_colored)
-      ))
-  } else if (sort_by == "peak_oe") {
-    oe_peaks <- data_plot %>%
-      filter(life_stage == "ocean_entry") %>%
-      arrange(peak)
-    data_plot <- data_plot %>%
-      mutate(cu_label_colored = factor(cu_label_colored,
-        levels = unique(oe_peaks$cu_label_colored)
-      ))
-  }
-
-  # Create plot
-  p <- ggplot(data_plot, aes(y = cu_label_colored))
-
-  # Add range segments colored by life stage
-  p <- p + geom_segment(
-    aes(
-      x = date_start, xend = date_end,
-      yend = cu_label_colored,
-      color = life_stage_label
-    ),
-    linewidth = 4, alpha = 0.7
-  )
-
-  # Add peaks if requested, with shape mapped to data quality category
-  if (show_peaks) {
-    p <- p + geom_point(
-      aes(
-        x = date_peak,
-        color = life_stage_label,
-        shape = dat_qual_category
-      ),
-      size = 3, fill = "white", stroke = 1.2
-    ) +
-      scale_shape_manual(
-        name = "Data Quality",
-        values = c(
-          "High (1-2)" = 21, # Circle (filled)
-          "Medium (3-4)" = 24, # Triangle
-          "Low (5-6)" = 22, # Square
-          "Unknown" = 4 # X
-        ),
-        guide = guide_legend(
-          override.aes = list(size = 3, fill = "white", stroke = 1.2)
-        )
-      )
-  }
-
-  # Formatting
-  p <- p +
-    scale_x_date(
-      date_breaks = date_breaks,
-      date_labels = "%b",
-      limits = c(as.Date("2000-01-01"), as.Date("2000-12-31")),
-      expand = c(0.02, 0)
-    ) +
-    scale_color_manual(
-      values = life_stage_palette,
-      name = "Life Stage"
-    ) +
-    labs(
-      title = "Life History Timing Comparison Across Conservation Units",
-      x = "Date",
-      y = "Conservation Unit",
-      caption = "Point shape indicates data quality: ● = High (1-2), ▲ = Medium (3-4), ■ = Low (5-6)"
-    ) +
-    theme_minimal() +
-    theme(
-      axis.text.x = element_text(angle = 45, hjust = 1, size = 10),
-      axis.text.y = ggtext::element_markdown(size = y_text_size, hjust = 1),
-      axis.text.y.left = ggtext::element_markdown(size = y_text_size, hjust = 1),
-      axis.title = element_text(size = 11, face = "bold"),
-      panel.grid.major.y = element_blank(),
-      panel.grid.minor = element_blank(),
-      legend.position = "right",
-      legend.title = element_text(face = "bold", size = 10),
-      legend.text = element_text(size = 9),
-      plot.title = element_text(face = "bold", size = 14, hjust = 0.5),
-      plot.caption = element_text(size = 8, color = "grey50", hjust = 0),
-      plot.margin = margin(10, 10, 10, 10)
-    )
-
-  return(p)
-}
+# plot_timing_comparison function has been consolidated and moved to code/5a_plots_CU.R
+# to avoid code redundancy and ensure availability in the Shiny app.
 
 
 # ==================== 7. Combined Tile Plot for All CUs & Indicators ====================
@@ -1903,15 +1709,17 @@ plot_timing_comparison <- function(cu_timing_long,
 #' @param all_std_long Standardized indicators long format table
 #' @param scores_tidy Combined scores table from 4a
 #' @param gcm_pick Character, GCM code (default "9" for ensemble)
-#' @param brewer_palette Character, color palette (default "RdYlGn" gives green to red with direction -1)
+#' @param risk_palette Character, color palette (default cvis_risk_palette gives green to red with direction -1)
 #' @param palette_direction Numeric, direction of palette
+#' @param brewer_palette Deprecated alias for risk_palette
 indicator_cu_tile_plot <- function(all_std_long,
                                    scores_tidy,
                                    indicators_metadata = tbl_indicators,
                                    gcm_pick = "9",
                                    dsmodel_pick = NULL,
-                                   brewer_palette = cvis_risk_palette,
-                                   palette_direction = -1) {
+                                   risk_palette = cvis_risk_palette,
+                                   palette_direction = -1,
+                                   cu_code_emphasize = NULL) {
   require(ggtext)
   # 1. Filter indicators dynamically with fallback to baseline (0)
   d_ind_list <- split(all_std_long, all_std_long$indicator)
@@ -1990,7 +1798,13 @@ indicator_cu_tile_plot <- function(all_std_long,
     mutate(
       color = smu_palette[as.character(SMU_SIMPLE)],
       color = ifelse(is.na(color), "black", color),
-      colored_label = paste0("<span style='color:", color, "'>", CU_COMMON_NAME, "</span>")
+      colored_label = if (!is.null(cu_code_emphasize)) {
+        ifelse(FULL_CU_IN == cu_code_emphasize,
+               paste0("<strong>➔ <span style='color:", color, "'>", CU_COMMON_NAME, "</span></strong>"),
+               paste0("<span style='color:", color, "'>", CU_COMMON_NAME, "</span>"))
+      } else {
+        paste0("<span style='color:", color, "'>", CU_COMMON_NAME, "</span>")
+      }
     )
   
   plot_dat <- plot_dat %>%
@@ -2036,11 +1850,28 @@ indicator_cu_tile_plot <- function(all_std_long,
   n_cus <- length(unique(plot_dat$FULL_CU_IN))
   y_text_size <- if (n_cus > 40) 8 else if (n_cus > 20) 10 else 11
   
+  tile_text_size <- if (n_cus > 40) 1.6 else if (n_cus > 20) 2.0 else 2.4
+  
   # Plot
   p <- ggplot(plot_dat, aes(x = indicator, y = colored_label)) +
-    geom_tile(aes(fill = value), color = "white", linewidth = 0.3) +
-    scale_fill_distiller(
-      palette = brewer_palette, direction = palette_direction,
+    geom_tile(aes(fill = value), color = "white", linewidth = 0.3)
+    
+  # Add border outline around the emphasized CU if specified
+  if (!is.null(cu_code_emphasize)) {
+    emp_dat <- plot_dat %>% filter(FULL_CU_IN == cu_code_emphasize)
+    if (nrow(emp_dat) > 0) {
+      p <- p + geom_tile(data = emp_dat, aes(x = indicator, y = colored_label),
+                         color = "black", linewidth = 1.2, fill = NA, inherit.aes = FALSE)
+    }
+  }
+
+  p <- p +
+    geom_text(aes(label = ifelse(is.na(value), "", sprintf("%.1f", value)),
+                  color = ifelse(value > 0.7 | value < 0.25, "white", "black")),
+              size = tile_text_size, fontface = "bold", na.rm = TRUE) +
+    scale_color_identity() +
+    scale_fill_cvis(
+      palette = risk_palette, direction = palette_direction,
       limits = c(0, 1), na.value = "grey95"
     ) +
     theme_minimal(base_size = 12) +
@@ -2048,7 +1879,7 @@ indicator_cu_tile_plot <- function(all_std_long,
       axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 10, color = "black"),
       axis.text.y = ggtext::element_markdown(size = y_text_size, hjust = 1, vjust = 0.5),
       axis.text.y.left = ggtext::element_markdown(size = y_text_size, hjust = 1, vjust = 0.5),
-      legend.position = "right",
+      legend.position = "none",
       legend.title = element_text(face = "bold", size = 11),
       legend.text = element_text(size = 10),
       panel.grid = element_blank(),
@@ -2085,7 +1916,7 @@ indicator_cu_tile_plot <- function(all_std_long,
 #' @return A ggplot object
 plot_methods_compare_tile <- function(scores_tidy,
                                       gcm_pick = "9",
-                                      brewer_palette = cvis_risk_palette,
+                                      risk_palette = cvis_risk_palette,
                                       palette_direction = -1) {
   require(ggtext)
   
@@ -2189,11 +2020,17 @@ plot_methods_compare_tile <- function(scores_tidy,
   n_cus <- length(unique(plot_dat$FULL_CU_IN))
   y_text_size <- if (n_cus > 40) 8 else if (n_cus > 20) 10 else 11
 
+  tile_text_size <- if (n_cus > 40) 1.8 else if (n_cus > 20) 2.2 else 2.6
+  
   # Plot
   p <- ggplot(plot_dat, aes(x = method_label, y = colored_label)) +
     geom_tile(aes(fill = score100_all), color = "white", linewidth = 0.3) +
-    scale_fill_distiller(
-      palette = brewer_palette, direction = palette_direction,
+    geom_text(aes(label = ifelse(is.na(score100_all), "", sprintf("%.0f", score100_all)),
+                  color = ifelse(score100_all > 70 | score100_all < 25, "white", "black")),
+              size = tile_text_size, fontface = "bold", na.rm = TRUE) +
+    scale_color_identity() +
+    scale_fill_cvis(
+      palette = risk_palette, direction = palette_direction,
       limits = c(0, 100), na.value = "grey95"
     ) +
     theme_minimal(base_size = 12) +
@@ -2201,7 +2038,7 @@ plot_methods_compare_tile <- function(scores_tidy,
       axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 9, color = "black"),
       axis.text.y = ggtext::element_markdown(size = y_text_size, hjust = 1, vjust = 0.5),
       axis.text.y.left = ggtext::element_markdown(size = y_text_size, hjust = 1, vjust = 0.5),
-      legend.position = "right",
+      legend.position = "none",
       legend.title = element_text(face = "bold", size = 11),
       legend.text = element_text(size = 10),
       panel.grid = element_blank(),
@@ -2251,7 +2088,7 @@ spatial_maz_indicators_plot <- function(maz_all,
                                         MAZ,
                                         outline = NULL,
                                         use_standardized = FALSE,
-                                        brewer_palette = cvis_risk_palette,
+                                        risk_palette = cvis_risk_palette,
                                         palette_direction = -1,
                                         ncol = 3) {
   require(dplyr)
@@ -2379,8 +2216,8 @@ spatial_maz_indicators_plot <- function(maz_all,
     p_ind <- ggplot() +
       geom_sf(data = outline_proj, fill = "grey90", color = "grey75", linewidth = 0.3) +
       geom_sf(data = maz_sf_ind, aes(fill = plot_value), color = "black", linewidth = 0.4) +
-      scale_fill_distiller(
-        palette = brewer_palette, 
+      scale_fill_cvis(
+        palette = risk_palette, 
         direction = palette_direction,
         limits = if (use_standardized) c(0, 1) else NULL
       ) +
@@ -2426,18 +2263,13 @@ combined_maz_marine_plot <- function(maz_all,
                                      selected_maz = "GStr",
                                      outline = NULL,
                                      use_standardized = FALSE,
-                                     brewer_palette = NULL,
+                                     risk_palette = cvis_risk_palette,
                                      palette_direction = -1) {
   require(dplyr)
   require(ggplot2)
   require(sf)
   require(tidyr)
   require(patchwork)
-
-  # Fallback for palette
-  if (is.null(brewer_palette)) {
-    brewer_palette <- if (exists("cvis_risk_palette", envir = .GlobalEnv)) get("cvis_risk_palette", envir = .GlobalEnv) else "RdYlBu"
-  }
 
   # 1. Filter out Offshore MAZ for regional view
   MAZ_reg <- MAZ %>% filter(MAZ_Acrony != "Offshore")
@@ -2672,8 +2504,8 @@ combined_maz_marine_plot <- function(maz_all,
       geom_sf(data = outline_proj, fill = "grey90", color = "grey75", linewidth = 0.3) +
       geom_sf(data = maz_sf_ind, aes(fill = plot_value), color = "black", linewidth = 0.4) +
       geom_sf(data = MAZ_local, fill = NA, color = "black", linewidth = 1.0) + # Highlight local MAZ
-      scale_fill_distiller(
-        palette = brewer_palette, 
+      scale_fill_cvis(
+        palette = risk_palette, 
         direction = palette_direction,
         limits = if (use_standardized) c(0, 1) else val_range,
         oob = scales::squish
@@ -2713,8 +2545,8 @@ combined_maz_marine_plot <- function(maz_all,
       geom_sf(data = outline_proj, fill = "grey90", color = "grey75", linewidth = 0.3) +
       geom_sf(data = MAZ_local, fill = NA, color = "black", linewidth = 0.5) +
       geom_sf(data = local_points, aes(color = plot_val_col), size = 1.2, alpha = 0.8) +
-      scale_color_distiller(
-        palette = brewer_palette, 
+      scale_color_cvis(
+        palette = risk_palette, 
         direction = palette_direction,
         limits = if (use_standardized) c(0, 1) else val_range,
         oob = scales::squish
@@ -3013,10 +2845,10 @@ migration_compare_plot <- function(migr_daily_all,
 
   p_map <- p_map +
     geom_sf(data = migr_path_filtered, aes(color = august_temp), linewidth = 1.2) +
-    scico::scale_color_scico(
+    scale_color_cvis(
       palette = "roma",
       name = "August Temp (°C)",
-      direction = -1,
+      direction = 1,
       limits = c(15, max_temp_val),
       oob = scales::squish
     )

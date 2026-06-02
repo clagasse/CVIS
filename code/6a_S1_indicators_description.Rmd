@@ -1,5 +1,5 @@
 ---
-title: "Supplement 1 - Description of Indicators"
+title: "Supplement S1: Description of Climate Vulnerability Indicators for Salmon"
 date: "`r format(Sys.Date(), '%d %B %Y')`"
 output:
   html_document:  
@@ -9,7 +9,7 @@ output:
     toc_collapsed: true
     toc_depth: 3
     theme: flatly
-    css: "CVIS_style.css"
+    css: "scientific_style.css"
     fig_caption: true
   word_document:
     toc: true
@@ -39,7 +39,7 @@ report_dat <- all_std_long_baseline
 
 # Overview
 
-This document provides details on the indicators included within climate vulnerability indicators for salmon (CVIS) framework. For each indicator the following information is provided according to the following template:
+This document provides detailed descriptions of the indicators included within Climate Vulnerability Indicators for Salmon (CVIS) framework. For each indicator information is provided according to the following template:
 
 **Metric:** Description of the quantitative method for calculating the indicator.
 
@@ -51,7 +51,7 @@ This document provides details on the indicators included within climate vulnera
 
 **Limitations:** Description of known limitations or areas for improvement of the indicator.
 
-**Baseline scenario output:** Compilation of plots showing the raw and standardized indicator scores and standardization function across all CUs using baseline scenario results. For environmental change indicators, the baseline scenario consists of emissions scenario RCP 4.5, the mid-century time period (2041-2060), and an ensemble mean across available global climate models. For sensitivity analysis and comparison of results across scenarios see Supplement C.
+**Default scenario output:** Compilation of plots showing the raw and standardized indicator scores and standardization function across all CUs results from the default scenario. For environmental change indicators, the default scenario consists of emissions scenario RCP 4.5, the mid-century time period (2041-2060), and an ensemble mean across available global climate models. 
 
 # A.1 Projected August stream temperature (tw8proj) {#a1.-projected-august-stream-temperature-tw8proj}
 
@@ -59,7 +59,7 @@ This document provides details on the indicators included within climate vulnera
 
 **Explanation:** August mean stream temperature is widely used as an index of stream thermal regimes and is strongly correlated with other temperature metrics, such as average spring and fall temperatures [@isaak2018; @iacarella2024; @isaak2023]. Temperature data for August is most widely available compared to other times of the year, meaning that these models have the most empirical support compared to other time periods [@isaak2017; @weller2024]. This time of year is also when stream temperatures peak, therefore representing the most thermally stressful period for many aquatic species.
 
-For Pacific salmon, high stream temperatures in August may impact rearing juveniles present in streams, particularly Chinook and Coho salmon with a yearling life history, through both acute mortality and indirect stress. Although modelled temperatures rarely exceed physiological limits for juvenile survival [@iacarella2024], elevated temperatures can reduce available habitat, limit growth, productivity and refuge opportunities, and impair function such as aerobic scope [mantua2010; mayer2023]. For other salmon species and life histories, August stream temperatures may not be directly encountered during rearing, but are correlated with high temperatures during adjacent time periods. Therefore, the indicator provides a metric of thermal stress that may apply for rearing and spawning in other months. The negative consequences of high temperatures for these life stages are varied but well-established. For example, elevated temperatures encountered by spawners in late summer and early fall may cause delayed spawning [@mccullough2001], higher pre-spawn mortality [@bowerman2018], increased susceptibility to pathogens, and reduced spawning success [@richter2005].
+For Pacific salmon, high stream temperatures in August may impact rearing juveniles present in streams, particularly Chinook and Coho salmon with a yearling life history, through both acute mortality and indirect stress. Although modelled temperatures rarely exceed physiological limits for juvenile survival [@iacarella2024], elevated temperatures can reduce available habitat, limit growth, productivity and refuge opportunities, and impair function such as aerobic scope [@mantua2010; @mayer2023]. For other salmon species and life histories, August stream temperatures may not be directly encountered during rearing, but are correlated with high temperatures during adjacent time periods. Therefore, the indicator provides a metric of thermal stress that may apply for rearing and spawning in other months. The negative consequences of high temperatures for these life stages are varied but well-established. For example, elevated temperatures encountered by spawners in late summer and early fall may cause delayed spawning [@mccullough2001], higher pre-spawn mortality [@bowerman2018], increased susceptibility to pathogens, and reduced spawning success [@richter2005].
 
 **Information Source:** Projected temperatures are taken from stream thermalscapes scenarios, a statistical stream temperature model fitted to 680,000 km of the BC stream network at approximately 400m intervals [@weller2024]. The model produces temperature predictions averaged over 20-year periods from 1981-2100 using covariates that included catchment area, elevation, glacial cover, air temperature, and precipitation fitted to August mean temperatures from 562 stations in BC. Temporal covariates were taken from six CMIP5-era global climate models. Final model performance was assessed using 10-fold cross-validation and resulted in an R^2^ of 0.79 and RMSE of 1.53 C. Streams with catchment areas below 1km2 were not modelled, however, these represent only a small fraction of accessible streams with modelled habitat potential for Pacific salmon.
 
@@ -69,7 +69,7 @@ $$z_{i} = \frac{e^{\lambda \frac{x_{i} - Q_{0.025}}{Q_{0.975} - Q_{0.025}}} - e^
 
 Where $z_{i}$ is the normalized value, $x_{i}$ is the original value, $Q_{0.975}$ is the 97.5^th^ quantile value, $Q_{0.025}$ is the 2.5^th^ quantile value, and $\lambda$ is a scaling parameter used to control the curvature. For this indicator $Q_{0.025}$ was set to 15, and $\lambda$ was set to 3. An exponential function was used to reflect the expectation of non-linear scaling in risk as temperatures approach higher values that are less suitable for Pacific salmon.
 
-Using this function, any CUs where the average projected August mean temperature was below 15°C had a standardized risk value of 0, representing the expectation of relatively low risk due to projected stream temperatures. The lower threshold of 15°C was selected in consideration of other literature reviews, studies, and water quality guidelines for Pacific salmon. Guidelines and reviews from the US Pacific Northwest and British Columbia suggest optimal temperatures for spawning, rearing, and egg incubation below 16°C [@oliver2001; @u.s.environmentalprotectionagency2003]. These guidelines are based on a weekly 7-day average of daily maximum (7DADM) temperatures and maximum weekly average temperatures (MWAT), which could easily exceed the August mean temperature during hot periods. Therefore a lower threshold of 15°C was used for the August mean temperature.
+Using this function, any CUs where the average projected August mean temperature was below 15°C had a standardized risk value of 0, representing the expectation of relatively low risk due to projected stream temperatures. The lower threshold of 15°C was selected in consideration of other literature reviews, studies, and water quality guidelines for Pacific salmon. Guidelines and reviews from the US Pacific Northwest and British Columbia suggest optimal temperatures for spawning, rearing, and egg incubation below 16°C [@oliver2001; @usenvironmentalprotectionagency2003]. These guidelines are based on a weekly 7-day average of daily maximum (7DADM) temperatures and maximum weekly average temperatures (MWAT), which could easily exceed the August mean temperature during hot periods. Therefore a lower threshold of 15°C was used for the August mean temperature.
 
 **Limitations:** The indicator's relevance varies across salmon species and life histories. While August temperatures are directly experienced by stream-type Chinook and Coho salmon rearing as juveniles, they serve primarily as an index of thermal stress during adjacent time periods for other species. In addition, most CUs of sockeye salmon in the Fraser basin rear in lakes, whose temperatures are not modelled. Habitat suitability for rearing sockeye salmon would be better represented by physical and ecological models for lakes that consider factors such as stratification, trophic state, and oxygenation.
 
@@ -77,14 +77,18 @@ The stream temperature model relies on statistical relationships between air tem
 
 ```{r projT plots, fig.height = 9}
 
-cat("### Baseline scenario output \n")
+cat("### Default scenario output \n")
 
 print_lollipop_and_std_vs_raw(report_dat, indicator_pick = "tw8proj")
 ```
 
+**Fig. S1.1.** Rationale and baseline values for projected August stream temperature (tw8proj). The top panel shows raw and standardized values across all Fraser River basin Conservation Units (CUs), and the bottom panel shows the standardization function curve.
+
 ```{r projT spatial}
 print(spatial_indicator_plot(report_dat, cu_boundary, indicator_pick = "tw8proj"))
 ```
+
+**Fig. S1.2.** Geographic distribution of projected August stream temperature (tw8proj) scores across Fraser River basin CUs.
 
 # A.2 Rate of increase in August stream temperature (tw8rate) {#a.2-rate-of-increase-in-august-stream-temperature-tw8rate}
 
@@ -108,14 +112,18 @@ Where $z_{i}$ is the normalized value, $x_{i}$ is the original value, $Q_{0.975}
 
 ```{r tw8rate plots, fig.height = 9}
 
-cat("### Baseline scenario output \n")
+cat("### Default scenario output \n")
 
 print_lollipop_and_std_vs_raw(report_dat, indicator_pick = "tw8rate")
 ```
 
+**Fig. S1.3.** Decadal rate of increase in August stream temperature (tw8rate). The top panel shows raw and standardized values across all Fraser River basin Conservation Units (CUs), and the bottom panel shows the standardization function curve.
+
 ```{r tw8rate spatial}
 print(spatial_indicator_plot(report_dat, cu_boundary, indicator_pick = "tw8rate"))
 ```
+
+**Fig. S1.4.** Geographic distribution of decadal rate of increase in August stream temperature (tw8rate) scores across Fraser River basin CUs.
 
 # A.3 Proportional decrease in August flows (flow8pdelta)
 
@@ -137,14 +145,18 @@ The VIC-GL hydrological model's performance in simulating low flows is generally
 
 ```{r flow8pdelta plots, fig.height = 9}
 
-cat("### Baseline scenario output \n")
+cat("### Default scenario output \n")
 
 print_lollipop_and_std_vs_raw(report_dat, indicator_pick = "flow8pdelta")
 ```
 
+**Fig. S1.5.** Proportional decrease in August flows (flow8pdelta). The top panel shows raw and standardized values across all Fraser River basin Conservation Units (CUs), and the bottom panel shows the standardization function curve.
+
 ```{r flow8pdelta spatial}
 print(spatial_indicator_plot(report_dat, cu_boundary, indicator_pick = "flow8pdelta"))
 ```
+
+**Fig. S1.6.** Geographic distribution of proportional decrease in August flows (flow8pdelta) scores across Fraser River basin CUs.
 
 # A.4 Proportional increase in November to January flows (flow18pdelta) {#a.4-proportional-increase-in-november-to-january-flows-highqpdelta}
 
@@ -166,14 +178,18 @@ Although there is a substantial volume of evidence demonstrating a relationship 
 
 ```{r flow18pdelta plots, fig.height = 9}
 
-cat("### Baseline scenario output \n")
+cat("### Default scenario output \n")
 
 print_lollipop_and_std_vs_raw(report_dat, indicator_pick = "flow18pdelta")
 ```
 
+**Fig. S1.7.** Proportional increase in November to January flows (flow18pdelta). The top panel shows raw and standardized values across all Fraser River basin Conservation Units (CUs), and the bottom panel shows the standardization function curve.
+
 ```{r flow18pdelta spatial}
 print(spatial_indicator_plot(report_dat, cu_boundary, indicator_pick = "flow18pdelta"))
 ```
+
+**Fig. S1.8.** Geographic distribution of proportional increase in November to January flows (flow18pdelta) scores across Fraser River basin CUs.
 
 # A.5 Ecological Niche Model change in habitat favourability (favchange) {#a.5-ecological-niche-model-change-in-habitat-favourability-favchange}
 
@@ -191,14 +207,18 @@ Where $z_{i}$ is the normalized value, $x_{i}$ is the original value, $Q_{0.975}
 
 ```{r favchange plots, fig.height = 9}
 
-cat("### Baseline scenario output \n")
+cat("### Default scenario output \n")
 
 print_lollipop_and_std_vs_raw(report_dat, indicator_pick = "favchange")
 ```
 
+**Fig. S1.9.** Ecological Niche Model change in habitat favourability (favchange). The top panel shows raw and standardized values across all Fraser River basin Conservation Units (CUs), and the bottom panel shows the standardization function curve.
+
 ```{r favchange spatial}
 print(spatial_indicator_plot(report_dat, cu_boundary, indicator_pick = "favchange"))
 ```
+
+**Fig. S1.10.** Geographic distribution of Ecological Niche Model change in habitat favourability (favchange) scores across Fraser River basin CUs.
 
 # A.6 Cumulative threats to stream habitat (cthr)
 
@@ -217,14 +237,18 @@ Where $z_{i}$ is the normalized value, $x_{i}$ is the original value, $Q_{0.975}
 The indicator's interpretation requires consideration of species-specific threat sensitivities and life history vulnerabilities. Stream-type Chinook and Coho salmon that rear in tributaries for over a year are directly exposed to the full range of instream and riparian threats, making cumulative threat scores highly relevant to these life histories, while other species and life histories may only be vulnerable to a subset of threat categories. The threat categories only represent streams and therefore do not quantify the condition of lake rearing habitats for sockeye. The CU-level averaging of threat scores obscures within-CU variation in habitat quality, which may be critical for persistence if high-quality refugia enable subpopulation persistence despite widespread habitat degradation.
 
 ```{r cthr plots, fig.height = 9}
-cat("### Baseline scenario output \n")
+cat("### Default scenario output \n")
 
 print_lollipop_and_std_vs_raw(report_dat, indicator_pick = "cthr")
 ```
 
+**Fig. S1.11.** Cumulative threats to stream habitat (cthr). The top panel shows raw and standardized values across all Fraser River basin Conservation Units (CUs), and the bottom panel shows the standardization function curve.
+
 ```{r cthr spatial}
 print(spatial_indicator_plot(report_dat, cu_boundary, indicator_pick = "cthr"))
 ```
+
+**Fig. S1.12.** Geographic distribution of cumulative threats to stream habitat (cthr) scores across Fraser River basin CUs.
 
 # A.7 Freshwater residency time (fwres) {#a.7-freshwater-residency-time-fwres}
 
@@ -241,11 +265,13 @@ print(spatial_indicator_plot(report_dat, cu_boundary, indicator_pick = "cthr"))
 Many factors mediate the sensitivity of Pacific salmon to environmental change within freshwater that are not represented by a simple metric of residency time. Disentangling the sensitivity of populations to different factors is difficult without information on survival by life stage and life cycle models [@crozier2021]. We assume a monotonic relationship between freshwater residency time and climate vulnerability, however, "optimal" residency depends on the relative severity of freshwater versus marine stressors, which varies across areas and may shift as climate change progresses. Freshwater habitats that are resilient to climate changes or increase in habitat favourability with warming could serve as refuges that sustain local salmon productivity and favour life histories with longer residency times, particularly if marine conditions are poor.
 
 ```{r fwres plots, fig.height = 9}
-cat("### Baseline scenario output \n")
+cat("### Default scenario output \n")
 
 print_lollipop_and_std_vs_raw(report_dat, indicator_pick = "fwres")
 
 ```
+
+**Fig. S1.13.** Freshwater residency time (fwres). The top panel shows raw and standardized values across all Fraser River basin Conservation Units (CUs), and the bottom panel shows the standardization function curve.
 
 # A.8 Projected temperature during upstream migration (migrTproj) {#a.8-projected-temperature-during-upstream-migration-migrt}
 
@@ -264,11 +290,13 @@ Any CUs where the projected temperature during upstream migration was below 15°
 **Limitations:** The upstream migration model assumes a uniform rate of migration from river mouth to spawning sites with the first arrival to spawning sites coinciding with spawn timing start. In reality, migration speeds may be variable and some CUs may utilize cold-water refuges or hold in lakes along their upstream migration. The indicator does not consider cold-water refuges, which can decrease exposure to sub-lethal thermal stress and be particularly important in maintaining the viability of summer-run timing phenotypes [@snyder2022]. The migration model uses a fixed river entry and spawn timing for CUs based on historical observations, but shifts in run and spawn timing can occur in response to natural and anthropogenic pressures [@kovach2012; @crozier2025].
 
 ```{r migrTproj plots, fig.height = 9}
-cat("### Baseline scenario output \n")
+cat("### Default scenario output \n")
 
 print_lollipop_and_std_vs_raw(report_dat, indicator_pick = "migrTproj")
 
 ```
+
+**Fig. S1.14.** Projected temperature during upstream migration (migrTproj). The top panel shows raw and standardized values across all Fraser River basin Conservation Units (CUs), and the bottom panel shows the standardization function curve.
 
 # A.9 Proportional change in flow during upstream migration (migrQpdelta) {#a.9-proportional-change-in-flow-during-upstream-migration-migrq}
 
@@ -281,11 +309,13 @@ print_lollipop_and_std_vs_raw(report_dat, indicator_pick = "migrTproj")
 **Standardization Method:** This indicator is not currently included in scoring and was standardized to a value of 0 across all CUs. All Fraser CUs were projected to experience a decrease in flow during their upstream migration, but this may bring both positive and negative consequences for migration success and survival.
 
 ```{r migrQpdelta plots, fig.height = 9}
-cat("### Baseline scenario output \n")
+cat("### Default scenario output \n")
 
 print_lollipop_and_std_vs_raw(report_dat, indicator_pick = "migrQpdelta")
 
 ```
+
+**Fig. S1.15.** Proportional change in flow during upstream migration (migrQpdelta). The top panel shows raw and standardized values across all Fraser River basin Conservation Units (CUs), and the bottom panel shows the standardization function curve.
 
 # A.10 Upstream migration distance (migrdist) {#a.10-upstream-migration-distance-migrdist}
 
@@ -302,15 +332,17 @@ Where $z_{i}$ is the normalized value, $x_{i}$ is the original value, $Q_{0.975}
 **Limitations:** The indicator treats all kilometers equally, but migration path heterogeneity can impose highly variable energetic costs and create velocity or elevation barriers to migration (e.g. Hell’s Gate in the Fraser Canyon). Migration difficulty and energetic requirements depend on temperature and flow, which are assessed separately.
 
 ```{r migrdist plots, fig.height = 9}
-cat("### Baseline scenario output \n")
+cat("### Default scenario output \n")
 
 print_lollipop_and_std_vs_raw(report_dat, indicator_pick = "migrdist")
 
 ```
 
+**Fig. S1.16.** Upstream migration distance (migrdist). The top panel shows raw and standardized values across all Fraser River basin Conservation Units (CUs), and the bottom panel shows the standardization function curve.
+
 # A.11 Projected nearshore sea surface temperature (SSTproj) {#a.11-projected-nearshore-sea-surface-temperature-sstproj}
 
-**Metric:** The projected sea surface temperature (SST) across all years of the projection period (2041-2060 or 2081-2100) throughout the marine adaptive zone (MAZ) for the CU over a 6-month period beginning with the month prior to ocean entry. Projections from RCP 4.5 and 8.5 are included with an ensemble mean calculated from 28 global climate models.
+**Metric:** The projected sea surface temperature (SST) across all years of the projection period (2041-2060 or 2081-2100) throughout the marine adaptive zone (MAZ) for the CU averaged from the months of April to July, corresponding to the entry and early marine residence period for most stocks in southern B.C Projections from RCP 4.5 and 8.5 are included with an ensemble mean calculated from 28 global climate models.
 
 **Explanation:** Nearshore marine SST is a critical environmental variable for Pacific salmon that influences growth and survival by determining prey availability and quality, ecosystem composition, metabolic demands, and habitat selection. During warmer years, shifts in zooplankton composition to species with lower nutritional value are well documented within the southern range of Pacific salmon [@mackas2007; @fergusson2020]. Warmer SST may also increase competition and put Pacific salmon at a competitive disadvantage with other species such as juvenile sablefish [@daly2024]. Direct physiological effects from elevated temperatures in marine areas are more difficult to isolate and prove, but higher temperatures result in higher metabolic rates and energy requirements [@beauchamp2007; @daly2015], and influence depth and swimming behaviour [@ueno1992; @sabal2023].
 
@@ -320,20 +352,22 @@ At regional scales, SST trends and anomalies is one of the most important variab
 
 MAZs used to determine SST spatial domains were adapted from those used to define salmon CUs for the Wild Salmon Policy [@Holtby2007]. These areas consist of twelve distinct ecoregions for salmon that characterize the nearshore adaptive marine environments for Pacific salmon. MAZ boundaries were slightly modified from those described in Holtby and Ciruna 2007 to correspond with boundaries from corresponding marine biogeographic regions [@dfo2009].
 
-SSTs were compared to dynamically-downscaled, regional oceanographic model projections for validation. For the Georgia Strait MAZ, SSTs were compared to the SalishSeaCast model, developed to represent the complex and distinct oceanographic processes within the Salish Sea (Ridenour and Holdsword, in prep). For other coastal regions of BC, SSTs were compared to the BCCM model surface layer projections, with a mask layer used to exclude regions where conditions could not be adequately represented by the models [@peña2024]. Both models are dynamically downscaled from the CanESM2 global climate model from CMIP5.
+SSTs were compared to dynamically-downscaled, regional oceanographic model projections for validation. For the Georgia Strait MAZ, SSTs were compared to the SalishSeaCast model, developed to represent the complex and distinct oceanographic processes within the Salish Sea (Ridenour and Holdsword, in prep). For other coastal regions of BC, SSTs were compared to the BCCM model surface layer projections, with a mask layer used to exclude regions where conditions could not be adequately represented by the models [@pena2024]. Both models are dynamically downscaled from the CanESM2 global climate model from CMIP5.
 
-**Standardization Method:** The negative relationship between SST and productivity was represented with a linear function that increased with any change in SST above historical averages. Because the indicator was averaged over a large area and time frame for each CU, the variation in responses was low and the resulting indicator was standardized across the range of values that included historical SSTs to projected SSTs. Thus, the lowest historical SST values represented a standardized score of 0, while highest future SST values represented a score of 1.
+**Standardization Method:** The projected sea surface temperature indicator was standardized using an exponential function parameterized with minimum and maximum values across all MAZs on the British Columbia coast. All CUs in the Fraser basin are within the Strait of Georgia MAZ as they all share a common ocean entry point, therefore the risk score for marine indicators was standardized across all marine adaptive zones in British Columbia to obtain a more informative score for relative risk. An exponential function was used to reflect the expectation of non-linear scaling in risk as temperatures approach higher values that are less suitable for Pacific salmon.
 
 **Limitations:** The mechanisms relating nearshore SST to salmon survival are complex and mediated by ecosystem interactions, oceanography, and life history characteristics, which are not represented by this or other indicators. Projected SST represents a coarse proxy for these underlying dynamics and the underlying relationship with survival and productivity may exhibit non-stationary and non-linear responses over time.
 
 Pacific salmon CUs were associated with marine conditions based on MAZs, a representation of the marine entry and nearshore rearing area for CUs. Within the Fraser Basin, all CUs share the Georgia Strait MAZ, however, nearshore life history strategies are diverse with some marine ecotypes spending longer and variable residency times within Georgia Strait, while others out-migrate further north relatively quickly. The exposure of CUs to changes in nearshore SST may therefore vary, and the consequences for vulnerability are not evaluated. Habitat use, distribution, and depth also vary across marine ecotypes and may determine exposure to warmer temperatures, hypoxic waters, and other negative conditions. Models of fine-scale marine distribution could provide a more detailed and realistic representation of exposure to increased SSTs.
 
 ```{r SSTproj plots, fig.height = 9}
-cat("### Baseline scenario output \n")
+cat("### Default scenario output \n")
 
 print_lollipop_and_std_vs_raw(report_dat, indicator_pick = "SSTproj")
 
 ```
+
+**Fig. S1.17.** Projected nearshore sea surface temperature (SSTproj). The top panel shows raw and standardized values across all Fraser River basin Conservation Units (CUs), and the bottom panel shows the standardization function curve.
 
 # A.12 Rate of increase in nearshore sea surface temperatures (SSTrate) {#a.12-rate-of-increase-in-nearshore-sea-surface-temperatures-sstrate}
 
@@ -343,12 +377,12 @@ print_lollipop_and_std_vs_raw(report_dat, indicator_pick = "SSTproj")
 
 **Information Source:** Historical and projected SST values are taken from CMIP6 models bias corrected to a higher resolution using the QDM method as described for the projected nearshore SST indicator.
 
-**Standardization Method:** The rate of increase in nearshore SST is standardized using an linear function with a range of 0 to 1 corresponding to the 95% quantile range (2.5th and 97.5th percentiles) of CU values.
+**Standardization Method:** The rate of increase in sea surface temperature was standardized using a linear function parameterized with minimum and maximum values across all MAZs on the British Columbia coast. All CUs in the Fraser basin are within the Strait of Georgia MAZ as they all share a common ocean entry point, therefore the risk score for marine indicators was standardized across all marine adaptive zones in British Columbia to obtain a more informative score for relative risk.
 
 **Limitations:** As described for the projected nearshore SST indicator, the mechanisms relating the rate of increase in SST to survival and climate change vulnerability are complex and not fully represented by this indicator.
 
 ```{r SSTrate plots, fig.height = 9}
-cat("### Baseline scenario output \n")
+cat("### Default scenario output \n")
 
 plot_dat <- filter(report_dat,
     period_code == sens_period_base,
@@ -359,6 +393,8 @@ print_lollipop_and_std_vs_raw(plot_dat, indicator_pick = "SSTrate")
 
 ```
 
+**Fig. S1.18.** Rate of increase in nearshore sea surface temperatures (SSTrate). The top panel shows raw and standardized values across all Fraser River basin Conservation Units (CUs), and the bottom panel shows the standardization function curve.
+
 # A.13 Cumulative impacts to nearshore marine habitat (CImpact) {#a.13-cumulative-impacts-to-nearshore-marine-habitat-cimpact}
 
 **Metric:** The average cumulative impact score of nearshore habitats averaged throughout the MAZ for a CU. Cumulative impact scores are calculated for multiple habitat categories within the Pacific region including pelagic, benthic, eelgrass, and kelp forests. Stressors included as part of the additive cumulative impact model include aquaculture, fishing, invasive species, nutrient inputs, pollution inputs, and shipping [@murray2024].
@@ -367,16 +403,18 @@ print_lollipop_and_std_vs_raw(plot_dat, indicator_pick = "SSTrate")
 
 **Information Source:** This indicator is derived from a cumulative impact model developed for Canadian marine ecosystems [@murray2024].
 
-**Standardization Method:** The cumulative impacts score is standardized using a linear function with a range of 0 to 1 corresponding to the 95% quantile range (2.5th and 97.5th percentiles) of CU values. A simple linear function was adopted because the threat score already represents a standardized, additive index.
+**Standardization Method:** The cumulatuve impact score was standardized using a linear function parameterized with minimum and maximum values across all MAZs on the British Columbia coast. All CUs in the Fraser basin are within the Strait of Georgia MAZ as they all share a common ocean entry point, therefore the risk score for marine indicators was standardized across all marine adaptive zones in British Columbia to obtain a more informative score for relative risk. A simple linear function was adopted because the threat score already represents a standardized, additive index.
 
 **Limitations:**
 
 ```{r CImpact plots, fig.height = 9}
-cat("### Baseline scenario output \n")
+cat("### Default scenario output \n")
 
 print_lollipop_and_std_vs_raw(report_dat, indicator_pick = "CImpact")
 
 ```
+
+**Fig. S1.19.** Cumulative impacts to nearshore marine habitat (CImpact). The top panel shows raw and standardized values across all Fraser River basin Conservation Units (CUs), and the bottom panel shows the standardization function curve.
 
 # A.14 Conservation status (CUstatus) {#a.14-conservation-status-custatus}
 
@@ -395,13 +433,15 @@ For Pacific salmon CUs, conservation status reflects the recent and historical i
 Data quality and confidence in the assessment score varies across CUs and is represented by a confidence rating assigned to each status assignment. A few CUs were data-deficient and not able to be assessed.
 
 ```{r CUstatus plots, fig.height = 9}
-cat("### Baseline scenario output \n")
+cat("### Default scenario output \n")
 
 print_lollipop_and_std_vs_raw(report_dat, indicator_pick = "CUstatus")
 
 #cu_status_table(status_data)
 
 ```
+
+**Fig. S1.20.** Conservation status (CUstatus). The top panel shows raw and standardized values across all Fraser River basin Conservation Units (CUs), and the bottom panel shows the standardization function curve.
 
 # A.15 Recent generational average of natural spawners (CUnmat) {#a.15-recent-generational-average-of-spawners-cunmat}
 
@@ -418,11 +458,13 @@ Only natural-origin spawners were used for the generational average as they are 
 **Limitations:** This metric shares similarities with the conservation status indicator, but is focused specifically on recent abundances independent of any trends. For many CUs absolute abundance information that is representative of the entire CU is not available, therefore a relative index was used. Relative indices of abundance are adjusted using an expansion factor, but may nonetheless underestimate the absolute abundance due to potential error associated with the expansion method. In addition, some streams are not consistently surveyed and are not included when determining the relative index of abundance for a CU.
 
 ```{r CUnmat plots, fig.height = 9}
-cat("### Baseline scenario output \n")
+cat("### Default scenario output \n")
 
 print_lollipop_and_std_vs_raw(report_dat, indicator_pick = "CUnmat", use_standardized = FALSE, log_scale = TRUE)
 
 ```
+
+**Fig. S1.21.** Recent generational average of natural spawners (CUnmat). The top panel shows raw and standardized values across all Fraser River basin Conservation Units (CUs), and the bottom panel shows the standardization function curve.
 
 # A.16 Heterozygosity (hetzyg) {#a.16-heterozygosity-hetzyg}
 
@@ -441,11 +483,13 @@ Where $z_{i}$ is the normalized value, $x_{i}$ is the original value, $Qs_{0.975
 **Limitations:** Heterozygosity is a common method to estimate standing genetic variation, but it relies upon called genotypes for individuals. For the datasets used here, the numbers of individuals sequenced were sufficient to support imputation of genotypes from the genotype likelihoods. However, this may not always be the case, particularly using low-coverage sequencing data. In such a case, an alternative metric of standing genetic variation should be employed (e.g., nucleotide diversity; [@layton2021]). Additionally, any estimate of standing genetic variation will be sensitive to the genomic loci that are used to generate the estimate. As a result, heterozygosity values are not directly comparable across different studies or species.
 
 ```{r hetzyg plots, fig.height = 9}
-cat("### Baseline scenario output \n")
+cat("### Default scenario output \n")
 
 print_lollipop_and_std_vs_raw(report_dat, indicator_pick = "hetzyg")
 
 ```
+
+**Fig. S1.22.** Heterozygosity (hetzyg). The top panel shows raw and standardized values across all Fraser River basin Conservation Units (CUs), and the bottom panel shows the standardization function curve.
 
 # A.17 Genomic offset (genoff) {#a.17-genomic-offset-genoff}
 
@@ -462,11 +506,13 @@ Where $z_{i}$ is the normalized value, $x_{i}$ is the original value, and $Qs_{0
 **Limitations:** Genomic offsets are not a direct estimate of climate change vulnerability, and their predictive capability is highly contextual. For example, in some cases, environmental changes that result in higher genomic offsets can correspond to increases in population fitness, as adaptive states under current conditions may no longer be optimal under novel conditions, but may still experience an overall increase in fitness. Additionally, the gradient forest model fit assumes that current genetic variation and environmental conditions reflect adaptive states, and that future adaptation to climate conditions will reflect adaptative process that have produced extant patterns of variation. However, given what is known about environmental adaptation based on current variation, genomic offsets provide predictions on which populations of a species may require the most genetic change as a result of climate change, which can be considered as a component of estimating risk. Genomic offsets are relative measures that are dependent on the genomic loci considered in the analysis, and are not directly comparable across separate analyses, studies or species.
 
 ```{r genoff plots, fig.height = 9}
-cat("### Baseline scenario output \n")
+cat("### Default scenario output \n")
 
 print_lollipop_and_std_vs_raw(report_dat, indicator_pick = "genoff")
 
 ```
+
+**Fig. S1.23.** Genomic offset (genoff). The top panel shows raw and standardized values across all Fraser River basin Conservation Units (CUs), and the bottom panel shows the standardization function curve.
 
 # Literature Cited
 

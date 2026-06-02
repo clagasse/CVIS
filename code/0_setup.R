@@ -30,7 +30,25 @@ library(here)
 
 # Configure Pandoc path if not found (needed for rendering Rmd files on Windows)
 if (Sys.getenv("RSTUDIO_PANDOC") == "") {
-  Sys.setenv(RSTUDIO_PANDOC = "C:/Program Files/RStudio/resources/app/bin/quarto/bin/tools")
+  # Try standard system search first
+  system_pandoc <- Sys.which("pandoc")
+  if (system_pandoc != "") {
+    Sys.setenv(RSTUDIO_PANDOC = dirname(system_pandoc))
+  } else {
+    # Try common local RStudio Quarto/Pandoc installation paths as fallbacks
+    fallbacks <- c(
+      "C:/Program Files/RStudio/resources/app/bin/quarto/bin/tools",
+      "C:/Program Files/RStudio/bin/quarto/bin/tools",
+      "C:/Program Files/RStudio/resources/app/bin/pandoc",
+      "C:/Program Files/RStudio/bin/pandoc"
+    )
+    for (path in fallbacks) {
+      if (dir.exists(path) || file.exists(path)) {
+        Sys.setenv(RSTUDIO_PANDOC = path)
+        break
+      }
+    }
+  }
 }
 
 library(janitor)
@@ -176,22 +194,12 @@ sens_gcm_base <- "9"
 # Default scoring methods for baseline
 sens_method_overall_base <- "catavg"
 sens_method_category_base <- "avg"
+std_method_base <- "mix" # Baseline standardization curves choice ("mix", "exponential", or "linear")
 
 # Variation sources for granular analysis (9 total)
 sens_gcms <- c("1", "4", "6")
 sens_scenarios <- list(c("45", "5"), c("85", "3"), c("85", "5"))
 sens_methods <- c("cube", "flag", "avgcube", "avgall")
-
-# Color palette for the uncertainty sources
-# GCMs: Reds/Oranges, Scenarios: Greens/Blues, Methods: Purples/Browns, Models: Pinks/Golds
-sens_source_palette <- c(
-  "GCM1" = "#e31a1c", "GCM4" = "#ff7f00", "GCM6" = "#fdbf6f", "GCM" = "#e31a1c", "gcm" = "#e31a1c",
-  "RCP45_P5" = "#33a02c", "RCP85_P3" = "#1f78b4", "RCP85_P5" = "#a6cee3", "Scenario" = "#1f78b4", "scenario" = "#1f78b4",
-  "cube" = "#6a3d9a", "flag" = "#b15928", "avgcube" = "#cab2d6", "avgall" = "#fb9a99",
-  "qdm" = "#db7093", "bccmssc" = "#daa520", "streamdyn" = "#4682b4", "tscapes" = "#d2b48c",
-  "pcicgrid" = "#e7298a", "station" = "#7570b3", "model" = "#8dd3c7", "dsmethod" = "#8dd3c7",
-  "stdmethod" = "#8c564b", "StdMethod" = "#8c564b"
-)
 
 # Mapping of life stage category codes to descriptive names
 cat_label_map <- c(
@@ -362,9 +370,94 @@ species_palette <- c(
   "Chum" = "goldenrod4"
 )
 
+# Color palette for the uncertainty sources
+# GCMs: Reds/Oranges, Scenarios: Greens/Blues, Methods: Purples/Browns, Models: Pinks/Golds
+sens_source_palette <- c(
+  "GCM1" = "#e31a1c", "GCM4" = "#ff7f00", "GCM6" = "#fdbf6f", "GCM" = "#e31a1c", "gcm" = "#e31a1c",
+  "RCP45_P5" = "#33a02c", "RCP85_P3" = "#1f78b4", "RCP85_P5" = "#a6cee3", "Scenario" = "#1f78b4", "scenario" = "#1f78b4",
+  "cube" = "#6a3d9a", "flag" = "#b15928", "avgcube" = "#cab2d6", "avgall" = "#fb9a99",
+  "qdm" = "#db7093", "bccmssc" = "#daa520", "streamdyn" = "#4682b4", "tscapes" = "#d2b48c",
+  "pcicgrid" = "#e7298a", "station" = "#7570b3", "model" = "#8dd3c7", "dsmethod" = "#8dd3c7",
+  "stdmethod" = "#8c564b", "StdMethod" = "#8c564b"
+)
+
+
 # Universal risk score color palette for 0 to 1 risk (Vulnerability)
-cvis_risk_palette <- "RdYlBu"
+cvis_risk_palette <- "Zissou1"
 cvis_risk_direction <- -1
+
+# Switch call to allow selection of palette options in the setup file
+cvis_risk_palette_colors <- switch(cvis_risk_palette,
+  "Zissou1" = c("#3060AF", "#78A7F5", "#EBCC5A", "#E1AF00", "#C21A1D"),
+  "RdYlBu"  = RColorBrewer::brewer.pal(11, "RdYlBu"),
+  "roma"    = scico::scico(100, palette = "roma"),
+  # Default fallback
+  c("#3060AF", "#78A7F5", "#EBCC5A", "#E1AF00", "#C21A1D")
+  #c("#3B9AB2", "#78A7C5", "#EBCC5A", "#E1AF00", "#C21A1D")
+)
+
+# Helper scale functions to support Zissou1, roma and distiller palettes
+scale_fill_cvis <- function(palette = cvis_risk_palette, direction = 1, limits = NULL, na.value = "grey95", oob = scales::censor, ...) {
+  cols <- switch(palette,
+    "Zissou1" = c("#3060AF", "#78A7F5", "#EBCC5A", "#E1AF00", "#C21A1D"),
+    "RdYlBu"  = RColorBrewer::brewer.pal(11, "RdYlBu"),
+    "roma"    = scico::scico(100, palette = "roma"),
+    "lajolla" = scico::scico(100, palette = "lajolla"),
+    "berlin"  = scico::scico(100, palette = "berlin"),
+    "batlow"  = scico::scico(100, palette = "batlow"),
+    NULL
+  )
+  
+  if (!is.null(cols)) {
+    # Adjust cols based on direction:
+    # We want Red/dark/last colors to represent high risk (at the high end of the gradient).
+    # Since Zissou1, roma, lajolla, berlin, and batlow default to this Low-to-High risk sequence:
+    # - direction = -1 (requesting high risk = Red/last) should keep it as-is.
+    # - direction = 1 (requesting high risk = Blue/first) should reverse it.
+    # Since RdYlBu defaults to Red-to-Blue (High risk = first):
+    # - direction = -1 (requesting high risk = Red) should reverse it to Blue-to-Red.
+    # - direction = 1 should keep it Red-to-Blue.
+    if (palette == "RdYlBu") {
+      if (direction == -1) {
+        cols <- rev(cols)
+      }
+    } else {
+      if (direction == 1) {
+        cols <- rev(cols)
+      }
+    }
+    scale_fill_gradientn(colors = cols, limits = limits, na.value = na.value, oob = oob, ...)
+  } else {
+    scale_fill_distiller(palette = palette, direction = direction, limits = limits, na.value = na.value, oob = oob, ...)
+  }
+}
+
+scale_color_cvis <- function(palette = cvis_risk_palette, direction = 1, limits = NULL, na.value = "grey95", oob = scales::censor, ...) {
+  cols <- switch(palette,
+    "Zissou1" = c("#3060AF", "#78A7F5", "#EBCC5A", "#E1AF00", "#C21A1D"),
+    "RdYlBu"  = RColorBrewer::brewer.pal(11, "RdYlBu"),
+    "roma"    = scico::scico(100, palette = "roma"),
+    "lajolla" = scico::scico(100, palette = "lajolla"),
+    "berlin"  = scico::scico(100, palette = "berlin"),
+    "batlow"  = scico::scico(100, palette = "batlow"),
+    NULL
+  )
+  
+  if (!is.null(cols)) {
+    if (palette == "RdYlBu") {
+      if (direction == -1) {
+        cols <- rev(cols)
+      }
+    } else {
+      if (direction == 1) {
+        cols <- rev(cols)
+      }
+    }
+    scale_color_gradientn(colors = cols, limits = limits, na.value = na.value, oob = oob, ...)
+  } else {
+    scale_color_distiller(palette = palette, direction = direction, limits = limits, na.value = na.value, oob = oob, ...)
+  }
+}
 
 
 # Indicator palette used for labelling indicator categories

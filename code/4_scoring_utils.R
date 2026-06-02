@@ -631,8 +631,14 @@ standardize_long_indicator <- function(data,
   }
 
   # 3. Join Parameters back to Full Data (all GCMs, all stats)
+  # Exclude 'gcm' from the join keys because the calibration range is calculated 
+  # from the calibration GCM (e.g. "9") but must be applied to all GCMs (1, 4, 6, etc.).
+  join_keys <- setdiff(grouping_vars, "gcm")
+  calibration_params_to_join <- calibration_params %>%
+    select(-any_of("gcm"))
+
   data_stding <- data_sub %>%
-    left_join(calibration_params, by = grouping_vars)
+    left_join(calibration_params_to_join, by = join_keys)
 
   # 4. Apply Standardization
   # Let's use grouping to ensure constant params for the block passed to std_fun
@@ -952,4 +958,110 @@ calculate_combined_scores <- function(data) {
     }) %>%
     ungroup() %>%
     mutate(score = ifelse(is.nan(score), NA_real_, score))
+}
+
+# Shared scoring utility to normalize and rank scores
+scale_and_rank_scores <- function(data,
+                                  scale_baseline_rcp = NA,
+                                  scale_baseline_period = NA,
+                                  group_vars = c("std_method", "gcm", "rcp", "period_code", "method", "category"),
+                                  within_species = TRUE,
+                                  rank_descending = FALSE) {
+  # Cross-species scaling (0-100)
+  score100_cross <- data
+  if (!is.na(scale_baseline_rcp) && !is.na(scale_baseline_period)) {
+    baseline_group_vars <- setdiff(group_vars, c("rcp", "period_code"))
+    bounds_cross <- score100_cross %>%
+      filter(rcp == scale_baseline_rcp, period_code == scale_baseline_period) %>%
+      group_by(across(all_of(baseline_group_vars))) %>%
+      summarise(
+        mn = suppressWarnings(min(score, na.rm = TRUE)),
+        mx = suppressWarnings(max(score, na.rm = TRUE)),
+        .groups = "drop"
+      )
+    score100_cross <- score100_cross %>%
+      left_join(bounds_cross, by = baseline_group_vars) %>%
+      mutate(score100_all = if_else(!is.finite(mn) | !is.finite(mx), NA_real_, if_else(mx <= mn, score * 100, (score - mn) / (mx - mn) * 100))) %>%
+      select(-mn, -mx)
+  } else {
+    score100_cross <- score100_cross %>%
+      group_by(across(all_of(group_vars))) %>%
+      mutate(score100_all = scale_0_100(score)) %>%
+      ungroup()
+  }
+
+  # Within-species scaling (0-100)
+  if (within_species) {
+    score100_within <- data
+    within_group_vars <- c("SPECIES_NAME", group_vars)
+    if (!is.na(scale_baseline_rcp) && !is.na(scale_baseline_period)) {
+      baseline_within_group_vars <- setdiff(within_group_vars, c("rcp", "period_code"))
+      bounds_within <- score100_within %>%
+        filter(rcp == scale_baseline_rcp, period_code == scale_baseline_period) %>%
+        group_by(across(all_of(baseline_within_group_vars))) %>%
+        summarise(
+          mn = suppressWarnings(min(score, na.rm = TRUE)),
+          mx = suppressWarnings(max(score, na.rm = TRUE)),
+          .groups = "drop"
+        )
+      score100_within <- score100_within %>%
+        left_join(bounds_within, by = baseline_within_group_vars) %>%
+        mutate(score100_species = if_else(!is.finite(mn) | !is.finite(mx), NA_real_, if_else(mx <= mn, score * 100, (score - mn) / (mx - mn) * 100))) %>%
+        select(-mn, -mx)
+    } else {
+      score100_within <- score100_within %>%
+        group_by(across(all_of(within_group_vars))) %>%
+        mutate(score100_species = scale_0_100(score)) %>%
+        ungroup()
+    }
+  }
+
+  # Cross-species ranks
+  ranks_cross <- score100_cross %>%
+    group_by(across(all_of(group_vars))) %>%
+    mutate(rankall = if (rank_descending) {
+      rank(-score, ties.method = "average", na.last = "keep")
+    } else {
+      rank(score, ties.method = "average", na.last = "keep")
+    }) %>%
+    ungroup()
+
+  # Within-species ranks
+  if (within_species) {
+    ranks_within <- score100_within %>%
+      group_by(across(all_of(c("SPECIES_NAME", group_vars)))) %>%
+      mutate(rankspecies = if (rank_descending) {
+        rank(-score, ties.method = "average", na.last = "keep")
+      } else {
+        rank(score, ties.method = "average", na.last = "keep")
+      }) %>%
+      ungroup()
+  }
+
+  # Assemble and return tidy dataframe
+  out <- data %>%
+    left_join(
+      score100_cross %>% select(any_of(c("FULL_CU_IN", group_vars, "score100_all"))),
+      by = c("FULL_CU_IN", intersect(names(data), group_vars))
+    )
+  if (within_species) {
+    out <- out %>%
+      left_join(
+        score100_within %>% select(any_of(c("FULL_CU_IN", "SPECIES_NAME", group_vars, "score100_species"))),
+        by = c("FULL_CU_IN", "SPECIES_NAME", intersect(names(data), group_vars))
+      )
+  }
+  out <- out %>%
+    left_join(
+      ranks_cross %>% select(any_of(c("FULL_CU_IN", group_vars, "rankall"))),
+      by = c("FULL_CU_IN", intersect(names(data), group_vars))
+    )
+  if (within_species) {
+    out <- out %>%
+      left_join(
+        ranks_within %>% select(any_of(c("FULL_CU_IN", "SPECIES_NAME", group_vars, "rankspecies"))),
+        by = c("FULL_CU_IN", "SPECIES_NAME", intersect(names(data), group_vars))
+      )
+  }
+  return(out)
 }

@@ -84,8 +84,18 @@ wshed_groups <- st_transform(wshed_groups, crs = 3005)
 wsheds <- fwa_query_collection("whse_basemapping.fwa_watersheds_poly", filter)
 wsheds <- st_transform(wsheds, crs = 3005)
 
+# Define Fr_codes by loading processed stream data if not present
+if (!exists("Fr_codes")) {
+  if (file.exists(file.path(paths$fw, "BCFP_combined_accessible_Fr.Rds"))) {
+    load(file.path(paths$fw, "BCFP_combined_accessible_Fr.Rds"))
+    Fr_codes <- unique(bcfpa$watershed_group_code)
+  } else {
+    Fr_codes <- character()
+  }
+}
+
 collection_id <- "whse_basemapping.fwa_stream_networks_sp"
-filter_watersheds <- setNames(as.list(FR_codes), rep("watershed_group_code", length(FR_codes)))
+filter_watersheds <- setNames(as.list(Fr_codes), rep("watershed_group_code", length(Fr_codes)))
 
 FWA_query <- fwa_query_collection(collection_id, filter = filter_watersheds)
 

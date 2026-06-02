@@ -41,10 +41,7 @@ output_dir <- file.path(paths$figures, "manuscript")
 dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
 # select case study CUs for manuscript
-casestudy_1 <- "CK-12"
-casestudy_2 <- "CM-02"
-casestudy_3 <- "PKO-01"
-
+casestudy_CU <- switch(2, "CK-12", "CM-02", "PKO-01")
 
 # ==================== 2. Load Processed Datasets ====================
 
@@ -91,7 +88,7 @@ load(file.path(paths$output, "sensitivity_analysis.Rdata")) # loads overall_sens
 
 # ==================== 3. Subset Case Study Data ====================
 
-cu_i <- casestudy_1
+cu_i <- casestudy_CU
 
 cu_run_i <- cu_run[cu_run$FULL_CU_IN == cu_i, ]
 #sp_pick <- cu_run$spp[cu_run$FULL_CU_IN == cu_i] # species abbr
@@ -146,11 +143,11 @@ f2 <- stream_indicator_multipanel_plot(fw_sp_ind_cu,
   variables = c("favchange_chinook_85_3", "cthr_anad", "tw8proj_9_45_3", "tw8rate_9_45_3", "flow8pdelta_9_45_3", "flow18pdelta_9_45_3"),
   plot_titles = c("Change in ENM Favourability", "Cumulative Threat Score", "August Mean Temperature",
                   "Rate of Temp. Change", "Change in August Flow", "Change in Nov-Jan Flow"),
-  scico_palette = "roma",
+  risk_palette = cvis_risk_palette,
   palette_directions = c(1, -1, -1, -1, 1, -1))
 
 #save as png
-ggsave(filename = file.path(output_dir, "figure_2.png"), plot = f2, width = 9, height = 9) 
+ggsave(filename = file.path(output_dir, "figure_2.png"), plot = f2, width = 9, height = 6) 
 
 # Figure 3 - Mapped vulnerability scores for freshwater spawning and rearing category.
 
