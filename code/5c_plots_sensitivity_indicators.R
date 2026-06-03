@@ -44,7 +44,7 @@ plot_indicator_sensitivity <- function(ind_sens_summary, source_colors = sens_so
 # 1b. Indicator Directional Shift Violins
 plot_indicator_directional_shifts <- function(overall_sensitivity, tbl_indicators, source_colors = sens_source_palette) {
   ind_source_levels <- c("Baseline", "GCM1", "GCM4", "GCM6", "RCP45_P5", "RCP85_P3", "RCP85_P5", "dsmethod", "stdmethod")
-  ind_source_labels <- c("Baseline", "CanESM2 (GCM 1)", "HadGEM2 (GCM 4)", "MPI (GCM 6)", "RCP 4.5 (P5)", "RCP 8.5 (P3)", "RCP 8.5 (P5)", "Downscaling Method", "Standardize Meth")
+  ind_source_labels <- c("Baseline", "CanESM2 (GCM 1)", "HadGEM2 (GCM 4)", "MPI (GCM 6)", "RCP 4.5, End-century (P5)", "RCP 8.5, Mid-century", "RCP 8.5, End-century", "Downscaling Method", "Standardize Meth")
 
   ind_shift_cus <- overall_sensitivity$indicator_metrics %>%
     filter(FULL_CU_IN != "ALL") %>%

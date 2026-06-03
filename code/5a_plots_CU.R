@@ -654,12 +654,29 @@ stream_indicator_multipanel_plot <- function(fwModels,
                                              unit_labels = NULL,
                                              risk_palette = cvis_risk_palette,
                                              palette_directions = 1,
-                                             ncol = NULL,
+                                             ncol = 4,
                                              nrow = NULL) {
   # Simplify geometries if needed
   fwModels <- simplify_geom_if_needed(fwModels)
   cu_boundary <- simplify_geom_if_needed(cu_boundary)
   lakes_cu <- simplify_geom_if_needed(lakes_cu)
+
+  # Check if stream_order exists in fwModels and make sure it is numeric
+  if ("stream_order" %in% names(fwModels)) {
+    fwModels$stream_order <- as.numeric(fwModels$stream_order)
+  }
+
+  # Dynamically calculate elevation from Z coordinates of geometries if not present and if requested
+  if ("elevation" %in% variables && !"elevation" %in% names(fwModels)) {
+    fwModels$elevation <- sapply(sf::st_geometry(fwModels), function(geom) {
+      coords <- sf::st_coordinates(geom)
+      if ("Z" %in% colnames(coords)) {
+        mean(coords[, "Z"], na.rm = TRUE)
+      } else {
+        NA_real_
+      }
+    })
+  }
 
   # Determine best corner for legend inset based on quadrant area intersection
   best_quad <- "BL" # Default fallback
@@ -756,7 +773,12 @@ stream_indicator_multipanel_plot <- function(fwModels,
     }
     
     p_title <- get_param_by_name(plot_titles, var_name, i, var_name)
+    if (var_name == "stream_order" && p_title == "stream_order") p_title <- "Stream Order"
+    if (var_name == "elevation" && p_title == "elevation") p_title <- "Elevation"
+
     u_label <- get_param_by_name(unit_labels, var_name, i, NULL)
+    if (var_name == "stream_order" && is.null(u_label)) u_label <- "Order"
+    if (var_name == "elevation" && is.null(u_label)) u_label <- "Elevation (m)"
     
     # Try loading unit from tbl_indicators if not provided
     if (is.null(u_label) && exists("tbl_indicators")) {
@@ -781,6 +803,8 @@ stream_indicator_multipanel_plot <- function(fwModels,
     }
     
     p_palette <- get_param_by_name(risk_palette, var_name, i, "roma")
+    if (var_name == "stream_order") p_palette <- "Blues"
+    if (var_name == "elevation") p_palette <- "YlGn"
     p_dir <- get_param_by_name(palette_directions, var_name, i, 1)
     
     # Filter out stream segments with NA values for this indicator
@@ -822,8 +846,16 @@ stream_indicator_multipanel_plot <- function(fwModels,
       val_range[2] <- min(val_range[2], 1)
     }
     
-    p <- ggplot() +
-      geom_sf(data = panel_data, aes(color = !!var_sym)) +
+    if ("stream_order" %in% variables && "stream_order" %in% names(panel_data) && !all(is.na(panel_data$stream_order))) {
+      p <- ggplot() +
+        geom_sf(data = panel_data, aes(color = !!var_sym, linewidth = stream_order)) +
+        scale_linewidth_continuous(range = c(0.2, 1.2), guide = "none")
+    } else {
+      p <- ggplot() +
+        geom_sf(data = panel_data, aes(color = !!var_sym))
+    }
+    
+    p <- p +
       scale_color_cvis(
         palette = p_palette,
         direction = p_dir,

@@ -457,7 +457,7 @@ spatial_indicator_plot <- function(data,
   # Adjust plot margins negatively to reduce the left/right padding of panel layouts
   if (length(big_spp_present) > 0) {
     p_big <- ggplot() +
-      geom_sf(data = filter(cu_boundary_plot, sp_col %in% big_spp_present), aes(fill = plot_value), alpha = 0.7) +
+      geom_sf(data = filter(cu_boundary_plot, sp_col %in% big_spp_present), aes(fill = plot_value), alpha = 1) +
       fill_scale +
       geom_sf(data = outline, colour = "black", fill = NA, alpha = 0.3) +
       labs(fill = indicator_pick) +
@@ -473,7 +473,7 @@ spatial_indicator_plot <- function(data,
 
   if (length(small_spp_present) > 0) {
     p_small <- ggplot() +
-      geom_sf(data = filter(cu_boundary_plot, sp_col %in% small_spp_present), aes(fill = plot_value), alpha = 0.7) +
+      geom_sf(data = filter(cu_boundary_plot, sp_col %in% small_spp_present), aes(fill = plot_value), alpha = 1) +
       fill_scale +
       geom_sf(data = outline, colour = "black", fill = NA, alpha = 0.3) +
       labs(fill = indicator_pick) +
@@ -571,6 +571,11 @@ spatial_fw_rearing_indicators_plot <- function(data,
     stop(paste("No data found for species:", species_pick, "and the 6 FW rearing indicators."))
   }
   
+  # Filter for mean value only if stat column exists
+  if ("stat" %in% names(plot_data)) {
+    plot_data <- plot_data %>% filter(stat == "mean")
+  }
+  
   # Split by indicator to apply dynamic filtering (GCM, RCP, period)
   # This ensures that indicators without projections (e.g. cthr, which only has gcm == 0)
   # are still preserved when filtering other indicators to future RCPs/periods.
@@ -630,15 +635,28 @@ spatial_fw_rearing_indicators_plot <- function(data,
     indicator_names <- tbl_indicators %>% 
       filter(abbrev %in% fw_indicators) %>% 
       select(abbrev, name) %>%
-      mutate(abbrev = factor(abbrev, levels = fw_indicators)) %>%
-      arrange(abbrev) %>%
-      mutate(name = as.character(name))
+      mutate(
+        name = as.character(name),
+        clean_name = sub("\\s*\\([^)]*\\)", "", name),
+        clean_name = case_when(
+          abbrev == "favchange"    ~ "Change in ENM Favourability",
+          abbrev == "cthr"         ~ "Cumulative Threat Score",
+          abbrev == "tw8proj"      ~ "August Mean Temperature",
+          abbrev == "tw8rate"      ~ "Rate of Temp. Change",
+          abbrev == "flow8pdelta"  ~ "Change in August Flow",
+          abbrev == "flow18pdelta" ~ "Change in Nov-Jan Flow",
+          TRUE                     ~ clean_name
+        ),
+        name_with_abbrev = paste0(clean_name, " (", abbrev, ")"),
+        abbrev = factor(abbrev, levels = fw_indicators)
+      ) %>%
+      arrange(abbrev)
     
     cu_boundary_plot <- cu_boundary_plot %>%
-      left_join(indicator_names, by = c("indicator" = "abbrev")) %>%
+      left_join(select(indicator_names, abbrev, name_with_abbrev), by = c("indicator" = "abbrev")) %>%
       mutate(
-        indicator_lbl = coalesce(name, indicator),
-        indicator_lbl = factor(indicator_lbl, levels = indicator_names$name)
+        indicator_lbl = coalesce(name_with_abbrev, indicator),
+        indicator_lbl = factor(indicator_lbl, levels = indicator_names$name_with_abbrev)
       )
     
     facet_var <- "indicator_lbl"
@@ -649,7 +667,7 @@ spatial_fw_rearing_indicators_plot <- function(data,
   }
   
   p <- ggplot() +
-    geom_sf(data = cu_boundary_plot, aes(fill = plot_value), alpha = 0.3) +
+    geom_sf(data = cu_boundary_plot, aes(fill = plot_value), alpha = 1) +
     scale_fill_cvis(
       palette = risk_palette, 
       direction = palette_direction, 
@@ -2924,7 +2942,7 @@ plot_raw_baseline_violins <- function(all_std_long_baseline, tbl_indicators, cu_
     "SSTrate" = "°C/decade",
     "CImpact" = "Threat",
     "CUstatus" = "Status",
-    "CUnmat" = "spawners",
+    "CUnmat" = "log10(spawners)",
     "hetzyg" = "Heterozygosity",
     "genoff" = "Offset"
   )
@@ -2942,6 +2960,21 @@ plot_raw_baseline_violins <- function(all_std_long_baseline, tbl_indicators, cu_
   if (any(plot_data$indicator == "migrdist" & plot_data$value > 1000, na.rm = TRUE)) {
     plot_data <- plot_data %>%
       dplyr::mutate(value = ifelse(indicator == "migrdist", value / 1000, value))
+  }
+
+  # Transform CUnmat values to log10 space
+  plot_data <- plot_data %>%
+    dplyr::mutate(value = ifelse(indicator == "CUnmat", log10(value), value))
+
+  # Custom formatter for y-axis values to improve clarity (avoid scientific notation, round small decimals)
+  cvis_y_formatter <- function(x) {
+    ifelse(is.na(x), "", 
+      ifelse(abs(x) >= 1000000, paste0(round(x / 1000000, 1), "M"),
+        ifelse(abs(x) >= 1000, paste0(round(x / 1000, 1), "K"),
+          format(round(x, 2), scientific = FALSE, drop0trailing = TRUE)
+        )
+      )
+    )
   }
 
   plot_data <- plot_data %>%
@@ -3048,6 +3081,7 @@ plot_raw_baseline_violins <- function(all_std_long_baseline, tbl_indicators, cu_
 
     p_sub <- p_sub +
       facet_wrap(~facet_label, scales = "free", ncol = ncol) +
+      scale_y_continuous(labels = cvis_y_formatter) +
       scale_fill_manual(values = ind_colors, name = "Indicator Category") +
       scale_color_manual(values = spp_colors, name = "Species") +
       guides(
@@ -3061,6 +3095,7 @@ plot_raw_baseline_violins <- function(all_std_long_baseline, tbl_indicators, cu_
         strip.background = element_blank(),
         axis.text.x = element_blank(),
         axis.ticks.x = element_blank(),
+        axis.text.y = element_text(size = 8, color = "#2D3748"),
         axis.line.y = element_line(color = "#CBD5E0", linewidth = 0.5),
         panel.grid.minor = element_blank(),
         panel.grid.major.x = element_blank(),
@@ -3103,14 +3138,7 @@ plot_raw_baseline_violins <- function(all_std_long_baseline, tbl_indicators, cu_
   # Add global titles and caption via plot_annotation
   p_combined <- p_combined +
     plot_annotation(
-      title = if (!is.null(cu_code)) paste("Raw baseline indicator values relative to all CUs for", cu_code) else "Distribution of Raw Baseline Indicator Values across Fraser CUs",
-      subtitle = sub_text,
-      caption = "Raw Value (units vary by indicator)",
-      theme = theme(
-        plot.title = element_text(face = "bold", size = 12, color = "#1A365D", margin = margin(b = 4)),
-        plot.subtitle = element_text(size = 9, color = "grey40", margin = margin(b = 8)),
-        plot.caption = element_text(size = 9, hjust = 0.5, color = "grey40", face = "italic")
-      )
+      caption = "Raw Value (units vary by indicator)"
     )
 
   return(p_combined)

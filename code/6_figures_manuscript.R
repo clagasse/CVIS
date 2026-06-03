@@ -41,7 +41,7 @@ output_dir <- file.path(paths$figures, "manuscript")
 dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
 # select case study CUs for manuscript
-casestudy_CU <- switch(2, "CK-12", "CM-02", "PKO-01")
+casestudy_CU <- switch(3, "CK-12", "CM-02", "PKO-01")
 
 # ==================== 2. Load Processed Datasets ====================
 
@@ -125,103 +125,106 @@ fw_sp_ind_cu <- subset_fw_models(
   cu_run = cu_run,
   spp_lookup = spp_lookup,
   to_factor = TRUE,
-  filter_rs = T  #get rearing/spawning streams only for species
+  filter_rs = F  #get rearing/spawning streams only for species
 )
 
 cu_timing_long_i <- cu_timing_long[cu_timing_long$FULL_CU_IN == cu_i, ]
 cu_timing_i <- cu_timing_Fr[cu_timing_Fr$FULL_CU_IN == cu_i, ]
 
 
-
 # ==================== 4. Generate & Save Figures ====================
 
-# Figure 2 - Map of values for freshwater spawning and rearing indicators within a CU boundary
+# Figure 2 - Distributions of raw (unstandardized) indicator values across all Fraser River basin Conservation Units under the baseline scenario.
+# Caption: Violin plot visualizing the density, spread, and median values of raw environmental indicators across all 50 CUs under the baseline. Indicators are grouped by vulnerability category (Spawning & Rearing, Upstream Migration, Nearshore Marine, Demographic, and Genetic) to show the underlying range of historical environmental conditions and population attributes.
+f2 <- plot_raw_baseline_violins(
+  all_std_long_baseline = all_std_long_baseline,
+  tbl_indicators = tbl_indicators
+)
 
-f2 <- stream_indicator_multipanel_plot(fw_sp_ind_cu,
+ggsave(filename = file.path(output_dir, "figure_2.png"), plot = f2,
+       width = 11, height = 8.5, dpi = 150) 
+
+# Figure 3 - High-resolution spatial mapping of freshwater spawning and rearing indicators within a case-study Conservation Unit (CU) boundary.
+
+f3 <- stream_indicator_multipanel_plot(fw_sp_ind_cu,
   cu_boundary_i,
   lakes_cu,
-  variables = c("favchange_chinook_85_3", "cthr_anad", "tw8proj_9_45_3", "tw8rate_9_45_3", "flow8pdelta_9_45_3", "flow18pdelta_9_45_3"),
-  plot_titles = c("Change in ENM Favourability", "Cumulative Threat Score", "August Mean Temperature",
+  variables = c("stream_order", "favchange_chinook_85_3", "cthr_anad", "tw8proj_9_45_3", "elevation", "tw8rate_9_45_3", "flow8pdelta_9_45_3", "flow18pdelta_9_45_3"),
+  plot_titles = c("Stream Order", "Change in ENM Favourability", "Cumulative Threat Score", "August Mean Temperature", "Elevation",
                   "Rate of Temp. Change", "Change in August Flow", "Change in Nov-Jan Flow"),
   risk_palette = cvis_risk_palette,
-  palette_directions = c(1, -1, -1, -1, 1, -1))
+  palette_directions = c(1, 1, -1, -1, 1, -1, 1, -1),
+  ncol = 4)
 
 #save as png
-ggsave(filename = file.path(output_dir, "figure_2.png"), plot = f2, width = 9, height = 6) 
+ggsave(filename = file.path(output_dir, "figure_3.png"), plot = f3, width = 9, height = 6) 
 
-# Figure 3 - Mapped vulnerability scores for freshwater spawning and rearing category.
-
-f3 <- spatial_fw_rearing_indicators_plot(all_std_long_baseline,
+# Figure 4 - Basin-wide spatial distribution of standardized freshwater spawning and rearing vulnerability scores for Chinook salmon.
+# Caption: Maps the spatial distribution of the aggregated freshwater spawning and rearing (fwrs) category score for Chinook salmon CUs across the Fraser River basin. Spawning and rearing stream networks within each CU boundary are colored based on their standardized score (the length-weighted average of the seven underlying freshwater indicators). High values (warm colors) indicate high cumulative vulnerability, while low values (cool colors) represent physical and climatic refugia.
+f4 <- spatial_fw_rearing_indicators_plot(all_std_long_baseline,
                                          cu_boundary,
                                          outline = Fr_basin,
                                          species_pick = "Chinook")
 
-ggsave(filename = file.path(output_dir, "figure_3.png"), plot = f3, width = 10, height = 9)                                
+ggsave(filename = file.path(output_dir, "figure_4.png"), plot = f4, width = 10, height = 9)   
+
+# Figure 5 - Directional shifts and expansion of climate hazard exposure across CUs under future projection scenarios.
+# Caption: Violin plots comparing the distribution of standardized indicator values for all CUs under the baseline against future projections across different Representative Concentration Pathways (RCP 4.5, RCP 8.5) and projection periods (2050s, 2080s). Shows systematic shifts in risk profiles and the widening range of climate model uncertainty.
+f5 <- plot_indicator_directional_shifts(overall_sensitivity, 
+                                        tbl_indicators)
+
+ggsave(filename = file.path(output_dir, "figure_5.png"), plot = f5, width = 9, height = 7) 
 
 
-# Figure 4 - Summary of migration timing and temperatures across CUs
-# Uses migration_compare_plot from 5b to show all CUs' timing and temperatures for all 365 days (months)
-f4 <- migration_compare_plot(
+
+# Figure 6 - Upstream migration timing and thermal exposure profiles across Fraser River basin salmon Conservation Units.
+# Caption: Migration timing calendar plot visualizing daily migration temperatures and run timing across CUs under RCP 4.5. The background represents daily stream temperatures along the migration path for the baseline (1981-2010; top) and future (2041-2060; bottom) periods. Horizontal black bars denote the spawning and migration windows for each population, illustrating the degree of overlap with stressful thermal thresholds.
+f6 <- migration_compare_plot(
   migr_daily_calendar,
   timing = cu_timing_Fr,
   rcp = "45",
   period_choose = c("1981-2010", "2041-2060")
 )
 
-ggsave(filename = file.path(output_dir, "figure_4.png"), plot = f4, width = 8, height = 6)
+ggsave(filename = file.path(output_dir, "figure_6.png"), plot = f6, width = 8, height = 6)
 
             
                    
-# Figure 5 - Marine adaptive zones and associated mean indicator scores for each indicator - SSTproj, SSTrate, CImpact (Regional & Local Point-level zoom in GStr).
+# Figure 7 - Marine Adaptive Zones (MAZs) and regional marine vulnerability profiles in the Salish Sea and Northeast Pacific.
+# Caption: (Left) Geographic boundaries of Marine Adaptive Zones (MAZs) representing oceanographic domains utilized by juvenile salmon during post-entry migration. (Right) Lollipop plots of standardized marine indicators (sea surface temperature projections [SSTproj], SST warming rates [SSTrate], and cumulative human impacts [CImpact]) across each MAZ. Points represent MAZ-level averages, and error bars show spatial variation.
+f7 <- combined_maz_marine_plot(maz_all, MAZ)
 
-f5 <- combined_maz_marine_plot(maz_all, MAZ)
-
-ggsave(filename = file.path(output_dir, "figure_5.png"), plot = f5, width = 12, height = 9)   
-
-
-# Figure 6 - Violin plot of raw indicator values for all CUs across all indicators under the baseline scenario.
-
-f6 <- plot_raw_baseline_violins(
-  all_std_long_baseline = all_std_long_baseline,
-  tbl_indicators = tbl_indicators
-)
-
-ggsave(filename = file.path(output_dir, "figure_6.png"), plot = f6,
-       width = 11, height = 8.5, dpi = 150) 
+ggsave(filename = file.path(output_dir, "figure_7.png"), plot = f7, width = 12, height = 9)   
 
 
-# Figure 7 - INdicator tile plot of overall vulnerability scores and individual indicator scores.
 
-f7 <- indicator_cu_tile_plot(all_std_long_baseline,
+
+# Figure 8 - Heatmap of individual standardized indicator scores, category-level scores, and overall vulnerability portfolios across all salmon Conservation Units.
+# Caption: Heatmap illustrating standardized scores (from 0.0 to 1.0) for individual indicators, category-level vulnerability scores, and the integrated overall score (baseline average, shown on left) across CUs. Rows represent CUs, sorted by overall vulnerability, grouped by their species and SMU simple identifiers.
+f8 <- indicator_cu_tile_plot(all_std_long_baseline,
                        scores_tidy_baseline)
 
 
-ggsave(filename = file.path(output_dir, "figure_7.png"), plot = f7,
+ggsave(filename = file.path(output_dir, "figure_7.png"), plot = f8,
        width = 8, height = 9) 
 
 
-# Figure 8 - Violin plot of spread of indicator values for 50 CUs across different scenarios.
 
-f8 <- plot_indicator_directional_shifts(overall_sensitivity, 
-                                        tbl_indicators)
-
-ggsave(filename = file.path(output_dir, "figure_8.png"), plot = f8, width = 9, height = 7) 
-
-# Figure 9 - Tile plot with comparison of category scores and overall vulnerability scores by method. 
-
+# Figure 9 - Comparison of category-level and overall vulnerability scores across different mathematical aggregation methods.
+# Caption: Heatmap comparing overall and category vulnerability scores calculated using three different aggregation methods: average (arithmetic mean), cube-mean (power mean with p=3 to weight extreme hazard scores), and a red flag count (sum of indicators exceeding a standardized score of 0.8). Shows how ranking structures respond to mathematical assumptions.
 f9 <- plot_methods_compare_tile(scores_tidy_baseline)
 
 ggsave(filename = file.path(output_dir, "figure_9.png"), plot = f9, width = 9, height = 10)
 
 
-# Figure 10 - Deviations in overall vulnerability scores across sources of variation.
-
+# Figure 10 - Quantitative sensitivity analysis of overall vulnerability scores across sources of modeling variation.
+# Caption: Boxplots illustrating deviations in overall vulnerability scores for each CU resulting from four primary sources of model variation: Global Climate Model selection, emissions scenario, standardization curves, and indicator weighting schemes. The relative spread indicates which modeling choice contributes the greatest score variance.
 f10 <- plot_score_deviations(overall_sensitivity$deviations)
 
 ggsave(filename = file.path(output_dir, "figure_10.png"), plot = f10, width = 9, height = 9)
 
-# Figure 11 - Species-level bump plots of change in vulnerability rank for each CU across different sources of variation.
-
+# Figure 11 - Robustness of relative vulnerability rankings for Chinook salmon CUs across sensitivity scenarios.
+# Caption: Bump plot tracking changes in relative vulnerability rank for individual Chinook salmon CUs (y-axis) across different model sensitivity runs (x-axis), representing alternative weightings, climate projections, and aggregation formulas. Crossing lines identify rankings sensitive to specific modeling options.
 f11 <- plot_species_bump_plot(overall_sensitivity, "Chinook")
 f11b <- plot_species_bump_plot(overall_sensitivity, "Sockeye")
 f11c <- plot_species_bump_plot(overall_sensitivity, "Coho")
@@ -229,7 +232,8 @@ f11c <- plot_species_bump_plot(overall_sensitivity, "Coho")
 ggsave(filename = file.path(output_dir, "figure_11.png"), plot = f11, width = 8, height = 7)
 
 
-# Figure 12 - Vulnerability score violins
+# Figure 12 - Interspecific comparison of integrated freshwater spawning and rearing vulnerability scores.
+# Caption: Violin plots comparing the density distribution and median values of the final integrated spawning and rearing vulnerability scores under the baseline, grouped by salmon species (Chinook, Sockeye, Coho, Chum, and Pink). Shows how species life history traits (e.g., freshwater rearing residency) influence relative exposure.
 f12 <- plot_cvis_vulnerability_violins(scores_tidy_baseline)
 
 ggsave(filename = file.path(output_dir, "figure_12.png"), plot = f12)
@@ -246,14 +250,6 @@ gt_table <- generate_cvis_summary_table(
 
 # Save the table outputs
 gtsave(gt_table, filename = file.path(output_dir, "table_summary.html"))
-# Save as image if webshot2 is available (wrapped in tryCatch to prevent failures)
-tryCatch({
-  gtsave(gt_table, filename = file.path(output_dir, "table_summary.png"))
-  cat("Table saved to PNG successfully!\n")
-}, error = function(e) {
-  cat("gtsave as PNG failed (likely webshot2/PhantomJS not installed): ", e$message, "\n")
-})
-
 
 
 # ==================== 6. Vulnerability Summary Table by Category ====================
@@ -265,15 +261,6 @@ gt_vuln_table <- generate_cvis_vulnerability_table(
 
 # Save vulnerability table outputs
 gtsave(gt_vuln_table, filename = file.path(output_dir, "table_vulnerability.html"))
-
-tryCatch({
-  gtsave(gt_vuln_table, filename = file.path(output_dir, "table_vulnerability.png"))
-  cat("Vulnerability Table saved to PNG successfully!\n")
-}, error = function(e) {
-  cat("gtsave as PNG failed: ", e$message, "\n")
-})
-
-
 
 
 # ==================== 7. Sensitivity Analysis Summary Table ====================
@@ -288,12 +275,107 @@ gt_sens_table <- generate_cvis_sensitivity_table(
 # Save sensitivity table outputs
 gtsave(gt_sens_table, filename = file.path(output_dir, "table_sensitivity.html"))
 
-tryCatch({
-  gtsave(gt_sens_table, filename = file.path(output_dir, "table_sensitivity.png"))
-  cat("Sensitivity Table saved to PNG successfully!\n")
-}, error = function(e) {
-  cat("gtsave as PNG failed: ", e$message, "\n")
-})
+
+# ==================== 8. Raw Indicator Scenario & Sensitivity Summary Table ====================
+
+gt_raw_scenario_table <- generate_cvis_scenario_raw_summary_table(
+  all_std_long = all_std_long
+)
+
+# Save raw scenario table outputs
+gtsave(gt_raw_scenario_table, filename = file.path(output_dir, "table_raw_scenario_summary.html"))
+
+
+# ==================== 9. CVIS Indicator Description Table ====================
+
+gt_guide_table <- generate_cvis_indicator_description_table(
+  all_std_long_baseline = all_std_long_baseline
+)
+
+# Save guide table outputs
+gtsave(gt_guide_table, filename = file.path(output_dir, "table_indicators_guide.html"))
+
+
+# ==================== 10. Compile All Tables into a Combined HTML File ====================
+
+cat("Compiling all tables into a single combined HTML file...\n")
+html_content <- paste0(
+  "<!DOCTYPE html>\n",
+  "<html>\n",
+  "<head>\n",
+  "  <meta charset=\"utf-8\">\n",
+  "  <title>CVIS Manuscript Tables</title>\n",
+  "  <style>\n",
+  "    body {\n",
+  "      font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;\n",
+  "      margin: 40px auto;\n",
+  "      max-width: 1200px;\n",
+  "      color: #2D3748;\n",
+  "      background-color: #FAFAFA;\n",
+  "      line-height: 1.5;\n",
+  "    }\n",
+  "    h1 {\n",
+  "      text-align: center;\n",
+  "      color: #1A365D;\n",
+  "      font-weight: bold;\n",
+  "      border-bottom: 2px double #1A365D;\n",
+  "      padding-bottom: 10px;\n",
+  "      margin-bottom: 40px;\n",
+  "    }\n",
+  "    .table-section {\n",
+  "      background: white;\n",
+  "      border-radius: 8px;\n",
+  "      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);\n",
+  "      padding: 30px;\n",
+  "      margin-bottom: 50px;\n",
+  "      border-top: 4px solid #2B6CB0;\n",
+  "    }\n",
+  "    .table-section-title {\n",
+  "      font-size: 18px;\n",
+  "      font-weight: bold;\n",
+  "      color: #1A365D;\n",
+  "      margin-top: 0;\n",
+  "      margin-bottom: 20px;\n",
+  "      border-bottom: 1px solid #E2E8F0;\n",
+  "      padding-bottom: 8px;\n",
+  "    }\n",
+  "  </style>\n",
+  "</head>\n",
+  "<body>\n",
+  "  <h1>CVIS Manuscript Tables</h1>\n",
+  "  \n",
+  "  <div class=\"table-section\">\n",
+  "    <div class=\"table-section-title\">Table 1. CVIS Climate and Vulnerability Indicators Guide</div>\n",
+  "    ", gt::as_raw_html(gt_guide_table), "\n",
+  "  </div>\n",
+  "\n",
+  "  <div class=\"table-section\">\n",
+  "    <div class=\"table-section-title\">Table 2. CVIS Climate and Vulnerability Indicators Summary</div>\n",
+  "    ", gt::as_raw_html(gt_table), "\n",
+  "  </div>\n",
+  "\n",
+  "  <div class=\"table-section\">\n",
+  "    <div class=\"table-section-title\">Table 3. CVIS Overall Vulnerability Score Summary by Category</div>\n",
+  "    ", gt::as_raw_html(gt_vuln_table), "\n",
+  "  </div>\n",
+  "\n",
+  "  <div class=\"table-section\">\n",
+  "    <div class=\"table-section-title\">Table 4. CVIS Overall Vulnerability Score Sensitivity Analysis</div>\n",
+  "    ", gt::as_raw_html(gt_sens_table), "\n",
+  "  </div>\n",
+  "\n",
+  "  <div class=\"table-section\">\n",
+  "    <div class=\"table-section-title\">Table 5. CVIS Raw Indicator Value Scenario & Sensitivity Summary</div>\n",
+  "    ", gt::as_raw_html(gt_raw_scenario_table), "\n",
+  "  </div>\n",
+  "</body>\n",
+  "</html>\n"
+)
+
+writeLines(html_content, file.path(output_dir, "tables_manuscript.html"))
+cat("Combined HTML tables compiled and saved successfully to tables_manuscript.html!\n")
+
+
 
 
 

@@ -930,7 +930,7 @@ fw_ENM <- fw_models_df %>%
 
 ## create spatial object with all indicator variables
 fw_sp_ind <- fw_models %>%
-  select(linear_feature_id, fwa_watershed_code, channel_width, length_metre,
+  select(linear_feature_id, fwa_watershed_code, channel_width, length_metre, stream_order,
     mad_m3s, upstream_area_ha, gradient, gnis_name, model_access_salmon,
     model_habitat_salmon,
     model_habitat_ch, model_habitat_cm, model_habitat_co, model_habitat_pk, model_habitat_sk,
