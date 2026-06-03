@@ -36,8 +36,8 @@ run_fw_stats       <- FALSE # Run stream intersections, rearing, and migration s
 run_marine_prep    <- FALSE # Run raw marine NetCDF and spatial GDB imports (3a)
 run_marine_stats   <- FALSE # Run marine stats & grid standardization calculations (3b, 3c)
 run_scoring        <- F  # Run core standardization and scoring calculation engine (4a)
-run_indicator_report    <- T  # Generate the detailed indicator reports (6a_S1_indicators_description.Rmd)
-run_reports_indiv       <- F # Generate individual CU report HTML files (Static supplement for publication)
+run_indicator_report    <- F  # Generate the detailed indicator reports (6a_S1_indicators_description.Rmd)
+run_reports_indiv       <- T # Generate individual CU report HTML files (Static supplement for publication)
 run_sensitivity_report  <- F # Generate individual CU report HTML files (Static supplement for publication)
 run_shiny_explorer      <- FALSE # Launch local interactive Shiny explorer app (7_CVIS_explorer_app.R)
 
@@ -119,7 +119,7 @@ if (run_reports_indiv) {
   dir.create(file.path(paths$reports, "CU_reports"), showWarnings = FALSE, recursive = TRUE)
   # Default to compiling the first 2 CUs for testing and speed.
   # To run for all 50 CUs, change this to: cus_to_compile <- cu_run$FULL_CU_IN
-  cus_to_compile <- cu_run$FULL_CU_IN[1:2]
+  cus_to_compile <- cu_run$FULL_CU_IN
   
   for (CU_IN_i in cus_to_compile) {
     cat("Compiling HTML profile for:", CU_IN_i, "\n")

@@ -52,19 +52,19 @@ html_template <- r"---(<!DOCTYPE html>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Climate Vulnerability Indicators for Salmon (CVIS) Supplement - CU Data Reports</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --primary: #334155;
-      --primary-light: #475569;
-      --primary-hover: #475569;
+      --primary: #0f2b46;
+      --primary-light: #1e3d59;
+      --primary-hover: #1e3d59;
       --bg: #F8FAFC;
-      --sidebar-bg: #0F172A;
-      --sidebar-hover: #1E293B;
-      --text: #0F172A;
-      --text-muted: #475569;
+      --sidebar-bg: #0f1c2c;
+      --sidebar-hover: #172a3a;
+      --text: #2d3748;
+      --text-muted: #4a5568;
       --border: #E2E8F0;
-      --active-bg: #334155;
+      --active-bg: #0f2b46;
       --active-text: #FFFFFF;
     }
     
@@ -243,9 +243,10 @@ html_template <- r"---(<!DOCTYPE html>
     }
     
     .about-header p {
-      font-size: 1rem;
+      font-family: 'Lora', Georgia, serif;
+      font-size: 1.05rem;
       color: var(--text-muted);
-      line-height: 1.6;
+      line-height: 1.65;
     }
     
     .about-section {
@@ -265,8 +266,9 @@ html_template <- r"---(<!DOCTYPE html>
     }
     
     .about-section p, .about-section li {
-      font-size: 0.9rem;
-      line-height: 1.6;
+      font-family: 'Lora', Georgia, serif;
+      font-size: 0.95rem;
+      line-height: 1.65;
       margin-bottom: 10px;
     }
     
@@ -294,8 +296,9 @@ html_template <- r"---(<!DOCTYPE html>
     }
     
     .disclaimer-box p {
-      font-size: 0.85rem;
-      line-height: 1.6;
+      font-family: 'Lora', Georgia, serif;
+      font-size: 0.9rem;
+      line-height: 1.65;
     }
   </style>
 </head>

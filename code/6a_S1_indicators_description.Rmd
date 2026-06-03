@@ -82,7 +82,7 @@ cat("### Default scenario output \n")
 print_lollipop_and_std_vs_raw(report_dat, indicator_pick = "tw8proj")
 ```
 
-**Fig. S1.1.** Rationale and baseline values for projected August stream temperature (tw8proj). The top panel shows raw and standardized values across all Fraser River basin Conservation Units (CUs), and the bottom panel shows the standardization function curve.
+**Fig. S1.1.** Projected August stream temperature (tw8proj) under the default scenario with 80% range of values across GCMs shown by blue bars. The top panel shows raw values for Fraser River CUs, with dot colours representing the standardized value. The bottom panel shows the standardization function curve and mapping of raw to standardized values coloured by species. 
 
 ```{r projT spatial}
 print(spatial_indicator_plot(report_dat, cu_boundary, indicator_pick = "tw8proj"))
@@ -117,7 +117,7 @@ cat("### Default scenario output \n")
 print_lollipop_and_std_vs_raw(report_dat, indicator_pick = "tw8rate")
 ```
 
-**Fig. S1.3.** Decadal rate of increase in August stream temperature (tw8rate). The top panel shows raw and standardized values across all Fraser River basin Conservation Units (CUs), and the bottom panel shows the standardization function curve.
+**Fig. S1.3.** Decadal rate of increase in August stream temperature (tw8rate). The top panel shows values across all Fraser River basin Conservation Units (CUs), and the bottom panel shows the standardization function curve.
 
 ```{r tw8rate spatial}
 print(spatial_indicator_plot(report_dat, cu_boundary, indicator_pick = "tw8rate"))

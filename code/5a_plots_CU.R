@@ -429,11 +429,8 @@ plot_timing_comparison <- function(cu_timing_long,
       expand = c(0.01, 0)
     ) +
     labs(
-      title = title_text,
-      subtitle = subtitle_text,
       x = "Date",
-      y = NULL,
-      caption = caption_text
+      y = NULL
     ) +
     theme_minimal() +
     theme(
@@ -664,6 +661,75 @@ stream_indicator_multipanel_plot <- function(fwModels,
   cu_boundary <- simplify_geom_if_needed(cu_boundary)
   lakes_cu <- simplify_geom_if_needed(lakes_cu)
 
+  # Determine best corner for legend inset based on quadrant area intersection
+  best_quad <- "BL" # Default fallback
+  tryCatch({
+    bbox <- sf::st_bbox(cu_boundary)
+    xmin <- bbox[["xmin"]]
+    ymin <- bbox[["ymin"]]
+    xmax <- bbox[["xmax"]]
+    ymax <- bbox[["ymax"]]
+    
+    xmid <- (xmin + xmax) / 2
+    ymid <- (ymin + ymax) / 2
+    crs_cu <- sf::st_crs(cu_boundary)
+    
+    # Helper function to create polygon for a quadrant
+    make_quad_poly <- function(x1, y1, x2, y2, crs) {
+      sf::st_sfc(sf::st_polygon(list(matrix(c(
+        x1, y1,
+        x2, y1,
+        x2, y2,
+        x1, y2,
+        x1, y1
+      ), ncol = 2, byrow = TRUE))), crs = crs)
+    }
+    
+    poly_bl <- make_quad_poly(xmin, ymin, xmid, ymid, crs_cu)
+    poly_br <- make_quad_poly(xmid, ymin, xmax, ymid, crs_cu)
+    poly_tl <- make_quad_poly(xmin, ymid, xmid, ymax, crs_cu)
+    poly_tr <- make_quad_poly(xmid, ymid, xmax, ymax, crs_cu)
+    
+    cu_geom <- sf::st_make_valid(sf::st_union(cu_boundary))
+    
+    area_bl <- as.numeric(sf::st_area(sf::st_intersection(cu_geom, poly_bl)))
+    area_br <- as.numeric(sf::st_area(sf::st_intersection(cu_geom, poly_br)))
+    area_tl <- as.numeric(sf::st_area(sf::st_intersection(cu_geom, poly_tl)))
+    area_tr <- as.numeric(sf::st_area(sf::st_intersection(cu_geom, poly_tr)))
+    
+    area_bl <- if (length(area_bl) == 1 && !is.na(area_bl)) area_bl else Inf
+    area_br <- if (length(area_br) == 1 && !is.na(area_br)) area_br else Inf
+    area_tl <- if (length(area_tl) == 1 && !is.na(area_tl)) area_tl else Inf
+    area_tr <- if (length(area_tr) == 1 && !is.na(area_tr)) area_tr else Inf
+    
+    areas <- c(BL = area_bl, BR = area_br, TL = area_tl, TR = area_tr)
+    best_quad <- names(which.min(areas))
+  }, error = function(e) {
+    # Fallback to centroid logic if st_intersection fails
+    tryCatch({
+      cu_geom <- sf::st_make_valid(sf::st_union(cu_boundary))
+      centroid <- sf::st_coordinates(sf::st_centroid(cu_geom))
+      bbox <- sf::st_bbox(cu_boundary)
+      xmid <- (bbox[["xmin"]] + bbox[["xmax"]]) / 2
+      ymid <- (bbox[["ymin"]] + bbox[["ymax"]]) / 2
+      
+      lr <- if (centroid[1] > xmid) "L" else "R"
+      tb <- if (centroid[2] > ymid) "B" else "T"
+      best_quad <<- paste0(tb, lr)
+    }, error = function(e2) {
+      best_quad <<- "BL" # Hard fallback
+    })
+  })
+  
+  # Assign inset coordinates based on best quadrant
+  inset_coords <- switch(best_quad,
+    "BL" = list(left = 0.03, bottom = 0.03, right = 0.38, top = 0.32),
+    "BR" = list(left = 0.62, bottom = 0.03, right = 0.97, top = 0.32),
+    "TL" = list(left = 0.03, bottom = 0.68, right = 0.38, top = 0.97),
+    "TR" = list(left = 0.62, bottom = 0.68, right = 0.97, top = 0.97),
+    list(left = 0.03, bottom = 0.03, right = 0.38, top = 0.32) # default
+  )
+
   # Helper to resolve parameter by index or name
   get_param_by_name <- function(param, var_name, idx, default_val) {
     if (is.null(param)) {
@@ -812,10 +878,10 @@ stream_indicator_multipanel_plot <- function(fwModels,
 
     p_combined <- p + patchwork::inset_element(
       p_hist,
-      left = 0.03,
-      bottom = 0.03,
-      right = 0.38,
-      top = 0.32,
+      left = inset_coords$left,
+      bottom = inset_coords$bottom,
+      right = inset_coords$right,
+      top = inset_coords$top,
       align_to = "panel"
     )
       
