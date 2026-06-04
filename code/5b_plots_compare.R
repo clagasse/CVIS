@@ -139,11 +139,8 @@ plot_lollipop <- function(data,
 
   # ---- HTML labels coloured by species ----
   # Pre-calculate colors to avoid length mismatch errors
-  sp_col_vec <- if (exists("species_palette")) {
-    species_palette[as.character(cu_plot$SPECIES_NAME)]
-  } else {
-    rep(NA_character_, nrow(cu_plot))
-  }
+  species_palette <- get("species_palette", envir = .GlobalEnv)
+  sp_col_vec <- species_palette[as.character(cu_plot$SPECIES_NAME)]
   
   cu_plot <- cu_plot %>%
     mutate(
@@ -250,7 +247,7 @@ plot_lollipop <- function(data,
       x = NULL
     ) +
     coord_flip() +
-    theme_minimal(base_size = 11) +
+    theme_cvis(base_size = 11) +
     theme(
       axis.text.y = ggtext::element_markdown(size = 7.5, vjust = 0.5),
       axis.text.y.left = ggtext::element_markdown(size = 7.5, vjust = 0.5),
@@ -324,7 +321,7 @@ plot_std_vs_raw <- function(data,
       y      = "Standardized Score"
       #title  = paste("Standardization function -", indicator_name)
     ) +
-    theme_minimal(base_size = 10) +
+    theme_cvis(base_size = 10) +
     theme(
       plot.title = element_text(face = "bold", size = 11, hjust = 0.5)
     )
@@ -918,8 +915,9 @@ indicator_tile_plot <- function(all_std_long,
         na.value = "grey95",
         limits = c(0, 1)
       ) +
-      theme_minimal(base_size = 9) +
+      theme_cvis(base_size = 9) +
       theme(
+        axis.line = element_blank(),
         axis.title = element_blank(),
         legend.position = "none",
         panel.grid = element_blank(),
@@ -1105,9 +1103,7 @@ species_category_tile_plot_from_scores <- function(all_std_long,
 
   # ---- Default species palette ----
   if (is.null(species_palette)) {
-    species_palette <- c(
-      "Chinook" = "#E69F00", "Chum" = "#56B4E9", "Coho" = "#009E73", "Pink" = "#F0E442", "Sockeye" = "#D55E00"
-    )
+    species_palette <- get("species_palette", envir = .GlobalEnv)
   }
   sp_color <- species_palette[species_pick]
   if (is.na(sp_color) || is.null(sp_color)) sp_color <- "black"
@@ -1322,8 +1318,9 @@ species_category_tile_plot_from_scores <- function(all_std_long,
         palette = risk_palette, direction = palette_direction,
         na.value = "grey95", limits = c(0, 1)
       ) +
-      theme_minimal(base_size = 9) +
+      theme_cvis(base_size = 9) +
       theme(
+        axis.line = element_blank(),
         axis.title = element_blank(),
         axis.text.y = ggtext::element_markdown(size = 8, hjust = 1),
         axis.text.y.left = ggtext::element_markdown(size = 8, hjust = 1),
@@ -1361,8 +1358,9 @@ species_category_tile_plot_from_scores <- function(all_std_long,
       palette = risk_palette, direction = palette_direction,
       na.value = "grey95", limits = c(0, 1)
     ) +
-    theme_minimal(base_size = 9) +
+    theme_cvis(base_size = 9) +
     theme(
+      axis.line = element_blank(),
       axis.title = element_blank(),
       axis.text.y = ggtext::element_markdown(size = 8, hjust = 1),
       axis.text.y.left = ggtext::element_markdown(size = 8, hjust = 1),
@@ -1805,9 +1803,6 @@ indicator_cu_tile_plot <- function(all_std_long,
   plot_dat <- plot_dat %>%
     mutate(SPECIES_NAME = factor(SPECIES_NAME, levels = intersect(sp_base_order, unique(SPECIES_NAME))))
   
-  if (!exists("species_palette")) {
-    species_palette <- c("Chinook" = "#E69F00", "Chum" = "#56B4E9", "Coho" = "#009E73", "Pink" = "#F0E442", "Sockeye" = "#D55E00")
-  }
   
   # Order CUs by SPECIES_NAME then by SMU then by FULL_CU_IN, then form colored labels
   cu_order <- plot_dat %>%
@@ -1892,8 +1887,9 @@ indicator_cu_tile_plot <- function(all_std_long,
       palette = risk_palette, direction = palette_direction,
       limits = c(0, 1), na.value = "grey95"
     ) +
-    theme_minimal(base_size = 12) +
+    theme_cvis(base_size = 12) +
     theme(
+      axis.line = element_blank(),
       axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 10, color = "black"),
       axis.text.y = ggtext::element_markdown(size = y_text_size, hjust = 1, vjust = 0.5),
       axis.text.y.left = ggtext::element_markdown(size = y_text_size, hjust = 1, vjust = 0.5),
@@ -2003,9 +1999,7 @@ plot_methods_compare_tile <- function(scores_tidy,
   plot_dat <- plot_dat %>%
     mutate(SPECIES_NAME = factor(SPECIES_NAME, levels = intersect(sp_base_order, unique(SPECIES_NAME))))
 
-  if (!exists("species_palette")) {
-    species_palette <- c("Chinook" = "#E69F00", "Chum" = "#56B4E9", "Coho" = "#009E73", "Pink" = "#F0E442", "Sockeye" = "#D55E00")
-  }
+  species_palette <- get("species_palette", envir = .GlobalEnv)
 
   # Order CUs by SPECIES_NAME then by SMU then by FULL_CU_IN, then form colored labels
   cu_order <- plot_dat %>%
@@ -2051,8 +2045,9 @@ plot_methods_compare_tile <- function(scores_tidy,
       palette = risk_palette, direction = palette_direction,
       limits = c(0, 100), na.value = "grey95"
     ) +
-    theme_minimal(base_size = 12) +
+    theme_cvis(base_size = 12) +
     theme(
+      axis.line = element_blank(),
       axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 9, color = "black"),
       axis.text.y = ggtext::element_markdown(size = y_text_size, hjust = 1, vjust = 0.5),
       axis.text.y.left = ggtext::element_markdown(size = y_text_size, hjust = 1, vjust = 0.5),
@@ -2603,12 +2598,8 @@ migration_compare_plot <- function(migr_daily_all,
                                    min_stream_order = 9) {
   require(ggtext)
 
-  # Fallback for species palette
-  if (exists("species_palette", envir = .GlobalEnv)) {
-    spp_colors <- get("species_palette", envir = .GlobalEnv)
-  } else {
-    spp_colors <- c("Chinook" = "#E69F00", "Chum" = "#56B4E9", "Coho" = "#009E73", "Pink" = "#F0E442", "Sockeye" = "#D55E00")
-  }
+  # Species palette
+  spp_colors <- get("species_palette", envir = .GlobalEnv)
 
   # Summary plot mode for all CUs
   if (is.null(timing)) {
@@ -2629,6 +2620,46 @@ migration_compare_plot <- function(migr_daily_all,
       id_label_html = paste0("<span style='color:", label_color, "'>", FULL_CU_IN, "</span>"),
       CU_label = factor(id_label_html, levels = unique(id_label_html))
     )
+
+  # Retrieve baseline scenario migration indicator values (migrTproj, migrdist, migrQpdelta)
+  if (!exists("all_std_long_baseline", envir = .GlobalEnv)) {
+    if (exists("paths") && !is.null(paths$output) && file.exists(file.path(paths$output, "scoring_results.Rdata"))) {
+      load(file.path(paths$output, "scoring_results.Rdata"), envir = .GlobalEnv)
+    }
+  }
+
+  if (exists("all_std_long_baseline", envir = .GlobalEnv)) {
+    baseline_df <- get("all_std_long_baseline", envir = .GlobalEnv)
+    migr_raw_data <- baseline_df %>%
+      dplyr::filter(indicator %in% c("migrTproj", "migrdist", "migrQpdelta"), stat == "mean") %>%
+      dplyr::select(FULL_CU_IN, indicator, value, std_value)
+  } else {
+    migr_raw_data <- data.frame(FULL_CU_IN = character(), indicator = character(), value = numeric(), std_value = numeric())
+  }
+
+  cu_labels_map <- df_timing %>%
+    dplyr::select(FULL_CU_IN, CU_label) %>%
+    dplyr::distinct()
+
+  grid_df <- expand.grid(
+    FULL_CU_IN = unique(df_timing$FULL_CU_IN),
+    indicator = c("migrTproj", "migrQpdelta", "migrdist"),
+    stringsAsFactors = FALSE
+  )
+
+  migr_ind_data <- grid_df %>%
+    dplyr::left_join(migr_raw_data, by = c("FULL_CU_IN", "indicator")) %>%
+    dplyr::mutate(
+      label_text = case_when(
+        is.na(value) ~ "",
+        indicator == "migrTproj" ~ sprintf("%.1f°C", value),
+        indicator == "migrdist"  ~ sprintf("%.0f km", value / 1000),
+        indicator == "migrQpdelta" ~ sprintf("%.2f", value),
+        TRUE ~ sprintf("%.1f", value)
+      ),
+      indicator_label = factor(indicator, levels = c("migrTproj", "migrdist", "migrQpdelta"))
+    ) %>%
+    dplyr::inner_join(cu_labels_map, by = "FULL_CU_IN")
 
   # Temperature data from calendar
   if (exists("migr_daily_calendar", envir = .GlobalEnv)) {
@@ -2675,12 +2706,12 @@ migration_compare_plot <- function(migr_daily_all,
     geom_segment(aes(x = rt_start, xend = rt_end, y = CU_label, yend = CU_label, color = SPECIES_NAME), linewidth = 1.5) +
     # Spawning timing bar (sp_start to sp_peak) - narrower segment
     geom_segment(aes(x = sp_start, xend = sp_peak, y = CU_label, yend = CU_label, color = SPECIES_NAME), linewidth = 0.8, alpha = 0.7) +
-    scale_color_manual(values = spp_colors) +
+    scale_color_manual(values = spp_colors, guide = "none") + # Hide species legend
     labs(x = NULL, y = "CU", color = "Species") +
     scale_x_continuous(limits = c(1, 365),
                        breaks = c(1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335),
                        labels = NULL) +
-    theme_bw() +
+    theme_cvis() +
     theme(
       axis.text.y = ggtext::element_markdown(size = 5),
       axis.text.x = element_blank(),
@@ -2688,7 +2719,7 @@ migration_compare_plot <- function(migr_daily_all,
       axis.title.x = element_blank(),
       panel.grid.major.y = element_blank(),
       legend.position = "right",
-      plot.margin = margin(t = 2, r = 2, b = -2, l = 2, unit = "pt")
+      plot.margin = margin(t = 2, r = 0, b = -2, l = 2, unit = "pt") # remove right margin to close gap
     ) +
     annotation_custom(grid::textGrob("a", x = unit(0.96, "npc"), y = unit(0.92, "npc"), gp = grid::gpar(fontface = "bold", fontsize = 12)))
 
@@ -2714,177 +2745,62 @@ migration_compare_plot <- function(migr_daily_all,
     scale_x_continuous(limits = c(1, 365),
                        breaks = c(1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335),
                        labels = c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")) +
-    theme_bw() +
+    theme_cvis() +
     theme(
       legend.position = "right",
-      plot.margin = margin(t = -2, r = 2, b = 2, l = 2, unit = "pt")
+      plot.margin = margin(t = -2, r = 0, b = 2, l = 2, unit = "pt") # remove right margin to align
     ) +
     annotation_custom(grid::textGrob("b", x = unit(0.96, "npc"), y = unit(0.85, "npc"), gp = grid::gpar(fontface = "bold", fontsize = 12)))
 
-  # Retrieve and filter the CK-12 migration path
-  if (exists("migr_list", envir = .GlobalEnv)) {
-    migr_list_obj <- get("migr_list", envir = .GlobalEnv)
+  # Panel C: Tile plot of baseline migration indicators
+  if (exists("cvis_risk_palette", envir = .GlobalEnv)) {
+    cvis_pal <- get("cvis_risk_palette", envir = .GlobalEnv)
   } else {
-    if (exists("paths") && !is.null(paths$fw)) {
-      load(file.path(paths$fw, "fw_upstream_paths.Rdata"))
-      migr_list_obj <- migr_list
-    } else {
-      if (file.exists(file.path("processed_data", "freshwater", "fw_upstream_paths.Rdata"))) {
-        load(file.path("processed_data", "freshwater", "fw_upstream_paths.Rdata"))
-        migr_list_obj <- migr_list
-      } else {
-        stop("migr_list spatial object not found.")
-      }
-    }
+    cvis_pal <- "Zissou1"
   }
 
-  if (!spatial_path_choose %in% names(migr_list_obj)) {
-    stop(paste("Selected spatial path", spatial_path_choose, "not found in migr_list."))
-  }
-  migr_path_selected <- migr_list_obj[[spatial_path_choose]]
-  migr_path_filtered <- migr_path_selected %>%
-    dplyr::filter(stream_order >= min_stream_order)
-
-  # Load fw_models to get August temperature
-  if (exists("fw_models", envir = .GlobalEnv)) {
-    fw_models_obj <- get("fw_models", envir = .GlobalEnv)
-  } else {
-    if (exists("paths") && !is.null(paths$fw) && file.exists(file.path(paths$fw, "fw_models_tscapes.Rds"))) {
-      load(file.path(paths$fw, "fw_models_tscapes.Rds"))
-      fw_models_obj <- fw_models
-    } else {
-      if (file.exists(file.path("processed_data", "freshwater", "fw_models_tscapes.Rds"))) {
-        load(file.path("processed_data", "freshwater", "fw_models_tscapes.Rds"))
-        fw_models_obj <- fw_models
-      } else {
-        fw_models_obj <- NULL
-      }
-    }
-  }
-
-  if (!is.null(fw_models_obj)) {
-    proj_period <- setdiff(period_choose, c("1981-2010", "1981-2000"))[1]
-    if (is.na(proj_period)) {
-      proj_period <- tail(period_choose, 1)
-    }
-    
-    p_code <- period_lookup %>%
-      dplyr::filter(period == proj_period, dsmodel == "tscapes") %>%
-      dplyr::pull(period_code) %>%
-      unique() %>%
-      head(1)
-    
-    if (length(p_code) == 0) {
-      p_code <- "3"
-    }
-    
-    temp_col <- paste0("tw8_9_", rcp, "_", p_code)
-    temp_col_alt <- paste0("tw8proj_9_", rcp, "_", p_code)
-    matching_col <- intersect(c(temp_col, temp_col_alt), names(fw_models_obj))[1]
-    
-    if (!is.na(matching_col)) {
-      join_col <- intersect(c("linear_feature_id", "segmented_stream_id"), names(migr_path_filtered))
-      join_col <- intersect(join_col, names(fw_models_obj))
-      
-      if (length(join_col) > 0) {
-        temp_df <- sf::st_drop_geometry(fw_models_obj) %>%
-          dplyr::select(dplyr::all_of(c(join_col[1], matching_col)))
-        
-        migr_path_filtered <- migr_path_filtered %>%
-          dplyr::left_join(temp_df, by = join_col[1]) %>%
-          dplyr::rename(august_temp = !!matching_col)
-      }
-    }
-  }
-
-  # Get projection CRS from the migration path
-  target_crs <- sf::st_crs(migr_path_filtered)
-
-  # Reproject other map layers
-  if (exists("bc_coast", envir = .GlobalEnv)) {
-    bc_coast_proj <- sf::st_transform(get("bc_coast", envir = .GlobalEnv), target_crs)
-  } else if (exists("paths") && !is.null(paths$marine) && file.exists(file.path(paths$marine, "bc_coast.Rds"))) {
-    bc_coast_proj <- sf::st_transform(readRDS(file.path(paths$marine, "bc_coast.Rds")), target_crs)
-  } else {
-    library(pacea)
-    bc_coast_proj <- sf::st_transform(pacea::bc_coast, target_crs)
-  }
-
-  if (exists("Fr_basin", envir = .GlobalEnv)) {
-    Fr_basin_proj <- sf::st_transform(get("Fr_basin", envir = .GlobalEnv), target_crs)
-  } else {
-    if (exists("paths") && !is.null(paths$fw) && file.exists(file.path(paths$fw, "basins_shp.Rds"))) {
-      load(file.path(paths$fw, "basins_shp.Rds"))
-      Fr_basin_proj <- sf::st_transform(dplyr::filter(basins, BASIN == "FRASER"), target_crs)
-    } else {
-      Fr_basin_proj <- NULL
-    }
-  }
-
-  if (exists("lakes_Fr", envir = .GlobalEnv)) {
-    lakes_proj <- sf::st_transform(get("lakes_Fr", envir = .GlobalEnv), target_crs)
-  } else {
-    if (exists("paths") && !is.null(paths$fw) && file.exists(file.path(paths$fw, "BC_FWA_LAKES_FR.Rds"))) {
-      load(file.path(paths$fw, "BC_FWA_LAKES_FR.Rds"))
-      lakes_proj <- sf::st_transform(lakes_Fr, target_crs)
-    } else {
-      lakes_proj <- NULL
-    }
-  }
-
-  # Crop bounding box with margin
-  bbox <- sf::st_bbox(migr_path_filtered)
-  x_range <- bbox["xmax"] - bbox["xmin"]
-  y_range <- bbox["ymax"] - bbox["ymin"]
-  margin_factor <- 0.08
-  xlims <- c(bbox["xmin"] - margin_factor * x_range, bbox["xmax"] + margin_factor * x_range)
-  ylims <- c(bbox["ymin"] - margin_factor * y_range, bbox["ymax"] + margin_factor * y_range)
-
-  # Calculate max temperature from data
-  max_temp_val <- if ("august_temp" %in% names(migr_path_filtered)) {
-    max(migr_path_filtered$august_temp, na.rm = TRUE)
-  } else {
-    NA_real_
-  }
-  if (is.null(max_temp_val) || is.na(max_temp_val) || !is.finite(max_temp_val)) {
-    max_temp_val <- 20
-  }
-
-  p_map <- ggplot() +
-    geom_sf(data = bc_coast_proj, fill = "grey90", color = "grey75", linewidth = 0.3)
-  
-  if (!is.null(Fr_basin_proj)) {
-    p_map <- p_map + geom_sf(data = Fr_basin_proj, fill = "antiquewhite", color = "grey60", linewidth = 0.4)
-  }
-  
-  if (!is.null(lakes_proj)) {
-    p_map <- p_map + geom_sf(data = lakes_proj, fill = "aliceblue", color = "aliceblue", linewidth = 0.1)
-  }
-
-  p_map <- p_map +
-    geom_sf(data = migr_path_filtered, aes(color = august_temp), linewidth = 1.2) +
-    scale_color_cvis(
-      palette = "roma",
-      name = "August Temp (°C)",
-      direction = 1,
-      limits = c(15, max_temp_val),
-      oob = scales::squish
-    )
-
-  p_map <- p_map +
-    coord_sf(xlim = xlims, ylim = ylims, expand = FALSE) +
-    theme_void() +
-    theme(
-      plot.subtitle = element_text(size = 9, face = "bold", hjust = 0.5),
-      plot.margin = margin(t = 2, r = 2, b = 2, l = 2, unit = "pt"),
-      panel.border = element_rect(color = "black", fill = NA, linewidth = 0.8)
+  p_tile <- ggplot(migr_ind_data, aes(x = indicator_label, y = CU_label)) +
+    geom_tile(aes(fill = std_value), color = NA) + # fill based on std_value, remove inner borders
+    geom_text(aes(label = label_text), size = 1.7, fontface = "bold", color = "black") + # black text
+    scale_fill_cvis(
+      palette = cvis_pal,
+      direction = -1,
+      limits = c(0, 1),
+      na.value = "grey95",
+      guide = "none" # Remove tile plot color legend
     ) +
-    annotation_custom(grid::textGrob("c", x = unit(0.94, "npc"), y = unit(0.94, "npc"), gp = grid::gpar(fontface = "bold", fontsize = 12)))
-
-  p_left <- patchwork::wrap_plots(p_upper, p_lower, ncol = 1, heights = c(2.5, 1))
-  p <- patchwork::wrap_plots(p_left, p_map, ncol = 2, widths = c(2, 1.2)) +
-    patchwork::plot_layout(guides = "collect") &
+    scale_x_discrete(position = "top") +
+    labs(x = NULL, y = NULL) +
+    theme_cvis() +
     theme(
+      axis.text.y = element_blank(),
+      axis.ticks.y = element_blank(),
+      axis.title.y = element_blank(),
+      axis.ticks.length.y = unit(0, "pt"),
+      axis.text.x = element_text(size = 6.5, angle = 45, hjust = 0, face = "bold", color = "black"),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.line = element_blank(),
+      panel.border = element_blank(),
+      plot.margin = margin(t = 2, r = 2, b = -2, l = 0, unit = "pt") # remove left margin to close gap
+    ) +
+    annotation_custom(grid::textGrob("c", x = unit(0.92, "npc"), y = unit(0.92, "npc"), gp = grid::gpar(fontface = "bold", fontsize = 12)))
+
+  # Assemble the plots using patchwork area design
+  # A (p_upper) and B (p_lower) occupy columns 1 to 6. 
+  # C (p_tile) occupies columns 7 to 9 (sitting beside A only).
+  # The bottom-right column space (rows 6 to 7, columns 7 to 9) is occupied by the collected period legend.
+  design <- c(
+    patchwork::area(t = 1, l = 1, b = 5, r = 6), # A (p_upper)
+    patchwork::area(t = 6, l = 1, b = 7, r = 6), # B (p_lower)
+    patchwork::area(t = 1, l = 7, b = 5, r = 9), # C (p_tile)
+    patchwork::area(t = 6, l = 7, b = 7, r = 9)  # Collected guide area (bottom right)
+  )
+
+  p <- p_upper + p_lower + p_tile + patchwork::guide_area() +
+    patchwork::plot_layout(design = design, guides = "collect") &
+    theme(
+      panel.spacing.x = unit(0, "pt"), # remove horizontal spacing between columns
       legend.box.spacing = unit(4, "pt"),
       legend.margin = margin(0, 0, 0, 0, "pt")
     )
@@ -2900,52 +2816,15 @@ plot_raw_baseline_violins <- function(all_std_long_baseline, tbl_indicators, cu_
   plot_data <- all_std_long_baseline %>%
     dplyr::filter(stat == "mean")
 
-  # Retrieve indicator colors from global environment if available
-  if (exists("indicator_palette", envir = .GlobalEnv)) {
-    ind_colors <- get("indicator_palette", envir = .GlobalEnv)
-  } else {
-    ind_colors <- c(
-      "Demographics" = "purple",
-      "Spawning & Rearing" = "turquoise",
-      "Upstream Migration" = "royalblue",
-      "Nearshore Marine" = "green4",
-      "Genetics" = "orange3"
-    )
-  }
+  # Retrieve colors from global environment
+  ind_colors <- get("indicator_palette", envir = .GlobalEnv)
+  spp_colors <- get("species_palette", envir = .GlobalEnv)
 
-  # Retrieve species colors from global environment if available
-  if (exists("species_palette", envir = .GlobalEnv)) {
-    spp_colors <- get("species_palette", envir = .GlobalEnv)
-  } else {
-    spp_colors <- c(
-      "Chinook" = "#E69F00",
-      "Chum" = "#56B4E9",
-      "Coho" = "#009E73",
-      "Pink" = "#F0E442",
-      "Sockeye" = "#D55E00"
-    )
-  }
-
-  # Short units lookup map
-  short_units <- c(
-    "favchange" = "ENM Fav",
-    "cthr" = "Threat",
-    "tw8rate" = "°C/decade",
-    "tw8proj" = "°C",
-    "flow8pdelta" = "Aug Flow",
-    "flow18pdelta" = "Win Flow",
-    "fwres" = "days",
-    "migrTproj" = "°C",
-    "migrQpdelta" = "Discharge",
-    "migrdist" = "km",
-    "SSTproj" = "°C",
-    "SSTrate" = "°C/decade",
-    "CImpact" = "Threat",
-    "CUstatus" = "Status",
-    "CUnmat" = "log10(spawners)",
-    "hetzyg" = "Heterozygosity",
-    "genoff" = "Offset"
-  )
+  # Retrieve short units from tbl_indicators
+  short_units_map <- tbl_indicators %>%
+    dplyr::select(abbrev, unit_short) %>%
+    tibble::deframe()
+  short_units_map["migrdist"] <- "km"  # Override as migrdist is scaled to km in this plot
 
   # Set category labels matching indicator_palette keys
   category_names <- c(
@@ -2979,7 +2858,7 @@ plot_raw_baseline_violins <- function(all_std_long_baseline, tbl_indicators, cu_
 
   plot_data <- plot_data %>%
     dplyr::mutate(
-      unit_short = ifelse(indicator %in% names(short_units), short_units[indicator], ""),
+      unit_short = ifelse(indicator %in% names(short_units_map), short_units_map[indicator], ""),
       facet_label = paste0(indicator, " (", unit_short, ")"),
       category_label = factor(category_names[category], levels = category_names)
     )
@@ -3089,9 +2968,9 @@ plot_raw_baseline_violins <- function(all_std_long_baseline, tbl_indicators, cu_
         color = guide_legend(title.position = "top", nrow = 1, order = 2)
       ) +
       labs(x = NULL, y = NULL) +
-      theme_minimal(base_size = 11) +
+      theme_cvis(base_size = 11) +
       theme(
-        strip.text = element_text(face = "bold", size = 9, color = "#1A365D"),
+        strip.text = element_text(face = "bold", size = 8, color = "black"),
         strip.background = element_blank(),
         axis.text.x = element_blank(),
         axis.ticks.x = element_blank(),
@@ -3176,32 +3055,10 @@ plot_cvis_vulnerability_violins <- function(scores_tidy_baseline, cu_code = NULL
       category_label = factor(category_labels[category], levels = category_labels)
     )
 
-  # Retrieve indicator colors from global environment if available
-  if (exists("indicator_palette", envir = .GlobalEnv)) {
-    ind_colors <- get("indicator_palette", envir = .GlobalEnv)
-  } else {
-    ind_colors <- c(
-      "Demographics" = "purple",
-      "Spawning & Rearing" = "turquoise",
-      "Upstream Migration" = "royalblue",
-      "Nearshore Marine" = "green4",
-      "Genetics" = "orange3"
-    )
-  }
+  # Retrieve colors from global environment
+  ind_colors <- get("indicator_palette", envir = .GlobalEnv)
   vuln_colors <- c(ind_colors, "Overall Vulnerability" = "#1A365D")
-
-  # Retrieve species colors from global environment if available
-  if (exists("species_palette", envir = .GlobalEnv)) {
-    spp_colors <- get("species_palette", envir = .GlobalEnv)
-  } else {
-    spp_colors <- c(
-      "Chinook" = "#E69F00",
-      "Chum" = "#56B4E9",
-      "Coho" = "#009E73",
-      "Pink" = "#F0E442",
-      "Sockeye" = "#D55E00"
-    )
-  }
+  spp_colors <- get("species_palette", envir = .GlobalEnv)
 
   # Ensure SPECIES_NAME is a factor with consistent levels matching spp_colors
   plot_data <- plot_data %>%
@@ -3311,11 +3168,11 @@ plot_cvis_vulnerability_violins <- function(scores_tidy_baseline, cu_code = NULL
       x = NULL,
       y = "Vulnerability Score (0 - 100)"
     ) +
-    theme_minimal(base_size = 11) +
+    theme_cvis(base_size = 11) +
     theme(
-      plot.title = element_text(face = "bold", size = 12, color = "#1A365D"),
+      plot.title = element_text(face = "bold", size = 12, color = "black"),
       plot.subtitle = element_text(size = 9, color = "grey40"),
-      axis.text.x = element_text(face = "bold", size = 9, color = "#1A365D"),
+      axis.text.x = element_text(face = "bold", size = 9, color = "black"),
       axis.line.y = element_line(color = "#CBD5E0", linewidth = 0.5),
       panel.grid.minor = element_blank(),
       panel.grid.major.x = element_blank(),

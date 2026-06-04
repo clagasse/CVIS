@@ -136,17 +136,7 @@ plot_timing_comparison <- function(cu_timing_long,
 
   # 2. Get species color palette
   if (is.null(species_palette)) {
-    if (exists("species_palette", envir = .GlobalEnv)) {
-      species_palette <- get("species_palette", envir = .GlobalEnv)
-    } else {
-      species_palette <- c(
-        "Chinook" = "#1b9e77",
-        "Coho" = "darkblue",
-        "Sockeye" = "firebrick4",
-        "Pink" = "purple3",
-        "Chum" = "goldenrod4"
-      )
-    }
+    species_palette <- get("species_palette", envir = .GlobalEnv)
   }
 
   # 3. Clean and prepare labels
@@ -432,7 +422,7 @@ plot_timing_comparison <- function(cu_timing_long,
       x = "Date",
       y = NULL
     ) +
-    theme_minimal() +
+    theme_cvis() +
     theme(
       axis.text.x = element_text(size = 9, angle = if (is.null(selected_cu)) 45 else 0, hjust = if (is.null(selected_cu)) 1 else 0.5),
       axis.text.y = ggtext::element_markdown(lineheight = 0.8),
@@ -1114,7 +1104,7 @@ migration_path_timing_plot <- function(migr_path = NULL,
         labels = labels_to_use
       ) +
       coord_cartesian(xlim = c(x_min, x_max), expand = FALSE) +
-      theme_bw() +
+      theme_cvis() +
       theme(
         plot.margin = margin(t = 5, r = 5, b = 5, l = 5, unit = "pt"),
         legend.position = "bottom"
@@ -1194,12 +1184,8 @@ migration_path_timing_plot <- function(migr_path = NULL,
     xlims <- c(bbox["xmin"] - margin_factor * x_range, bbox["xmax"] + margin_factor * x_range)
     ylims <- c(bbox["ymin"] - margin_factor * y_range, bbox["ymax"] + margin_factor * y_range)
 
-    # Fallback for species palette
-    if (exists("species_palette", envir = .GlobalEnv)) {
-      spp_colors <- get("species_palette", envir = .GlobalEnv)
-    } else {
-      spp_colors <- c("Chinook" = "#E69F00", "Chum" = "#56B4E9", "Coho" = "#009E73", "Pink" = "#F0E442", "Sockeye" = "#D55E00")
-    }
+    # Species palette
+    spp_colors <- get("species_palette", envir = .GlobalEnv)
 
     # Calculate average historical flow for that CU during migration period
     avg_migr_flow <- NA_real_
@@ -1888,11 +1874,11 @@ plot_cu_indicators_lollipop <- function(data,
       scales = "free_y",
       space = "free_y"
     ) +
+      theme_cvis() +
       theme(
         strip.text.y = element_text(angle = 0, hjust = 0, face = "bold"),
         strip.background = element_rect(fill = "grey95", color = NA)
-      ) +
-      theme_minimal()
+      )
   }
 
   return(p)

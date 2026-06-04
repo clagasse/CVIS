@@ -242,26 +242,25 @@ period_lookup <- tribble(
   3, "2041-2060", 2046, 2065, "SSC",
 )
 
-# table of indicator abbreviations and full names
 tbl_indicators <- tribble(
-  ~abbrev, ~category, ~long_type, ~std_fun, ~unit, ~name,
-  "favchange", "fwrs", "Freshwater", "invlinear_std", "Favourability", "Change in ENM favourability",
-  "cthr", "fwrs", "Freshwater", "linear_std", "Threat score", "Standardized cumulative threats",
-  "tw8rate", "fwrs", "Freshwater", "linear_std", "Temperature change per decade (°C)", "Rate of change in August Temperature (°C/decade)",
-  "tw8proj", "fwrs", "Freshwater", "exponential_std", "Temperature (°C)", "Projected August Temperature (°C)",
-  "flow8pdelta", "fwrs", "Freshwater", "decay_std", "Proportion change from baseline", "Proportional change in August flow",
-  "flow18pdelta", "fwrs", "Freshwater", "exponential_std", "Proportion change from baseline", "Proportional change in Nov-Jan flow",
-  "fwres", "fwrs", "Freshwater", "step_std", "Number of days", "Freshwater residency time (days)",
-  "migrTproj", "migr", "Upstream Migration", "exponential_std", "Temperature (°C)", "Projected temperature during upstream migration (°C)",
-  "migrQpdelta", "migr", "Upstream Migration", "decay_std", "Proportion change", "Proportional change in discharge",
-  "migrdist", "migr", "Upstream Migration", "linear_std", "Metres", "Length of upstream migration (km)",
-  "SSTproj", "mar", "Nearshore Marine", "exponential_std", "Temperature (°C)", "Projected nearshore SST (°C)",
-  "SSTrate", "mar", "Nearshore Marine", "linear_std", "Temperature change per decade (°C)", "Rate of change in nearshore SST (°C/decade)",
-  "CImpact", "mar", "Nearshore Marine", "linear_std", "Threat score", "Cumulative impacts to habitat",
-  "CUstatus", "dem", "Demographics", "cat_std", "Status", "Wild Salmon Policy CU status",
-  "CUnmat", "dem", "Demographics", "decay_std", "Number of spawners", "Number of mature individuals (spawners)",
-  "hetzyg", "gen", "Genetics", "invlinear_std", "Heterozygosity", "Genetic heterozygosity",
-  "genoff", "gen", "Genetics", "linear_std", "Genomic offset", "Genomic offset"
+  ~abbrev, ~category, ~long_type, ~std_fun, ~unit, ~unit_short, ~name,
+  "favchange", "fwrs", "Freshwater", "invlinear_std", "Favourability", "Fav. Δ", "Change in ENM favourability",
+  "cthr", "fwrs", "Freshwater", "linear_std", "Threat score", "Threat", "Standardized cumulative threats",
+  "tw8rate", "fwrs", "Freshwater", "linear_std", "Temperature change per decade (°C)", "°C/dec", "Rate of change in August Temperature (°C/decade)",
+  "tw8proj", "fwrs", "Freshwater", "exponential_std", "Temperature (°C)", "°C", "Projected August Temperature (°C)",
+  "flow8pdelta", "fwrs", "Freshwater", "decay_std", "Proportion change from baseline", "Prop. Δ", "Proportional change in August flow",
+  "flow18pdelta", "fwrs", "Freshwater", "exponential_std", "Proportion change from baseline", "Prop. Δ", "Proportional change in Nov-Jan flow",
+  "fwres", "fwrs", "Freshwater", "step_std", "Number of days", "Days", "Freshwater residency time (days)",
+  "migrTproj", "migr", "Upstream Migration", "exponential_std", "Temperature (°C)", "°C", "Projected temperature during upstream migration (°C)",
+  "migrQpdelta", "migr", "Upstream Migration", "decay_std", "Proportion change", "Prop. Δ", "Proportional change in discharge",
+  "migrdist", "migr", "Upstream Migration", "linear_std", "Metres", "m", "Length of upstream migration (km)",
+  "SSTproj", "mar", "Nearshore Marine", "exponential_std", "Temperature (°C)", "°C", "Projected nearshore SST (°C)",
+  "SSTrate", "mar", "Nearshore Marine", "linear_std", "Temperature change per decade (°C)", "°C/dec", "Rate of change in nearshore SST (°C/decade)",
+  "CImpact", "mar", "Nearshore Marine", "linear_std", "Threat score", "Threat", "Cumulative impacts to habitat",
+  "CUstatus", "dem", "Demographics", "cat_std", "Status", "Status", "Wild Salmon Policy CU status",
+  "CUnmat", "dem", "Demographics", "decay_std", "Number of spawners", "log10(N)", "Number of mature individuals (spawners)",
+  "hetzyg", "gen", "Genetics", "invlinear_std", "Heterozygosity", "Hz", "Genetic heterozygosity",
+  "genoff", "gen", "Genetics", "linear_std", "Genomic offset", "Offset", "Genomic offset"
 )
 
 
@@ -337,8 +336,8 @@ theme_cvis <- function(base_size = 14) {
       legend.key.size = unit(1.2, "lines"),
       legend.background = element_rect(fill = "transparent", colour = NA),
       # Les étiquettes dans le cas d'un facetting
-      strip.background = element_rect(fill = "black", color = "black"),
-      strip.text = element_text(size = rel(0.6), face = "bold", color = "white", margin = margin(2, 0, 2, 0))
+      strip.background = element_blank(),
+      strip.text = element_text(size = rel(0.55), face = "bold", color = "black", margin = margin(2, 0, 2, 0))
     )
 }
 theme_set(theme_cvis())
@@ -482,6 +481,7 @@ source(here("code", "5a_plots_CU.R"))
 source(here("code", "5b_plots_compare.R"))
 source(here("code", "5c_plots_sensitivity_indicators.R"))
 source(here("code", "5d_table_summaries.R"))
+source(here("code", "5e_plots_study_area.R"))
 
 # load CU tables
 source(here("code", "1a_CU_import.R")) # CU table

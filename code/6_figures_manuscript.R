@@ -41,7 +41,7 @@ output_dir <- file.path(paths$figures, "manuscript")
 dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
 # select case study CUs for manuscript
-casestudy_CU <- switch(3, "CK-12", "CM-02", "PKO-01")
+casestudy_CU <- switch(1, "CK-12", "CM-02", "PKO-01")
 
 # ==================== 2. Load Processed Datasets ====================
 
@@ -107,16 +107,6 @@ nuseds_cu <- nuseds_Fr[nuseds_Fr$FULL_CU_IN == cu_i, ]
 
 # subset migration path
 migr_cu <- migr_list[[cu_i]]
-
-#subset fw models
-fw_models_cu <- subset_fw_models(
-  fw_models = fw_models,
-  cu_i = cu_i,
-  stream_cu_picks = stream_cu_picks,
-  cu_run = cu_run,
-  spp_lookup = spp_lookup,
-  to_factor = TRUE
-)
 
 fw_sp_ind_cu <- subset_fw_models(
   fw_models = fw_sp_ind,
@@ -205,7 +195,7 @@ f8 <- indicator_cu_tile_plot(all_std_long_baseline,
                        scores_tidy_baseline)
 
 
-ggsave(filename = file.path(output_dir, "figure_7.png"), plot = f8,
+ggsave(filename = file.path(output_dir, "figure_8.png"), plot = f8,
        width = 8, height = 9) 
 
 
@@ -240,8 +230,6 @@ ggsave(filename = file.path(output_dir, "figure_12.png"), plot = f12)
 
 
 # ==================== 5. Summary Table for Manuscript ====================
-
-source(file.path(paths$code, "5d_table_summaries.R"))
 
 gt_table <- generate_cvis_summary_table(
   all_std_long_baseline = all_std_long_baseline,

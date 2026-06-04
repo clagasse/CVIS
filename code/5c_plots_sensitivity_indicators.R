@@ -70,7 +70,7 @@ plot_indicator_directional_shifts <- function(overall_sensitivity, tbl_indicator
     mutate(source = factor(source, levels = rev(ind_source_levels), labels = rev(ind_source_labels)))
   
   baseline_refs <- ind_shift_cus %>% group_by(indicator) %>% summarise(ref_mean = mean(base_raw_mean, na.rm = TRUE), .groups = "drop")
-  ind_label_units <- tbl_indicators %>% mutate(facet_label = paste0(abbrev, "\n(", unit, ")")) %>% select(abbrev, facet_label) %>% tibble::deframe()
+  ind_label_units <- tbl_indicators %>% mutate(facet_label = paste0(abbrev, "\n(", unit_short, ")")) %>% select(abbrev, facet_label) %>% tibble::deframe()
   
   shift_colors <- c("Baseline" = "black", source_colors)
   names(shift_colors) <- sapply(names(shift_colors), function(x) {
@@ -86,7 +86,7 @@ plot_indicator_directional_shifts <- function(overall_sensitivity, tbl_indicator
     scale_color_manual(values = shift_colors, na.value = "grey50", guide = "none") +
     labs(x = "Raw Indicator Value (units vary)", y = "Source of variation") +
     theme_cvis() + 
-    theme(strip.text = element_text(face = "bold", size = 8.5), axis.text.y = element_text(size = 8))
+    theme(strip.text = element_text(face = "bold", size = 7, color = "black"), axis.text.y = element_text(size = 8))
 }
 
 # 1c. Indicator XY Sensitivity Plot (Raw vs. Standardized)
@@ -347,7 +347,7 @@ plot_species_bump_plot <- function(overall_sensitivity, species_name) {
     scale_y_reverse(breaks = 1:n_cus, expand = expansion(mult = c(0.20, 0.1))) +
     scale_color_brewer(palette = "Set1", name = "SMU") +
     labs(title = paste0(species_name, ": Vulnerability Rank Stability"), subtitle = "Rank 1 = Highest Risk.", x = NULL, y = "In-Species Rank") +
-    theme_minimal(base_size = 10) +
+    theme_cvis(base_size = 10) +
     theme(panel.grid.minor = element_blank(), panel.grid.major.x = element_line(color = "grey90"),
           legend.position = "bottom", axis.text.x = element_text(angle = 45, hjust = 1, face = x_faces))
 }
@@ -357,19 +357,11 @@ plot_species_bump_plot <- function(overall_sensitivity, species_name) {
 
 # 4a. Combined Uncertainty Spread Boxplot (from 4d)
 plot_combined_uncertainty_spread <- function(all_scores, species_palette = NULL) {
-  # Retrieve species_palette from argument, environment, or fallback
-  spec_pal <- if (!is.null(species_palette) && "Chinook" %in% names(species_palette)) {
+  # Retrieve species_palette from argument or environment
+  spec_pal <- if (!is.null(species_palette)) {
     species_palette
-  } else if (exists("species_palette")) {
-    get("species_palette")
   } else {
-    c(
-      "Chinook" = "#1b9e77",
-      "Coho" = "darkblue",
-      "Sockeye" = "firebrick4",
-      "Pink" = "purple3",
-      "Chum" = "goldenrod4"
-    )
+    get("species_palette", envir = .GlobalEnv)
   }
 
   # Calculate mean score for each CU to find the sort order
@@ -537,29 +529,10 @@ plot_cu_sensitivity_scores <- function(
   dev_raw_others <- dev_raw %>% filter(FULL_CU_IN != cu_code)
 
   # Retrieve colors using sens_source_palette
-  sens_palette <- if (exists("sens_source_palette")) {
-    get("sens_source_palette")
-  } else {
-    c(
-      "GCM1" = "#e31a1c", "GCM4" = "#ff7f00", "GCM6" = "#fdbf6f",
-      "RCP45_P5" = "#33a02c", "RCP85_P3" = "#1f78b4", "RCP85_P5" = "#a6cee3",
-      "avgcube" = "#cab2d6", "avgall" = "#fb9a99",
-      "dsmethod" = "#8dd3c7", "stdmethod" = "#8c564b"
-    )
-  }
+  sens_palette <- get("sens_source_palette", envir = .GlobalEnv)
   
   # Retrieve indicator colors from global environment for coloring violins
-  if (exists("indicator_palette", envir = .GlobalEnv)) {
-    ind_colors <- get("indicator_palette", envir = .GlobalEnv)
-  } else {
-    ind_colors <- c(
-      "Demographics" = "purple",
-      "Spawning & Rearing" = "turquoise",
-      "Upstream Migration" = "royalblue",
-      "Nearshore Marine" = "green4",
-      "Genetics" = "orange3"
-    )
-  }
+  ind_colors <- get("indicator_palette", envir = .GlobalEnv)
   ind_colors["Overall Vulnerability"] <- "grey30"
   
   y_colors <- sapply(rev(source_levels), function(x) {
@@ -580,13 +553,13 @@ plot_cu_sensitivity_scores <- function(
       x = "Score Deviation (Scenario - Baseline)",
       y = "Assumption / Scenario"
     ) +
-    theme_minimal(base_size = 11) +
+    theme_cvis(base_size = 11) +
     theme(
-      plot.title = element_text(face = "bold", size = 12, color = "#1A365D"),
+      plot.title = element_text(face = "bold", size = 12, color = "black"),
       plot.subtitle = element_text(size = 9, color = "grey40"),
       panel.grid.minor = element_blank(),
       axis.text.y = element_text(color = y_colors, face = "bold", size = 9),
-      strip.text = element_text(face = "bold", size = 10, color = "#1A365D"),
+      strip.text = element_text(face = "bold", size = 8.5, color = "black"),
       strip.background = element_blank()
     )
 
@@ -677,59 +650,19 @@ plot_cu_sensitivity_indicators <- function(
   ind_shift_cu <- ind_shift_cus %>% filter(FULL_CU_IN == cu_code)
   ind_shift_others <- ind_shift_cus %>% filter(FULL_CU_IN != cu_code)
 
-  # Label map with units
-  short_units <- c(
-    "favchange" = "ENM Fav",
-    "cthr" = "Threat",
-    "tw8rate" = "°C/decade",
-    "tw8proj" = "°C",
-    "flow8pdelta" = "Aug Flow",
-    "flow18pdelta" = "Win Flow",
-    "fwres" = "days",
-    "migrTproj" = "°C",
-    "migrQpdelta" = "Discharge",
-    "migrdist" = "km",
-    "SSTproj" = "°C",
-    "SSTrate" = "°C/decade",
-    "CImpact" = "Threat",
-    "CUstatus" = "Status",
-    "CUnmat" = "spawners",
-    "hetzyg" = "Heterozygosity",
-    "genoff" = "Offset"
-  )
-
+  # Label map with units from tbl_indicators
   ind_label_units <- tbl_indicators %>% 
-    mutate(
-      unit_short = ifelse(abbrev %in% names(short_units), short_units[abbrev], unit),
+    dplyr::mutate(
       facet_label = paste0(abbrev, " (", unit_short, ")")
     ) %>% 
-    select(abbrev, facet_label) %>% 
+    dplyr::select(abbrev, facet_label) %>% 
     tibble::deframe()
 
   # Retrieve colors using sens_source_palette
-  sens_palette <- if (exists("sens_source_palette")) {
-    get("sens_source_palette")
-  } else {
-    c(
-      "GCM1" = "#e31a1c", "GCM4" = "#ff7f00", "GCM6" = "#fdbf6f",
-      "RCP45_P5" = "#33a02c", "RCP85_P3" = "#1f78b4", "RCP85_P5" = "#a6cee3",
-      "avgcube" = "#cab2d6", "avgall" = "#fb9a99",
-      "dsmethod" = "#8dd3c7", "stdmethod" = "#8c564b"
-    )
-  }
+  sens_palette <- get("sens_source_palette", envir = .GlobalEnv)
   
   # Retrieve indicator colors from global environment for coloring violins
-  if (exists("indicator_palette", envir = .GlobalEnv)) {
-    ind_colors <- get("indicator_palette", envir = .GlobalEnv)
-  } else {
-    ind_colors <- c(
-      "Demographics" = "purple",
-      "Spawning & Rearing" = "turquoise",
-      "Upstream Migration" = "royalblue",
-      "Nearshore Marine" = "green4",
-      "Genetics" = "orange3"
-    )
-  }
+  ind_colors <- get("indicator_palette", envir = .GlobalEnv)
   
   ind_y_colors <- sapply(rev(ind_source_levels), function(x) {
     if (x == "Baseline") {
@@ -757,11 +690,11 @@ plot_cu_sensitivity_indicators <- function(
     labs( x = "Raw Indicator Value (units vary)",
       y = "Scenario"
     ) +
-    theme_minimal(base_size = 11) +
+    theme_cvis(base_size = 11) +
     theme(
-      plot.title = element_text(face = "bold", size = 12, color = "#1A365D"),
+      plot.title = element_text(face = "bold", size = 12, color = "black"),
       plot.subtitle = element_text(size = 9, color = "grey40"),
-      strip.text = element_text(face = "bold", size = 9),
+      strip.text = element_text(face = "bold", size = 8, color = "black"),
       panel.grid.minor = element_blank(),
       axis.text.y = element_text(color = ind_y_colors, face = "bold", size = 9)
     )
@@ -791,7 +724,7 @@ plot_cu_sensitivity_summary <- function(
       title = paste("Sensitivity Analysis Plots for CU:", cu_code),
       subtitle = "Visualizing how overall vulnerability score and individual indicators shift across uncertainty assumptions relative to other Fraser CUs",
       theme = ggplot2::theme(
-        plot.title = ggplot2::element_text(face = "bold", size = 14, color = "#1A365D"),
+        plot.title = ggplot2::element_text(face = "bold", size = 14, color = "black"),
         plot.subtitle = ggplot2::element_text(size = 10, color = "#4A5568")
       )
     )
