@@ -141,7 +141,7 @@ for (k in 1:N_iterations) {
   scores_scaled <- scale_and_rank_scores(
     scores_iter,
     group_vars = "category",
-    within_species = FALSE,
+    within_species = FALSE, 
     rank_descending = TRUE
   ) %>%
     rename(score100 = score100_all, rank_val = rankall)

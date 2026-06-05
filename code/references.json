@@ -1,5 +1,94 @@
 [
     {
+        "DOI": "10.1007/s10584-010-9845-2",
+        "author": [
+            {
+                "family": "Mantua",
+                "given": "Nathan J."
+            },
+            {
+                "family": "Tohver",
+                "given": "Ingrid"
+            },
+            {
+                "family": "Hamlet",
+                "given": "Alan F."
+            }
+        ],
+        "container-title": "Climatic Change",
+        "id": "mantua2010",
+        "issue": "1-2",
+        "issued": {
+            "date-parts": [
+                [
+                    2010
+                ]
+            ]
+        },
+        "page": "187-223",
+        "title": "Climate change impacts on streamflow extremes and summertime stream temperature and their possible consequences for freshwater salmon habitat in Washington State",
+        "type": "article-journal",
+        "volume": "102"
+    },
+    {
+        "DOI": "10.1111/faf.12808",
+        "author": [
+            {
+                "family": "Mayer",
+                "given": "Noa B."
+            },
+            {
+                "family": "Hinch",
+                "given": "Scott G."
+            },
+            {
+                "family": "Eliason",
+                "given": "Erika J."
+            }
+        ],
+        "container-title": "Fish and Fisheries",
+        "id": "mayer2023",
+        "issue": "2",
+        "issued": {
+            "date-parts": [
+                [
+                    2024
+                ]
+            ]
+        },
+        "page": "283-302",
+        "title": "Thermal tolerance in Pacific salmon: A systematic review of species, populations, life stages and methodologies",
+        "type": "article-journal",
+        "volume": "25"
+    },
+    {
+        "DOI": "10.1002/nafm.10013",
+        "author": [
+            {
+                "family": "Anderson",
+                "given": "Joseph H."
+            },
+            {
+                "family": "Topping",
+                "given": "Peter C."
+            }
+        ],
+        "container-title": "North American Journal of Fisheries Management",
+        "id": "anderson2018",
+        "issue": "1",
+        "issued": {
+            "date-parts": [
+                [
+                    2018
+                ]
+            ]
+        },
+        "page": "180-193",
+        "title": "Juvenile Life History Diversity and Freshwater Productivity of Chinook Salmon in the Green River, Washington",
+        "type": "article-journal",
+        "volume": "38"
+    },
+    {
         "DOI": "10.1371/journal.pone.0217711",
         "ISSN": "19326203",
         "PMID": "31339895",
@@ -339,7 +428,7 @@
         ],
         "container-title": "Atmosphere-Ocean",
         "container-title-short": "Atmosphere-Ocean",
-        "id": "peña2024",
+        "id": "pena2024",
         "issue": "1",
         "issued": {
             "date-parts": [
@@ -2116,7 +2205,7 @@
             }
         ],
         "call-number": "EPA 910-B-03-002",
-        "id": "u.s.environmentalprotectionagency2003",
+        "id": "usenvironmentalprotectionagency2003",
         "issued": {
             "date-parts": [
                 [

@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Climate Vulnerability Indicators for Salmon</title>
+  
+  <!-- SEO Meta Tags -->
+  <meta name="description" content="A data-informed, indicator-based framework for evaluating climate change vulnerability of Pacific salmon conservation units (CUs) in the Fraser River basin, British Columbia.">
+  <meta name="keywords" content="Salmon, Climate Change, Vulnerability, Conservation, Fraser River, British Columbia, DFO">
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-light: #f8fafc;
+      --bg-card: #ffffff;
+      --bg-card-hover: #ffffff;
+      --border-color: #e2e8f0;
+      --border-hover: #cbd5e1;
+      --text-main: #0f172a;
+      --text-muted: #475569;
+      
+      /* Refined Minimalist Theme */
+      --accent: #0284c7;
+      --accent-muted: #64748b;
+      
+      /* Alert Theme */
+      --bg-alert: #fef2f2;
+      --border-alert: #fca5a5;
+      --text-alert: #991b1b;
+      --text-alert-title: #dc2626;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-light);
+      color: var(--text-main);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    header {
+      border-bottom: 1px solid var(--border-color);
+      background: #ffffff;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+
+    .nav-container {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 1.2rem 2rem;
+      display: flex;
+      justify-content: flex-start;
+      align-items: center;
+    }
+
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-badge {
+      border: 1.5px solid var(--text-main);
+      color: var(--text-main);
+      font-weight: 700;
+      font-size: 0.85rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      letter-spacing: 0.05em;
+      font-family: 'Outfit', sans-serif;
+    }
+
+    .logo-text {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 600;
+      font-size: 1.1rem;
+      letter-spacing: -0.01em;
+      color: var(--text-main);
+    }
+
+    main {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 4rem 2rem;
+    }
+
+    /* Hero Section */
+    .hero {
+      text-align: center;
+      margin-bottom: 3rem;
+      animation: fadeIn 0.8s ease-out;
+    }
+
+    .hero h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: clamp(2rem, 4vw, 3rem);
+      font-weight: 700;
+      line-height: 1.2;
+      margin-bottom: 1.5rem;
+      letter-spacing: -0.02em;
+      color: var(--text-main);
+    }
+
+    .hero p {
+      max-width: 780px;
+      margin: 0 auto;
+      font-size: clamp(1rem, 1.8vw, 1.12rem);
+      color: var(--text-muted);
+      font-family: 'Lora', Georgia, serif;
+      line-height: 1.75;
+    }
+
+    /* Prominent Disclaimer */
+    .disclaimer-banner {
+      background: var(--bg-alert);
+      border: 1px solid var(--border-alert);
+      border-radius: 8px;
+      padding: 1.5rem 2rem;
+      margin-bottom: 3.5rem;
+      text-align: center;
+      max-width: 800px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .disclaimer-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-alert-title);
+      margin-bottom: 0.5rem;
+    }
+
+    .disclaimer-text {
+      font-size: 0.88rem;
+      color: var(--text-alert);
+      line-height: 1.5;
+    }
+
+    /* Cards Layout */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 30px;
+      margin-bottom: 4rem;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 2.5rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: all 0.25s ease;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    }
+
+    .card:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--border-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
+    }
+
+    .card-badge {
+      display: inline-block;
+      align-self: flex-start;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 1.5rem;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      color: var(--text-muted);
+    }
+
+    .card h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.35rem;
+      font-weight: 600;
+      margin-bottom: 1.2rem;
+      line-height: 1.35;
+      color: var(--text-main);
+    }
+
+    .card-description {
+      color: var(--text-muted);
+      font-size: 0.92rem;
+      margin-bottom: 2.5rem;
+      flex-grow: 1;
+      line-height: 1.65;
+    }
+
+    .card-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 24px;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 0.88rem;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      cursor: pointer;
+      border: 1.5px solid var(--text-muted);
+      color: var(--text-muted);
+      background: transparent;
+    }
+
+    .card:hover .card-btn {
+      border-color: var(--text-main);
+      color: var(--text-main);
+    }
+
+    .card-btn:hover {
+      background: #f8fafc;
+      transform: scale(1.01);
+    }
+
+    /* Animations */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 768px) {
+      main {
+        padding: 2.5rem 1.5rem;
+      }
+      .hero {
+        margin-bottom: 2rem;
+      }
+      .cards-grid {
+        gap: 20px;
+      }
+      .card {
+        padding: 2rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation -->
+  <header>
+    <div class="nav-container">
+      <div class="logo-container">
+        <span class="logo-badge">CVIS</span>
+        <span class="logo-text">Climate Vulnerability Portal</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main>
+    
+    <!-- Hero Header -->
+    <section class="hero">
+      <h1>Climate Vulnerability Indicators for Salmon</h1>
+      <p>
+        A data-informed, indicator-based framework integrating climate projections, habitat assessments, demographic status, and genetics data to evaluate the relative vulnerability of Pacific salmon Conservation Units (CUs) in the Fraser River Basin, British Columbia.
+      </p>
+    </section>
+
+    <!-- Prominent Disclaimer -->
+    <section class="disclaimer-banner">
+      <div class="disclaimer-title">Draft - For Internal Review Only</div>
+      <div class="disclaimer-text">
+        This portal displays preliminary scientific outputs and data under active development. Results have not been fully peer-reviewed and should be interpreted with caution. Do not distribute without permission of the authors.
+      </div>
+    </section>
+
+    <!-- Supplemental Reports Grid -->
+    <section class="cards-grid">
+      
+      <!-- Supplement S1: 6a Card -->
+      <div class="card">
+        <div>
+          <span class="card-badge">Supplement S1</span>
+          <h2>Indicator Descriptions & Baseline Outputs</h2>
+          <p class="card-description">
+            A detailed documentation of the CVIS framework, detailing the scientific rationale, mathematical formulations, data sources, and standardization functions for the 17 vulnerability indicators. The report includes basin-wide spatial projections and baseline indicator distribution plots across all evaluated Conservation Units.
+          </p>
+        </div>
+        <a href="6a_S1_indicators_description.html" class="card-btn" id="btn-open-6a">
+          Open Indicator Report
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+        </a>
+      </div>
+
+      <!-- Supplement S2: 6b Card -->
+      <div class="card">
+        <div>
+          <span class="card-badge">Supplement S2</span>
+          <h2>Conservation Unit Reports Dashboard</h2>
+          <p class="card-description">
+            An interactive dashboard compiling individual profiles for Pacific salmon Conservation Units in the Fraser River Basin. Each profile contains spatial boundaries, demographic metrics, life-stage phenology, spawning and rearing habitat indicators, upstream migration conditions, marine exposure, and scoring sensitivity analyses.
+          </p>
+        </div>
+        <a href="6b_S2_CU_reports.html" class="card-btn" id="btn-open-6b">
+          Open Interactive Dashboard
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+        </a>
+      </div>
+
+    </section>
+
+  </main>
+
+</body>
+</html>
