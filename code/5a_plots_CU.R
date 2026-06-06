@@ -276,9 +276,11 @@ plot_timing_comparison <- function(cu_timing_long,
   }
 
   df_plot <- df_plot %>%
-    left_join(select(cu_labels_df, FULL_CU_IN, label_clean, label_formatted), by = "FULL_CU_IN")
+    left_join(select(cu_labels_df, FULL_CU_IN, label_clean, label_formatted, color_hex), by = "FULL_CU_IN")
   
   levels_ordered <- unique(cu_labels_ordered$label_formatted)
+  header_y_label <- "<b>CU</b>"
+  levels_ordered <- c(levels_ordered, header_y_label)
   df_plot$y_axis_factor <- factor(df_plot$label_formatted, levels = levels_ordered)
 
   highlight_idx <- if (!is.null(selected_cu)) {
@@ -297,13 +299,27 @@ plot_timing_comparison <- function(cu_timing_long,
     )) %>%
     mutate(dat_qual_cat = factor(dat_qual_cat, levels = c("High (1-2)", "Medium (3-4)", "Low (5-6)", "Unknown")))
 
-  # 6. Define colors for life stages
+  # Add a dummy row to ensure all Data Quality levels exist in the dataset so the legend renders completely
+  if (nrow(df_plot) > 0) {
+    dummy_row <- df_plot[1, ]
+    dummy_row$dat_qual_cat <- factor("Unknown", levels = c("High (1-2)", "Medium (3-4)", "Low (5-6)", "Unknown"))
+    dummy_row$date_start <- as.Date(NA)
+    dummy_row$date_end <- as.Date(NA)
+    dummy_row$date_peak <- as.Date(NA)
+    dummy_row$start <- NA
+    dummy_row$end <- NA
+    dummy_row$peak <- NA
+    dummy_row$FULL_CU_IN <- "DUMMY_UNKNOWN_LEGEND"
+    df_plot <- bind_rows(df_plot, dummy_row)
+  }
+
+  # 6. Define colors for life stages (richer, darker colors)
   if (is.null(life_stage_palette)) {
     life_stage_palette <- c(
-      "Spawning" = "#66C2A5",
-      "Upstream Run Timing" = "#FC8D62",
-      "Ocean Entry" = "#8DA0CB",
-      "Juvenile FW Migration" = "#E78AC3"
+      "Spawning" = "#1b7837",
+      "Upstream Run Timing" = "#b33d00",
+      "Ocean Entry" = "#1f4e79",
+      "Juvenile FW Migration" = "#7b3294"
     )
   }
 
@@ -332,48 +348,154 @@ plot_timing_comparison <- function(cu_timing_long,
     p <- p + geom_vline(xintercept = sp_peak_date, linetype = "dashed", color = "#e74c3c", linewidth = 0.5, alpha = 0.6)
   }
 
-  # Draw range segments
-  if (!is.null(selected_cu)) {
-    # Thick segments for selected CU, thin for others
-    p <- p + geom_segment(
-      data = filter(df_plot, FULL_CU_IN != selected_cu),
-      aes(x = date_start, xend = date_end, yend = y_axis_factor, color = life_stage_label),
-      linewidth = 1.4, alpha = 0.65
-    ) + geom_segment(
-      data = filter(df_plot, FULL_CU_IN == selected_cu),
-      aes(x = date_start, xend = date_end, yend = y_axis_factor, color = life_stage_label),
-      linewidth = 5.5, alpha = 0.95
-    )
-  } else {
-    # Standard width segments for comparison plot
-    p <- p + geom_segment(
-      aes(x = date_start, xend = date_end, yend = y_axis_factor, color = life_stage_label),
-      linewidth = 4, alpha = 0.7
-    )
-  }
-
-  # Draw peak points if show_peaks is TRUE
-  if (show_peaks) {
-    if (!is.null(selected_cu)) {
-      # Large points for selected CU, small for others
-      p <- p + geom_point(
-        data = filter(df_plot, FULL_CU_IN != selected_cu),
-        aes(x = date_peak, fill = life_stage_label, shape = dat_qual_cat),
-        color = "grey30", size = 1.4, stroke = 0.3
-      ) + geom_point(
-        data = filter(df_plot, FULL_CU_IN == selected_cu),
-        aes(x = date_peak, fill = life_stage_label, shape = dat_qual_cat),
-        color = "black", size = 4.0, stroke = 1.2
-      )
-    } else {
-      # Standard size points for comparison plot
-      p <- p + geom_point(
-        aes(x = date_peak, fill = life_stage_label, shape = dat_qual_cat),
-        color = "grey30", size = 3, stroke = 1.0
-      )
+  # Zoom x-axis
+  xlim_start_date <- as.Date("2000-01-01")
+  xlim_end_date <- as.Date("2000-12-31")
+  
+  if (zoom_to_selected && !is.null(sel_timing) && nrow(sel_timing) > 0) {
+    pad_start <- min(sel_timing$date_start, na.rm = TRUE)
+    pad_end <- max(sel_timing$date_end, na.rm = TRUE)
+    if (!is.na(pad_start) && !is.na(pad_end)) {
+      xlim_start_date <- pad_start - 30
+      xlim_end_date <- pad_end + 30
+      if (xlim_start_date < as.Date("2000-01-01")) xlim_start_date <- as.Date("2000-01-01")
+      if (xlim_end_date > as.Date("2000-12-31")) xlim_end_date <- as.Date("2000-12-31")
     }
   }
 
+  # Draw thin background connecting lines for each CU
+  df_connectors <- df_plot %>%
+    filter(!is.na(date_start), !is.na(date_end)) %>%
+    group_by(y_axis_factor) %>%
+    summarise(
+      conn_start = min(date_start, na.rm = TRUE),
+      conn_end = max(date_end, na.rm = TRUE),
+      .groups = "drop"
+    )
+  
+  p <- p + geom_segment(
+    data = df_connectors,
+    aes(x = conn_start, xend = conn_end, y = y_axis_factor, yend = y_axis_factor),
+    color = "grey80", linetype = "dotted", linewidth = 0.5, inherit.aes = FALSE
+  )
+
+  # Split background and selected CU datasets safely
+  if (!is.null(selected_cu)) {
+    df_bg <- filter(df_plot, FULL_CU_IN != selected_cu)
+    df_sel <- filter(df_plot, FULL_CU_IN == selected_cu)
+  } else {
+    df_bg <- df_plot
+    df_sel <- filter(df_plot, FALSE)
+  }
+
+  # Draw segments representing life stage durations
+  # Background CUs
+  p <- p + 
+    geom_segment(
+      data = filter(df_bg, life_stage == "run_timing"),
+      aes(x = date_start, xend = date_end, yend = y_axis_factor, color = life_stage_label, alpha = dat_qual_cat),
+      linewidth = 5.0
+    ) +
+    geom_segment(
+      data = filter(df_bg, life_stage == "ocean_entry"),
+      aes(x = date_start, xend = date_end, yend = y_axis_factor, color = life_stage_label, alpha = dat_qual_cat),
+      linewidth = 4.2
+    ) +
+    geom_segment(
+      data = filter(df_bg, life_stage == "spawning"),
+      aes(x = date_start, xend = date_end, yend = y_axis_factor, color = life_stage_label, alpha = dat_qual_cat),
+      linewidth = 3.5
+    ) +
+    geom_segment(
+      data = filter(df_bg, life_stage == "freshwater_migration"),
+      aes(x = date_start, xend = date_end, yend = y_axis_factor, color = life_stage_label, alpha = dat_qual_cat),
+      linewidth = 2.8
+    )
+
+  # Selected CU
+  p <- p + 
+    geom_segment(
+      data = filter(df_sel, life_stage == "run_timing"),
+      aes(x = date_start, xend = date_end, yend = y_axis_factor, color = life_stage_label, alpha = dat_qual_cat),
+      linewidth = 8.5
+    ) +
+    geom_segment(
+      data = filter(df_sel, life_stage == "ocean_entry"),
+      aes(x = date_start, xend = date_end, yend = y_axis_factor, color = life_stage_label, alpha = dat_qual_cat),
+      linewidth = 7.5
+    ) +
+    geom_segment(
+      data = filter(df_sel, life_stage == "spawning"),
+      aes(x = date_start, xend = date_end, yend = y_axis_factor, color = life_stage_label, alpha = dat_qual_cat),
+      linewidth = 6.5
+    ) +
+    geom_segment(
+      data = filter(df_sel, life_stage == "freshwater_migration"),
+      aes(x = date_start, xend = date_end, yend = y_axis_factor, color = life_stage_label, alpha = dat_qual_cat),
+      linewidth = 5.5
+    )
+
+  # Draw peak points if show_peaks is TRUE
+  if (show_peaks) {
+    p <- p + geom_point(
+      data = df_bg,
+      aes(x = date_peak, fill = life_stage_label, shape = dat_qual_cat),
+      color = "grey30", size = 1.4, stroke = 0.3
+    ) + geom_point(
+      data = df_sel,
+      aes(x = date_peak, fill = life_stage_label, shape = dat_qual_cat),
+      color = "black", size = 4.0, stroke = 1.2
+    )
+  }
+
+  # Add FW residency text on the far right
+  x_fwres <- xlim_end_date + 0.035 * as.numeric(xlim_end_date - xlim_start_date)
+  
+  if (!"fwres_mean" %in% names(df_plot)) {
+    df_plot$fwres_mean <- NA
+  }
+
+  df_fwres <- df_plot %>%
+    select(y_axis_factor, fwres_mean, FULL_CU_IN, color_hex) %>%
+    distinct() %>%
+    mutate(
+      fwres_label = if_else(is.na(fwres_mean), "N/A", sprintf("%.0f d", fwres_mean))
+    )
+  
+  sel_cu_val <- if (is.null(selected_cu)) "" else selected_cu
+  df_fwres <- df_fwres %>%
+    mutate(
+      fwres_formatted = if_else(
+        FULL_CU_IN == sel_cu_val,
+        paste0("<span style='color:", color_hex, "; font-size:9.5pt;'><b>▶ ", fwres_label, "</b></span>"),
+        paste0("<span style='color:grey40; font-size:", default_size, ";'>", fwres_label, "</span>")
+      )
+    )
+
+  # Add header row for the Freshwater Residency column on the right
+  df_fwres <- df_fwres %>%
+    add_row(
+      y_axis_factor = factor(header_y_label, levels = levels_ordered),
+      fwres_mean = NA,
+      FULL_CU_IN = "HEADER",
+      color_hex = "#000000",
+      fwres_label = "<b>FW Res</b>",
+      fwres_formatted = "<b>FW Res</b>"
+    )
+
+  p <- p + ggtext::geom_richtext(
+    data = df_fwres,
+    aes(x = x_fwres, y = y_axis_factor, label = fwres_formatted),
+    hjust = 0,
+    fill = NA,
+    label.color = NA,
+    label.padding = grid::unit(0, "lines"),
+    inherit.aes = FALSE
+  ) + 
+    scale_y_discrete(limits = levels_ordered, expand = c(0.02, 0)) +
+    coord_cartesian(xlim = c(xlim_start_date, xlim_end_date), clip = "off")
+
+  # Scales and Guides (Combining scales to merge the Data Quality legend!)
   p <- p +
     scale_color_manual(values = life_stage_palette, name = "Life Stage") +
     scale_fill_manual(values = life_stage_palette, name = "Life Stage") +
@@ -383,9 +505,32 @@ plot_timing_comparison <- function(cu_timing_long,
         "High (1-2)" = 21,
         "Medium (3-4)" = 24,
         "Low (5-6)" = 22,
-        "Unknown" = 4
+        "Unknown" = 23
       ),
-      guide = guide_legend(override.aes = list(size = 3, fill = "white", stroke = 1.0))
+      drop = FALSE
+    ) +
+    scale_alpha_manual(
+      name = "Data Quality",
+      values = c(
+        "High (1-2)" = 0.95,
+        "Medium (3-4)" = 0.80,
+        "Low (5-6)" = 0.60,
+        "Unknown" = 0.40
+      ),
+      drop = FALSE
+    ) +
+    guides(
+      color = guide_legend(order = 1),
+      fill = "none",
+      shape = guide_legend(order = 2, override.aes = list(
+        size = 3.5, 
+        shape = c(21, 24, 22, 23),
+        color = "grey30",
+        fill = "grey40", 
+        stroke = 1.0, 
+        alpha = c(1.0, 1.0, 1.0, 1.0)
+      )),
+      alpha = "none"
     )
 
   if (show_indicator_periods) {
@@ -395,27 +540,10 @@ plot_timing_comparison <- function(cu_timing_long,
     )
   }
 
-  # Zoom x-axis
-  xlim_start <- as.Date("2000-01-01")
-  xlim_end <- as.Date("2000-12-31")
-  
-  if (zoom_to_selected && !is.null(sel_timing) && nrow(sel_timing) > 0) {
-    pad_start <- min(sel_timing$date_start, na.rm = TRUE)
-    pad_end <- max(sel_timing$date_end, na.rm = TRUE)
-    if (!is.na(pad_start) && !is.na(pad_end)) {
-      xlim_start <- pad_start - 30
-      xlim_end <- pad_end + 30
-      if (xlim_start < as.Date("2000-01-01")) xlim_start <- as.Date("2000-01-01")
-      if (xlim_end > as.Date("2000-12-31")) xlim_end <- as.Date("2000-12-31")
-    }
-  }
-
   p <- p +
-    scale_y_discrete(limits = levels_ordered) +
     scale_x_date(
       date_breaks = date_breaks,
       date_labels = "%b",
-      limits = c(xlim_start, xlim_end),
       expand = c(0.01, 0)
     ) +
     labs(
@@ -431,14 +559,14 @@ plot_timing_comparison <- function(cu_timing_long,
       panel.grid.major.y = element_blank(),
       panel.grid.minor = element_blank(),
       legend.position = if (is.null(selected_cu)) "right" else "bottom",
-      legend.box = "horizontal",
+      legend.box = if (is.null(selected_cu)) "vertical" else "horizontal",
       legend.margin = margin(t = 0),
       legend.title = element_text(size = 9, face = "bold"),
       legend.text = element_text(size = 8.5),
       plot.title = element_text(face = "bold", size = 12),
       plot.subtitle = element_text(size = 9.5, face = "italic", color = "grey30"),
       plot.caption = element_text(size = 8, color = "grey50", hjust = 0),
-      plot.margin = margin(5, 5, 5, 5)
+      plot.margin = margin(5, 80, 5, 5)
     )
 
   return(p)
@@ -644,12 +772,17 @@ stream_indicator_multipanel_plot <- function(fwModels,
                                              unit_labels = NULL,
                                              risk_palette = cvis_risk_palette,
                                              palette_directions = 1,
-                                             ncol = 4,
+                                             ncol = NULL,
                                              nrow = NULL) {
   # Simplify geometries if needed
   fwModels <- simplify_geom_if_needed(fwModels)
   cu_boundary <- simplify_geom_if_needed(cu_boundary)
   lakes_cu <- simplify_geom_if_needed(lakes_cu)
+
+  # Dynamically determine ncol if not provided
+  if (is.null(ncol)) {
+    ncol <- if (length(variables) %% 3 == 0) 3 else 4
+  }
 
   # Check if stream_order exists in fwModels and make sure it is numeric
   if ("stream_order" %in% names(fwModels)) {

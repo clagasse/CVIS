@@ -55,17 +55,17 @@ html_template <- r"---(<!DOCTYPE html>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --primary: #0f2b46;
-      --primary-light: #1e3d59;
-      --primary-hover: #1e3d59;
+      --primary: #2b6cb0;
+      --primary-light: #4299e1;
+      --primary-hover: #1a365d;
       --bg: #F8FAFC;
-      --sidebar-bg: #0f1c2c;
-      --sidebar-hover: #172a3a;
+      --sidebar-bg: #ffffff;
+      --sidebar-hover: #f7fafc;
       --text: #2d3748;
-      --text-muted: #4a5568;
-      --border: #E2E8F0;
-      --active-bg: #0f2b46;
-      --active-text: #FFFFFF;
+      --text-muted: #718096;
+      --border: #edf2f7;
+      --active-bg: #f7fafc;
+      --active-text: #2b6cb0;
     }
     
     * {
@@ -87,7 +87,7 @@ html_template <- r"---(<!DOCTYPE html>
     .sidebar {
       width: 320px;
       background-color: var(--sidebar-bg);
-      color: #EDF2F7;
+      color: var(--text);
       display: flex;
       flex-direction: column;
       border-right: 1px solid var(--border);
@@ -96,20 +96,20 @@ html_template <- r"---(<!DOCTYPE html>
     
     .sidebar-header {
       padding: 20px;
-      border-bottom: 1px solid #1E293B;
+      border-bottom: 1px solid var(--border);
     }
     
     .sidebar-header h1 {
       font-family: 'Inter', sans-serif;
       font-size: 1.15rem;
       font-weight: 700;
-      color: #FFFFFF;
+      color: #0f2b46;
       margin-bottom: 5px;
     }
     
     .sidebar-header p {
       font-size: 0.7rem;
-      color: #94A3B8;
+      color: var(--text-muted);
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
@@ -120,37 +120,41 @@ html_template <- r"---(<!DOCTYPE html>
       text-align: left;
       background: none;
       border: none;
-      color: #94A3B8;
-      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-size: 0.82rem;
       font-weight: 600;
       margin-top: 12px;
       cursor: pointer;
-      transition: color 0.2s;
+      transition: all 0.2s;
+      padding: 4px 6px;
+      border-radius: 4px;
     }
     
     .btn-home:hover {
-      color: #FFFFFF;
+      color: var(--primary);
+      background-color: var(--sidebar-hover);
     }
     
     .search-container {
       padding: 15px 20px;
-      border-bottom: 1px solid #1E293B;
+      border-bottom: 1px solid var(--border);
     }
     
     .search-input {
       width: 100%;
       padding: 8px 12px;
-      background-color: #1E293B;
-      border: 1px solid #334155;
+      background-color: var(--bg);
+      border: 1px solid var(--border);
       border-radius: 4px;
-      color: #FFFFFF;
+      color: var(--text);
       font-size: 0.85rem;
       outline: none;
       transition: border-color 0.2s;
     }
     
     .search-input:focus {
-      border-color: var(--primary-light);
+      border-color: var(--primary);
+      background-color: #ffffff;
     }
     
     .cu-list {
@@ -165,35 +169,40 @@ html_template <- r"---(<!DOCTYPE html>
     
     .species-title {
       font-family: 'Inter', sans-serif;
-      font-size: 0.75rem;
+      font-size: 0.78rem;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: #64748B;
+      color: #0f2b46;
       margin-bottom: 8px;
       padding-left: 5px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 4px;
     }
     
     .cu-item {
       display: block;
-      padding: 6px 10px;
-      border-radius: 4px;
-      color: #CBD5E1;
+      padding: 4px 10px;
+      border-left: 2px solid var(--border);
+      border-radius: 0;
+      color: var(--text);
       text-decoration: none;
-      font-size: 0.8rem;
-      margin-bottom: 4px;
+      font-size: 0.82rem;
+      margin-bottom: 2px;
       cursor: pointer;
       transition: all 0.2s;
     }
     
     .cu-item:hover {
       background-color: var(--sidebar-hover);
-      color: #FFFFFF;
+      color: var(--primary);
+      border-left-color: var(--primary);
     }
     
     .cu-item.active {
       background-color: var(--active-bg);
       color: var(--active-text);
+      border-left-color: var(--active-text);
       font-weight: 600;
     }
     

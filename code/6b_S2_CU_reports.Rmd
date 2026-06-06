@@ -10,7 +10,7 @@ params:
   FULL_CU_IN: "CK-03"
   default_rcp: "45"
   default_period: "3"
-title: "Supplement S2: Climate Vulnerability Indicators for Salmon - Conservation Unit Reports"
+title: "`r local({ load(here::here('processed_data', 'CU', 'cu_run.Rds')); paste0(params$FULL_CU_IN, ': ', cu_run$CU_NAME[cu_run$FULL_CU_IN == params$FULL_CU_IN], ' (', cu_run$SPECIES_NAME[cu_run$FULL_CU_IN == params$FULL_CU_IN], ')') })`"
 ---
 
 ```{r custom theme, echo = FALSE, message = F, warning = F}
@@ -302,7 +302,7 @@ tbl_view <- cu_all %>%
   )
 ```
 
-# `r cu_run_i$CU_NAME` (`r cu_run_i$SPECIES_NAME`) {.tabset .tabset-fade}
+# {.tabset .tabset-fade}
 
 ## Overview {.tabset .tabset-fade}
 

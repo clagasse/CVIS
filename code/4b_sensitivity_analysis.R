@@ -264,19 +264,54 @@ baselines <- dat %>%
 if (nrow(baselines) == 0) stop("Baseline scenarios not found in data.")
 
 # Calculate scores for EACH dsmodel variation (baseline scenario, using fixed bounds)
+# Define default std_method per indicator (linear vs. exponential) to prevent drops
+tbl_defaults <- tbl_standardize %>%
+  mutate(std_method_default = if_else(std_fun %in% c("linear_std", "invlinear_std"), "linear", "exponential")) %>%
+  select(indicator = abbrev, std_method_default, dsmodel_baseline_ind = dsmodel_baseline)
+
+# Prepare character-based copy of all_std_long to join keys robustly
+all_std_clean <- all_std_long %>%
+  mutate(
+    indicator = as.character(indicator),
+    dsmodel = as.character(dsmodel),
+    gcm = as.character(gcm),
+    rcp = as.character(rcp),
+    period_code = as.character(period_code),
+    std_method = as.character(std_method)
+  ) %>%
+  left_join(tbl_defaults, by = "indicator") %>%
+  filter(std_method == std_method_default)
+
+# Create baseline key template for all 17 indicators
+static_inds <- c("cthr", "fwres", "migrdist", "CImpact", "CUstatus", "CUnmat", "hetzyg")
+baseline_keys <- tbl_standardize %>%
+  left_join(tbl_defaults, by = c("abbrev" = "indicator")) %>%
+  mutate(
+    gcm = if_else(abbrev %in% static_inds, "0", as.character(sens_gcm_base)),
+    rcp = if_else(abbrev %in% static_inds, "0", as.character(sens_rcp_base)),
+    period_code = if_else(abbrev %in% static_inds, "0", as.character(sens_period_base)),
+    dsmodel = dsmodel_baseline,
+    std_method = std_method_default
+  ) %>%
+  select(indicator = abbrev, dsmodel, gcm, rcp, period_code, std_method)
+
 model_variants <- list()
 for (mod in all_models) {
-    mod_dat <- mult_model_inds_df %>%
-        filter(rcp == sens_rcp_base, period_code == sens_period_base, gcm == sens_gcm_base) %>%
-        group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, SMU_SIMPLE, category, indicator) %>%
-        summarise(
-            std_value = if (any(dsmodel == mod)) {
-                std_value[dsmodel == mod][1]
-            } else {
-                std_value[dsmodel == dsmodel_baseline_ind][1]
-            },
-            .groups = "drop"
-        )
+    # Build keys for this model variant: swap dsmodel to mod for indicators where mod is available
+    mod_keys <- baseline_keys %>%
+      rowwise() %>%
+      mutate(
+        # Check if 'mod' is available for this indicator in the dataset
+        has_mod = any(all_std_clean$indicator == indicator & all_std_clean$dsmodel == mod),
+        dsmodel = if_else(has_mod, mod, dsmodel)
+      ) %>%
+      ungroup() %>%
+      select(-has_mod)
+
+    # Extract all 17 indicators matching the keys for this variant
+    mod_dat <- all_std_clean %>%
+        inner_join(mod_keys, by = c("indicator", "dsmodel", "gcm", "rcp", "period_code", "std_method")) %>%
+        filter(stat == "mean")
 
     if (nrow(mod_dat) > 0) {
         mod_scores <- mod_dat %>%

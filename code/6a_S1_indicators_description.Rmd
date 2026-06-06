@@ -53,7 +53,7 @@ This document provides detailed descriptions of the indicators included within C
 
 **Default scenario output:** Compilation of plots showing the raw and standardized indicator scores and standardization function across all CUs results from the default scenario. For environmental change indicators, the default scenario consists of emissions scenario RCP 4.5, the mid-century time period (2041-2060), and an ensemble mean across available global climate models. 
 
-# A.1 Projected August stream temperature (tw8proj) {#a1.-projected-august-stream-temperature-tw8proj}
+# S.1 Projected August stream temperature (tw8proj) {#s1.-projected-august-stream-temperature-tw8proj}
 
 **Metric:** The average of August stream temperatures across all years of the projection period (2041-2060 or 2081-2100) over all accessible streams with modelled habitat potential contained in the conservation unit (CU) boundary. Streams are weighted by stream segment length when calculating the average value. Projections from representative concentration pathways (RCP) 4.5 and 8.5 are included with an ensemble mean calculated from six global climate models.
 
@@ -90,7 +90,7 @@ print(spatial_indicator_plot(report_dat, cu_boundary, indicator_pick = "tw8proj"
 
 **Fig. S1.2.** Geographic distribution of projected August stream temperature (tw8proj) scores across Fraser River basin CUs.
 
-# A.2 Rate of increase in August stream temperature (tw8rate) {#a.2-rate-of-increase-in-august-stream-temperature-tw8rate}
+# S.2 Rate of increase in August stream temperature (tw8rate) {#s.2-rate-of-increase-in-august-stream-temperature-tw8rate}
 
 **Metric:** The decadal rate of increase in August mean stream temperature from a baseline period of 1981-2000 to the projection period (2041-2060 or 2081-2100) averaged over all accessible streams with modelled habitat potential contained in the CU boundary. Streams are weighted by stream segment length when calculating the average value. Projections from RCP 4.5 and 8.5 are included with an ensemble mean calculated from six global climate models.
 
@@ -125,7 +125,7 @@ print(spatial_indicator_plot(report_dat, cu_boundary, indicator_pick = "tw8rate"
 
 **Fig. S1.4.** Geographic distribution of decadal rate of increase in August stream temperature (tw8rate) scores across Fraser River basin CUs.
 
-# A.3 Proportional decrease in August flows (flow8pdelta)
+# S.3 Proportional decrease in August flows (flow8pdelta)
 
 **Metric:** The change in average August flow from a baseline period of 1981-2010 to the projection period (2041-2060 or 2081-2100), expressed as a proportion of the average historical flow and averaged over all accessible streams with modelled habitat potential contained in the CU boundary. Streams are weighted by stream segment length when calculating the average value. Projections from RCP 4.5 and 8.5 are included with an ensemble mean calculated from six global climate models.
 
@@ -158,7 +158,7 @@ print(spatial_indicator_plot(report_dat, cu_boundary, indicator_pick = "flow8pde
 
 **Fig. S1.6.** Geographic distribution of proportional decrease in August flows (flow8pdelta) scores across Fraser River basin CUs.
 
-# A.4 Proportional increase in November to January flows (flow18pdelta) {#a.4-proportional-increase-in-november-to-january-flows-highqpdelta}
+# S.4 Proportional increase in November to January flows (flow18pdelta) {#s.4-proportional-increase-in-november-to-january-flows-highqpdelta}
 
 **Metric:** The change in average flow for the months of November, December and January from a baseline period of 1981-2010 to the projection period (2041-2060 or 2081-2100), expressed as a proportion of the average historical flow and averaged over all accessible streams with modelled habitat potential contained in the CU boundary. Streams are weighted by stream segment length when calculating the average value. Projections from RCP 4.5 and 8.5 are included with an ensemble mean calculated from six global climate models.
 
@@ -191,7 +191,7 @@ print(spatial_indicator_plot(report_dat, cu_boundary, indicator_pick = "flow18pd
 
 **Fig. S1.8.** Geographic distribution of proportional increase in November to January flows (flow18pdelta) scores across Fraser River basin CUs.
 
-# A.5 Ecological Niche Model change in habitat favourability (favchange) {#a.5-ecological-niche-model-change-in-habitat-favourability-favchange}
+# S.5 Ecological Niche Model change in habitat favourability (favchange) {#s.5-ecological-niche-model-change-in-habitat-favourability-favchange}
 
 **Metric:** The change in habitat favourability from the baseline period (1981-2000) to the projection period (2041-2060 or 2081-2100), calculated as the difference between future and baseline favourability values and averaged over all accessible streams within the CU boundary. Habitat favourability is derived from environmental niche models (ENMs) fitted to salmon occurrence data and environmental predictors, providing a metric of environmental suitability that ranges from 0 to 1. The future favourability values use an ensemble mean of six GCMs from RCP 4.5 and 8.5 scenarios for the environmental predictors.
 
@@ -220,7 +220,7 @@ print(spatial_indicator_plot(report_dat, cu_boundary, indicator_pick = "favchang
 
 **Fig. S1.10.** Geographic distribution of Ecological Niche Model change in habitat favourability (favchange) scores across Fraser River basin CUs.
 
-# A.6 Cumulative threats to stream habitat (cthr)
+# S.6 Cumulative threats to stream habitat (cthr)
 
 **Metric:** A composite index of threats from human activity to stream habitat, calculated using a normalized additive model that combines nine threat categories including flow alteration, in-stream habitat destruction, riparian disturbance, nutrients, pollution, and sedimentation. The indicator is calculated as the mean cumulative threat score across all accessible streams with modelled habitat potential in the CU boundary, weighted by stream segment length.
 
@@ -250,7 +250,7 @@ print(spatial_indicator_plot(report_dat, cu_boundary, indicator_pick = "cthr"))
 
 **Fig. S1.12.** Geographic distribution of cumulative threats to stream habitat (cthr) scores across Fraser River basin CUs.
 
-# A.7 Freshwater residency time (fwres) {#a.7-freshwater-residency-time-fwres}
+# S.7 Freshwater residency time (fwres) {#s.7-freshwater-residency-time-fwres}
 
 **Metric:** The duration in days that juvenile salmon reside in freshwater from the start of egg incubation to ocean entry. For each CU, residency time is calculated using as the number of days from peak spawn timing to peak ocean entry timing, plus the typical number of years spent in freshwater (0 or 1).
 
@@ -273,7 +273,7 @@ print_lollipop_and_std_vs_raw(report_dat, indicator_pick = "fwres")
 
 **Fig. S1.13.** Freshwater residency time (fwres). The top panel shows raw and standardized values across all Fraser River basin Conservation Units (CUs), and the bottom panel shows the standardization function curve.
 
-# A.8 Projected temperature during upstream migration (migrTproj) {#a.8-projected-temperature-during-upstream-migration-migrt}
+# S.8 Projected temperature during upstream migration (migrTproj) {#s.8-projected-temperature-during-upstream-migration-migrt}
 
 **Metric:** The average of water temperatures during the upstream migration across all years of the projection period (2041-2060 or 2081-2100) estimated along the migration path from river entry to spawning sites using an upstream migration model. The model uses a moving migration window to represent the thermal exposure of CUs starting at the river mouth on the run timing start date and terminating at spawning sites on the peak spawning date. Projections from representative concentration pathways (RCP) 4.5 and 8.5 are included with an ensemble mean calculated from six global climate models.
 
@@ -298,7 +298,7 @@ print_lollipop_and_std_vs_raw(report_dat, indicator_pick = "migrTproj")
 
 **Fig. S1.14.** Projected temperature during upstream migration (migrTproj). The top panel shows raw and standardized values across all Fraser River basin Conservation Units (CUs), and the bottom panel shows the standardization function curve.
 
-# A.9 Proportional change in flow during upstream migration (migrQpdelta) {#a.9-proportional-change-in-flow-during-upstream-migration-migrq}
+# S.9 Proportional change in flow during upstream migration (migrQpdelta) {#s.9-proportional-change-in-flow-during-upstream-migration-migrq}
 
 **Metric:** The proportional change in flow during the upstream migration from the baseline period (1981-2000) to the projection period (2041-2060 or 2081-2100) estimated along the migration path from river entry to spawning sites using an upstream migration model. The model uses a moving migration window to represent the average flow experienced by CUs starting at the river mouth on the run timing start date and terminating at spawning sites on the peak spawning date. Projections from representative concentration pathways (RCP) 4.5 and 8.5 are included with an ensemble mean calculated from six global climate models.
 
@@ -317,7 +317,7 @@ print_lollipop_and_std_vs_raw(report_dat, indicator_pick = "migrQpdelta")
 
 **Fig. S1.15.** Proportional change in flow during upstream migration (migrQpdelta). The top panel shows raw and standardized values across all Fraser River basin Conservation Units (CUs), and the bottom panel shows the standardization function curve.
 
-# A.10 Upstream migration distance (migrdist) {#a.10-upstream-migration-distance-migrdist}
+# S.10 Upstream migration distance (migrdist) {#s.10-upstream-migration-distance-migrdist}
 
 **Metric:** The distance of the migration path from river mouth to spawning sites. For CUs with multiple spawning locations, the average of the migration distance to all spawning sites is used.
 
@@ -340,7 +340,7 @@ print_lollipop_and_std_vs_raw(report_dat, indicator_pick = "migrdist")
 
 **Fig. S1.16.** Upstream migration distance (migrdist). The top panel shows raw and standardized values across all Fraser River basin Conservation Units (CUs), and the bottom panel shows the standardization function curve.
 
-# A.11 Projected nearshore sea surface temperature (SSTproj) {#a.11-projected-nearshore-sea-surface-temperature-sstproj}
+# S.11 Projected nearshore sea surface temperature (SSTproj) {#s.11-projected-nearshore-sea-surface-temperature-sstproj}
 
 **Metric:** The projected sea surface temperature (SST) across all years of the projection period (2041-2060 or 2081-2100) throughout the marine adaptive zone (MAZ) for the CU averaged from the months of April to July, corresponding to the entry and early marine residence period for most stocks in southern B.C Projections from RCP 4.5 and 8.5 are included with an ensemble mean calculated from 28 global climate models.
 
@@ -369,7 +369,7 @@ print_lollipop_and_std_vs_raw(report_dat, indicator_pick = "SSTproj")
 
 **Fig. S1.17.** Projected nearshore sea surface temperature (SSTproj). The top panel shows raw and standardized values across all Fraser River basin Conservation Units (CUs), and the bottom panel shows the standardization function curve.
 
-# A.12 Rate of increase in nearshore sea surface temperatures (SSTrate) {#a.12-rate-of-increase-in-nearshore-sea-surface-temperatures-sstrate}
+# S.12 Rate of increase in nearshore sea surface temperatures (SSTrate) {#s.12-rate-of-increase-in-nearshore-sea-surface-temperatures-sstrate}
 
 **Metric:** The decadal rate of increase in SST from a baseline period to the projection period (2041-2060 or 2081-2100) throughout the marine adaptive zone (MAZ) for the CU over a 6-month period beginning with the month prior to ocean entry. Projections from RCP 4.5 and 8.5 are included with an ensemble mean calculated from 28 global climate models.
 
@@ -395,7 +395,7 @@ print_lollipop_and_std_vs_raw(plot_dat, indicator_pick = "SSTrate")
 
 **Fig. S1.18.** Rate of increase in nearshore sea surface temperatures (SSTrate). The top panel shows raw and standardized values across all Fraser River basin Conservation Units (CUs), and the bottom panel shows the standardization function curve.
 
-# A.13 Cumulative impacts to nearshore marine habitat (CImpact) {#a.13-cumulative-impacts-to-nearshore-marine-habitat-cimpact}
+# S.13 Cumulative impacts to nearshore marine habitat (CImpact) {#s.13-cumulative-impacts-to-nearshore-marine-habitat-cimpact}
 
 **Metric:** The average cumulative impact score of nearshore habitats averaged throughout the MAZ for a CU. Cumulative impact scores are calculated for multiple habitat categories within the Pacific region including pelagic, benthic, eelgrass, and kelp forests. Stressors included as part of the additive cumulative impact model include aquaculture, fishing, invasive species, nutrient inputs, pollution inputs, and shipping [@murray2024].
 
@@ -416,7 +416,7 @@ print_lollipop_and_std_vs_raw(report_dat, indicator_pick = "CImpact")
 
 **Fig. S1.19.** Cumulative impacts to nearshore marine habitat (CImpact). The top panel shows raw and standardized values across all Fraser River basin Conservation Units (CUs), and the bottom panel shows the standardization function curve.
 
-# A.14 Conservation status (CUstatus) {#a.14-conservation-status-custatus}
+# S.14 Conservation status (CUstatus) {#s.14-conservation-status-custatus}
 
 **Metric:** Recent Wild Salmon Policy (WSP) conservation status of a CU categorized as either Red, Amber, or Green. Status was assessed using the Rapid Status Assessment Approach that uses a Yes/No decision tree considering the number of recent spawners, trends in abundance, data type (absolute or relative abundance), and biological benchmarks [@pestal2023; @csas2024]. The input data, thresholds and appropriate metrics, and final status of Fraser CUs in 2022/2023 were evaluated and agreed upon by expert judgement throughout the Rapid Status process.
 
@@ -443,7 +443,7 @@ print_lollipop_and_std_vs_raw(report_dat, indicator_pick = "CUstatus")
 
 **Fig. S1.20.** Conservation status (CUstatus). The top panel shows raw and standardized values across all Fraser River basin Conservation Units (CUs), and the bottom panel shows the standardization function curve.
 
-# A.15 Recent generational average of natural spawners (CUnmat) {#a.15-recent-generational-average-of-spawners-cunmat}
+# S.15 Recent generational average of natural spawners (CUnmat) {#s.15-recent-generational-average-of-spawners-cunmat}
 
 **Metric:** The geometric average of the number of natural-origin spawners (male and female) over the most recent generation with available estimates. Natural-origin spawners are those that are born in the wild but whose parents may or may not be of hatchery origin [@dfo2018]. For cyclic sockeye CUs where abundance is dominated by a single-year on the cycle line, the number of spawners from the most recent dominant year is used instead of the average over all years of a generation.
 
@@ -466,7 +466,7 @@ print_lollipop_and_std_vs_raw(report_dat, indicator_pick = "CUnmat", use_standar
 
 **Fig. S1.21.** Recent generational average of natural spawners (CUnmat). The top panel shows raw and standardized values across all Fraser River basin Conservation Units (CUs), and the bottom panel shows the standardization function curve.
 
-# A.16 Heterozygosity (hetzyg) {#a.16-heterozygosity-hetzyg}
+# S.16 Heterozygosity (hetzyg) {#s.16-heterozygosity-hetzyg}
 
 **Metric:** Pacific salmon are diploid organisms with two copies of each nuclear chromosome in the genome. Heterozygosity is the proportion of genomic locations that contain a different allele (i.e., variant) on each copy of the chromosome within an individual. To calculate heterozygosity, genotypes are called for each genetic loci from sequencing data, and the number of loci with two variants is divided by the total number of loci in the dataset for each individual. Heterozygosity for a population is then calculated as the average across individuals.
 
@@ -491,7 +491,7 @@ print_lollipop_and_std_vs_raw(report_dat, indicator_pick = "hetzyg")
 
 **Fig. S1.22.** Heterozygosity (hetzyg). The top panel shows raw and standardized values across all Fraser River basin Conservation Units (CUs), and the bottom panel shows the standardization function curve.
 
-# A.17 Genomic offset (genoff) {#a.17-genomic-offset-genoff}
+# S.17 Genomic offset (genoff) {#s.17-genomic-offset-genoff}
 
 **Metric:** A genomic offset is an estimate of the mismatch between the genetic variation in a population of organisms under current conditions and the genetic variation that would be predicted to track a forecasted change in climate. To determine a genomic offset, first, genotype-environment associations are established using genomic data and environmental data across a species’ current range. Putatively adaptive loci are identified from these associations and then used to model genetic variation among populations as a function of environmental variation (i.e., allelic turnover in response to climate variation). Once this model is established, forecasted environmental conditions under climate change are used as input into the model to predict the genetic variation that would match forecasted climate conditions for a population. The Euclidean distance between a population’s current genetic variation and the predicted variation that would track climate change is the genomic offset.
 

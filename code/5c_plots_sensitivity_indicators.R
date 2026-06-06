@@ -125,7 +125,7 @@ plot_indicator_xy_sensitivity <- function(overall_sensitivity, source_colors) {
 
 # 1d. Indicator Redundancy (Pearson Correlation Pie)
 plot_indicator_redundancy_corr <- function(cor_matrix_ind) {
-  corrplot(cor_matrix_ind, method = "pie", type = "lower", title = "Indicator Pearson Correlation", mar = c(0, 0, 1, 0))
+  corrplot(cor_matrix_ind, method = "pie", type = "lower", mar = c(0, 0, 1, 0))
 }
 
 # 1e. Indicator Correlation Clusters (Heatmap)
@@ -162,16 +162,21 @@ plot_score_deviations <- function(deviations, source_colors = sens_source_palett
         )
     )
 
+  # Move stdmethod beside dsmethod, ordering GCMs, RCPs, dsmethod, stdmethod, flag, cube, avgall, avgcube
+  source_levels <- c("GCM1", "GCM4", "GCM6", "RCP45_P5", "RCP85_P3", "RCP85_P5", "dsmethod", "stdmethod", "flag", "cube", "avgall", "avgcube")
+  dev_raw <- dev_raw %>%
+    mutate(source = factor(source, levels = source_levels))
+
   p_dev_all <- dev_raw %>%
     filter(category == "all", source != "cube") %>%
     ggplot(aes(x = source, y = raw_deviation, fill = source)) +
-    geom_violin(alpha = 0.8, draw_quantiles = c(0.25, 0.5, 0.75), linewidth = 1.1) +
+    geom_violin(alpha = 0.8, draw_quantiles = c(0.25, 0.5, 0.75), linewidth = 1.1, scale = "width", width = 0.8) +
     geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
     scale_fill_manual(values = source_colors, na.value = "grey50", guide = "none") +
     labs(
-        title = "Influence of Uncertainty on Overall Vulnerability",
+        title = "Overall Vulnerability Score",
         x = NULL,
-        y = "Score Change (Raw Deviation)"
+        y = "Score deviation"
     ) +
     theme_cvis() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
@@ -180,24 +185,18 @@ plot_score_deviations <- function(deviations, source_colors = sens_source_palett
   p_dev_cats <- dev_raw %>%
     filter(category %in% target_cats, !source %in% c("avgall", "avgcube")) %>%
     ggplot(aes(x = source, y = raw_deviation, fill = source)) +
-    geom_violin(alpha = 0.8, draw_quantiles = c(0.25, 0.5, 0.75), linewidth = 1, scale = "width") +
+    geom_violin(alpha = 0.8, draw_quantiles = c(0.25, 0.5, 0.75), linewidth = 1, scale = "width", width = 0.8) +
     geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
     facet_wrap(~category, scales = "free_x", labeller = labeller(category = cat_label_mapping)) +
     scale_fill_manual(values = source_colors, na.value = "grey50", guide = "none") +
     labs(
-        title = "Category-Level Score Sensitivity",
         x = "Variation Source",
-        y = "Score Change (Raw Deviation)"
+        y = "Score deviation"
     ) +
     theme_cvis() +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-  p_dev_all / p_dev_cats + plot_layout(heights = c(1, 1.2)) +
-    plot_annotation(
-        title = "Directional Influence of Uncertainty on Vulnerability Scores",
-        subtitle = "Distribution of (Scenario Score - Baseline Score) across CUs; Bolder lines indicate median and quartiles",
-        theme = theme(plot.title = element_text(face = "bold", size = 16))
-    )
+  p_dev_all / p_dev_cats + plot_layout(heights = c(1, 1.2))
 }
 
 # 2b. Mean Rank Displacement
@@ -223,12 +222,10 @@ plot_jackknife_influence <- function(jack_global, parent_cat_palette) {
     geom_pointrange(aes(ymin = q10_raw_dev, ymax = q90_raw_dev), size = 0.6) +
     coord_flip() +
     facet_wrap(~excluded_type, scales = "free_y", ncol = 1) +
-    scale_color_scico_d(palette = "roma", name = "Parent Category") +
+    scale_color_scico_d(palette = "roma", name = "Category") +
     labs(
-        title = "Jackknife Influence on Overall Vulnerability",
-        subtitle = "Mean raw deviation in vulnerability score (0-100 scale) when removing an element.\nLines show 10th-90th percentile range across CUs. Negative = Risk Driver.",
         x = "Excluded Element (Indicator or Category)",
-        y = "Raw Score Deviation (jk_score - base_score)"
+        y = "Vulnerability Score Deviation"
     ) +
     theme_cvis()
 }
@@ -414,8 +411,6 @@ plot_combined_uncertainty_spread <- function(all_scores, species_palette = NULL)
     coord_flip() +
     scale_fill_manual(values = spec_pal, name = "Species") +
     labs(
-      title = "Combined Uncertainty in overall CVIS Vulnerability",
-      subtitle = "Vulnerability scores (0-100) across 100 Monte Carlo iterations (Period 3)\nCUs sorted by mean vulnerability score; box plot shows median and IQR; bold line indicates baseline score",
       x = NULL,
       y = "Vulnerability Score"
     ) +
@@ -442,8 +437,6 @@ plot_rank_uncertainty <- function(rank_summary) {
       name = "Robustness Profile"
     ) +
     labs(
-      title = "Vulnerability Rank Stability & Confidence Intervals",
-      subtitle = "Mean rank and 90% uncertainty intervals across all assumptions (Period 3)\nRank 1 = Highest Risk. Sorted by mean vulnerability rank.",
       x = "Conservation Unit (CU)",
       y = "Vulnerability Rank (1 to 50)"
     ) +

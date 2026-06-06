@@ -119,7 +119,7 @@ if (run_reports_indiv) {
   dir.create(file.path(paths$reports, "CU_reports"), showWarnings = FALSE, recursive = TRUE)
   # Default to compiling the first 2 CUs for testing and speed.
   # To run for all 50 CUs, change this to: cus_to_compile <- cu_run$FULL_CU_IN
-  cus_to_compile <- cu_run$FULL_CU_IN
+  cus_to_compile <- cu_run$FULL_CU_IN[1:2]
   
   for (CU_IN_i in cus_to_compile) {
     cat("Compiling HTML profile for:", CU_IN_i, "\n")

@@ -14,13 +14,14 @@
 # ==================== 0. Configurations ====================
 
 # Toggles for what to build
-build_6a <- T       # Supplement S1: Description of Indicators
-build_6b <- F       # Supplement S2: CU Reports Dashboard
+build_6a <- TRUE       # Supplement S1: Description of Indicators
+build_6b <- TRUE       # Supplement S2: CU Reports Dashboard
+build_6e <- FALSE      # Supplement S3: Visual Results Overview
 
 # Build option for speed vs completeness
 # FALSE will compile only the first 2 CUs (great for quick testing/validation)
 # TRUE will compile all 50 CUs (required for final production/deployment)
-compile_all_cus <- FALSE
+compile_all_cus <- TRUE
 
 # Output destination directory (default is the workspace '/docs' directory)
 docs_dir <- file.path(here::here(), "docs")
@@ -167,6 +168,46 @@ if (build_6b) {
     file.copy(f_dir, docs_cu_dir, recursive = TRUE, overwrite = TRUE)
   }
   cat("✓ Figure files copied to:", docs_cu_dir, "\n\n")
+}
+
+# ==================== 4. Build Visual Results Overview (6e) ====================
+if (build_6e) {
+  cat("--- Building Visual Results Overview (6e) ---\n")
+  
+  temp_out_file <- "6e_CVIS_visual_overview.html"
+  
+  # Render Rmd file to output/reports/
+  rmarkdown::render(
+    file.path(paths$code, "6e_CVIS_visual_overview.Rmd"),
+    output_file = temp_out_file,
+    output_dir = paths$reports,
+    output_format = "html_document",
+    envir = globalenv()
+  )
+  
+  # Copy compiled HTML to docs folder with static filename
+  src_html <- file.path(paths$reports, temp_out_file)
+  dest_html <- file.path(docs_dir, "6e_CVIS_visual_overview.html")
+  
+  if (file.exists(src_html)) {
+    file.copy(src_html, dest_html, overwrite = TRUE)
+    cat("✓ Report 6e copied to:", dest_html, "\n")
+  } else {
+    warning("Could not find compiled Report 6e at ", src_html, "\n")
+  }
+  
+  # Copy files directory if generated (for figures/assets)
+  src_files <- file.path(paths$reports, "6e_CVIS_visual_overview_files")
+  dest_files <- file.path(docs_dir, "6e_CVIS_visual_overview_files")
+  
+  if (dir.exists(src_files)) {
+    if (dir.exists(dest_files)) {
+      unlink(dest_files, recursive = TRUE, force = TRUE)
+    }
+    dir.create(dest_files, showWarnings = FALSE, recursive = TRUE)
+    file.copy(src_files, docs_dir, recursive = TRUE, overwrite = TRUE)
+    cat("✓ Report 6e figures folder copied to:", dest_files, "\n\n")
+  }
 }
 
 cat("======================================================\n")
