@@ -30,16 +30,14 @@ setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
 
 # Execution Toggles: Toggle steps of the pipeline on (TRUE) or off (FALSE)
-run_data_load      <- T
+run_data_load      <- F
 run_fw_prep        <- FALSE # Run raw stream networks and PCIC flow model prep (1b, 1c, 1d)
 run_fw_stats       <- FALSE # Run stream intersections, rearing, and migration stats (2a, 2b, 2c, 2d)
 run_marine_prep    <- FALSE # Run raw marine NetCDF and spatial GDB imports (3a)
 run_marine_stats   <- FALSE # Run marine stats & grid standardization calculations (3b, 3c)
 run_scoring        <- F  # Run core standardization and scoring calculation engine (4a)
-run_indicator_report    <- F  # Generate the detailed indicator reports (6a_S1_indicators_description.Rmd)
-run_reports_indiv       <- T # Generate individual CU report HTML files (Static supplement for publication)
-run_sensitivity_report  <- F # Generate individual CU report HTML files (Static supplement for publication)
-run_shiny_explorer      <- FALSE # Launch local interactive Shiny explorer app (7_CVIS_explorer_app.R)
+run_indicator_report    <- T  # Generate the detailed indicator reports (6a_S1_indicators_description.Rmd)
+run_reports_indiv       <- F # Generate individual CU report HTML files (Static supplement for publication)
 
 # ==================== 2. Load Core Spatial and Definition Data ====================
 
@@ -148,20 +146,4 @@ if (run_reports_indiv) {
   source(file.path(paths$code, "6d_generate_dashboard.R"))
 }
 
-# 5.4 Indicator description HTML Report
-if (run_sensitivity_report) {
-  cat("\nRendering sensitivity analysis report...\n")
-  rmarkdown::render(
-    file.path(paths$code, "6c_S3_sensitivity.Rmd"),
-    output_file = paste(today, "S3_sensitivity_report.html", sep = "_"),
-    output_dir = file.path(paths$reports),
-    output_format = "html_document"
-  )
-  cat("Report rendered in:", file.path(paths$reports), "\n")
-}
 
-# 5.4 Interactive Shiny App Explorer
-if (run_shiny_explorer) {
-  cat("\nLaunching interactive CVIS explorer Shiny app...\n")
-  shiny::runApp(file.path(paths$code, "7_CVIS_explorer_app.R"))
-}

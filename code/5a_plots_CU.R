@@ -629,7 +629,7 @@ stream_accessible_plot <- function(stream_data,
 
   ## stream map
   p1 <- ggplot() +
-    geom_sf(data = cu_boundary_i, color = "black", alpha = 0.0.05)
+    geom_sf(data = cu_boundary_i, color = "black", alpha = 0.05)
 
   if (nrow(lakes_cu) > 0) {
     p1 <- p1 + geom_sf(data = lakes_cu, color = "darkgrey", alpha = 0.8)

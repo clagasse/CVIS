@@ -18,10 +18,15 @@ build_6a <- TRUE       # Supplement S1: Description of Indicators
 build_6b <- TRUE       # Supplement S2: CU Reports Dashboard
 build_6e <- FALSE      # Supplement S3: Visual Results Overview
 
-# Build option for speed vs completeness
+# Toggle to re-render reports or just copy existing compiled reports
+# TRUE: Re-render the Rmd templates (takes longer)
+# FALSE: Do not render; copy the most recent pre-existing HTML reports from output/reports/
+render_reports <- TRUE
+
+# Build option for speed vs completeness (applies when render_reports is TRUE)
 # FALSE will compile only the first 2 CUs (great for quick testing/validation)
 # TRUE will compile all 50 CUs (required for final production/deployment)
-compile_all_cus <- TRUE
+compile_all_cus <- FALSE
 
 # Output destination directory (default is the workspace '/docs' directory)
 docs_dir <- file.path(here::here(), "docs")
@@ -49,26 +54,40 @@ cat("======================================================\n\n")
 if (build_6a) {
   cat("--- Building Supplemental Report 6a (S1 Indicators Description) ---\n")
   
-  temp_out_file <- paste0(Sys.Date(), "_S1_indicators_report.html")
-  
-  # Render Rmd file to output/reports/
-  rmarkdown::render(
-    file.path(paths$code, "6a_S1_indicators_description.Rmd"),
-    output_file = temp_out_file,
-    output_dir = paths$reports,
-    output_format = "html_document",
-    envir = globalenv()
-  )
+  if (render_reports) {
+    temp_out_file <- paste0(Sys.Date(), "_S1_indicators_report.html")
+    
+    # Render Rmd file to output/reports/
+    rmarkdown::render(
+      file.path(paths$code, "6a_S1_indicators_description.Rmd"),
+      output_file = temp_out_file,
+      output_dir = paths$reports,
+      output_format = "html_document",
+      envir = globalenv()
+    )
+    src_html <- file.path(paths$reports, temp_out_file)
+  } else {
+    # Find the most recently modified pre-existing report
+    matching_files <- list.files(paths$reports, pattern = "_S1_indicators_report\\.html$", full.names = TRUE)
+    if (length(matching_files) > 0) {
+      info <- file.info(matching_files)
+      src_html <- rownames(info)[which.max(info$mtime)]
+      cat("Using most recent pre-existing Report 6a: ", basename(src_html), "\n")
+    } else {
+      src_html <- NULL
+      warning("Could not find any existing Report 6a files matching '*_S1_indicators_report.html' in ", paths$reports, "\n")
+    }
+  }
   
   # Copy compiled HTML to docs folder with static filename
-  src_html <- file.path(paths$reports, temp_out_file)
-  dest_html <- file.path(docs_dir, "6a_S1_indicators_description.html")
-  
-  if (file.exists(src_html)) {
-    file.copy(src_html, dest_html, overwrite = TRUE)
-    cat("✓ Report 6a copied to:", dest_html, "\n\n")
-  } else {
-    warning("Could not find compiled Report 6a at ", src_html, "\n")
+  if (!is.null(src_html)) {
+    dest_html <- file.path(docs_dir, "6a_S1_indicators_description.html")
+    if (file.exists(src_html)) {
+      file.copy(src_html, dest_html, overwrite = TRUE)
+      cat("✓ Report 6a copied to:", dest_html, "\n\n")
+    } else {
+      warning("Could not find compiled Report 6a at ", src_html, "\n")
+    }
   }
 }
 
@@ -80,40 +99,44 @@ if (build_6b) {
   cu_reports_dir <- file.path(paths$reports, "CU_reports")
   dir.create(cu_reports_dir, showWarnings = FALSE, recursive = TRUE)
   
-  # Load cu_run if not loaded
-  if (!exists("cu_run")) {
-    load(file.path(paths$CU, "cu_run.Rds"))
-  }
-  
-  # Determine which CUs to compile
-  if (compile_all_cus) {
-    cus_to_compile <- cu_run$FULL_CU_IN
-    cat("Compiling ALL", length(cus_to_compile), "Conservation Units. This may take some time...\n")
-  } else {
-    cus_to_compile <- cu_run$FULL_CU_IN[1:2]
-    cat("Testing mode: Compiling only the first", length(cus_to_compile), "CUs (", paste(cus_to_compile, collapse = ", "), ").\n")
-    cat("Set 'compile_all_cus <- TRUE' in the script to compile all CUs for production.\n")
-  }
-  
-  # Compile individual reports
-  for (CU_IN_i in cus_to_compile) {
-    cat("Compiling HTML profile for:", CU_IN_i, "\n")
-    default_rcp <- "45"
-    default_period <- 3
+  if (render_reports) {
+    # Load cu_run if not loaded
+    if (!exists("cu_run")) {
+      load(file.path(paths$CU, "cu_run.Rds"))
+    }
     
-    rmarkdown::render(
-      file.path(paths$code, "6b_S2_CU_reports.Rmd"),
-      output_file = paste0(CU_IN_i, "_CVIS_Data_report.html"),
-      output_dir = cu_reports_dir,
-      output_format = "html_document",
-      output_options = list(self_contained = FALSE, lib_dir = file.path(cu_reports_dir, "libs")),
-      params = list(
-        FULL_CU_IN = CU_IN_i,
-        default_rcp = default_rcp,
-        default_period = default_period
-      ),
-      envir = globalenv()
-    )
+    # Determine which CUs to compile
+    if (compile_all_cus) {
+      cus_to_compile <- cu_run$FULL_CU_IN
+      cat("Compiling ALL", length(cus_to_compile), "Conservation Units. This may take some time...\n")
+    } else {
+      cus_to_compile <- cu_run$FULL_CU_IN[1:2]
+      cat("Testing mode: Compiling only the first", length(cus_to_compile), "CUs (", paste(cus_to_compile, collapse = ", "), ").\n")
+      cat("Set 'compile_all_cus <- TRUE' in the script to compile all CUs for production.\n")
+    }
+    
+    # Compile individual reports
+    for (CU_IN_i in cus_to_compile) {
+      cat("Compiling HTML profile for:", CU_IN_i, "\n")
+      default_rcp <- "45"
+      default_period <- 3
+      
+      rmarkdown::render(
+        file.path(paths$code, "6b_S2_CU_reports.Rmd"),
+        output_file = paste0(CU_IN_i, "_CVIS_profile.html"),
+        output_dir = cu_reports_dir,
+        output_format = "html_document",
+        output_options = list(self_contained = FALSE, lib_dir = file.path(cu_reports_dir, "libs")),
+        params = list(
+          FULL_CU_IN = CU_IN_i,
+          default_rcp = default_rcp,
+          default_period = default_period
+        ),
+        envir = globalenv()
+      )
+    }
+  } else {
+    cat("Skipping rendering of individual CU reports. Using existing HTML files in:", cu_reports_dir, "\n")
   }
   
   # Generate the master HTML dashboard combining the individual reports
@@ -176,14 +199,18 @@ if (build_6e) {
   
   temp_out_file <- "6e_CVIS_visual_overview.html"
   
-  # Render Rmd file to output/reports/
-  rmarkdown::render(
-    file.path(paths$code, "6e_CVIS_visual_overview.Rmd"),
-    output_file = temp_out_file,
-    output_dir = paths$reports,
-    output_format = "html_document",
-    envir = globalenv()
-  )
+  if (render_reports) {
+    # Render Rmd file to output/reports/
+    rmarkdown::render(
+      file.path(paths$code, "6e_CVIS_visual_overview.Rmd"),
+      output_file = temp_out_file,
+      output_dir = paths$reports,
+      output_format = "html_document",
+      envir = globalenv()
+    )
+  } else {
+    cat("Skipping rendering of Report 6e. Using existing compiled file.\n")
+  }
   
   # Copy compiled HTML to docs folder with static filename
   src_html <- file.path(paths$reports, temp_out_file)

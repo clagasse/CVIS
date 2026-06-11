@@ -445,8 +445,9 @@ html_template <- r"---(<!DOCTYPE html>
       // Decode and inject report
       try {
         let decodedHtml = decodeURIComponent(escape(atob(cu.base64)));
-        // Inject <base href="CU_reports/"> right after <head> so relative links to shared libs/ and unique files/ resolve correctly
-        decodedHtml = decodedHtml.replace('<head>', '<head><base href="CU_reports/">');
+        // Inject <base href="CU_reports/"> right after <head> so relative links to shared libs/ and unique files/ resolve correctly.
+        // Also inject a script to intercept clicks on hash/anchor links so they don't trigger browser navigation relative to the base URL (which would load the CU_reports/ folder directory locally or fail on web).
+        decodedHtml = decodedHtml.replace('<head>', '<head><base href="CU_reports/"><script>document.addEventListener("click", function(e) { var el = e.target; while (el && el.tagName !== "A") { el = el.parentNode; } if (el && el.getAttribute("href") && el.getAttribute("href").indexOf("#") === 0) { e.preventDefault(); } });<\/script>');
         aboutLanding.style.display = 'none';
         iframe.style.display = 'block';
         iframe.srcdoc = decodedHtml;
