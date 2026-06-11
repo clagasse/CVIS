@@ -113,7 +113,7 @@ all_long <- bind_rows(cu_long_prep, genetic_long_prep, fw_long, migr_long, mar_l
   filter(!(str_detect(dsmodel, regex("cthr", ignore_case = TRUE)) & dsmodel != cthr_pick))
 
 # Add species info
-all_long <- select(cu_run, FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE) %>%
+all_long <- select(cu_run, FULL_CU_IN, SPECIES_NAME, CVIS_LABEL, CU_COMMON_NAME, SMU_SIMPLE) %>%
   left_join(all_long, by = "FULL_CU_IN")
 
 calibration_input <- maz_all %>%
@@ -245,14 +245,14 @@ dat <- all_std_long %>%
 # STATIC: indicators with only baseline rows (used as fallback for non projected indicators)
 static_tbl <- dat %>%
   filter(gcm == 0, period_code == 0) %>%
-  select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, std_method, indicator, category, static_value = std_value) %>%
+  select(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL, CU_COMMON_NAME, SMU_SIMPLE, std_method, indicator, category, static_value = std_value) %>%
   distinct()
 
 # PROJECTED: everything else (including baseline rows that also have projections, if any)
 proj_tbl <- dat %>%
   filter(!(gcm == 0 & period_code == 0)) %>%
   filter(gcm %in% c("9", common_gcms)) %>% # filter individual gcm outputs and ensembles that are used across model
-  select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, std_method, gcm, rcp, period_code,
+  select(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL, CU_COMMON_NAME, SMU_SIMPLE, std_method, gcm, rcp, period_code,
     indicator, category,
     proj_value = std_value
   )
@@ -264,27 +264,27 @@ ensemble_tbl <- proj_tbl %>%
 
 # CU × GCM × RCP × PERIOD grid (from projections)
 grid_cu_scen <- proj_tbl %>%
-  distinct(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, std_method, gcm, rcp, period_code)
+  distinct(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL, CU_COMMON_NAME, SMU_SIMPLE, std_method, gcm, rcp, period_code)
 
 # Indicator list per CU (union of indicators seen anywhere — projected or static)
 inds_per_cu <- dat %>%
-  distinct(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, std_method, indicator, category)
+  distinct(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL, CU_COMMON_NAME, SMU_SIMPLE, std_method, indicator, category)
 
 # Expand grid with indicators for the same CU, excluding period_code 0
 grid_expanded <- grid_cu_scen %>%
   filter(period_code != 0) %>%
-  inner_join(inds_per_cu, by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "CU_COMMON_NAME", "SMU_SIMPLE", "std_method"))
+  inner_join(inds_per_cu, by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_LABEL", "CU_COMMON_NAME", "SMU_SIMPLE", "std_method"))
 
 vals <- grid_expanded %>%
   left_join(proj_tbl,
     by = c(
-      "FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "CU_COMMON_NAME", "SMU_SIMPLE", "std_method",
+      "FULL_CU_IN", "SPECIES_NAME", "CVIS_LABEL", "CU_COMMON_NAME", "SMU_SIMPLE", "std_method",
       "gcm", "rcp", "period_code", "indicator", "category"
     )
   ) %>%
   left_join(ensemble_tbl, by = c("FULL_CU_IN", "std_method", "rcp", "period_code", "indicator")) %>%
   left_join(static_tbl,
-    by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "CU_COMMON_NAME", "SMU_SIMPLE", "std_method", "indicator", "category")
+    by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_LABEL", "CU_COMMON_NAME", "SMU_SIMPLE", "std_method", "indicator", "category")
   ) %>%
   mutate(std_value = dplyr::coalesce(proj_value, ensemble_value, static_value))
 
@@ -292,7 +292,7 @@ vals <- grid_expanded %>%
 # now that we have an expanded grid of values covering all gcm/scenario/period combinations
 # we calculate teh aggregated scores
 scores_base <- vals %>%
-  group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, std_method, gcm, rcp, period_code) %>%
+  group_by(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL, CU_COMMON_NAME, SMU_SIMPLE, std_method, gcm, rcp, period_code) %>%
   calculate_combined_scores()
 
 # Calculate combined 0-100 scores and ranks

@@ -125,8 +125,7 @@ tibble::tribble(
   ~`Source label`, ~Method, ~Description,
   "cube", "Cubic mean", "Category scores use the cubic (power) mean of indicators, emphasizing high risk values",
   "avgcube", "Average-of-categories using cubic mean", "Category scores from cubic mean, then averaged",
-  "flag", "Logic model", "Indicators are binned into risk classes using fixed thresholds; overall score uses logic rules",
-  "avgall", "Average of all indicators", "All indicators weighted equally regardless of category"
+  "flag", "Logic model", "Indicators are binned into risk classes using fixed thresholds; overall score uses logic rules"
 ) %>%
   style_gt_table()
 ```
@@ -324,7 +323,7 @@ The leverage analysis thus identifies which indicators and categories are most i
 
 ```{r jackknife-global, fig.width=10, fig.height=9, fig.cap="Jackknife leverage analysis for overall vulnerability (all CUs and species combined). Each point shows the mean raw deviation in overall vulnerability score (0–100 scale) when the indicated indicator or category is excluded from the scoring. Error bars span the 10th–90th percentile range across CUs. Negative values identify risk drivers; positive values indicate that an element suppresses overall scores. Elements are ordered by their mean absolute deviation (most influential at top)."}
 jack_global <- overall_sensitivity$influence_summary %>%
-  filter((method == "avgall" | method == "avg_all") & SPECIES_NAME == "ALL")
+  filter(method == "flag" & SPECIES_NAME == "ALL")
 plot_jackknife_influence(jack_global, cat_label_map)
 ```
 
@@ -601,7 +600,6 @@ tibble::tribble(
   "`avg` / `catavg`", "**Baseline method.** Category scores = arithmetic mean of standardized indicator values; overall = average of category scores",
   "`cube`", "Category scores = cubic (power) mean of indicators; emphasizes high values",
   "`avgcube`", "Category scores from cubic mean, then averaged across categories",
-  "`avgall`", "All indicators weighted equally regardless of category (no category aggregation step)",
   "`flag`", "Logic model: indicators binned to low/moderate/high (thresholds at 0.33 and 0.66); overall score from logic rules"
 ) %>%
   style_gt_table()

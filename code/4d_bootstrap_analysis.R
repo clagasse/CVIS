@@ -133,7 +133,7 @@ standardize_perturbed <- function(x, std_fun, xmin, xmax, lambda = 3) {
 }
 
 # ==================== 2. Define Sampling Space ====================
-N_iterations <- 300
+N_iterations <- 500
 target_period <- "3" # Only period 3 (2041-2060)
 
 # Uncertainty Sources:
@@ -252,7 +252,7 @@ for (k in 1:N_iterations) {
   
   # Calculate portfolio scores
   scores_iter_raw <- res %>%
-    group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE) %>%
+    group_by(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL, CU_COMMON_NAME, SMU_SIMPLE) %>%
     calculate_combined_scores()
   
   if (opt_random_aggregation) {
@@ -261,7 +261,7 @@ for (k in 1:N_iterations) {
     sampled_agg <- sample(agg_choices, 1)
     
     # Map overall to category method
-    cat_method_map <- c("catavg" = "avg", "avgall" = "avg", "avgcube" = "cube", "flag" = "flag")
+    cat_method_map <- c("catavg" = "avg", "avgcube" = "cube", "flag" = "flag")
     sampled_cat_method <- cat_method_map[sampled_agg]
     
     scores_iter <- scores_iter_raw %>%
@@ -316,7 +316,7 @@ all_scores <- mc_results %>% filter(category == "all")
 
 # Compute summary statistics of score and rank distributions for each CU
 cu_summary <- all_scores %>%
-  group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE) %>%
+  group_by(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL, CU_COMMON_NAME, SMU_SIMPLE) %>%
   summarise(
     mean_score = mean(score100, na.rm = TRUE),
     sd_score = sd(score100, na.rm = TRUE),

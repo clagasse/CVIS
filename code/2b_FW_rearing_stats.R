@@ -35,7 +35,7 @@ source(file.path(here(), "code", "0_setup.R"))
 
 model_rs_pick <- case_when(
   fw_habitat_selection == "rs" ~ TRUE,
-  fw_habitat_selection == "acc" ~ FALSE
+  fw_habitat_selection == "all" ~ FALSE
 )
 
 
@@ -112,13 +112,15 @@ stream_BCFP_stats <- function(streams) {
 
   # calculate stream stats for spawning and rearing streams
   stream_stats <- tibble(
-    total_length_acc = sum(streams$length_metre, na.rm = T),
+    total_length = sum(streams$length_metre, na.rm = T),
+    total_length_acc = sum(streams$length_metre[streams$model_access_salmon %in% c("OBSERVED", "INFERRED")], na.rm = T),
     total_length_rs = sum(streams$length_metre[streams$model_rs == TRUE], na.rm = T),
     total_length_rear = sum(streams$length_metre[streams$model_rearing == TRUE], na.rm = T),
     total_length_spawn = sum(streams$length_metre[streams$model_spawning == TRUE], na.rm = T),
-    proportion_rear = total_length_rear / total_length_acc,
-    proportion_spawn = total_length_spawn / total_length_acc,
-    proportion_rs = total_length_rs / total_length_acc,
+    proportion_access = total_length_acc / total_length,
+    proportion_rear = total_length_rear / total_length,
+    proportion_spawn = total_length_spawn / total_length,
+    proportion_rs = total_length_rs / total_length,
     avg_order = mean(streams$stream_order, na.rm = T),
     avg_order_rear = mean(streams$stream_order[streams$model_rearing == TRUE], na.rm = T),
     avg_order_spawn = mean(streams$stream_order[streams$model_spawning == TRUE], na.rm = T),

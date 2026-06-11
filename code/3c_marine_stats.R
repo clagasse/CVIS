@@ -53,7 +53,7 @@ load(file.path(paths$marine, "MAZ.Rds"))
 # get cu timing for ocean entry
 cu_marine <- cu_timing_Fr %>%
   select(
-    FULL_CU_IN, CVIS_NAME, SPECIES_NAME, oe_age, oe_dat_qual,
+    FULL_CU_IN, CVIS_LABEL, SPECIES_NAME, oe_age, oe_dat_qual,
     oe_start, oe_peak, oe_end, n_oe, ns_start_month, ns_end_month
   ) %>%
   mutate(MAZ = "GStr") %>%

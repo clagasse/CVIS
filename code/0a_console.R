@@ -95,6 +95,9 @@ if (run_marine_stats) {
 if (run_scoring) {
   cat("\nRunning scoring engine to standardize indicators and calculate vulnerability ranks...\n")
   source(file.path(paths$code, "4a_CU_scoring.R"))
+  source(file.path(paths$code, "4b_sensitivity_analysis.R"))
+  source(file.path(paths$code, "4c_sensitivity_summary.R"))
+  source(file.path(paths$code, "4d_bootstrap_analysis.R"))
 }
 
 # ==================== 5. Report & App Generation ====================
@@ -119,7 +122,7 @@ if (run_reports_indiv) {
   dir.create(file.path(paths$reports, "CU_reports"), showWarnings = FALSE, recursive = TRUE)
   # Default to compiling the first 2 CUs for testing and speed.
   # To run for all 50 CUs, change this to: cus_to_compile <- cu_run$FULL_CU_IN
-  cus_to_compile <- cu_run$FULL_CU_IN[1:2]
+  cus_to_compile <- cu_run$FULL_CU_IN[1]
   
   for (CU_IN_i in cus_to_compile) {
     cat("Compiling HTML profile for:", CU_IN_i, "\n")
@@ -128,7 +131,7 @@ if (run_reports_indiv) {
     
     rmarkdown::render(
       file.path(paths$code, "6b_S2_CU_reports.Rmd"),
-      output_file = paste(CU_IN_i, "CVIS_Data_report.html", sep = "_"),
+      output_file = paste(CU_IN_i, "CVIS_profile.html", sep = "_"),
       output_dir = file.path(paths$reports, "CU_reports"),
       output_format = "html_document",
       output_options = list(self_contained = FALSE, lib_dir = file.path(paths$reports, "CU_reports", "libs")),

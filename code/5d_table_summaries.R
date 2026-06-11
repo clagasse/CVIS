@@ -14,11 +14,11 @@
 #      Builds overall vulnerability scores and category-level summaries across CUs.
 #   3. generate_cvis_sensitivity_table():
 #      Builds overall vulnerability sensitivity tables across GCMs, RCPs, and methods.
-#   4. generate_cvis_cu_sensitivity_table():
-#      Builds detailed indicator-level and overall sensitivity profiles for a single CU.
-#   5. generate_cvis_scenario_raw_summary_table():
+#   4. generate_cvis_scenario_raw_summary_table():
 #      Builds a scenario summary table showing raw indicator distributions (5%, mean, 95%)
 #      across projection periods, RCPs, and downscaling methods.
+#   5. generate_cvis_indicator_description_table():
+#      Builds a table summarizing descriptions, categories, and ranges of CVIS indicators.
 #
 # Inputs:
 #   - output/scoring_results.Rdata
@@ -483,7 +483,7 @@ generate_cvis_vulnerability_table <- function(
   # 1. Reshape category scores
   cat_scores <- scores_tidy_baseline %>%
     filter(method == "avg", category %in% c("dem", "fwrs", "gen", "mar", "migr")) %>%
-    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, category, score100_all) %>%
+    select(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL, CU_COMMON_NAME, SMU_SIMPLE, category, score100_all) %>%
     pivot_wider(
       names_from = category,
       values_from = score100_all
@@ -508,7 +508,7 @@ generate_cvis_vulnerability_table <- function(
   # 4. Extract different scoring methods for overall vulnerability (ensemble GCM 9)
   method_scores <- scores_tidy %>%
     filter(std_method == std_method_base, rcp == "45", period_code == "3", category == "all", gcm == "9") %>%
-    filter(method %in% c("avgall", "avgcube")) %>%
+    filter(method %in% c("flag", "avgcube")) %>%
     select(FULL_CU_IN, method, score100_all) %>%
     pivot_wider(
       names_from = method,
@@ -534,7 +534,7 @@ generate_cvis_vulnerability_table <- function(
   }
 
   # Round columns to integer
-  round_cols <- c("dem", "fwrs", "gen", "mar", "migr", "overall", "rankall", "rankspecies", "gcm1", "gcm4", "gcm6", "avgall", "avgcube")
+  round_cols <- c("dem", "fwrs", "gen", "mar", "migr", "overall", "rankall", "rankspecies", "gcm1", "gcm4", "gcm6", "flag", "avgcube")
   for (col in round_cols) {
     if (col %in% names(vuln_table_data)) {
       vuln_table_data[[col]] <- round(vuln_table_data[[col]], 0)
@@ -546,7 +546,7 @@ generate_cvis_vulnerability_table <- function(
     select(species_smu, FULL_CU_IN, CU_COMMON_NAME, 
            overall, rankall, rankspecies, 
            dem, fwrs, gen, mar, migr, 
-           avgall, avgcube,
+           flag, avgcube,
            gcm1, gcm4, gcm6)
 
   # Set default titles
@@ -585,7 +585,7 @@ generate_cvis_vulnerability_table <- function(
       gen = "Genetics",
       mar = "Marine",
       migr = "Migration",
-      avgall = "Avg All",
+      flag = "Red Flag",
       avgcube = "Avg Cube",
       gcm1 = "CanESM2",
       gcm4 = "HadGEM2",
@@ -601,7 +601,7 @@ generate_cvis_vulnerability_table <- function(
     ) %>%
     tab_spanner(
       label = "Sensitivity Analysis",
-      columns = c(avgall, avgcube, gcm1, gcm4, gcm6)
+      columns = c(flag, avgcube, gcm1, gcm4, gcm6)
     ) %>%
     fmt_integer(
       columns = all_of(round_cols)
@@ -612,7 +612,7 @@ generate_cvis_vulnerability_table <- function(
     ) %>%
     cols_align(
       align = "center",
-      columns = intersect(c("species_smu", "FULL_CU_IN", "overall", "rankall", "rankspecies", "dem", "fwrs", "gen", "mar", "migr", "avgall", "avgcube", "gcm1", "gcm4", "gcm6"), names(vuln_table_data))
+      columns = intersect(c("species_smu", "FULL_CU_IN", "overall", "rankall", "rankspecies", "dem", "fwrs", "gen", "mar", "migr", "flag", "avgcube", "gcm1", "gcm4", "gcm6"), names(vuln_table_data))
     ) %>%
     cols_align(
       align = "left",
@@ -746,7 +746,7 @@ generate_cvis_vulnerability_table <- function(
   )
 
   # Apply cell background colors to vulnerability score columns
-  score_cols <- c("dem", "fwrs", "gen", "mar", "migr", "overall", "avgall", "avgcube", "gcm1", "gcm4", "gcm6")
+  score_cols <- c("dem", "fwrs", "gen", "mar", "migr", "overall", "flag", "avgcube", "gcm1", "gcm4", "gcm6")
   for (col in score_cols) {
     for (i in seq_len(nrow(vuln_table_data))) {
       val <- vuln_table_data[[col]][i]
@@ -834,7 +834,7 @@ generate_cvis_sensitivity_table <- function(
     transmute(
       species_smu = paste0(SPECIES_NAME, " - ", SMU_SIMPLE),
       FULL_CU_IN,
-      CU_COMMON_NAME = CVIS_NAME,
+      CU_COMMON_NAME = CVIS_LABEL,
       
       score_base = round(base_score, 0),
       rank_base = round(base_rank_all, 0),
@@ -854,8 +854,8 @@ generate_cvis_sensitivity_table <- function(
       score_std = round(base_score + raw_dev_stdmethod, 0),
       rank_std = round(rankall_stdmethod, 0),
       
-      score_avgall = round(base_score + raw_dev_Method_avgall, 0),
-      rank_avgall = round(rankall_Method_avgall, 0),
+      score_flag = round(base_score + raw_dev_Method_flag, 0),
+      rank_flag = round(rankall_Method_flag, 0),
       
       score_avgcube = round(base_score + raw_dev_Method_avgcube, 0),
       rank_avgcube = round(rankall_Method_avgcube, 0)
@@ -895,7 +895,7 @@ generate_cvis_sensitivity_table <- function(
       score_gcm6 = "Score", rank_gcm6 = "Rank",
       score_ds = "Score", rank_ds = "Rank",
       score_std = "Score", rank_std = "Rank",
-      score_avgall = "Score", rank_avgall = "Rank",
+      score_flag = "Score", rank_flag = "Rank",
       score_avgcube = "Score", rank_avgcube = "Rank"
     ) %>%
     tab_spanner(
@@ -923,8 +923,8 @@ generate_cvis_sensitivity_table <- function(
       columns = c(score_std, rank_std)
     ) %>%
     tab_spanner(
-      label = "Avg All Method",
-      columns = c(score_avgall, rank_avgall)
+      label = "Red Flag Method",
+      columns = c(score_flag, rank_flag)
     ) %>%
     tab_spanner(
       label = "Avg Cube Method",
@@ -939,7 +939,7 @@ generate_cvis_sensitivity_table <- function(
     ) %>%
     cols_align(
       align = "center",
-      columns = intersect(c("species_smu", "FULL_CU_IN", "score_base", "rank_base", "score_gcm1", "rank_gcm1", "score_gcm4", "rank_gcm4", "score_gcm6", "rank_gcm6", "score_ds", "rank_ds", "score_std", "rank_std", "score_avgall", "rank_avgall", "score_avgcube", "rank_avgcube"), names(table_data))
+      columns = intersect(c("species_smu", "FULL_CU_IN", "score_base", "rank_base", "score_gcm1", "rank_gcm1", "score_gcm4", "rank_gcm4", "score_gcm6", "rank_gcm6", "score_ds", "rank_ds", "score_std", "rank_std", "score_flag", "rank_flag", "score_avgcube", "rank_avgcube"), names(table_data))
     ) %>%
     cols_align(
       align = "left",
@@ -954,7 +954,7 @@ generate_cvis_sensitivity_table <- function(
     "score_gcm6", "rank_gcm6",
     "score_ds", "rank_ds",
     "score_std", "rank_std",
-    "score_avgall", "rank_avgall",
+    "score_flag", "rank_flag",
     "score_avgcube", "rank_avgcube"
   )
   gt_sens_table <- gt_sens_table %>%
@@ -1001,7 +1001,7 @@ generate_cvis_sensitivity_table <- function(
       locations = cells_column_labels(columns = CU_COMMON_NAME)
     )
   
-  spanner_rights <- c("rank_base", "rank_gcm1", "rank_gcm4", "rank_gcm6", "rank_ds", "rank_std", "rank_avgall", "rank_avgcube")
+  spanner_rights <- c("rank_base", "rank_gcm1", "rank_gcm4", "rank_gcm6", "rank_ds", "rank_std", "rank_flag", "rank_avgcube")
   for (col in spanner_rights) {
     gt_sens_table <- gt_sens_table %>%
       tab_style(
@@ -1064,8 +1064,8 @@ generate_cvis_sensitivity_table <- function(
   )
 
   # Apply colors to scores and ranks
-  score_cols <- c("score_base", "score_gcm1", "score_gcm4", "score_gcm6", "score_ds", "score_std", "score_avgall", "score_avgcube")
-  rank_cols <- c("rank_base", "rank_gcm1", "rank_gcm4", "rank_gcm6", "rank_ds", "rank_std", "rank_avgall", "rank_avgcube")
+  score_cols <- c("score_base", "score_gcm1", "score_gcm4", "score_gcm6", "score_ds", "score_std", "score_flag", "score_avgcube")
+  rank_cols <- c("rank_base", "rank_gcm1", "rank_gcm4", "rank_gcm6", "rank_ds", "rank_std", "rank_flag", "rank_avgcube")
 
   for (col in score_cols) {
     for (i in seq_len(nrow(table_data))) {
@@ -1127,242 +1127,6 @@ generate_cvis_sensitivity_table <- function(
 #' @param subtitle Character. Subtitle for the gt table. Default is NULL.
 #'
 #' @return A `gt_tbl` object.
-generate_cvis_cu_sensitivity_table <- function(
-  overall_sensitivity,
-  cu_code,
-  title = NULL,
-  subtitle = NULL
-) {
-
-  # Load indicator metadata if not in active environment
-  if (!exists("tbl_indicators")) {
-    load(file.path(here::here(), "output", "indicator_tables.Rdata"))
-  }
-
-  # 1. Get indicator-level sensitivity metrics for this CU
-  ind_cu <- overall_sensitivity$indicator_metrics %>%
-    filter(FULL_CU_IN == cu_code) %>%
-    filter(!is.na(base_raw_mean)) # Keep relevant indicators only
-
-  # Map category abbreviations to pretty names
-  cat_pretty <- c(
-    "fwrs" = "Freshwater Spawning & Rearing",
-    "migr" = "Upstream Migration",
-    "mar" = "Marine",
-    "dem" = "Demographics",
-    "gen" = "Genetics"
-  )
-
-  # Prepare indicator rows
-  ind_rows <- ind_cu %>%
-    left_join(select(tbl_indicators, abbrev, name, unit), by = c("indicator" = "abbrev")) %>%
-    transmute(
-      row_type = "indicator",
-      category_pretty = factor(cat_pretty[category], levels = cat_pretty),
-      name = ifelse(is.na(name), as.character(indicator), name),
-      unit = ifelse(is.na(unit) | unit == "", "-", unit),
-      base_raw = base_raw_mean,
-      
-      score_base = round(base_std_mean * 100, 0),
-      score_gcm1 = round((base_std_mean + std_dev_GCM1) * 100, 0),
-      score_gcm4 = round((base_std_mean + std_dev_GCM4) * 100, 0),
-      score_gcm6 = round((base_std_mean + std_dev_GCM6) * 100, 0),
-      score_ds = round((base_std_mean + std_dev_dsmethod) * 100, 0),
-      score_std = round((base_std_mean + std_dev_stdmethod) * 100, 0),
-      score_avgall = NA_real_,
-      score_avgcube = NA_real_
-    ) %>%
-    arrange(category_pretty, name)
-
-  # 2. Get overall vulnerability sensitivity metrics for this CU
-  ov_cu <- overall_sensitivity$deviations %>%
-    filter(FULL_CU_IN == cu_code, category == "all")
-
-  # Prepare overall vulnerability row
-  ov_row <- tibble(
-    row_type = "overall",
-    category_pretty = factor("Overall Vulnerability", levels = c(cat_pretty, "Overall Vulnerability")),
-    name = "Overall Vulnerability Score",
-    unit = "Score (0-100)",
-    base_raw = NA_real_,
-    
-    score_base = round(ov_cu$base_score, 0),
-    score_gcm1 = round(ov_cu$base_score + ov_cu$raw_dev_GCM1, 0),
-    score_gcm4 = round(ov_cu$base_score + ov_cu$raw_dev_GCM4, 0),
-    score_gcm6 = round(ov_cu$base_score + ov_cu$raw_dev_GCM6, 0),
-    score_ds = round(ov_cu$base_score + ov_cu$raw_dev_dsmethod, 0),
-    score_std = round(ov_cu$base_score + ov_cu$raw_dev_stdmethod, 0),
-    score_avgall = round(ov_cu$base_score + ov_cu$raw_dev_Method_avgall, 0),
-    score_avgcube = round(ov_cu$base_score + ov_cu$raw_dev_Method_avgcube, 0)
-  )
-
-  # Combine them
-  all_pretty_levels <- c(cat_pretty, "Overall Vulnerability")
-  
-  ind_rows$category_pretty <- factor(ind_rows$category_pretty, levels = all_pretty_levels)
-  ov_row$category_pretty <- factor(ov_row$category_pretty, levels = all_pretty_levels)
-
-  table_data <- bind_rows(ind_rows, ov_row)
-
-  if (is.null(title)) {
-    title <- paste("Vulnerability Sensitivity Profile for CU:", cu_code)
-  }
-  if (is.null(subtitle)) {
-    subtitle <- "Comparison of standardized risk scores (0-100) across alternative climate models, downscaling methods, and scoring methods"
-  }
-
-  # 3. Generate gt table
-  gt_sens_table <- table_data %>%
-    gt(groupname_col = "category_pretty") %>%
-    tab_header(
-      title = title,
-      subtitle = subtitle
-    ) %>%
-    cols_label(
-      name = "Indicator / Overall Metric",
-      unit = "Units",
-      base_raw = "Base Raw Value",
-      score_base = "Baseline",
-      score_gcm1 = "GCM 1",
-      score_gcm4 = "GCM 4",
-      score_gcm6 = "GCM 6",
-      score_ds = "Alt DS Method",
-      score_std = "Linear Std",
-      score_avgall = "Avg All",
-      score_avgcube = "Avg Cube"
-    ) %>%
-    tab_spanner(
-      label = "Standardized Risk Score / Overall Score (0-100)",
-      columns = c(score_base, score_gcm1, score_gcm4, score_gcm6, score_ds, score_std, score_avgall, score_avgcube)
-    )
-
-  # Alignments
-  gt_sens_table <- gt_sens_table %>%
-    sub_missing(
-      columns = everything(),
-      missing_text = "-"
-    ) %>%
-    cols_align(
-      align = "left",
-      columns = name
-    ) %>%
-    cols_align(
-      align = "center",
-      columns = c(unit, base_raw, score_base, score_gcm1, score_gcm4, score_gcm6, score_ds, score_std, score_avgall, score_avgcube)
-    )
-
-  # Formats
-  gt_sens_table <- gt_sens_table %>%
-    fmt_number(
-      columns = base_raw,
-      decimals = 2
-    ) %>%
-    fmt_integer(
-      columns = c(score_base, score_gcm1, score_gcm4, score_gcm6, score_ds, score_std, score_avgall, score_avgcube)
-    )
-
-  # Styling
-  gt_sens_table <- gt_sens_table %>%
-    opt_table_font(
-      font = list(
-        "Inter",
-        "Helvetica Neue", "Arial", "sans-serif"
-      )
-    ) %>%
-    tab_style(
-      style = cell_text(weight = "bold", size = px(15), color = "#1A365D"),
-      locations = cells_title(groups = "title")
-    ) %>%
-    tab_style(
-      style = cell_text(size = px(11), style = "italic", color = "#4A5568"),
-      locations = cells_title(groups = "subtitle")
-    ) %>%
-    tab_style(
-      style = list(
-        cell_fill(color = "#EBF8FF"),
-        cell_text(color = "#2B6CB0", weight = "bold", size = px(11))
-      ),
-      locations = cells_row_groups()
-    )
-
-  # Add right border to separate descriptive columns from score columns
-  gt_sens_table <- gt_sens_table %>%
-    tab_style(
-      style = cell_borders(sides = "right", color = "#CBD5E0", weight = px(1.5)),
-      locations = cells_body(columns = base_raw)
-    ) %>%
-    tab_style(
-      style = cell_borders(sides = "right", color = "#CBD5E0", weight = px(1.5)),
-      locations = cells_column_labels(columns = base_raw)
-    )
-
-  # Color scale functions for scores (0-100)
-  color_fun_score <- scales::col_numeric(
-    palette = c("#E8F3FF", "#FFFDE6", "#FFEAEA"),
-    domain = c(0, 100),
-    na.color = "#FFFFFF"
-  )
-
-  # Apply colors to score columns
-  score_cols <- c("score_base", "score_gcm1", "score_gcm4", "score_gcm6", "score_ds", "score_std", "score_avgall", "score_avgcube")
-  for (col in score_cols) {
-    for (i in seq_len(nrow(table_data))) {
-      val <- table_data[[col]][i]
-      if (!is.na(val)) {
-        bg_color <- color_fun_score(val)
-        gt_sens_table <- gt_sens_table %>%
-          tab_style(
-            style = cell_fill(color = bg_color),
-            locations = cells_body(columns = all_of(col), rows = i)
-          )
-      }
-    }
-  }
-
-  # Highlight the Overall Vulnerability row specifically (bold, larger, distinct border)
-  overall_row_idx <- which(table_data$row_type == "overall")
-  gt_sens_table <- gt_sens_table %>%
-    tab_style(
-      style = cell_text(weight = "bold", size = px(12)),
-      locations = cells_body(rows = overall_row_idx)
-    ) %>%
-    tab_style(
-      style = cell_borders(sides = c("top", "bottom"), color = "#1A365D", weight = px(2)),
-      locations = cells_body(rows = overall_row_idx)
-    )
-
-  # General table options
-  gt_sens_table <- gt_sens_table %>%
-    tab_style(
-      style = cell_borders(sides = "bottom", color = "#E2E8F0", weight = px(1)),
-      locations = cells_body()
-    ) %>%
-    opt_row_striping() %>%
-    tab_options(
-      table.font.size = 10,
-      heading.title.font.size = 13,
-      heading.subtitle.font.size = 11,
-      row_group.font.size = 11,
-      row_group.font.weight = "bold",
-      column_labels.font.weight = "bold",
-      column_labels.background.color = "#F7FAFC",
-      row.striping.background_color = "#F8FAFC",
-      table.border.top.color = "#1A365D",
-      table.border.top.width = px(2),
-      table.border.bottom.color = "#1A365D",
-      table.border.bottom.width = px(2),
-      column_labels.border.bottom.color = "#A0AEC0",
-      column_labels.border.bottom.width = px(1.5),
-      table.width = pct(100),
-      data_row.padding = px(6)
-    )
-
-  # Hide row_type column
-  gt_sens_table <- gt_sens_table %>%
-    cols_hide(columns = row_type)
-
-  return(gt_sens_table)
-}
 #' Generate CVIS Scenario and Sensitivity Raw Indicator Value Table
 #'
 #' @description

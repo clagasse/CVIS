@@ -8,18 +8,18 @@
 #   risk score lollipop charts.
 #
 # List of Plotting Functions:
-#   1. cu_timing_plot()                 - CU life stage timing with indicator periods.
+#   1. plot_timing_comparison()         - Life-history stage timing comparison plot.
 #   2. stream_accessible_plot()         - Maps accessible streams and NUSEDS sites.
-#   3. stream_indicator_plot()          - Stream map + histogram of a given indicator.
-#   4. stream_indicator_multipanel_plot()- Side-by-side stream network panels.
-#   5. migration_path_timing_plot()     - Combined geographic migration route map and projected mainstem temperatures plot.
-#   6. cu_boundary_highlight()          - General locator map highlighting a single CU.
-#   7. cu_hydrologic_regime()           - Maps CU boundaries with flow gauges and regimes.
-#   8. plot_cu_lolli()                  - Lollipop chart comparing CU vs species means.
-#   9. marine_indicator_plot()          - Maps marine SST and SSS indicators.
-#   10. abundance_status_plot()         - Timeline of wild spawner abundance and WSP status.
-#   11. plot_cu_indicators_lollipop()   - Comprehensive multi-indicator CU risk profile.
-#   12. MAZ_boundary_highlight()        - General locator map highlighting a single MAZ.
+#   3. stream_indicator_multipanel_plot()- Side-by-side stream network panels for indicators.
+#   4. migration_path_timing_plot()     - Combined geographic migration route map and projected mainstem temperatures.
+#   5. cu_boundary_highlight()          - Locator map highlighting a single CU.
+#   6. cu_hydrologic_regime()           - Maps CU boundaries with flow gauges and regimes.
+#   7. fraser_hydrologic_regime_comparison_plot() - Hydrologic regime comparisons across Fraser basin.
+#   8. abundance_status_plot()          - Timeline of wild spawner abundance and WSP status.
+#   9. MAZ_boundary_highlight()         - Locator map highlighting a single MAZ.
+#   10. plot_cu_vulnerability_summary() - Individual CU-level vulnerability dashboard.
+#   11. plot_cu_sensitivity_scores()    - Individual CU-level sensitivity scores across variation sources.
+#   12. plot_cu_sensitivity_indicators()- Individual CU-level sensitivity to indicators.
 #
 # Dependencies:
 #   - Requires ggplot2, sf, scico, patchwork, and standard CVIS data inputs.
@@ -207,28 +207,34 @@ plot_timing_comparison <- function(cu_timing_long,
 
   # 5. Build y-axis factors and highlights
   cu_labels_df <- df_plot %>%
-    select(FULL_CU_IN, CVIS_NAME, culabel, SPECIES_NAME) %>%
+    select(FULL_CU_IN, CVIS_LABEL, SPECIES_NAME) %>%
     distinct()
   
   if (!is.null(selected_cu) && !selected_cu %in% cu_labels_df$FULL_CU_IN) {
     selected_row <- cu_timing_long %>% 
       filter(FULL_CU_IN == selected_cu) %>%
-      select(FULL_CU_IN, CVIS_NAME, culabel, SPECIES_NAME) %>% 
+      select(FULL_CU_IN, CVIS_LABEL, SPECIES_NAME) %>% 
       distinct()
     if (nrow(selected_row) > 0) {
       cu_labels_df <- bind_rows(cu_labels_df, selected_row) %>% distinct()
     }
   }
 
-  # Define label sizes based on selected_cu mode
-  default_size <- if (!is.null(selected_cu)) "5.2pt" else "8pt"
+  # Define label sizes based on selected_cu mode and n_cus
+  n_cus <- length(unique(df_plot$FULL_CU_IN))
+  y_text_size_val <- if (!is.null(y_text_size)) {
+    y_text_size
+  } else {
+    if (n_cus > 40) 6.5 else if (n_cus > 20) 8 else 9
+  }
+  default_size <- if (!is.null(selected_cu)) "6.5pt" else "8pt"
   y_sz <- if (!is.null(y_text_size)) paste0(y_text_size, "pt") else default_size
 
   cu_labels_df <- cu_labels_df %>%
     mutate(
       color_hex = species_palette[SPECIES_NAME],
       color_hex = if_else(is.na(color_hex), "#4B5563", color_hex),
-      label_clean = paste0(culabel, " (", FULL_CU_IN, ")")
+      label_clean = CVIS_LABEL # Omit (FULL_CU_IN) to match indicator_cu_tile_plot
     )
 
   if (!is.null(selected_cu)) {
@@ -236,21 +242,21 @@ plot_timing_comparison <- function(cu_timing_long,
       mutate(
         label_formatted = if_else(
           FULL_CU_IN == selected_cu,
-          paste0("<span style='color:", color_hex, "; font-size:8.5pt;'><b>▶ ", label_clean, "</b></span>"),
-          paste0("<span style='color:", color_hex, "; font-size:", y_sz, ";'>", label_clean, "</span>")
+          paste0("<strong>➔ <span style='color:", color_hex, "'>", label_clean, "</span></strong>"),
+          paste0("<span style='color:", color_hex, "'>", label_clean, "</span>")
         )
       )
   } else {
     cu_labels_df <- cu_labels_df %>%
       mutate(
-        label_formatted = paste0("<span style='color:", color_hex, "; font-size:", y_sz, ";'>", label_clean, "</span>")
+        label_formatted = paste0("<span style='color:", color_hex, "'>", label_clean, "</span>")
       )
   }
 
   # Sort CUs
   if (sort_by == "species") {
     cu_labels_ordered <- cu_labels_df %>%
-      arrange(desc(SPECIES_NAME), desc(CVIS_NAME))
+      arrange(desc(SPECIES_NAME), desc(CVIS_LABEL))
   } else if (sort_by == "peak_spawn") {
     sp_peaks <- df_plot %>%
       filter(life_stage == "spawning") %>%
@@ -553,8 +559,8 @@ plot_timing_comparison <- function(cu_timing_long,
     theme_cvis() +
     theme(
       axis.text.x = element_text(size = 9, angle = if (is.null(selected_cu)) 45 else 0, hjust = if (is.null(selected_cu)) 1 else 0.5),
-      axis.text.y = ggtext::element_markdown(lineheight = 0.8),
-      axis.text.y.left = ggtext::element_markdown(lineheight = 0.8),
+      axis.text.y = ggtext::element_markdown(size = y_text_size_val, lineheight = 0.8),
+      axis.text.y.left = ggtext::element_markdown(size = y_text_size_val, lineheight = 0.8),
       axis.title.x = element_text(size = 10, face = "bold"),
       panel.grid.major.y = element_blank(),
       panel.grid.minor = element_blank(),
@@ -572,22 +578,7 @@ plot_timing_comparison <- function(cu_timing_long,
   return(p)
 }
 
-cu_timing_plot <- function(data, show_indicator_periods = FALSE) {
-  # Wrapper that detects selected_cu and delegates to consolidated plot_timing_comparison
-  selected_cu <- unique(data$FULL_CU_IN)[1]
-  plot_timing_comparison(
-    cu_timing_long = data,
-    selected_cu = selected_cu,
-    show_indicator_periods = show_indicator_periods,
-    zoom_to_selected = TRUE
-  )
-}
 
-# # # Load your timing data
-# cu_timing_long_i <- cu_timing_long %>% filter(FULL_CU_IN == "CK-11")
-# # # Create plot
-# p <- cu_timing_plot(cu_timing_long_i, show_indicator_periods = F)
-# print(p)
 
 
 
@@ -596,7 +587,12 @@ cu_timing_plot <- function(data, show_indicator_periods = FALSE) {
 stream_accessible_plot <- function(stream_data,
                                    nuseds_data,
                                    cu_boundary,
-                                   lakes_cu) {
+                                   lakes_cu,
+                                   variable = "elevation",
+                                   xlim = NA,
+                                   unit_label = "Elevation (m)",
+                                   plot_title = "") {
+
   # Simplify geometries if needed
   if (exists("cu_boundary_i", envir = .GlobalEnv)) {
     cu_boundary_i <- simplify_geom_if_needed(get("cu_boundary_i", envir = .GlobalEnv))
@@ -606,21 +602,65 @@ stream_accessible_plot <- function(stream_data,
   lakes_cu <- simplify_geom_if_needed(lakes_cu)
   stream_data <- simplify_geom_if_needed(stream_data)
 
-  p1 <- ggplot() +
-    geom_sf(data = cu_boundary_i, color = "black", alpha = 0.3)
+  # Check if nuseds_cu or nuseds_data exists. Use nuseds_data first, fallback to nuseds_cu
+  if (is.null(nuseds_data) || !inherits(nuseds_data, "sf")) {
+    if (exists("nuseds_cu", envir = .GlobalEnv)) {
+      nuseds_data <- get("nuseds_cu", envir = .GlobalEnv)
+    }
+  }
 
-  if (nrow(lakes_cu) > 0) p1 <- p1 + geom_sf(data = lakes_cu, color = "darkblue", alpha = 0.7)
+  # Ensure model_rs is converted to a factor with levels 2-ACCESSIBLE and 1-SPAWNING/REARING
+  if ("model_rs" %in% names(stream_data)) {
+    if (is.logical(stream_data$model_rs)) {
+      stream_data$model_rs <- factor(stream_data$model_rs, levels = c(TRUE, FALSE),
+                                     labels = c("1-SPAWNING/REARING", "2-ACCESSIBLE"))
+    }
+    stream_data$model_rs <- factor(stream_data$model_rs, levels = c("2-ACCESSIBLE", "1-SPAWNING/REARING"))
+  }
+
+  # Filter stream segments to those that intersect with the CU boundary polygon
+  cu_boundary_union <- sf::st_union(cu_boundary_i)
+  intersects_mask <- sf::st_intersects(stream_data, cu_boundary_union, sparse = FALSE)[, 1]
+  if (any(intersects_mask)) {
+    stream_data <- stream_data[intersects_mask, ]
+  }
+
+  ## stream map
+  p1 <- ggplot() +
+    geom_sf(data = cu_boundary_i, color = "black", fill = NA, alpha = 0.3)
+
+  if (nrow(lakes_cu) > 0) {
+    p1 <- p1 + geom_sf(data = lakes_cu, color = "darkgrey", alpha = 0.8)
+  }
 
   p1 <- p1 +
-    geom_sf(data = nuseds_cu, aes(fill = SPECIES), size = 2, alpha = 0.6) +
-    geom_sf(data = st_zm(stream_data), aes(color = model_rs)) +
+    geom_sf(data = st_zm(stream_data), aes(color = model_rs), linewidth = 1.0, show.legend = TRUE) +
+    scale_color_manual(values = c(
+      "2-ACCESSIBLE" = "lightgreen",
+      "1-SPAWNING/REARING" = "forestgreen"
+    ))
+
+  if (!is.null(nuseds_data) && nrow(nuseds_data) > 0) {
+    p1 <- p1 + geom_sf(data = nuseds_data, aes(fill = SPECIES), size = 2.5, alpha = 0.9, show.legend = FALSE)
+  }
+
+  p1 <- p1 +
     coord_sf(
       xlim = st_bbox(cu_boundary_i)[c(1, 3)],
-      ylim = st_bbox(cu_boundary_i)[c(2, 4)]
+      ylim = st_bbox(cu_boundary_i)[c(2, 4)],
+      datum = NA
     ) +
     labs(
-      colour = "BC FishPass",
-      fill = "NUSEDS sites"
+      subtitle = plot_title,
+      color = "Habitat Potential"
+    ) +
+    guides(fill = "none") +
+    theme(
+      legend.key.size = unit(0.3, "cm"),
+      legend.text = element_text(size = 7.5),
+      legend.title = element_text(size = 8.5),
+      legend.position = "right",
+      legend.background = element_rect(fill = "white", color = "grey90", linewidth = 0.2)
     )
 
   return(p1)
@@ -628,125 +668,6 @@ stream_accessible_plot <- function(stream_data,
 
 
 # ==================== 3. Stream Indicator Map & Histogram ====================
-
-stream_indicator_plot <- function(fwModels,
-                                  cu_boundary,
-                                  lakes_cu,
-                                  Tw_stations,
-                                  variable = "CT_anad",
-                                  plot_title = "",
-                                  histogram_fill = "model_rs",
-                                  xlim = NA,
-                                  unit_label = NULL,
-                                  temp_stations = FALSE,
-                                  risk_palette = cvis_risk_palette,
-                                  palette_direction = 1) {
-
-  # Simplify geometries if needed
-  fwModels <- simplify_geom_if_needed(fwModels)
-  cu_boundary <- simplify_geom_if_needed(cu_boundary)
-  lakes_cu <- simplify_geom_if_needed(lakes_cu)
-
-  # Filter stream segments to those that intersect with the CU boundary polygon
-  cu_boundary_union <- sf::st_union(cu_boundary)
-  intersects_mask <- sf::st_intersects(fwModels, cu_boundary_union, sparse = FALSE)[, 1]
-  if (any(intersects_mask)) {
-    fwModels <- fwModels[intersects_mask, ]
-  }
-
-  var_sym <- sym(variable)
-  hist_sym <- sym(histogram_fill)
-
-  color_range <- range(fwModels[[as.character(var_sym)]], na.rm = TRUE)
-
-  ## stream map
-  p1 <- ggplot() +
-    geom_sf(data = fwModels, aes(color = !!var_sym), linewidth = 1.) +
-    scale_color_cvis(
-      palette = risk_palette,
-      direction = palette_direction,
-      limits = color_range
-    ) +
-    geom_sf(data = cu_boundary, color = "black", alpha = 0.3) +
-    coord_sf(
-      xlim = st_bbox(cu_boundary)[c(1, 3)],
-      ylim = st_bbox(cu_boundary)[c(2, 4)],
-      datum = NA
-    ) + # this eliminates axis labels
-    labs(
-      subtitle = plot_title,
-      color = unit_label
-    )
-
-  if (nrow(lakes_cu) > 0) p1 <- p1 + geom_sf(data = lakes_cu, color = "darkblue", alpha = 0.7)
-
-  if (sum(!is.na(xlim)) > 0) {
-    p1 <- p1 + scale_color_cvis(palette = risk_palette, direction = palette_direction, limits = xlim)
-  }
-
-  if (temp_stations == TRUE) {
-    p1 <- p1 +
-      geom_sf(
-        data = Tw_stations, aes(shape = "Temperature Gauge"),
-        size = 0.6, show.legend = TRUE
-      ) +
-      coord_sf(
-        xlim = st_bbox(cu_boundary)[c(1, 3)],
-        ylim = st_bbox(cu_boundary)[c(2, 4)],
-        datum = NA
-      ) +
-      scale_shape_manual(
-        values = c("Temperature Gauge" = 16),
-        name = NULL
-      )
-  }
-
-  ## histogram plotting
-  # If using BC Fishpass, set factor levels
-  if (histogram_fill == "model_rs") fwModels[[histogram_fill]] <- factor(fwModels[[histogram_fill]], levels = c("2-ACCESSIBLE", "1-SPAWNING/REARING"))
-
-  h1 <- ggplot(fwModels) +
-    geom_histogram(aes(x = !!var_sym, fill = !!hist_sym))
-
-  # add custom labels for BCFishPass
-  if (histogram_fill == "model_rs") {
-    h1 <- h1 + labs(fill = "Habitat Potential (BC Fishpass)") +
-      scale_fill_manual(values = c(
-        "2-ACCESSIBLE" = "darkgrey",
-        "1-SPAWNING/REARING" = "forestgreen"
-      ))
-  }
-
-
-  # Extract max y from built plot
-  y_pos <- max(ggplot_build(h1)$data[[1]]$count, na.rm = TRUE) * 1.05
-  # add mean value line and label
-  h1 <- h1 +
-    # geom_vline(aes(xintercept = mean(!!var_sym, na.rm = TRUE)),
-    #   color = "red", linetype = "dashed"
-    # ) +
-    # annotate("text",
-    #   x = mean(fwModels[[variable]], na.rm = TRUE),
-    #   y = y_pos,
-    #   label = "mean"
-    # ) +
-    theme_void() +
-    theme(
-      axis.line.x = element_line(color = "black"),
-      axis.text.x = element_text(color = "black", margin = margin(t = 6)),
-      axis.ticks.x = element_line(color = "black"),
-      axis.title.x = element_text(color = "black", margin = margin(t = 6)),
-      plot.margin = margin(1, 2, 12, 2)
-    )
-
-  if (sum(!is.na(xlim)) > 0) {
-    h1 <- h1 + xlim(xlim)
-  }
-
-  p1 / h1 + plot_layout(heights = c(4, 1))
-  
-}
-
 
 #' Multi-panel stream network plot of indicator values within a CU boundary
 #' 
@@ -765,7 +686,7 @@ stream_indicator_plot <- function(fwModels,
 #' @param nrow Integer. Number of rows in layout.
 #'
 stream_indicator_multipanel_plot <- function(fwModels,
-                                             cu_boundary,
+                                             cu_boundary = NULL,
                                              lakes_cu = NULL,
                                              variables = c("CT_anad"),
                                              plot_titles = NULL,
@@ -774,6 +695,16 @@ stream_indicator_multipanel_plot <- function(fwModels,
                                              palette_directions = 1,
                                              ncol = NULL,
                                              nrow = NULL) {
+  # If no cu_boundary is supplied, default to the entire area (e.g. Fraser Basin or bbox of fwModels)
+  if (is.null(cu_boundary)) {
+    if (exists("Fr_basin", envir = .GlobalEnv)) {
+      cu_boundary <- get("Fr_basin", envir = .GlobalEnv)
+    } else {
+      # Fallback to the bounding box of the stream data
+      cu_boundary <- sf::st_as_sf(sf::st_as_sfc(sf::st_bbox(fwModels)))
+    }
+  }
+
   # Simplify geometries if needed
   fwModels <- simplify_geom_if_needed(fwModels)
   cu_boundary <- simplify_geom_if_needed(cu_boundary)
@@ -950,23 +881,32 @@ stream_indicator_multipanel_plot <- function(fwModels,
     
     # Calculate limits for this indicator to avoid issues with NA or empty ranges
     vals <- panel_data[[var_name]]
-    val_range <- range(vals, na.rm = TRUE)
-    if (any(is.infinite(val_range)) || any(is.nan(val_range))) {
-      val_range <- c(0, 1) # Fallback range
-    } else {
-      # Clamp to IQR-based outlier thresholds: [Q1 - 1.5*IQR, Q3 + 1.5*IQR]
-      q <- quantile(vals, probs = c(0.25, 0.75), na.rm = TRUE)
-      iqr <- q[2] - q[1]
-      if (iqr > 0) {
-        val_range[1] <- max(val_range[1], q[1] - 1.5 * iqr)
-        val_range[2] <- min(val_range[2], q[2] + 1.5 * iqr)
-      }
-    }
+    is_discrete <- is.character(vals) || is.factor(vals) || is.logical(vals)
     
-    # Constrain range to [-1, 1] for favourability and proportion change indicators
-    if (startsWith(var_name, "favchange") || startsWith(var_name, "flow8pdelta") || startsWith(var_name, "flow18pdelta")) {
-      val_range[1] <- max(val_range[1], -1)
-      val_range[2] <- min(val_range[2], 1)
+    if (is_discrete) {
+      panel_data[[var_name]] <- as.factor(vals)
+      if (var_name == "model_access_salmon") {
+        p_palette <- "Set2"
+      }
+    } else {
+      val_range <- range(vals, na.rm = TRUE)
+      if (any(is.infinite(val_range)) || any(is.nan(val_range))) {
+        val_range <- c(0, 1) # Fallback range
+      } else {
+        # Clamp to IQR-based outlier thresholds: [Q1 - 1.5*IQR, Q3 + 1.5*IQR]
+        q <- quantile(vals, probs = c(0.25, 0.75), na.rm = TRUE)
+        iqr <- q[2] - q[1]
+        if (iqr > 0) {
+          val_range[1] <- max(val_range[1], q[1] - 1.5 * iqr)
+          val_range[2] <- min(val_range[2], q[2] + 1.5 * iqr)
+        }
+      }
+      
+      # Constrain range to [-1, 1] for favourability and proportion change indicators
+      if (startsWith(var_name, "favchange") || startsWith(var_name, "flow8pdelta") || startsWith(var_name, "flow18pdelta")) {
+        val_range[1] <- max(val_range[1], -1)
+        val_range[2] <- min(val_range[2], 1)
+      }
     }
     
     if ("stream_order" %in% variables && "stream_order" %in% names(panel_data) && !all(is.na(panel_data$stream_order))) {
@@ -978,15 +918,21 @@ stream_indicator_multipanel_plot <- function(fwModels,
         geom_sf(data = panel_data, aes(color = !!var_sym))
     }
     
-    p <- p +
-      scale_color_cvis(
-        palette = p_palette,
-        direction = p_dir,
-        limits = val_range,
-        guide = "none",
-        oob = scales::squish
-      ) +
-      geom_sf(data = cu_boundary, color = "black", alpha = 0.05)
+    if (is_discrete) {
+      p <- p +
+        scale_color_brewer(palette = p_palette, na.value = "grey95", guide = "none") +
+        geom_sf(data = cu_boundary, color = "black", alpha = 0.05)
+    } else {
+      p <- p +
+        scale_color_cvis(
+          palette = p_palette,
+          direction = p_dir,
+          limits = val_range,
+          guide = "none",
+          oob = scales::squish
+        ) +
+        geom_sf(data = cu_boundary, color = "black", alpha = 0.05)
+    }
       
     if (!is.null(lakes_cu) && inherits(lakes_cu, "sf") && nrow(lakes_cu) > 0) {
       p <- p + geom_sf(data = lakes_cu, color = "darkgrey", alpha = 0.7)
@@ -1005,31 +951,47 @@ stream_indicator_multipanel_plot <- function(fwModels,
         plot.margin = margin(5, 5, 5, 5)
       )
 
-    # Inset histogram for distribution of values across stream segments
-    p_hist <- ggplot(st_drop_geometry(panel_data), aes(x = !!var_sym)) +
-      geom_histogram(aes(fill = after_stat(x)), bins = 15, color = "white", linewidth = 0.1, show.legend = FALSE, na.rm = TRUE) +
-      scale_fill_cvis(
-        palette = p_palette,
-        direction = p_dir,
-        limits = val_range,
-        oob = scales::squish
-      ) +
-      scale_x_continuous(
-        limits = val_range,
-        oob = scales::squish,
-        breaks = c(val_range[1], (val_range[1] + val_range[2])/2, val_range[2]),
-        labels = function(x) sprintf("%.1f", x)
-      ) +
-      labs(x = u_label) +
-      theme_void() +
-      theme(
-        axis.line.x = element_line(color = "black", linewidth = 0.5),
-        axis.text.x = element_text(color = "black", size = 7, face = "bold", margin = margin(t = 6)),
-        axis.ticks.x = element_line(color = "black", linewidth = 0.5),
-        axis.title.x = if (!is.null(u_label)) element_text(color = "black", size = 6.5, face = "bold", margin = margin(t = 6)) else element_blank(),
-        plot.background = element_rect(fill = "white", color = NA),
-        plot.margin = margin(1, 2, 12, 2)
-      )
+    # Inset histogram/bar chart for distribution of values across stream segments
+    if (is_discrete) {
+      p_hist <- ggplot(st_drop_geometry(panel_data), aes(x = !!var_sym)) +
+        geom_bar(aes(fill = !!var_sym), color = "white", linewidth = 0.1, show.legend = FALSE, na.rm = TRUE) +
+        scale_fill_brewer(palette = p_palette, na.value = "grey95") +
+        labs(x = u_label) +
+        theme_void() +
+        theme(
+          axis.line.x = element_line(color = "black", linewidth = 0.5),
+          axis.text.x = element_text(color = "black", size = 5, face = "bold", angle = 30, hjust = 1, margin = margin(t = 2)),
+          axis.ticks.x = element_line(color = "black", linewidth = 0.5),
+          axis.title.x = if (!is.null(u_label)) element_text(color = "black", size = 6.5, face = "bold", margin = margin(t = 6)) else element_blank(),
+          plot.background = element_rect(fill = "white", color = NA),
+          plot.margin = margin(1, 2, 12, 2)
+        )
+    } else {
+      p_hist <- ggplot(st_drop_geometry(panel_data), aes(x = !!var_sym)) +
+        geom_histogram(aes(fill = after_stat(x)), bins = 15, color = "white", linewidth = 0.1, show.legend = FALSE, na.rm = TRUE) +
+        scale_fill_cvis(
+          palette = p_palette,
+          direction = p_dir,
+          limits = val_range,
+          oob = scales::squish
+        ) +
+        scale_x_continuous(
+          limits = val_range,
+          oob = scales::squish,
+          breaks = c(val_range[1], (val_range[1] + val_range[2])/2, val_range[2]),
+          labels = function(x) sprintf("%.1f", x)
+        ) +
+        labs(x = u_label) +
+        theme_void() +
+        theme(
+          axis.line.x = element_line(color = "black", linewidth = 0.5),
+          axis.text.x = element_text(color = "black", size = 7, face = "bold", margin = margin(t = 6)),
+          axis.ticks.x = element_line(color = "black", linewidth = 0.5),
+          axis.title.x = if (!is.null(u_label)) element_text(color = "black", size = 6.5, face = "bold", margin = margin(t = 6)) else element_blank(),
+          plot.background = element_rect(fill = "white", color = NA),
+          plot.margin = margin(1, 2, 12, 2)
+        )
+    }
 
     p_combined <- p + patchwork::inset_element(
       p_hist,
@@ -1542,6 +1504,315 @@ cu_hydrologic_regime <- function(cu_boundary_i,
 }
 
 
+# ==================== 7b. Fraser Hydrologic Regimes & Flow Change Comparison ====================
+# Compares hydrologic regimes with change in August flow for the entire Fraser Basin
+fraser_hydrologic_regime_comparison_plot <- function(watershed_flow = NULL,
+                                                     stream_data = NULL,
+                                                     lakes_df = NULL,
+                                                     fraser_boundary = NULL,
+                                                     variable = "flow8pdelta_9_45_3",
+                                                     xlim = c(-1, 0),
+                                                     unit_label = "Proportional Change",
+                                                     risk_palette = cvis_risk_palette,
+                                                     palette_direction = 1,
+                                                     inset_quad = "BL") {
+  # 1. Load data from global environment if not provided, or load from file
+  if (is.null(watershed_flow)) {
+    if (exists("watershed_flow", envir = .GlobalEnv)) {
+      watershed_flow <- get("watershed_flow", envir = .GlobalEnv)
+    } else {
+      temp_env <- new.env()
+      load(file.path(paths$fw, "flow_gauge_data.Rdata"), envir = temp_env)
+      watershed_flow <- temp_env$watershed_flow
+    }
+  }
+  if (is.null(stream_data) && exists("fw_sp_ind", envir = .GlobalEnv)) {
+    stream_data <- get("fw_sp_ind", envir = .GlobalEnv)
+  }
+  if (is.null(fraser_boundary) && exists("Fr_basin", envir = .GlobalEnv)) {
+    fraser_boundary <- get("Fr_basin", envir = .GlobalEnv)
+  }
+  if (is.null(lakes_df) && exists("lakes_Fr", envir = .GlobalEnv)) {
+    lakes_df <- get("lakes_Fr", envir = .GlobalEnv)
+  }
+
+  # Ensure datasets are present
+  if (is.null(watershed_flow) || is.null(stream_data) || is.null(fraser_boundary)) {
+    stop("Required datasets (watershed_flow, stream_data, fraser_boundary) could not be found.")
+  }
+
+  # Simplify geometries if needed
+  fraser_boundary <- simplify_geom_if_needed(fraser_boundary)
+  watershed_flow <- simplify_geom_if_needed(watershed_flow)
+  stream_data <- simplify_geom_if_needed(stream_data)
+  if (!is.null(lakes_df)) lakes_df <- simplify_geom_if_needed(lakes_df)
+
+  # Check if variable exists in stream_data
+  if (!variable %in% names(stream_data)) {
+    stop(paste("Variable", variable, "not found in stream_data."))
+  }
+
+  # Determine inset coordinates based on quadrant
+  inset_coords <- switch(inset_quad,
+    "BL" = list(left = 0.03, bottom = 0.03, right = 0.38, top = 0.32),
+    "BR" = list(left = 0.62, bottom = 0.03, right = 0.97, top = 0.32),
+    "TL" = list(left = 0.03, bottom = 0.68, right = 0.38, top = 0.97),
+    "TR" = list(left = 0.62, bottom = 0.68, right = 0.97, top = 0.97),
+    list(left = 0.03, bottom = 0.03, right = 0.38, top = 0.32) # default
+  )
+
+  # ==================== PANEL A: Hydrologic Regimes ====================
+  p_regime <- ggplot() +
+    geom_sf(data = fraser_boundary, color = "black", fill = "grey95", linewidth = 0.6) +
+    geom_sf(data = watershed_flow, aes(fill = regime), alpha = 0.65, color = NA) +
+    scale_fill_brewer(palette = "Set2", guide = "none")
+
+  p_regime <- p_regime +
+    coord_sf(datum = NA) +
+    labs(title = "Hydrologic Regimes") +
+    theme_void() +
+    theme(
+      plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
+      plot.margin = margin(5, 5, 5, 5)
+    )
+
+  # Inset bar plot for distribution of regimes
+  regime_counts <- as.data.frame(sf::st_drop_geometry(watershed_flow)) %>%
+    filter(!is.na(regime)) %>%
+    group_by(regime) %>%
+    summarise(count = n(), .groups = "drop") %>%
+    mutate(prop = count / sum(count))
+
+  p_regime_hist <- ggplot(regime_counts, aes(x = regime, y = prop, fill = regime)) +
+    geom_bar(stat = "identity", color = "white", linewidth = 0.1, show.legend = FALSE) +
+    scale_fill_brewer(palette = "Set2") +
+    scale_y_continuous(labels = function(y) sprintf("%.0f%%", y * 100)) +
+    labs(x = NULL, y = "Proportion") +
+    theme_void() +
+    theme(
+      axis.line.y = element_line(color = "black", linewidth = 0.5),
+      axis.text.y = element_text(color = "black", size = 6, face = "bold"),
+      axis.text.x = element_text(color = "black", size = 6.5, face = "bold", angle = 45, hjust = 1),
+      axis.ticks.y = element_line(color = "black", linewidth = 0.5),
+      plot.background = element_rect(fill = "white", color = NA),
+      plot.margin = margin(1, 2, 8, 2)
+    )
+
+  p_regime_combined <- p_regime + patchwork::inset_element(
+    p_regime_hist,
+    left = inset_coords$left,
+    bottom = inset_coords$bottom,
+    right = inset_coords$right,
+    top = inset_coords$top,
+    align_to = "panel"
+  )
+
+  # ==================== PANEL B: Change in August Flow ====================
+  panel_data <- stream_data[!is.na(sf::st_drop_geometry(stream_data)[[variable]]), ]
+  panel_data <- suppressWarnings(sf::st_crop(panel_data, sf::st_bbox(fraser_boundary)))
+
+  var_sym <- sym(variable)
+  
+  if ("stream_order" %in% names(panel_data)) {
+    panel_data$stream_order <- as.numeric(panel_data$stream_order)
+    p_flow <- ggplot() +
+      geom_sf(data = fraser_boundary, color = "black", fill = "grey95", linewidth = 0.6) +
+      geom_sf(data = panel_data, aes(color = !!var_sym, linewidth = stream_order)) +
+      scale_linewidth_continuous(range = c(0.1, 0.9), guide = "none")
+  } else {
+    p_flow <- ggplot() +
+      geom_sf(data = fraser_boundary, color = "black", fill = "grey95", linewidth = 0.6) +
+      geom_sf(data = panel_data, aes(color = !!var_sym))
+  }
+
+  p_flow <- p_flow +
+    scale_color_cvis(
+      palette = risk_palette,
+      direction = palette_direction,
+      limits = xlim,
+      guide = "none",
+      oob = scales::squish
+    )
+
+  p_flow <- p_flow +
+    coord_sf(datum = NA) +
+    labs(title = "August Flow (PCIC model)") +
+    theme_void() +
+    theme(
+      plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
+      plot.margin = margin(5, 5, 5, 5)
+    )
+
+  # Inset histogram
+  p_flow_hist <- ggplot(sf::st_drop_geometry(panel_data), aes(x = !!var_sym)) +
+    geom_histogram(aes(fill = after_stat(x)), bins = 15, color = "white", linewidth = 0.1, show.legend = FALSE, na.rm = TRUE) +
+    scale_fill_cvis(
+      palette = risk_palette,
+      direction = palette_direction,
+      limits = xlim,
+      oob = scales::squish
+    ) +
+    scale_x_continuous(
+      limits = xlim,
+      oob = scales::squish,
+      breaks = c(xlim[1], (xlim[1] + xlim[2])/2, xlim[2]),
+      labels = function(x) sprintf("%.1f", x)
+    ) +
+    labs(x = unit_label) +
+    theme_void() +
+    theme(
+      axis.line.x = element_line(color = "black", linewidth = 0.5),
+      axis.text.x = element_text(color = "black", size = 7, face = "bold", margin = margin(t = 6)),
+      axis.ticks.x = element_line(color = "black", linewidth = 0.5),
+      axis.title.x = if (!is.null(unit_label)) element_text(color = "black", size = 6.5, face = "bold", margin = margin(t = 6)) else element_blank(),
+      plot.background = element_rect(fill = "white", color = NA),
+      plot.margin = margin(1, 2, 12, 2)
+    )
+
+  p_flow_combined <- p_flow + patchwork::inset_element(
+    p_flow_hist,
+    left = inset_coords$left,
+    bottom = inset_coords$bottom,
+    right = inset_coords$right,
+    top = inset_coords$top,
+    align_to = "panel"
+  )
+
+  # ==================== PANEL C: Change in August Flow (Stations) ====================
+  # Parse RCP and Period from the variable name (e.g., flow8pdelta_9_45_3)
+  rcp_val <- "45"
+  period_val <- "3"
+  m_var <- stringr::str_match(variable, "^flow8pdelta_\\d+_(\\d+)_(\\d)$")
+  if (!is.na(m_var[1, 1])) {
+    rcp_val <- m_var[1, 2]
+    period_val <- m_var[1, 3]
+  }
+
+  # Load Statistical_flow_projections if needed
+  if (!exists("wp_vm", envir = .GlobalEnv)) {
+    load(file.path(paths$fw, "Statistical_flow_projections.Rds"), envir = .GlobalEnv)
+  }
+  wp_vm <- get("wp_vm", envir = .GlobalEnv)
+
+  # Load stations_flow if needed
+  if (exists("stations_flow", envir = .GlobalEnv)) {
+    stations_flow <- get("stations_flow", envir = .GlobalEnv)
+  } else {
+    temp_env <- new.env()
+    load(file.path(paths$fw, "flow_gauge_data.Rdata"), envir = temp_env)
+    stations_flow <- temp_env$stations_flow
+  }
+
+  # Crop stations and watersheds to Fraser boundary
+  stations_flow <- simplify_geom_if_needed(stations_flow)
+  if (sf::st_crs(stations_flow) != sf::st_crs(fraser_boundary)) {
+    stations_flow <- sf::st_transform(stations_flow, sf::st_crs(fraser_boundary))
+  }
+  stations_flow <- suppressWarnings(sf::st_crop(stations_flow, sf::st_bbox(fraser_boundary)))
+
+  if (sf::st_crs(watershed_flow) != sf::st_crs(fraser_boundary)) {
+    watershed_flow <- sf::st_transform(watershed_flow, sf::st_crs(fraser_boundary))
+  }
+  watershed_flow <- tryCatch(sf::st_make_valid(watershed_flow), error = function(e) watershed_flow)
+  watershed_flow_cropped <- suppressWarnings(sf::st_crop(watershed_flow, sf::st_bbox(fraser_boundary)))
+
+  # Extract flow8pdelta for each station using wp_vm
+  wp_flat <- wp_vm %>%
+    dplyr::mutate(mean_val = sapply(data, function(df) {
+      if (is.null(df) || nrow(df) == 0) return(NA_real_)
+      mean(df$mean, na.rm = TRUE)
+    })) %>%
+    dplyr::select(ID, rcp, gcm_name, period, mean = mean_val)
+
+  # Filter to historical baseline (period 0, rcp 0)
+  wp_hist <- wp_flat %>%
+    dplyr::filter(period == "0") %>%
+    dplyr::group_by(ID, gcm_name) %>%
+    dplyr::summarise(mean_hist = mean(mean, na.rm = TRUE), .groups = "drop")
+
+  # Filter to future scenario
+  wp_future <- wp_flat %>%
+    dplyr::filter(rcp == rcp_val, period == period_val)
+
+  # Join and calculate flow8pdelta for each station and GCM (historical baseline is GCM-independent)
+  wp_delta <- wp_future %>%
+    dplyr::left_join(wp_hist %>% dplyr::select(ID, mean_hist), by = "ID") %>%
+    dplyr::mutate(delta = (mean - mean_hist) / mean_hist)
+
+  # Average across GCMs for each station to get ensemble average
+  wp_ensemble_delta <- wp_delta %>%
+    dplyr::group_by(ID) %>%
+    dplyr::summarise(value = mean(delta, na.rm = TRUE), .groups = "drop")
+
+  # Join with watershed_flow
+  watershed_flow_delta <- watershed_flow_cropped %>%
+    dplyr::left_join(wp_ensemble_delta, by = c("ID" = "ID"))
+
+  p_station <- ggplot() +
+    geom_sf(data = fraser_boundary, color = "black", fill = "grey95", linewidth = 0.6) +
+    geom_sf(data = watershed_flow_delta, aes(fill = value), alpha = 0.65, color = NA) +
+    scale_fill_cvis(
+      palette = risk_palette,
+      direction = palette_direction,
+      limits = xlim,
+      guide = "none",
+      oob = scales::squish
+    ) +
+    geom_sf(data = stations_flow, color = "black", size = 1)
+
+  p_station <- p_station +
+    coord_sf(datum = NA) +
+    labs(title = "August Flow (Station model)") +
+    theme_void() +
+    theme(
+      plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
+      plot.margin = margin(5, 5, 5, 5)
+    )
+
+  # Inset histogram for Panel C
+  p_station_hist <- ggplot(sf::st_drop_geometry(watershed_flow_delta), aes(x = value)) +
+    geom_histogram(aes(fill = after_stat(x)), bins = 15, color = "white", linewidth = 0.1, show.legend = FALSE, na.rm = TRUE) +
+    scale_fill_cvis(
+      palette = risk_palette,
+      direction = palette_direction,
+      limits = xlim,
+      oob = scales::squish
+    ) +
+    scale_x_continuous(
+      limits = xlim,
+      oob = scales::squish,
+      breaks = c(xlim[1], (xlim[1] + xlim[2])/2, xlim[2]),
+      labels = function(x) sprintf("%.1f", x)
+    ) +
+    labs(x = unit_label) +
+    theme_void() +
+    theme(
+      axis.line.x = element_line(color = "black", linewidth = 0.5),
+      axis.text.x = element_text(color = "black", size = 7, face = "bold", margin = margin(t = 6)),
+      axis.ticks.x = element_line(color = "black", linewidth = 0.5),
+      axis.title.x = if (!is.null(unit_label)) element_text(color = "black", size = 6.5, face = "bold", margin = margin(t = 6)) else element_blank(),
+      plot.background = element_rect(fill = "white", color = NA),
+      plot.margin = margin(1, 2, 12, 2)
+    )
+
+  p_station_combined <- p_station + patchwork::inset_element(
+    p_station_hist,
+    left = inset_coords$left,
+    bottom = inset_coords$bottom,
+    right = inset_coords$right,
+    top = inset_coords$top,
+    align_to = "panel"
+  )
+
+  # Combine panels side-by-side using patchwork
+  p_out <- patchwork::wrap_plots(p_regime_combined, p_station_combined, p_flow_combined, ncol = 3) +
+    ggplot2::theme(plot.title = ggplot2::element_text(size = 14, face = "bold", hjust = 0.5))
+
+  return(p_out)
+}
+
+
+
 
 # ==================== 8. CU Lollipop Chart ====================
 
@@ -1552,83 +1823,7 @@ cu_hydrologic_regime <- function(cu_boundary_i,
 #   period_pick = "3",
 #   indicators_choose = tbl_indicators$abbrev)
 
-plot_cu_lolli <- function(data, # need indicator data for a single CU, use get_cu_indicators()
-                          # indicators_choose = c("migrTproj", "migrQpdelta", "migrA21", "migrdist"),
-                          indicators_choose = c("CUstatus", "CUnmat"),
-                          use_standardized = TRUE, # use raw or transformed (standardized values)
-                          plot_colours = species_palette) {
-  colors <- c(
-    "CU" = "blue",
-    "Species Mean" = "black",
-    "Above Species Mean" = "darkred",
-    "Below Species Mean" = "forestgreen",
-    "GCM Variation" = "gray60"
-  )
 
-  data <- data %>%
-    filter(indicator %in% indicators_choose)
-
-  if ("stat" %in% names(data)) {
-    gcm_check <- sum(data$stat == "qlowgcm")
-
-    data_wide <- data %>%
-      pivot_wider(
-        id_cols = indicator,
-        names_from = stat,
-        values_from = c(cu_value, sp_value)
-      )
-  } else {
-    gcm_check <- sum(c("cu_qlowgcm", "cu_value_qlowgcm") %in% names(data))
-
-    data_wide <- data
-  }
-
-  data_wide <- data_wide %>%
-    mutate(
-      cu_value_mean = coalesce(cu_value_mean, cu_value),
-      sp_value_mean = coalesce(sp_value_mean, sp_value),
-      cu_value_qlowgcm = coalesce(cu_value_qlowgcm, cu_qlowgcm),
-      cu_value_qhighgcm = coalesce(cu_value_qhighgcm, cu_qhighgcm),
-      above_sp = case_when(
-        is.na(sp_value_mean) ~ NA,
-        cu_value_mean > sp_value_mean ~ "Above Species Mean",
-        TRUE ~ "Below Species Mean"
-      )
-    )
-
-  p <- ggplot(data_wide, aes(x = indicator))
-  if (gcm_check >= 1) { # add gcm variation if data exists
-    # GCM variation segment
-    p <- p + geom_segment(aes(
-      xend = indicator, y = cu_value_qlowgcm, yend = cu_value_qhighgcm,
-      color = "GCM Variation"
-    ), size = 2)
-  }
-  # CU vs Species Mean segment
-  p <- p + geom_segment(
-    aes(
-      xend = indicator,
-      y = cu_value_mean, yend = sp_value_mean,
-      color = above_sp
-    ),
-    size = 3, alpha = 0.5
-  ) +
-    # Points
-    geom_point(aes(y = cu_value_mean, color = "CU"), size = 3) +
-    geom_point(aes(y = sp_value_mean, color = "Species Mean"), size = 2) +
-    # Flip coordinates
-    coord_flip() +
-    # Labels and theme
-    labs(
-      x = "",
-      y = "Standardized Value",
-      color = "Legend"
-    ) +
-    scale_color_manual(values = colors) +
-    ylim(0, 1)
-
-  return(p)
-}
 
 
 
@@ -1643,34 +1838,7 @@ plot_cu_lolli <- function(data, # need indicator data for a single CU, use get_c
 #
 # MAZ_GStr <- filter(MAZ, MAZ_Acrony == "GStr")
 
-marine_indicator_plot <- function(data,
-                                  MAZ_sp,
-                                  var = "SST_oe",
-                                  unit_label = "Degrees C",
-                                  risk_palette = cvis_risk_palette,
-                                  plot_title = "",
-                                  palette_direction = -1,
-                                  palette_limits = c(9, 14)) {
 
-  p <- ggplot() +
-    geom_sf(data = data, aes(colour = !!sym(var))) +
-    scale_color_cvis(
-      palette   = risk_palette,
-      direction = palette_direction,
-      limits    = palette_limits # <-- set your min/max here
-    ) +
-    geom_sf(data = MAZ, fill = NA, color = "black") +
-    coord_sf(
-      xlim = st_bbox(data)[c(1, 3)],
-      ylim = st_bbox(data)[c(2, 4)]
-    ) +
-    labs(
-      color = unit_label,
-      title = plot_title
-    )
-
-  return(p)
-}
 
 
 # ==================== 10. Abundance & Status Trend ====================
@@ -1718,7 +1886,7 @@ abundance_status_plot <- function(status_data,
     x = max(plot_data$Year),
     y = max(plot_data$SpawnerAbundance, na.rm = TRUE) * 0.96, # slightly below top
     label = paste0(
-      plot_data$CVIS_NAME, "<br>",
+      plot_data$CVIS_LABEL, "<br>",
       "Data Type: ", data_type, "</span><br>",
       "Most Recent Status: <span style='color:", status_color, "'>", latest_status, "</span><br>",
       "Recent Spawner Abundance: ", latest_abundance, "</span><br>",
@@ -1803,228 +1971,7 @@ abundance_status_plot <- function(status_data,
 #   cu_i = "SEL-03-02")
 
 
-# ==================== 11. Comprehensive CU Indicators Lollipop ====================
 
-# Function to create a comprehensive lollipop chart showing all indicators for one CU
-# This is the OPPOSITE of plot_lollipop which shows one indicator across all CUs
-
-plot_cu_indicators_lollipop <- function(data,
-                                        indicators_choose = NULL, # NULL = all indicators
-                                        group_by_category = TRUE, # Group indicators by type
-                                        show_species_avg = TRUE, # Show species average comparison
-                                        show_all_cu_avg = TRUE, # Show all CU average comparison
-                                        show_gcm_variation = TRUE, # Show GCM uncertainty
-                                        plot_title = NULL,
-                                        y_limit = c(0, 1)) {
-  sp_name <- data$SPECIES_NAME[1]
-  cu_name <- data$CVIS_NAME[1]
-
-  # If no indicators specified, use all
-  if (is.null(indicators_choose)) {
-    indicators_choose <- tbl_indicators$abbrev
-  }
-
-  # Prepare data for plotting
-  plot_data <- data %>%
-    left_join(select(tbl_indicators, abbrev, name, category),
-      by = c("indicator" = "abbrev")
-    ) %>%
-    mutate(
-      # Calculate difference from species average
-      diff_from_avg = cu_value - sp_value,
-      # Categorize as above or below average
-      comparison = case_when(
-        is.na(sp_value) ~ "No Comparison",
-        cu_value > sp_value ~ "Above Average",
-        cu_value < sp_value ~ "Below Average",
-        TRUE ~ "At Average"
-      ),
-
-      # Category labels for grouping
-      category_label = case_when(
-        category %in% c("fwrs", "fwR") ~ "Spawning & Rearing",
-        category == "migr" ~ "Upstream Migration",
-        category == "dem" ~ "Demographics",
-        category == "mar" ~ "Nearshore Marine",
-        TRUE ~ "Other"
-      )
-    )
-
-  # Define color palettes
-  comparison_colors <- c(
-    "Below Average" = "forestgreen",
-    "Above Average" = "darkred",
-    "At Average" = "grey50",
-    "No Comparison" = "grey70"
-  )
-
-  # Order indicators by category if requested
-  if (group_by_category) {
-    plot_data <- plot_data %>%
-      arrange(category, indicator) %>%
-      mutate(name = factor(name, levels = unique(name)))
-  } else {
-    plot_data <- plot_data %>%
-      arrange(desc(cu_value)) %>%
-      mutate(name = factor(name, levels = unique(name)))
-  }
-
-  # Create the plot
-  p <- ggplot(plot_data, aes(x = name, y = cu_value))
-
-  # Add GCM variation bars if requested and available
-  # get_CU_indicators now produces cu_qlowgcm, cu_qhighgcm etc.
-  has_gcm_cols <- any(c("cu_qlowgcm", "cu_value_qlowgcm") %in% names(plot_data))
-
-  if (show_gcm_variation && has_gcm_cols) {
-    gcm_min_col <- if ("cu_qlowgcm" %in% names(plot_data)) "cu_qlowgcm" else "cu_value_qlowgcm"
-    gcm_max_col <- if ("cu_qhighgcm" %in% names(plot_data)) "cu_qhighgcm" else "cu_value_qhighgcm"
-
-    p <- p + geom_segment(
-      aes(xend = name, y = !!sym(gcm_min_col), yend = !!sym(gcm_max_col)),
-      color = "grey70",
-      linewidth = 3,
-      alpha = 0.5,
-      na.rm = TRUE
-    )
-  }
-
-  # Add species average comparison if requested
-  if (show_species_avg) {
-    p <- p + geom_segment(
-      aes(xend = name, yend = cu_value, y = sp_value, color = comparison),
-      linewidth = 1.5,
-      arrow = arrow(length = unit(0.1, "inches"), type = "closed"),
-      alpha = 0.7,
-      na.rm = TRUE
-    ) +
-      geom_point(aes(y = sp_value, shape = "Species Average"),
-        fill = "grey",
-        color = "black",
-        size = 3,
-        na.rm = TRUE
-      )
-  }
-
-  # Add all CU average if requested
-  if (show_all_cu_avg) {
-    p <- p + geom_point(aes(y = allcu_value, shape = "All Species Average"),
-      fill = "gold",
-      color = "black",
-      size = 3,
-      na.rm = TRUE
-    )
-  }
-
-  # Add main points with continuous color scale (RdYlGn reversed so red = high risk)
-  p <- p + geom_point(aes(fill = cu_value, shape = "CU Value"),
-    color = "black",
-    size = 4,
-    stroke = 1
-  ) +
-    scale_fill_cvis(
-      palette = cvis_risk_palette,
-      direction = cvis_risk_direction, # Reversed: red for high values (high risk)
-      limits = c(0, 1),
-      name = "Risk Score",
-      guide = guide_colorbar(order = 1)
-    )
-
-  # Build shape scale based on what's being shown
-  shape_names <- "CU Value"
-  shape_values <- c(21)
-  shape_fills <- c("green3")
-  shape_sizes <- c(4)
-
-  if (show_species_avg) {
-    shape_names <- c(shape_names, "Species Average")
-    shape_values <- c(shape_values, 22)
-    shape_fills <- c(shape_fills, "grey")
-    shape_sizes <- c(shape_sizes, 3)
-  }
-
-  if (show_all_cu_avg) {
-    shape_names <- c(shape_names, "All Species Average")
-    shape_values <- c(shape_values, 23)
-    shape_fills <- c(shape_fills, "gold")
-    shape_sizes <- c(shape_sizes, 3)
-  }
-
-  shape_df <- tibble(shape_names, shape_values, shape_fills, shape_sizes)
-
-  p <- p +
-    scale_shape_manual(
-      name = "Data Points",
-      values = shape_df$shape_values,
-      guide = guide_legend(
-        order = 3,
-        override.aes = list(
-          fill = shape_df$shape_fills,
-          size = shape_df$shape_sizes
-        )
-      )
-    )
-
-  # Add comparison color scale if showing species average
-  if (show_species_avg) {
-    p <- p + scale_color_manual(
-      values = comparison_colors,
-      name = "vs Species Avg",
-      guide = guide_legend(order = 2)
-    )
-  }
-
-  # Finalize plot
-  caption_text <- "Large circles: CU value"
-  if (show_species_avg) caption_text <- paste0(caption_text, " | Grey circles: Species average")
-  if (show_all_cu_avg) caption_text <- paste0(caption_text, " | Gold diamonds: All CU average")
-  if (show_species_avg) caption_text <- paste0(caption_text, "\nArrow direction: above/below species average")
-  if (show_gcm_variation) caption_text <- paste0(caption_text, " | Grey bars: Climate model uncertainty")
-
-  p <- p +
-    coord_flip() +
-    scale_y_continuous(limits = y_limit, breaks = seq(0, 1, 0.2)) +
-    labs(
-      title = if (is.null(plot_title)) paste0("Climate Vulnerability Indicators: ", cu_name) else plot_title,
-      x = NULL,
-      y = "Standardized Indicator Value (0 = Low Risk, 1 = High Risk)",
-      caption = caption_text
-    ) +
-    theme(
-      legend.position = "right",
-      plot.title = element_text(face = "bold", size = 14),
-      plot.subtitle = element_text(size = 11, color = "grey40"),
-      plot.caption = element_text(size = 9, color = "grey50", hjust = 0),
-      axis.text.y = element_text(size = 10),
-      panel.grid.major.y = element_line(color = "grey90"),
-      panel.grid.minor = element_blank()
-    )
-
-  # Add faceting by category if requested
-  if (group_by_category) {
-    p <- p + facet_grid(
-      rows = vars(category_label),
-      scales = "free_y",
-      space = "free_y"
-    ) +
-      theme_cvis() +
-      theme(
-        strip.text.y = element_text(angle = 0, hjust = 0, face = "bold"),
-        strip.background = element_rect(fill = "grey95", color = NA)
-      )
-  }
-
-  return(p)
-}
-
-
-# cu_ind <- get_CU_indicators(all_flat_std,
-#   cu_i = "CK-06",
-#   RCP_pick = "45",
-#   period_pick = "3",
-# )
-#
-# plot_cu_indicators_lollipop(cu_ind)
 
 
 
@@ -2104,3 +2051,724 @@ MAZ_boundary_highlight <- function(MAZ,
 # # cu_timing_plot(cu_timing_long_i)
 # #
 # migrT_cu <- migrT_rcps[["45"]][[cu_i]]
+
+
+# ==================== 14. Single CU Vulnerability Summary Plot ====================
+
+#' Vectorized helper to format raw indicator values into readable strings with units
+#'
+#' @param indicator Character vector of indicator codes.
+#' @param val Numeric vector of raw values.
+#' @return Character vector of formatted strings.
+format_cvis_raw_value <- function(indicator, val) {
+  mapply(function(ind, v) {
+    if (is.na(v) || is.nan(v)) return("N/A")
+    case_when(
+      ind == "favchange" ~ sprintf("%+.2f", v),
+      ind == "cthr"      ~ sprintf("%.2f", v),
+      ind == "tw8rate"   ~ sprintf("%+.2f °C/dec", v),
+      ind == "tw8proj"   ~ sprintf("%.1f °C", v),
+      ind == "flow8pdelta" ~ sprintf("%+d%%", round(v * 100)),
+      ind == "flow18pdelta" ~ sprintf("%+d%%", round(v * 100)),
+      ind == "fwres"     ~ sprintf("%d d", round(v)),
+      ind == "migrTproj" ~ sprintf("%.1f °C", v),
+      ind == "migrQpdelta" ~ sprintf("%+d%%", round(v * 100)),
+      ind == "migrdist"  ~ if (v > 1000) sprintf("%.0f km", v / 1000) else sprintf("%.1f km", v),
+      ind == "SSTproj"   ~ sprintf("%.1f °C", v),
+      ind == "SSTrate"   ~ sprintf("%+.2f °C/dec", v),
+      ind == "CImpact"   ~ sprintf("%.2f", v),
+      ind == "CUstatus"  ~ case_when(
+        v %in% c(1, 0) ~ "Green",
+        v %in% c(2, 0.5) ~ "Amber",
+        v %in% c(3, 1) ~ "Red",
+        TRUE ~ as.character(v)
+      ),
+      ind == "CUnmat"    ~ {
+        if (v >= 1000000) sprintf("%.1fM", v / 1000000)
+        else if (v >= 1000) sprintf("%.1fK", v / 1000)
+        else sprintf("%.0f", v)
+      },
+      ind == "hetzyg"    ~ sprintf("%.3f", v),
+      ind == "genoff"    ~ sprintf("%.3f", v),
+      TRUE ~ sprintf("%.2f", v)
+    )
+  }, indicator, val)
+}
+
+#' Creates a comprehensive visual summary of vulnerability for a single Conservation Unit.
+#'
+#' Plots the Overall Vulnerability score, Category vulnerability scores, and individual 
+#' vulnerability indicators in a single vertically-stacked panel using patchwork.
+#' Shows the species-wide distribution in the background as violins.
+#'
+#' @param cu_code Character string specifying the Conservation Unit code (e.g. "CK-03").
+#' @param scores_tidy Data frame containing overall and category vulnerability scores. Defaults to scores_tidy_baseline.
+#' @param all_std_long Data frame containing standardized indicator values. Defaults to all_std_long_baseline.
+#' @param indicators_metadata Data frame containing indicator definitions. Defaults to tbl_indicators.
+#' @return A patchwork combined ggplot object.
+plot_cu_vulnerability_summary <- function(cu_code,
+                                          scores_tidy = NULL,
+                                          all_std_long = NULL,
+                                          indicators_metadata = NULL) {
+  library(tidyverse)
+  library(patchwork)
+  library(ggtext)
+  
+  # Resolve inputs
+  if (is.null(scores_tidy)) {
+    if (exists("scores_tidy_baseline", envir = .GlobalEnv)) {
+      scores_tidy <- get("scores_tidy_baseline", envir = .GlobalEnv)
+    } else if (exists("scores_tidy", envir = .GlobalEnv)) {
+      scores_tidy <- get("scores_tidy", envir = .GlobalEnv)
+    } else {
+      stop("scores_tidy dataset not found.")
+    }
+  }
+  
+  if (is.null(all_std_long)) {
+    if (exists("all_std_long_baseline", envir = .GlobalEnv)) {
+      all_std_long <- get("all_std_long_baseline", envir = .GlobalEnv)
+    } else if (exists("all_std_long", envir = .GlobalEnv)) {
+      all_std_long <- get("all_std_long", envir = .GlobalEnv)
+    } else {
+      stop("all_std_long dataset not found.")
+    }
+  }
+  
+  if (is.null(indicators_metadata)) {
+    if (exists("tbl_indicators", envir = .GlobalEnv)) {
+      indicators_metadata <- get("tbl_indicators", envir = .GlobalEnv)
+    } else {
+      stop("tbl_indicators not found.")
+    }
+  }
+
+  # Find baseline parameters from global env or defaults
+  rcp_val <- if (exists("sens_rcp_base", envir = .GlobalEnv)) get("sens_rcp_base", envir = .GlobalEnv) else "45"
+  period_val <- if (exists("sens_period_base", envir = .GlobalEnv)) get("sens_period_base", envir = .GlobalEnv) else "3"
+  gcm_val <- if (exists("sens_gcm_base", envir = .GlobalEnv)) get("sens_gcm_base", envir = .GlobalEnv) else "9"
+  std_method_val <- if (exists("std_method_base", envir = .GlobalEnv)) get("std_method_base", envir = .GlobalEnv) else "mix"
+
+  # Filter to baseline if multiple scenarios exist
+  if ("rcp" %in% names(scores_tidy) && length(unique(scores_tidy$rcp)) > 1) {
+    scores_tidy <- scores_tidy %>% filter(rcp %in% c("0", rcp_val))
+  }
+  if ("period_code" %in% names(scores_tidy) && length(unique(scores_tidy$period_code)) > 1) {
+    scores_tidy <- scores_tidy %>% filter(period_code %in% c("0", period_val))
+  }
+  if ("gcm" %in% names(scores_tidy) && length(unique(scores_tidy$gcm)) > 1) {
+    scores_tidy <- scores_tidy %>% filter(gcm %in% c("0", gcm_val))
+  }
+  if ("std_method" %in% names(scores_tidy) && length(unique(scores_tidy$std_method)) > 1) {
+    scores_tidy <- scores_tidy %>% filter(std_method == std_method_val)
+  }
+
+  # Filter all_std_long
+  if ("rcp" %in% names(all_std_long) && length(unique(all_std_long$rcp)) > 1) {
+    all_std_long <- all_std_long %>% filter(rcp %in% c("0", rcp_val))
+  }
+  if ("period_code" %in% names(all_std_long) && length(unique(all_std_long$period_code)) > 1) {
+    all_std_long <- all_std_long %>% filter(period_code %in% c("0", period_val))
+  }
+  if ("gcm" %in% names(all_std_long) && length(unique(all_std_long$gcm)) > 1) {
+    all_std_long <- all_std_long %>% filter(gcm %in% c("0", gcm_val))
+  }
+  if ("std_method" %in% names(all_std_long) && length(unique(all_std_long$std_method)) > 1) {
+    all_std_long <- all_std_long %>% filter(std_method == std_method_val)
+  }
+
+  # Check if cu_code exists in the dataset
+  if (!cu_code %in% scores_tidy$FULL_CU_IN) {
+    stop(paste("CU code", cu_code, "not found in scores dataset."))
+  }
+
+  cu_row <- scores_tidy %>% filter(FULL_CU_IN == cu_code) %>% slice(1)
+  
+  # Fallback naming logic
+  cu_name <- if ("CVIS_LABEL" %in% names(cu_row)) cu_row$CVIS_LABEL[1] else cu_code
+  sp_name <- if ("SPECIES_NAME" %in% names(cu_row)) cu_row$SPECIES_NAME[1] else "Salmon"
+  cu_common <- if ("CU_COMMON_NAME" %in% names(cu_row)) cu_row$CU_COMMON_NAME[1] else ""
+  
+  # Clean up underscores and prefixes for display
+  clean_cu_name <- gsub(paste0("^", cu_code, "[_-]"), "", cu_name)
+  clean_cu_name <- gsub("_", " ", clean_cu_name)
+  clean_cu_common <- gsub("_", " ", cu_common)
+  
+  # Category color mapping (dynamic from global indicator_palette with muted hex fallbacks)
+  if (exists("indicator_palette", envir = .GlobalEnv)) {
+    indicator_pal <- get("indicator_palette", envir = .GlobalEnv)
+    cat_colors <- c(
+      "dem"  = as.character(indicator_pal["Demographics"]),
+      "fwrs" = as.character(indicator_pal["Spawning & Rearing"]),
+      "gen"  = as.character(indicator_pal["Genetics"]),
+      "mar"  = as.character(indicator_pal["Nearshore Marine"]),
+      "migr" = as.character(indicator_pal["Upstream Migration"])
+    )
+  } else {
+    cat_colors <- c(
+      "dem"  = "#9E6B7A",
+      "fwrs" = "#8AA382",
+      "gen"  = "#D9946C",
+      "mar"  = "#698B93",
+      "migr" = "#7D8CA3"
+    )
+  }
+  
+  # Align category order from top to bottom
+  category_order <- c("dem", "fwrs", "gen", "mar", "migr")
+
+  # ---------------------------------------------
+  # Part 1: Prepare Category & Overall Scores Data
+  # ---------------------------------------------
+  
+  # CU specific scores
+  cu_cat_scores <- scores_tidy %>%
+    filter(FULL_CU_IN == cu_code, method == "avg", category %in% c("dem", "fwrs", "gen", "mar", "migr")) %>%
+    select(category, score = score100_all)
+    
+  cu_overall_score <- scores_tidy %>%
+    filter(FULL_CU_IN == cu_code, method == "catavg", category == "all") %>%
+    select(category, score = score100_all)
+    
+  cu_scores <- bind_rows(cu_overall_score, cu_cat_scores) %>%
+    mutate(
+      label = case_when(
+        category == "all" ~ "Overall Vulnerability",
+        category == "dem" ~ "Demographics",
+        category == "fwrs" ~ "Spawning & Rearing",
+        category == "gen" ~ "Genetics",
+        category == "mar" ~ "Nearshore Marine",
+        category == "migr" ~ "Upstream Migration",
+        TRUE ~ category
+      )
+    )
+    
+  # Distribution for violins (all CUs)
+  sp_cat_scores <- scores_tidy %>%
+    filter(method == "avg", category %in% c("dem", "fwrs", "gen", "mar", "migr")) %>%
+    select(category, score = score100_all)
+    
+  sp_overall_scores <- scores_tidy %>%
+    filter(method == "catavg", category == "all") %>%
+    select(category, score = score100_all)
+    
+  sp_scores_all <- bind_rows(sp_overall_scores, sp_cat_scores) %>%
+    mutate(
+      label = case_when(
+        category == "all" ~ "Overall Vulnerability",
+        category == "dem" ~ "Demographics",
+        category == "fwrs" ~ "Spawning & Rearing",
+        category == "gen" ~ "Genetics",
+        category == "mar" ~ "Nearshore Marine",
+        category == "migr" ~ "Upstream Migration",
+        TRUE ~ category
+      ),
+      # Enforce factor levels so Upstream Migration is at the bottom and Overall Vulnerability is at the top
+      label = factor(label, levels = c(
+        "Upstream Migration",
+        "Nearshore Marine",
+        "Genetics",
+        "Spawning & Rearing",
+        "Demographics",
+        "Overall Vulnerability"
+      ))
+    )
+    
+  # Color category labels dynamically using markdown styling
+  sp_scores_all <- sp_scores_all %>%
+    mutate(
+      color_val = case_when(
+        category == "all" ~ "#1A365D",
+        TRUE ~ cat_colors[category]
+      ),
+      label_colored = if_else(
+        category == "all",
+        paste0("<span style='color:", color_val, "; font-size:10.5pt;'><b>", label, "</b></span>"),
+        paste0("<span style='color:", color_val, ";'>", label, "</span>")
+      )
+    )
+  
+  levels_top_colored <- sp_scores_all %>%
+    arrange(label) %>%
+    pull(label_colored) %>%
+    unique()
+    
+  sp_scores_all$label_colored <- factor(sp_scores_all$label_colored, levels = levels_top_colored)
+  
+  plot_data_top <- cu_scores %>%
+    left_join(unique(select(sp_scores_all, category, label_colored)), by = "category") %>%
+    mutate(
+      label_colored = factor(label_colored, levels = levels_top_colored)
+    )
+
+  # ---------------------------------------------
+  # Part 2: Prepare Indicators Data
+  # ---------------------------------------------
+  
+  # CU specific indicator values
+  cu_indicators <- all_std_long %>%
+    filter(FULL_CU_IN == cu_code, stat == "mean") %>%
+    select(indicator, std_value, value, category)
+    
+  # Distribution for indicators (all CUs, standardized 0 to 1 scale)
+  sp_ind_values <- all_std_long %>%
+    filter(stat == "mean") %>%
+    left_join(indicators_metadata %>% select(abbrev, name), by = c("indicator" = "abbrev")) %>%
+    mutate(
+      name = coalesce(name, indicator),
+      # Clean indicator names by removing unit descriptions inside parentheses
+      name_clean = gsub(" \\(.*\\)", "", name),
+      # Replace abbreviations with full names for y-axis labels
+      name_clean = gsub("SST", "sea surface temperature", name_clean),
+      name_clean = gsub("CU", "conservation unit", name_clean),
+      name_clean = gsub("ENM", "ecological niche model", name_clean),
+      indicator_label = name_clean,
+      ind_score = std_value,  # 0 to 1 scale
+      category = factor(category, levels = category_order),
+      category_label = case_when(
+        category == "dem" ~ "Demographics",
+        category == "fwrs" ~ "Spawning & Rearing",
+        category == "gen" ~ "Genetics",
+        category == "mar" ~ "Nearshore Marine",
+        category == "migr" ~ "Upstream Migration",
+        TRUE ~ as.character(category)
+      )
+    ) %>%
+    arrange(category)
+    
+  plot_data_bottom <- cu_indicators %>%
+    left_join(indicators_metadata %>% select(abbrev, name), by = c("indicator" = "abbrev")) %>%
+    mutate(
+      name = coalesce(name, indicator),
+      name_clean = gsub(" \\(.*\\)", "", name),
+      # Replace abbreviations with full names for y-axis labels
+      name_clean = gsub("SST", "sea surface temperature", name_clean),
+      name_clean = gsub("CU", "conservation unit", name_clean),
+      name_clean = gsub("ENM", "ecological niche model", name_clean),
+      cu_score = std_value,   # 0 to 1 scale
+      category = factor(category, levels = category_order),
+      category_label = case_when(
+        category == "dem" ~ "Demographics",
+        category == "fwrs" ~ "Spawning & Rearing",
+        category == "gen" ~ "Genetics",
+        category == "mar" ~ "Nearshore Marine",
+        category == "migr" ~ "Upstream Migration",
+        TRUE ~ as.character(category)
+      ),
+      indicator_label = name_clean,
+      raw_label = format_cvis_raw_value(indicator, value)
+    ) %>%
+    arrange(category, indicator) %>%
+    mutate(indicator_label = factor(indicator_label, levels = unique(indicator_label)))
+
+  # Sync factor levels between species distribution and CU subset for indicators
+  sp_ind_values$indicator_label <- factor(sp_ind_values$indicator_label, levels = levels(plot_data_bottom$indicator_label))
+
+  # Define category labels in order
+  category_labels_ordered <- paste0("<span style='color:", cat_colors[category_order], ";'><b>", c("Demographics", "Spawning & Rearing", "Genetics", "Nearshore Marine", "Upstream Migration"), "</b></span>")
+
+  # Color the category facet strips dynamically using HTML/Markdown and set factor levels
+  sp_ind_values <- sp_ind_values %>%
+    mutate(
+      category_label_colored = paste0("<span style='color:", cat_colors[category], ";'><b>", category_label, "</b></span>"),
+      category_label_colored = factor(category_label_colored, levels = category_labels_ordered)
+    )
+    
+  plot_data_bottom <- plot_data_bottom %>%
+    mutate(
+      category_label_colored = paste0("<span style='color:", cat_colors[category], ";'><b>", category_label, "</b></span>"),
+      category_label_colored = factor(category_label_colored, levels = category_labels_ordered)
+    )
+
+  # ---------------------------------------------
+  # Plot A: Category & Overall Vulnerability Scores (0-100 Scale)
+  # ---------------------------------------------
+  
+  if (exists("cvis_risk_palette_colors", envir = .GlobalEnv)) {
+    cvis_pal_cols <- get("cvis_risk_palette_colors", envir = .GlobalEnv)
+  } else {
+    cvis_pal_cols <- c("#3060AF", "#78A7F5", "#EBCC5A", "#E1AF00", "#C21A1D")
+  }
+  
+  # Category-specific colors for top plot (dynamic from global indicator_palette with muted hex fallbacks)
+  if (exists("indicator_palette", envir = .GlobalEnv)) {
+    indicator_pal <- get("indicator_palette", envir = .GlobalEnv)
+    cat_colors_top <- c(
+      "all"  = "#1A365D",
+      "dem"  = as.character(indicator_pal["Demographics"]),
+      "fwrs" = as.character(indicator_pal["Spawning & Rearing"]),
+      "gen"  = as.character(indicator_pal["Genetics"]),
+      "mar"  = as.character(indicator_pal["Nearshore Marine"]),
+      "migr" = as.character(indicator_pal["Upstream Migration"])
+    )
+  } else {
+    cat_colors_top <- c(
+      "all"  = "#1A365D",
+      "dem"  = "#9E6B7A",
+      "fwrs" = "#8AA382",
+      "gen"  = "#D9946C",
+      "mar"  = "#698B93",
+      "migr" = "#7D8CA3"
+    )
+  }
+
+  p_top <- ggplot()
+  
+  # Background violins showing species distributions colored by category palette
+  for (cat in names(cat_colors_top)) {
+    p_top <- p_top +
+      geom_violin(
+        data = sp_scores_all %>% filter(category == cat),
+        aes(x = score, y = label_colored),
+        fill = cat_colors_top[cat],
+        color = cat_colors_top[cat],
+        linewidth = 0.55,
+        alpha = 0.18,
+        scale = "width",
+        width = 0.65,
+        orientation = "y"
+      )
+  }
+    
+  # CU score point (colored by score)
+  p_top <- p_top +
+    geom_point(
+      data = plot_data_top,
+      aes(x = score, y = label_colored, fill = score),
+      shape = 21,
+      color = "black",
+      size = 5.2,
+      stroke = 1.2
+    ) +
+    scale_y_discrete(limits = levels_top_colored) +
+    scale_fill_gradientn(
+      colors = cvis_pal_cols,
+      limits = c(0, 100),
+      name = "Vulnerability Score",
+      guide = guide_colorbar(title.position = "top", barwidth = 10, barheight = 0.5)
+    ) +
+    scale_x_continuous(limits = c(0, 118), breaks = seq(0, 100, 20), expand = c(0.02, 0)) +
+    geom_hline(yintercept = 5.5, color = "grey60", linetype = "solid", linewidth = 0.5) +
+    labs(
+      title = paste0("Vulnerability Profile: ", clean_cu_name, " (", cu_code, ")"),
+      x = NULL,
+      y = NULL
+    ) +
+    theme_cvis(base_size = 12) +
+    theme(
+      plot.title = element_text(size = 13, face = "bold", hjust = 0.5),
+      axis.text.y = ggtext::element_markdown(lineheight = 0.8),
+      panel.grid.major.y = element_blank(),
+      panel.grid.major.x = element_line(color = "grey93", linewidth = 0.5),
+      legend.position = "top",
+      legend.box = "horizontal",
+      legend.margin = margin(b = -5)
+    )
+
+  # ---------------------------------------------
+  # Plot B: Indicators by Category (0-1 Scale)
+  # ---------------------------------------------
+  
+  p_bottom <- ggplot()
+  
+  # Background violins showing species distributions colored by category palette
+  for (cat in category_order) {
+    p_bottom <- p_bottom +
+      geom_violin(
+        data = sp_ind_values %>% filter(category == cat),
+        aes(x = ind_score, y = indicator_label),
+        fill = cat_colors[cat],
+        color = cat_colors[cat],
+        linewidth = 0.55,
+        alpha = 0.18,
+        scale = "width",
+        width = 0.65,
+        orientation = "y",
+        na.rm = TRUE
+      )
+  }
+    
+  # CU indicator point (colored by standardized score, mapped internally to 0-100 for color scale sync)
+  p_bottom <- p_bottom +
+    geom_point(
+      data = plot_data_bottom,
+      aes(x = cu_score, y = indicator_label, fill = cu_score * 100),
+      shape = 21,
+      color = "black",
+      size = 4.0,
+      stroke = 1.0
+    ) +
+    # Raw value text labels next to the points
+    geom_text(
+      data = plot_data_bottom,
+      aes(x = cu_score, y = indicator_label, label = raw_label),
+      hjust = -0.25,
+      vjust = 0.5,
+      size = 3.0,
+      fontface = "bold",
+      color = "grey15"
+    ) +
+    scale_fill_gradientn(
+      colors = cvis_pal_cols,
+      limits = c(0, 100),
+      guide = "none"
+    ) +
+    scale_x_continuous(limits = c(0, 1.18), breaks = seq(0, 1.0, 0.2), expand = c(0.02, 0)) +
+    coord_cartesian(clip = "off") +
+    facet_grid(
+      rows = vars(category_label_colored),
+      scales = "free_y",
+      space = "free_y"
+    ) +
+    labs(
+      x = "Standardized Indicator Value (0 = Low Risk, 1 = High Risk)",
+      y = NULL
+    ) +
+    theme_cvis(base_size = 11) +
+    theme(
+      strip.text.y = ggtext::element_markdown(angle = 0, hjust = 0, face = "bold", size = 8.5),
+      strip.background = element_rect(fill = "grey95", color = NA),
+      axis.text.y = element_text(size = 8.5),
+      panel.grid.major.y = element_blank(),
+      panel.grid.major.x = element_line(color = "grey93", linewidth = 0.5)
+    )
+
+  # Assemble using patchwork
+  p_combined <- p_top / p_bottom +
+    plot_layout(heights = c(1, 2.5), guides = "collect") &
+    theme(legend.position = "top")
+
+  return(p_combined)
+}
+
+
+# ==================== 11. Individual CU Sensitivity Plots ====================
+
+plot_cu_sensitivity_scores <- function(
+  overall_sensitivity,
+  cu_code
+) {
+  # Categories mapping including all categories and overall vulnerability
+  cat_labels <- c(
+    "all"  = "Overall Vulnerability",
+    "dem"  = "Demographics",
+    "fwrs" = "Spawning & Rearing",
+    "migr" = "Upstream Migration",
+    "mar"  = "Nearshore Marine",
+    "gen"  = "Genetics"
+  )
+
+  # 1. Prepare score deviations data
+  dev_raw <- overall_sensitivity$deviations %>%
+    filter(category %in% names(cat_labels), FULL_CU_IN != "ALL") %>%
+    select(FULL_CU_IN, category, starts_with("raw_dev_")) %>%
+    pivot_longer(cols = starts_with("raw_dev_"), names_to = "source_label", values_to = "raw_deviation") %>%
+    mutate(
+        source_label = str_remove(source_label, "raw_dev_"),
+        source_type = case_when(
+            str_detect(source_label, "^GCM") ~ "GCM",
+            str_detect(source_label, "^RCP") ~ "Scenario",
+            str_detect(source_label, "^Method") ~ "Method",
+            str_detect(source_label, "^Model") ~ "dsmethod",
+            str_detect(source_label, "^dsmethod") ~ "dsmethod",
+            str_detect(source_label, "^stdmethod") ~ "stdmethod",
+            TRUE ~ "Other"
+        ),
+        source = case_when(
+            source_type == "Method" ~ str_remove(source_label, "^Method_"),
+            TRUE ~ source_label
+        )
+    ) %>%
+    filter(!(source %in% c("cube", "cube_all") | (source == "flag" & category != "all"))) %>%
+    mutate(
+      category_label = factor(cat_labels[category], levels = cat_labels)
+    )
+
+  # Factor levels for consistency
+  source_levels <- c("GCM1", "GCM4", "GCM6", "RCP45_P5", "RCP85_P3", "RCP85_P5", "dsmethod", "stdmethod", "flag", "avgcube")
+  source_labels <- c("CanESM2 (GCM 1)", "HadGEM2 (GCM 4)", "MPI (GCM 6)", "RCP 4.5 (P5)", "RCP 8.5 (P3)", "RCP 8.5 (P5)", "Downscaling Method",
+                     "Standardize Method", "Red Flag Scoring", "Avg Cube Scoring")
+  
+  dev_raw <- dev_raw %>%
+    filter(source %in% source_levels) %>%
+    mutate(source = factor(source, levels = rev(source_levels), labels = rev(source_labels)))
+
+  # Selected CU data
+  dev_raw_cu <- dev_raw %>% filter(FULL_CU_IN == cu_code)
+  # All other CUs
+  dev_raw_others <- dev_raw %>% filter(FULL_CU_IN != cu_code)
+
+  # Retrieve colors using sens_source_palette
+  sens_palette <- get("sens_source_palette", envir = .GlobalEnv)
+  
+  # Retrieve indicator colors from global environment for coloring violins
+  ind_colors <- get("indicator_palette", envir = .GlobalEnv)
+  ind_colors["Overall Vulnerability"] <- "grey30"
+  
+  y_colors <- sapply(rev(source_levels), function(x) {
+    if (x %in% names(sens_palette)) sens_palette[[x]] else "black"
+  })
+  y_colors <- unname(y_colors)
+
+  # Plot: Score deviations faceted and colored by category
+  p1 <- ggplot(dev_raw_others, aes(y = source, x = raw_deviation, fill = category_label)) +
+    geom_violin(color = "grey60", alpha = 0.4, scale = "width") +
+    geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") +
+    geom_point(data = dev_raw_cu, aes(x = raw_deviation, y = source), color = "#E67E22", size = 4, shape = 18) +
+    facet_wrap(~category_label, ncol = 3) +
+    scale_fill_manual(values = ind_colors, guide = "none") +
+    labs(
+      title = paste("Vulnerability Score Shifts for CU:", cu_code),
+      subtitle = "Violins show Fraser CUs distribution; Orange diamond shows selected CU",
+      x = "Score Deviation (Scenario - Baseline)",
+      y = "Assumption / Scenario"
+    ) +
+    theme_cvis(base_size = 11) +
+    theme(
+      plot.title = element_text(face = "bold", size = 12, color = "black"),
+      plot.subtitle = element_text(size = 9, color = "grey40"),
+      panel.grid.minor = element_blank(),
+      axis.text.y = element_text(color = y_colors, face = "bold", size = 9),
+      strip.text = element_text(face = "bold", size = 8.5, color = "black"),
+      strip.background = element_blank()
+    )
+
+  return(p1)
+}
+
+
+plot_cu_sensitivity_indicators <- function(
+  overall_sensitivity,
+  tbl_indicators,
+  cu_code
+) {
+  # Prepare indicator directional shifts data relative to baseline
+  ind_shift_cus <- overall_sensitivity$indicator_metrics %>%
+    filter(FULL_CU_IN != "ALL") %>%
+    mutate(
+        val_Baseline = base_raw_mean,
+        val_GCM1 = base_raw_mean + raw_dev_GCM1,
+        val_GCM4 = base_raw_mean + raw_dev_GCM4,
+        val_GCM6 = base_raw_mean + raw_dev_GCM6,
+        val_RCP45_P5 = base_raw_mean + raw_dev_RCP45_P5,
+        val_RCP85_P3 = base_raw_mean + raw_dev_RCP85_P3,
+        val_RCP85_P5 = base_raw_mean + raw_dev_RCP85_P5,
+        val_dsmethod = base_raw_mean + raw_dev_dsmethod,
+        val_stdmethod = base_raw_mean + raw_dev_stdmethod
+    ) %>%
+    select(FULL_CU_IN, indicator, category, base_raw_mean, starts_with("val_")) %>%
+    pivot_longer(cols = starts_with("val_"), names_to = "source", names_prefix = "val_", values_to = "val") %>%
+    filter(!is.na(val))
+
+  # Keep only indicators that have non-NA values for the selected CU
+  valid_indicators <- ind_shift_cus %>%
+    filter(FULL_CU_IN == cu_code, !is.na(val)) %>%
+    pull(indicator) %>%
+    unique()
+
+  # Categories mapping for ordering and coloring
+  cat_labels <- c(
+    "dem"  = "Demographics",
+    "fwrs" = "Spawning & Rearing",
+    "migr" = "Upstream Migration",
+    "mar"  = "Nearshore Marine",
+    "gen"  = "Genetics"
+  )
+
+  # Calculate variation for each indicator for this CU
+  var_indicators_df <- ind_shift_cus %>%
+    filter(FULL_CU_IN == cu_code) %>%
+    group_by(indicator, category) %>%
+    summarise(
+      val_range = max(val, na.rm = TRUE) - min(val, na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    filter(!is.na(val_range), val_range > 1e-5) %>%
+    arrange(desc(val_range))
+
+  # If there are no varying indicators, fall back to all valid indicators
+  if (nrow(var_indicators_df) == 0) {
+    var_indicators <- valid_indicators
+  } else {
+    # Take top 9 varying indicators
+    if (nrow(var_indicators_df) > 9) {
+      var_indicators_df <- var_indicators_df[1:9, ]
+    }
+    # Sort those 9 indicators by category order, then name
+    category_order <- c("dem", "fwrs", "migr", "mar", "gen")
+    var_indicators_df <- var_indicators_df %>%
+      mutate(category_factor = factor(category, levels = category_order)) %>%
+      arrange(category_factor, indicator)
+    var_indicators <- var_indicators_df$indicator
+  }
+
+  ind_shift_cus <- ind_shift_cus %>%
+    filter(indicator %in% var_indicators) %>%
+    mutate(
+      indicator = factor(indicator, levels = var_indicators),
+      category_label = factor(cat_labels[category], levels = cat_labels)
+    )
+
+  # Scenario levels for indicators
+  ind_source_levels <- c("Baseline", "GCM1", "GCM4", "GCM6", "RCP45_P5", "RCP85_P3", "RCP85_P5", "dsmethod")
+  ind_source_labels <- c("Baseline", "CanESM2 (GCM 1)", "HadGEM2 (GCM 4)", "MPI (GCM 6)", "RCP 4.5 (P5)", "RCP 8.5 (P3)", "RCP 8.5 (P5)", "Downscaling Method")
+
+  ind_shift_cus <- ind_shift_cus %>%
+    filter(source %in% ind_source_levels) %>%
+    mutate(source = factor(source, levels = rev(ind_source_levels), labels = rev(ind_source_labels)))
+
+  ind_shift_cu <- ind_shift_cus %>% filter(FULL_CU_IN == cu_code)
+  ind_shift_others <- ind_shift_cus %>% filter(FULL_CU_IN != cu_code)
+
+  # Label map with units from tbl_indicators
+  ind_label_units <- tbl_indicators %>% 
+    dplyr::mutate(
+      facet_label = paste0(abbrev, " (", unit_short, ")")
+    ) %>% 
+    dplyr::select(abbrev, facet_label) %>% 
+    tibble::deframe()
+
+  # Retrieve colors using sens_source_palette
+  sens_palette <- get("sens_source_palette", envir = .GlobalEnv)
+  
+  # Retrieve indicator colors from global environment for coloring violins
+  ind_colors <- get("indicator_palette", envir = .GlobalEnv)
+  
+  ind_y_colors <- sapply(rev(ind_source_levels), function(x) {
+    if (x == "Baseline") {
+      "black"
+    } else if (x %in% names(sens_palette)) {
+      sens_palette[[x]]
+    } else {
+      "black"
+    }
+  })
+  ind_y_colors <- unname(ind_y_colors)
+
+  # Extract baseline value for vertical reference lines
+  baseline_line_data <- ind_shift_cu %>%
+    filter(source == "Baseline") %>%
+    select(indicator, x_intercept = val)
+
+  # Plot: Indicator values across scenarios
+  p2 <- ggplot(ind_shift_others, aes(y = source, x = val, fill = category_label)) +
+    geom_vline(data = baseline_line_data, aes(xintercept = x_intercept), linetype = "dashed", color = "grey50") +
+    geom_violin(color = "#CBD5E0", alpha = 0.5, scale = "width") +
+    geom_point(data = ind_shift_cu, aes(x = val, y = source), color = "#E67E22", size = 3, shape = 18) +
+    facet_wrap(~indicator, scales = "free_x", ncol = 3, labeller = labeller(indicator = ind_label_units)) +
+    scale_fill_manual(values = ind_colors, guide = "none") +
+    labs( x = "Raw Indicator Value (units vary)",
+      y = "Scenario"
+    ) +
+    theme_cvis(base_size = 11) +
+    theme(
+      plot.title = element_text(face = "bold", size = 12, color = "black"),
+      plot.subtitle = element_text(size = 9, color = "grey40"),
+      strip.text = element_text(face = "bold", size = 8, color = "black"),
+      panel.grid.minor = element_blank(),
+      axis.text.y = element_text(color = ind_y_colors, face = "bold", size = 9)
+    )
+
+  return(p2)
+}
+

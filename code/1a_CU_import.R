@@ -27,6 +27,7 @@
 #   - Requires 0_setup.R.
 # ==============================================================================
 
+#define cyclic CUs (spawner abundance calculated differently)
 cyclic_CUs <- c(
   "SEL-06-14", # Takla-Trembleur-Estu
   "SEL-09-02", # Shuswap-ES
@@ -35,6 +36,18 @@ cyclic_CUs <- c(
   "SEL-03-01", # Chilliwack-ES
   "SEL-09-03" # Shuswap-L
 )
+
+#species look up table
+spp_lookup <- tibble(
+  spp_abr = c("ck", "cm", "co", "pk", "pk", "sk", "sk"),
+  spp_abrC = c("CK", "CM", "CO", "PKE", "PKO", "SEL", "SER"),
+  spp_abr_bcfp = c("ch", "cm", "co", "pk", "pk", "sk", "sk"),
+  Species = c("Chinook", "Chum", "Coho", "Pink-Even", "Pink-Odd", "Sockeye (Lake Type)", "Sockeye (River Type)"),
+  SPECIES_NAME = c("Chinook", "Chum", "Coho", "Pink", "Pink", "Sockeye", "Sockeye"),
+  PSF_species = c("Chinook", "Chum", "Coho", "Pink-Even", "Pink-Odd", "Sockeye-Lake", "Sockeye-River")
+)
+
+
 
 # ==================== 1. Define Helper Functions ====================
 # simple infilling function for NA values, used for peak spawn timing
@@ -55,29 +68,37 @@ adjust_CU_IN <- function(CU_IN_vector) {
 
 # ==================== 2. CU-SMU Crosswalk & Decoder ====================
 
-crosswalk <- read_csv(file.path(paths$salmon, "CrossWalkData_2025-10-10.csv")) %>%
+crosswalk<- read_csv(file.path(paths$salmon, "CrossWalkData_2026-06-10.csv")) %>%
   clean_names(case = "all_caps") %>%
-  rename(FULL_CU_IN = CU_FULL_INDEX)
-# crosswalk$FULL_CU_IN <- str_replace_all(crosswalk$FULL_CU_IN, "-0(\\d)(?!\\d)", "-\\1")
+    rename(FULL_CU_IN = CU_FULL_INDEX)
+  
+# Import timing data
+# note oe_age added for some CUs from original file
+cu_timing <- read.csv(file.path(
+  paths$salmon, "Timing data",
+  "CU_timing_published_CL.csv"
+))
 
 # get decoder from PSF package
 decoder <- read.csv(file.path(paths$salmon, "all_regions_cu_du_smu_decoder.csv"))
 # make digits double 00
 decoder$FULL_CU_IN <- adjust_CU_IN(decoder$FULL_CU_IN)
 decoder <- decoder %>%
+  left_join(select(cu_timing, cuid, culabel), join_by(cuid)) %>%
   group_by(cuid) %>%
   slice(1) %>%
   ungroup()
 
+
 # join cuid from decoder to crosswalk
 crosswalk <- crosswalk %>%
-  left_join(select(decoder, cuid, gen_length, FULL_CU_IN), join_by(FULL_CU_IN))
+  left_join(select(decoder, culabel, cuid, gen_length, FULL_CU_IN), join_by(FULL_CU_IN))
 # missing <- filter(crosswalk, is.na(cuid))
 
 cu_list <- crosswalk %>%
   select(-starts_with("DU")) %>%
   mutate(
-    CVIS_NAME = str_remove_all(CU_COMMON_NAME, regex("TIMING", ignore_case = TRUE)) %>%
+    CVIS_LABEL = str_remove_all(culabel, regex(" River|\\(cyclic\\)|\\(de novo\\)", ignore_case = TRUE)) %>%
       str_trim(),
     # clean up SMU names by trimming salmon and "- "and making normal case
     SMU_SIMPLE = str_remove_all(SMU_NAME, regex("SALMON", ignore_case = TRUE)) %>%
@@ -85,19 +106,8 @@ cu_list <- crosswalk %>%
       str_trim() %>%
       str_to_title()
       
-  ) %>% # remove extra spaces if any
-  mutate(CVIS_NAME = paste0(FULL_CU_IN, "_", CVIS_NAME)) %>%
-  relocate(CVIS_NAME, contains("CU"))
-
-
-spp_lookup <- tibble(
-  spp_abr = c("ck", "cm", "co", "pk", "pk", "sk", "sk"),
-  spp_abrC = c("CK", "CM", "CO", "PKE", "PKO", "SEL", "SER"),
-  spp_abr_bcfp = c("ch", "cm", "co", "pk", "pk", "sk", "sk"),
-  Species = c("Chinook", "Chum", "Coho", "Pink-Even", "Pink-Odd", "Sockeye (Lake Type)", "Sockeye (River Type)"),
-  SPECIES_NAME = c("Chinook", "Chum", "Coho", "Pink", "Pink", "Sockeye", "Sockeye"),
-  PSF_species = c("Chinook", "Chum", "Coho", "Pink-Even", "Pink-Odd", "Sockeye-Lake", "Sockeye-River")
-)
+  ) %>% 
+  relocate(CVIS_LABEL, contains("CU"))
 
 
 # ==================== 3. Custom CU List & FAZ Mapping ====================
@@ -169,8 +179,8 @@ status_data <- status_data %>%
     GenAvgUsed = any_of("GenAvgUsed.x")
   ) %>%
   bind_rows(cultus_data) %>%
-  left_join(select(cu_list, FULL_CU_IN, CU_COMMON_NAME, CVIS_NAME, SPECIES_NAME, gen_length), join_by(FULL_CU_IN)) %>%
-  relocate(CVIS_NAME, .after = FULL_CU_IN) %>%
+  left_join(select(cu_list, FULL_CU_IN, CU_COMMON_NAME, CVIS_LABEL, SPECIES_NAME, gen_length), join_by(FULL_CU_IN)) %>%
+  relocate(CVIS_LABEL, .after = FULL_CU_IN) %>%
   select(-Stock) %>%
   mutate(FULL_CU_IN = if_else(FULL_CU_IN == "SEL-06-03/SEL-06-02", "SEL-06-03", FULL_CU_IN)) %>% # change Chilko ES-S to Chilko S
   add_row(FULL_CU_IN = "SEL-06-02", RapidStatus = "None", Species = "Sockeye", Year = 2023) %>% # add data deficient recent entry for Chilko ES
@@ -262,23 +272,20 @@ nuseds_Fr$FULL_CU_IN <- adjust_CU_IN(nuseds_Fr$FULL_CU_IN)
 #   ))
 
 
-# ==================== 6. Import PSF Timing Data ====================
+# ==================== 6. Process PSF Timing Data ====================
 
-# note oe_age added for some CUs from original file
-cu_timing <- read.csv(file.path(
-  paths$salmon, "Timing data",
-  "CU_timing_published_CL.csv"
-)) %>%
+cu_timing <- cu_timing %>%
   rename(sp_dat_qual = dat_qual) %>%
-  mutate(oe_age = as.numeric(str_sub(oe_age, start = 1, end = 1)))
+  mutate(oe_age = as.numeric(str_sub(oe_age, start = 1, end = 1))) %>%
+  left_join(select(cu_list, cuid, CVIS_LABEL, FULL_CU_IN, CU_NAME, SPECIES_NAME), join_by(cuid), multiple = "first") %>%
+  relocate(FULL_CU_IN, CVIS_LABEL, CU_NAME, SPECIES_NAME)
 
 cu_timing <- infill_average(cu_timing,
   col1 = "sp_start", col2 = "sp_end",
   target_col = "sp_peak"
 )
+
 cu_timing <- cu_timing %>%
-  left_join(select(cu_list, cuid, FULL_CU_IN, CVIS_NAME, CU_NAME, SPECIES_NAME), join_by(cuid), multiple = "first") %>%
-  relocate(FULL_CU_IN, CVIS_NAME, CU_NAME, SPECIES_NAME) %>%
   filter(!is.na(FULL_CU_IN)) %>%
   # calculate additional timing parameters for CVIS indicators
   mutate(fwres_mean = (365 - sp_peak) + oe_peak + (oe_age * 365)) %>% # peak spawn to ocean entry (fwres)

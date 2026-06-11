@@ -199,7 +199,7 @@ std_method_base <- "mix" # Baseline standardization curves choice ("mix", "expon
 # Variation sources for granular analysis (9 total)
 sens_gcms <- c("1", "4", "6")
 sens_scenarios <- list(c("45", "5"), c("85", "3"), c("85", "5"))
-sens_methods <- c("cube", "flag", "avgcube", "avgall")
+sens_methods <- c("cube", "flag", "avgcube")
 
 # Mapping of life stage category codes to descriptive names
 cat_label_map <- c(
@@ -374,7 +374,7 @@ species_palette <- c(
 sens_source_palette <- c(
   "GCM1" = "#e31a1c", "GCM4" = "#ff7f00", "GCM6" = "#fdbf6f", "GCM" = "#e31a1c", "gcm" = "#e31a1c",
   "RCP45_P5" = "#33a02c", "RCP85_P3" = "#1f78b4", "RCP85_P5" = "#a6cee3", "Scenario" = "#1f78b4", "scenario" = "#1f78b4",
-  "cube" = "#6a3d9a", "flag" = "#b15928", "avgcube" = "#cab2d6", "avgall" = "#fb9a99",
+  "cube" = "#6a3d9a", "flag" = "#b15928", "avgcube" = "#cab2d6",
   "qdm" = "#db7093", "bccmssc" = "#daa520", "streamdyn" = "#4682b4", "tscapes" = "#d2b48c",
   "pcicgrid" = "#e7298a", "station" = "#7570b3", "model" = "#8dd3c7", "dsmethod" = "#8dd3c7",
   "stdmethod" = "#8c564b", "StdMethod" = "#8c564b"
@@ -461,12 +461,13 @@ scale_color_cvis <- function(palette = cvis_risk_palette, direction = 1, limits 
 
 # Indicator palette used for labelling indicator categories
 indicator_palette <- c(
-  "Demographics" = "purple",
-  "Spawning & Rearing" = "turquoise",
-  "Upstream Migration" = "royalblue",
-  "Nearshore Marine" = "green4",
-  "Genetics" = "orange3"
+  "Demographics" = "#9E6B7A",
+  "Spawning & Rearing" = "#8AA382",
+  "Upstream Migration" = "#7D8CA3",
+  "Nearshore Marine" = "#698B93",
+  "Genetics" = "#D9946C"
 )
+
 
 
 # ==================== 8. Load Sourced Scripts & Data ====================

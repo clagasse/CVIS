@@ -82,7 +82,7 @@ inputPanel(
               selected = "3"),
   selectInput("method_pick", label = "Overall Scoring Method (Detail Tabs):",
               choices = list("Sum-of-Averages (Equal Category Weighting)" = "catavg",
-                             "Average of All Indicators (Equal Indicator Weighting)" = "avgall",
+                             "Red-Flag Score (Total Soft-Count of Red Flags)" = "flag",
                              "Sum-of-Cubic-Means (Emphasizes High Risks)" = "avgcube"),
               selected = "catavg"),
   checkboxGroupInput("species_map_pick", label = "Selected Species (Maps, Tables & Timelines):",

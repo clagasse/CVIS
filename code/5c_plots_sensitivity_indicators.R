@@ -128,14 +128,7 @@ plot_indicator_redundancy_corr <- function(cor_matrix_ind) {
   corrplot(cor_matrix_ind, method = "pie", type = "lower", mar = c(0, 0, 1, 0))
 }
 
-# 1e. Indicator Correlation Clusters (Heatmap)
-plot_indicator_correlation_clusters <- function(cor_matrix_pearson) {
-  corrplot(cor_matrix_pearson,
-    method = "color", order = "hclust", col = scico(200, palette = "roma"),
-    tl.col = "black", tl.srt = 45, tl.cex = 0.7, addrect = 5, rect.col = "black", rect.lwd = 2,
-    mar = c(0, 0, 1, 0), title = "Indicator Correlation Clusters"
-  )
-}
+
 
 
 # ==================== 2. Score-Level Plotting Functions ====================
@@ -293,13 +286,13 @@ plot_pca_detailed_biplot <- function(pca_plot_dat, pca_loadings, species_palette
 plot_species_bump_plot <- function(overall_sensitivity, species_name) {
   dev_full <- overall_sensitivity$deviations %>%
     filter(category == "all", SPECIES_NAME == species_name) %>%
-    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, SMU_SIMPLE, base_score, base_rank = base_rank_sp, starts_with("raw_dev_")) %>%
+    select(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL, SMU_SIMPLE, base_score, base_rank = base_rank_sp, starts_with("raw_dev_")) %>%
     pivot_longer(cols = starts_with("raw_dev_"), names_to = "source", names_prefix = "raw_dev_", values_to = "raw_dev") %>%
     filter(source %in% c("GCM1", "GCM4", "GCM6", "RCP85_P3", "RCP45_P5", "dsmethod", "Method_cube", "Method_avgcube", "Method_flag", "stdmethod")) %>%
     bind_rows(
         overall_sensitivity$deviations %>%
         filter(category == "all", SPECIES_NAME == species_name) %>%
-        select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, SMU_SIMPLE, base_score, base_rank = base_rank_sp) %>%
+        select(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL, SMU_SIMPLE, base_score, base_rank = base_rank_sp) %>%
         mutate(source = "Baseline", raw_dev = 0)
     ) %>%
     mutate(scen_score = base_score + raw_dev) %>%
@@ -363,7 +356,7 @@ plot_combined_uncertainty_spread <- function(all_scores, species_palette = NULL)
 
   # Calculate mean score for each CU to find the sort order
   cu_order <- all_scores %>%
-    group_by(CVIS_NAME, SPECIES_NAME) %>%
+    group_by(CVIS_LABEL, SPECIES_NAME) %>%
     summarise(mean_score = mean(score100, na.rm = TRUE), .groups = "drop") %>%
     arrange(mean_score)
   
@@ -380,32 +373,32 @@ plot_combined_uncertainty_spread <- function(all_scores, species_palette = NULL)
     if (exists("scores_tidy_baseline", envir = temp_env)) {
       baseline_scores <- temp_env$scores_tidy_baseline %>%
         dplyr::filter(category == "all", method == "catavg") %>%
-        dplyr::select(CVIS_NAME, base_score = score100_all)
+        dplyr::select(CVIS_LABEL, base_score = score100_all)
     } else if (exists("scores_tidy", envir = temp_env)) {
       baseline_scores <- temp_env$scores_tidy %>%
         dplyr::filter(category == "all", method == "catavg") %>%
-        dplyr::select(CVIS_NAME, base_score = score100_all)
+        dplyr::select(CVIS_LABEL, base_score = score100_all)
     }
   }
   
   # Fallback if not found: calculate mean of bootstrap scores as proxy baseline
   if (is.null(baseline_scores)) {
     baseline_scores <- all_scores %>%
-      group_by(CVIS_NAME) %>%
+      group_by(CVIS_LABEL) %>%
       summarise(base_score = mean(score100, na.rm = TRUE), .groups = "drop")
   }
 
-  # Merge baseline score into all_scores (done before converting CVIS_NAME to factor)
+  # Merge baseline score into all_scores (done before converting CVIS_LABEL to factor)
   all_scores <- all_scores %>%
-    left_join(baseline_scores, by = "CVIS_NAME")
+    left_join(baseline_scores, by = "CVIS_LABEL")
 
-  # Reorder CVIS_NAME factor levels by mean_score (done after left_join to preserve factor class)
+  # Reorder CVIS_LABEL factor levels by mean_score (done after left_join to preserve factor class)
   all_scores <- all_scores %>%
-    mutate(CVIS_NAME = factor(CVIS_NAME, levels = cu_order$CVIS_NAME))
+    mutate(CVIS_LABEL = factor(CVIS_LABEL, levels = cu_order$CVIS_LABEL))
 
-  ggplot(all_scores, aes(x = CVIS_NAME, y = score100)) +
+  ggplot(all_scores, aes(x = CVIS_LABEL, y = score100)) +
     geom_boxplot(aes(fill = SPECIES_NAME), alpha = 0.6, color = "grey60", scale = "width") +
-    geom_segment(aes(x = as.numeric(CVIS_NAME) - 0.25, xend = as.numeric(CVIS_NAME) + 0.25, 
+    geom_segment(aes(x = as.numeric(CVIS_LABEL) - 0.25, xend = as.numeric(CVIS_LABEL) + 0.25, 
                      y = base_score, yend = base_score), 
                  color = "black", linewidth = 1.2) +
     coord_flip() +
@@ -424,7 +417,7 @@ plot_combined_uncertainty_spread <- function(all_scores, species_palette = NULL)
 
 # 4b. Rank Uncertainty pointrange plot (from 4d)
 plot_rank_uncertainty <- function(rank_summary) {
-  ggplot(rank_summary, aes(x = reorder(CVIS_NAME, -mean_rank), y = mean_rank)) +
+  ggplot(rank_summary, aes(x = reorder(CVIS_LABEL, -mean_rank), y = mean_rank)) +
     geom_pointrange(aes(ymin = q5_rank, ymax = q95_rank, color = robustness_profile), size = 0.5) +
     coord_flip() +
     scale_color_manual(
@@ -465,268 +458,7 @@ plot_uncertainty_variance_decomposition <- function(anova_unc) {
     )
 }
 
-
-# ==================== 4. Single-CU Sensitivity Plotting Functions ====================
-
-plot_cu_sensitivity_scores <- function(
-  overall_sensitivity,
-  cu_code
-) {
-  # Categories mapping including all categories and overall vulnerability
-  cat_labels <- c(
-    "all"  = "Overall Vulnerability",
-    "dem"  = "Demographics",
-    "fwrs" = "Spawning & Rearing",
-    "migr" = "Upstream Migration",
-    "mar"  = "Nearshore Marine",
-    "gen"  = "Genetics"
-  )
-
-  # 1. Prepare score deviations data
-  dev_raw <- overall_sensitivity$deviations %>%
-    filter(category %in% names(cat_labels), FULL_CU_IN != "ALL") %>%
-    select(FULL_CU_IN, category, starts_with("raw_dev_")) %>%
-    pivot_longer(cols = starts_with("raw_dev_"), names_to = "source_label", values_to = "raw_deviation") %>%
-    mutate(
-        source_label = str_remove(source_label, "raw_dev_"),
-        source_type = case_when(
-            str_detect(source_label, "^GCM") ~ "GCM",
-            str_detect(source_label, "^RCP") ~ "Scenario",
-            str_detect(source_label, "^Method") ~ "Method",
-            str_detect(source_label, "^Model") ~ "dsmethod",
-            str_detect(source_label, "^dsmethod") ~ "dsmethod",
-            str_detect(source_label, "^stdmethod") ~ "stdmethod",
-            TRUE ~ "Other"
-        ),
-        source = case_when(
-            source_type == "Method" ~ str_remove(source_label, "^Method_"),
-            TRUE ~ source_label
-        )
-    ) %>%
-    filter(!source %in% c("cube", "flag", "cube_all")) %>%
-    mutate(
-      category_label = factor(cat_labels[category], levels = cat_labels)
-    )
-
-  # Factor levels for consistency
-  source_levels <- c("GCM1", "GCM4", "GCM6", "RCP45_P5", "RCP85_P3", "RCP85_P5", "dsmethod", "stdmethod", "avgall", "avgcube")
-  source_labels <- c("CanESM2 (GCM 1)", "HadGEM2 (GCM 4)", "MPI (GCM 6)", "RCP 4.5 (P5)", "RCP 8.5 (P3)", "RCP 8.5 (P5)", "Downscaling Method", "Standardize Meth", "Avg All Scoring", "Avg Cube Scoring")
-  
-  dev_raw <- dev_raw %>%
-    filter(source %in% source_levels) %>%
-    mutate(source = factor(source, levels = rev(source_levels), labels = rev(source_labels)))
-
-  # Selected CU data
-  dev_raw_cu <- dev_raw %>% filter(FULL_CU_IN == cu_code)
-  # All other CUs
-  dev_raw_others <- dev_raw %>% filter(FULL_CU_IN != cu_code)
-
-  # Retrieve colors using sens_source_palette
-  sens_palette <- get("sens_source_palette", envir = .GlobalEnv)
-  
-  # Retrieve indicator colors from global environment for coloring violins
-  ind_colors <- get("indicator_palette", envir = .GlobalEnv)
-  ind_colors["Overall Vulnerability"] <- "grey30"
-  
-  y_colors <- sapply(rev(source_levels), function(x) {
-    if (x %in% names(sens_palette)) sens_palette[[x]] else "black"
-  })
-  y_colors <- unname(y_colors)
-
-  # Plot: Score deviations faceted and colored by category
-  p1 <- ggplot(dev_raw_others, aes(y = source, x = raw_deviation, fill = category_label)) +
-    geom_violin(color = "grey60", alpha = 0.4, scale = "width") +
-    geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") +
-    geom_point(data = dev_raw_cu, aes(x = raw_deviation, y = source), color = "#E67E22", size = 4, shape = 18) +
-    facet_wrap(~category_label, ncol = 3) +
-    scale_fill_manual(values = ind_colors, guide = "none") +
-    labs(
-      title = paste("Vulnerability Score Shifts for CU:", cu_code),
-      subtitle = "Violins show Fraser CUs distribution; Orange diamond shows selected CU",
-      x = "Score Deviation (Scenario - Baseline)",
-      y = "Assumption / Scenario"
-    ) +
-    theme_cvis(base_size = 11) +
-    theme(
-      plot.title = element_text(face = "bold", size = 12, color = "black"),
-      plot.subtitle = element_text(size = 9, color = "grey40"),
-      panel.grid.minor = element_blank(),
-      axis.text.y = element_text(color = y_colors, face = "bold", size = 9),
-      strip.text = element_text(face = "bold", size = 8.5, color = "black"),
-      strip.background = element_blank()
-    )
-
-  return(p1)
-}
-
-
-plot_cu_sensitivity_indicators <- function(
-  overall_sensitivity,
-  tbl_indicators,
-  cu_code
-) {
-  # Prepare indicator directional shifts data relative to baseline
-  ind_shift_cus <- overall_sensitivity$indicator_metrics %>%
-    filter(FULL_CU_IN != "ALL") %>%
-    mutate(
-        val_Baseline = base_raw_mean,
-        val_GCM1 = base_raw_mean + raw_dev_GCM1,
-        val_GCM4 = base_raw_mean + raw_dev_GCM4,
-        val_GCM6 = base_raw_mean + raw_dev_GCM6,
-        val_RCP45_P5 = base_raw_mean + raw_dev_RCP45_P5,
-        val_RCP85_P3 = base_raw_mean + raw_dev_RCP85_P3,
-        val_RCP85_P5 = base_raw_mean + raw_dev_RCP85_P5,
-        val_dsmethod = base_raw_mean + raw_dev_dsmethod,
-        val_stdmethod = base_raw_mean + raw_dev_stdmethod
-    ) %>%
-    select(FULL_CU_IN, indicator, category, base_raw_mean, starts_with("val_")) %>%
-    pivot_longer(cols = starts_with("val_"), names_to = "source", names_prefix = "val_", values_to = "val") %>%
-    filter(!is.na(val))
-
-  # Keep only indicators that have non-NA values for the selected CU
-  valid_indicators <- ind_shift_cus %>%
-    filter(FULL_CU_IN == cu_code, !is.na(val)) %>%
-    pull(indicator) %>%
-    unique()
-
-  # Categories mapping for ordering and coloring
-  cat_labels <- c(
-    "dem"  = "Demographics",
-    "fwrs" = "Spawning & Rearing",
-    "migr" = "Upstream Migration",
-    "mar"  = "Nearshore Marine",
-    "gen"  = "Genetics"
-  )
-
-  # Calculate variation for each indicator for this CU
-  var_indicators_df <- ind_shift_cus %>%
-    filter(FULL_CU_IN == cu_code) %>%
-    group_by(indicator, category) %>%
-    summarise(
-      val_range = max(val, na.rm = TRUE) - min(val, na.rm = TRUE),
-      .groups = "drop"
-    ) %>%
-    filter(!is.na(val_range), val_range > 1e-5) %>%
-    arrange(desc(val_range))
-
-  # If there are no varying indicators, fall back to all valid indicators
-  if (nrow(var_indicators_df) == 0) {
-    var_indicators <- valid_indicators
-  } else {
-    # Take top 9 varying indicators
-    if (nrow(var_indicators_df) > 9) {
-      var_indicators_df <- var_indicators_df[1:9, ]
-    }
-    # Sort those 9 indicators by category order, then name
-    category_order <- c("dem", "fwrs", "migr", "mar", "gen")
-    var_indicators_df <- var_indicators_df %>%
-      mutate(category_factor = factor(category, levels = category_order)) %>%
-      arrange(category_factor, indicator)
-    var_indicators <- var_indicators_df$indicator
-  }
-
-  ind_shift_cus <- ind_shift_cus %>%
-    filter(indicator %in% var_indicators) %>%
-    mutate(
-      indicator = factor(indicator, levels = var_indicators),
-      category_label = factor(cat_labels[category], levels = cat_labels)
-    )
-
-  # Scenario levels for indicators
-  ind_source_levels <- c("Baseline", "GCM1", "GCM4", "GCM6", "RCP45_P5", "RCP85_P3", "RCP85_P5", "dsmethod")
-  ind_source_labels <- c("Baseline", "CanESM2 (GCM 1)", "HadGEM2 (GCM 4)", "MPI (GCM 6)", "RCP 4.5 (P5)", "RCP 8.5 (P3)", "RCP 8.5 (P5)", "Downscaling Method")
-
-  ind_shift_cus <- ind_shift_cus %>%
-    filter(source %in% ind_source_levels) %>%
-    mutate(source = factor(source, levels = rev(ind_source_levels), labels = rev(ind_source_labels)))
-
-  ind_shift_cu <- ind_shift_cus %>% filter(FULL_CU_IN == cu_code)
-  ind_shift_others <- ind_shift_cus %>% filter(FULL_CU_IN != cu_code)
-
-  # Label map with units from tbl_indicators
-  ind_label_units <- tbl_indicators %>% 
-    dplyr::mutate(
-      facet_label = paste0(abbrev, " (", unit_short, ")")
-    ) %>% 
-    dplyr::select(abbrev, facet_label) %>% 
-    tibble::deframe()
-
-  # Retrieve colors using sens_source_palette
-  sens_palette <- get("sens_source_palette", envir = .GlobalEnv)
-  
-  # Retrieve indicator colors from global environment for coloring violins
-  ind_colors <- get("indicator_palette", envir = .GlobalEnv)
-  
-  ind_y_colors <- sapply(rev(ind_source_levels), function(x) {
-    if (x == "Baseline") {
-      "black"
-    } else if (x %in% names(sens_palette)) {
-      sens_palette[[x]]
-    } else {
-      "black"
-    }
-  })
-  ind_y_colors <- unname(ind_y_colors)
-
-  # Extract baseline value for vertical reference lines
-  baseline_line_data <- ind_shift_cu %>%
-    filter(source == "Baseline") %>%
-    select(indicator, x_intercept = val)
-
-  # Plot: Indicator values across scenarios
-  p2 <- ggplot(ind_shift_others, aes(y = source, x = val, fill = category_label)) +
-    geom_vline(data = baseline_line_data, aes(xintercept = x_intercept), linetype = "dashed", color = "grey50") +
-    geom_violin(color = "#CBD5E0", alpha = 0.5, scale = "width") +
-    geom_point(data = ind_shift_cu, aes(x = val, y = source), color = "#E67E22", size = 3, shape = 18) +
-    facet_wrap(~indicator, scales = "free_x", ncol = 3, labeller = labeller(indicator = ind_label_units)) +
-    scale_fill_manual(values = ind_colors, guide = "none") +
-    labs( x = "Raw Indicator Value (units vary)",
-      y = "Scenario"
-    ) +
-    theme_cvis(base_size = 11) +
-    theme(
-      plot.title = element_text(face = "bold", size = 12, color = "black"),
-      plot.subtitle = element_text(size = 9, color = "grey40"),
-      strip.text = element_text(face = "bold", size = 8, color = "black"),
-      panel.grid.minor = element_blank(),
-      axis.text.y = element_text(color = ind_y_colors, face = "bold", size = 9)
-    )
-
-  return(p2)
-}
-
-
-plot_cu_sensitivity_summary <- function(
-  overall_sensitivity,
-  tbl_indicators,
-  cu_code
-) {
-  p1 <- plot_cu_sensitivity_scores(overall_sensitivity, cu_code)
-  
-  # Strip some titles for combined presentation
-  p1 <- p1 + labs(title = "Category Vulnerability Score Shifts", subtitle = NULL)
-  
-  p2 <- plot_cu_sensitivity_indicators(overall_sensitivity, tbl_indicators, cu_code)
-  p2 <- p2 + labs(title = "Raw Indicator Value Sensitivity", subtitle = NULL) +
-    theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(), axis.title.y = element_blank())
-
-  # Combine using patchwork
-  p_combined <- p1 + p2 + 
-    plot_layout(widths = c(1, 2.2)) +
-    plot_annotation(
-      title = paste("Sensitivity Analysis Plots for CU:", cu_code),
-      subtitle = "Visualizing how overall vulnerability score and individual indicators shift across uncertainty assumptions relative to other Fraser CUs",
-      theme = ggplot2::theme(
-        plot.title = ggplot2::element_text(face = "bold", size = 14, color = "black"),
-        plot.subtitle = ggplot2::element_text(size = 10, color = "#4A5568")
-      )
-    )
-
-  return(p_combined)
-}
-
-
-# ==================== 5. Standalone Execution Block ====================
+# ==================== 4. Standalone Execution Block ====================
 # This block runs only if the script is run directly (not sourced) and saves all plots to disk.
 if (sys.nframe() == 0) {
   cat("Running standalone plot generation...\n")
@@ -773,10 +505,7 @@ if (sys.nframe() == 0) {
   plot_indicator_redundancy_corr(overall_sensitivity$correlation_indicators)
   dev.off()
   
-  # 5. Correlation Clusters
-  png(file.path(ind_fig_path, "indicator_correlation_clusters.png"), width = 1000, height = 1000, res = 120)
-  plot_indicator_correlation_clusters(risk_drivers_analysis$cor_matrix_pearson)
-  dev.off()
+
   
   # -------------------- B. Score & Species Plots --------------------
   cat("Generating score-level and species plots...\n")

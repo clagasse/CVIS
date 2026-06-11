@@ -911,53 +911,110 @@ hinge_weight <- function(s, t0 = 0.33, t1 = 0.66) {
 
 # Calculate combined/aggregated portfolio scores
 calculate_combined_scores <- function(data) {
-  data %>%
+  # Keep original grouping variables
+  orig_group_vars <- group_vars(data)
+  
+  # Ensure SPECIES_NAME is in the grouping variables if it is in the data but not already grouped
+  if ("SPECIES_NAME" %in% names(data) && !("SPECIES_NAME" %in% orig_group_vars)) {
+    data <- data %>% group_by(SPECIES_NAME, .add = TRUE)
+    orig_group_vars <- group_vars(data)
+  }
+  
+  # Step 1: Calculate category-level scores for each CU/scenario group
+  cats_df <- data %>%
     reframe({
-      # Category averages
-      a_fwrs <- mean(std_value[category == "fwrs"], na.rm = TRUE)
-      a_migr <- mean(std_value[category == "migr"], na.rm = TRUE)
-      a_mar <- mean(std_value[category == "mar"], na.rm = TRUE)
-      a_dem <- mean(std_value[category == "dem"], na.rm = TRUE)
-      a_gen <- mean(std_value[category == "gen"], na.rm = TRUE)
-
-      # Category cube-root of mean of cubes
-      c_fwrs <- mean((std_value[category == "fwrs"])^3, na.rm = TRUE)^(1 / 3)
-      c_migr <- mean((std_value[category == "migr"])^3, na.rm = TRUE)^(1 / 3)
-      c_mar <- mean((std_value[category == "mar"])^3, na.rm = TRUE)^(1 / 3)
-      c_dem <- mean((std_value[category == "dem"])^3, na.rm = TRUE)^(1 / 3)
-      c_gen <- mean((std_value[category == "gen"])^3, na.rm = TRUE)^(1 / 3)
-
-      # Red flag counts per category (soft counts)
-      sf_fwrs <- sum(hinge_weight(std_value[category == "fwrs"]), na.rm = TRUE)
-      sf_migr <- sum(hinge_weight(std_value[category == "migr"]), na.rm = TRUE)
-      sf_mar <- sum(hinge_weight(std_value[category == "mar"]), na.rm = TRUE)
-      sf_dem <- sum(hinge_weight(std_value[category == "dem"]), na.rm = TRUE)
-      sf_gen <- sum(hinge_weight(std_value[category == "gen"]), na.rm = TRUE)
-
-      # Overall metrics
-      avg_all <- mean(std_value, na.rm = TRUE) # avg of all indicators
-      cat_avgs <- mean(c(a_fwrs, a_migr, a_mar, a_dem, a_gen), na.rm = TRUE) # avg of category averages
-      avg_cube <- mean(c(c_fwrs, c_migr, c_mar, c_dem, c_gen), na.rm = TRUE) # avg of cube means
-      flag_all <- sum(hinge_weight(std_value), na.rm = TRUE) # total soft-count of red flags
-
+      # fwrs
+      fwrs_vals <- std_value[category == "fwrs"]
+      fwrs_all_na <- all(is.na(fwrs_vals))
+      a_fwrs <- if (fwrs_all_na) NA_real_ else mean(fwrs_vals, na.rm = TRUE)
+      c_fwrs <- if (fwrs_all_na) NA_real_ else mean(fwrs_vals^3, na.rm = TRUE)^(1 / 3)
+      sf_fwrs <- if (fwrs_all_na) NA_real_ else sum(hinge_weight(fwrs_vals), na.rm = TRUE)
+      
+      # migr
+      migr_vals <- std_value[category == "migr"]
+      migr_all_na <- all(is.na(migr_vals))
+      a_migr <- if (migr_all_na) NA_real_ else mean(migr_vals, na.rm = TRUE)
+      c_migr <- if (migr_all_na) NA_real_ else mean(migr_vals^3, na.rm = TRUE)^(1 / 3)
+      sf_migr <- if (migr_all_na) NA_real_ else sum(hinge_weight(migr_vals), na.rm = TRUE)
+      
+      # mar
+      mar_vals <- std_value[category == "mar"]
+      mar_all_na <- all(is.na(mar_vals))
+      a_mar <- if (mar_all_na) NA_real_ else mean(mar_vals, na.rm = TRUE)
+      c_mar <- if (mar_all_na) NA_real_ else mean(mar_vals^3, na.rm = TRUE)^(1 / 3)
+      sf_mar <- if (mar_all_na) NA_real_ else sum(hinge_weight(mar_vals), na.rm = TRUE)
+      
+      # dem
+      dem_vals <- std_value[category == "dem"]
+      dem_all_na <- all(is.na(dem_vals))
+      a_dem <- if (dem_all_na) NA_real_ else mean(dem_vals, na.rm = TRUE)
+      c_dem <- if (dem_all_na) NA_real_ else mean(dem_vals^3, na.rm = TRUE)^(1 / 3)
+      sf_dem <- if (dem_all_na) NA_real_ else sum(hinge_weight(dem_vals), na.rm = TRUE)
+      
+      # gen
+      gen_vals <- std_value[category == "gen"]
+      gen_all_na <- all(is.na(gen_vals))
+      a_gen <- if (gen_all_na) NA_real_ else mean(gen_vals, na.rm = TRUE)
+      c_gen <- if (gen_all_na) NA_real_ else mean(gen_vals^3, na.rm = TRUE)^(1 / 3)
+      sf_gen <- if (gen_all_na) NA_real_ else sum(hinge_weight(gen_vals), na.rm = TRUE)
+      
       tibble::tibble(
-        method = c(rep("avg", 5), rep("cube", 5), rep("flag", 5), "catavg", "avgall", "avgcube", "flag"),
-        category = c(
-          "fwrs", "migr", "mar", "dem", "gen",
-          "fwrs", "migr", "mar", "dem", "gen",
-          "fwrs", "migr", "mar", "dem", "gen",
-          "all", "all", "all", "all"
-        ),
+        method = c(rep("avg", 5), rep("cube", 5), rep("flag", 5)),
+        category = rep(c("fwrs", "migr", "mar", "dem", "gen"), 3),
         score = c(
           a_fwrs, a_migr, a_mar, a_dem, a_gen,
           c_fwrs, c_migr, c_mar, c_dem, c_gen,
-          sf_fwrs, sf_migr, sf_mar, sf_dem, sf_gen,
-          cat_avgs, avg_all, avg_cube, flag_all
+          sf_fwrs, sf_migr, sf_mar, sf_dem, sf_gen
         )
       )
-    }) %>%
+    })
+  
+  # Step 2: Determine species-level scenario variables to group by
+  scenario_vars <- intersect(names(cats_df), c("std_method", "gcm", "rcp", "period_code"))
+  species_group_vars <- intersect(c("SPECIES_NAME", "method", "category", scenario_vars), names(cats_df))
+  
+  cats_ungrouped <- cats_df %>% ungroup()
+  
+  # Step 3: Calculate species average category scores
+  species_avgs <- cats_ungrouped %>%
+    group_by(across(all_of(species_group_vars))) %>%
+    summarise(
+      species_mean = mean(score, na.rm = TRUE),
+      .groups = "drop"
+    )
+  
+  # Step 4: Impute missing category scores using species averages
+  cats_imputed <- cats_ungrouped %>%
+    left_join(species_avgs, by = species_group_vars) %>%
+    mutate(
+      score = dplyr::coalesce(score, species_mean)
+    )
+  
+  # Step 5: Calculate overall scores from (imputed) category scores
+  overall_rows <- cats_imputed %>%
+    group_by(across(all_of(orig_group_vars))) %>%
+    reframe({
+      m_avg <- mean(score[method == "avg"], na.rm = TRUE)
+      m_cube <- mean(score[method == "cube"], na.rm = TRUE)
+      flag_vals <- score[method == "flag"]
+      m_flag <- if (all(is.na(flag_vals))) NA_real_ else sum(flag_vals, na.rm = TRUE)
+      
+      tibble::tibble(
+        method = c("catavg", "avgcube", "flag"),
+        category = c("all", "all", "all"),
+        score = c(m_avg, m_cube, m_flag)
+      )
+    })
+  
+  # Step 6: Combine category and overall rows and format output
+  res_final <- bind_rows(
+    cats_imputed %>% select(all_of(c(orig_group_vars, "method", "category", "score"))),
+    overall_rows
+  ) %>%
     ungroup() %>%
     mutate(score = ifelse(is.nan(score), NA_real_, score))
+    
+  return(res_final)
 }
 
 # Shared scoring utility to normalize and rank scores

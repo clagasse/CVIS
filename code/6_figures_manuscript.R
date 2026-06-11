@@ -10,12 +10,16 @@
 #   1. Setup settings and verify the output directory exists.
 #   2. Load freshwater, migration, marine, and scoring datasets.
 #   3. Subset CU and timing data for the specified case study.
-#   4. Generate Figure 2 (Freshwater indicator multipanel maps).
-#   5. Generate Figure 3 (Upstream migration path).
-#   6. Generate Figure 4 (Indicator lollipop plot).
-#   7. Generate Figure 5 (Vulnerability spatial maps).
-#   8. Generate Figure 6 (Marine adaptive zones lollipop plot).
-#   9. Generate Figure 7 (Vulnerability score indicator tiles).
+#   4. Generate Figure 3 (Distributions of raw baseline indicators).
+#   5. Generate Figure 4 (Freshwater indicators multipanel stream map).
+#   6. Generate Figure 5 (Spatial standardized freshwater rearing scores).
+#   7. Generate Figure 6 (Directional shifts/climate hazard exposure).
+#   8. Generate Figure 7 (Upstream migration timing comparison).
+#   9. Generate Figure 8 (Marine Adaptive Zones combined SST/CImpact map).
+#   10. Generate Figure 9 (Heatmap of standardized indicator scores).
+#   11. Generate Figure 10 (Bootstrap vulnerability uncertainty spread).
+#   12. Generate Figure 11 (Vulnerability score deviation boxplots).
+#   13. Generate Figure 12 (Relative rank stability bump plots).
 #
 # Inputs:
 #   - Processed Rds/Rdata files under paths$fw, paths$marine, and paths$output
@@ -125,7 +129,7 @@ cu_timing_i <- cu_timing_Fr[cu_timing_Fr$FULL_CU_IN == cu_i, ]
 # ==================== 4. Generate & Save Figures ====================
 
 
-# Figure 2 - Distributions of raw (unstandardized) indicator values across all Fraser River basin Conservation Units under the baseline scenario.
+# Figure 3 - Distributions of raw (unstandardized) indicator values across all Fraser River basin Conservation Units under the baseline scenario.
 # Caption: Violin plot visualizing the density, spread, and median values of raw environmental indicators across all 50 CUs under the baseline. Indicators are grouped by vulnerability category (Spawning & Rearing, Upstream Migration, Nearshore Marine, Demographic, and Genetic) to show the underlying range of historical environmental conditions and population attributes.
 f3 <- plot_raw_baseline_violins(
   all_std_long_baseline = all_std_long_baseline,
@@ -135,20 +139,18 @@ f3 <- plot_raw_baseline_violins(
 ggsave(filename = file.path(output_dir, "figure_3.png"), plot = f3,
        width = 11, height = 8.5, dpi = 150) 
 
-# Figure 3 - High-resolution spatial mapping of freshwater spawning and rearing indicators within a case-study Conservation Unit (CU) boundary.
+# Figure 4 - High-resolution spatial mapping of freshwater spawning and rearing indicators within Fraser basin
 
-# f4 <- stream_indicator_multipanel_plot(fw_sp_ind_cu,
-#   cu_boundary_i,
-#   lakes_cu,
-#   variables = c("stream_order", "favchange_chinook_85_3", "cthr_anad", "tw8proj_9_45_3", "elevation", "tw8rate_9_45_3", "flow8pdelta_9_45_3", "flow18pdelta_9_45_3"),
-#   plot_titles = c("Stream Order", "Change in ENM Favourability", "Cumulative Threat Score", "August Mean Temperature", "Elevation",
-#                   "Rate of Temp. Change", "Change in August Flow", "Change in Nov-Jan Flow"),
-#   risk_palette = cvis_risk_palette,
-#   palette_directions = c(1, 1, -1, -1, 1, -1, 1, -1),
-#   ncol = 4)
-# 
-# #save as png
-# ggsave(filename = file.path(output_dir, "figure_4.png"), plot = f4, width = 9, height = 6) 
+f4 <- stream_indicator_multipanel_plot(fw_sp_ind,
+  cu_boundary = NULL,
+  lakes_Fr,
+  variables = c("cthr_anad", "tw8proj_9_45_3", "tw8rate_9_45_3", "flow8pdelta_9_45_3", "flow18pdelta_9_45_3", "favchange_chinook_85_3"),
+  plot_titles = c("Cumulative Threat Score", "August Mean Temperature", "Rate of Temp. Change", "Change in August Flow", "Change in Nov-Jan Flow", "Change in ENM Favourability"),
+  risk_palette = cvis_risk_palette,
+  palette_directions = c(-1, -1, -1, -1, 1, 1, -1, 1))
+
+#save as png
+ggsave(filename = file.path(output_dir, "figure_4.png"), plot = f4, width = 12, height = 8)
 
 # Figure 4 - Basin-wide spatial distribution of standardized freshwater spawning and rearing vulnerability scores for Chinook salmon.
 # Caption: Maps the spatial distribution of the aggregated freshwater spawning and rearing (fwrs) category score for Chinook salmon CUs across the Fraser River basin. Spawning and rearing stream networks within each CU boundary are colored based on their standardized score (the length-weighted average of the seven underlying freshwater indicators). High values (warm colors) indicate high cumulative vulnerability, while low values (cool colors) represent physical and climatic refugia.
@@ -160,7 +162,6 @@ f5 <- spatial_fw_rearing_indicators_plot(all_std_long_baseline,
 ggsave(filename = file.path(output_dir, "figure_5.png"), plot = f5, width = 10, height = 9)   
 
 # Figure 5 - Directional shifts and expansion of climate hazard exposure across CUs under future projection scenarios.
-# Caption: Violin plots comparing the distribution of standardized indicator values for all CUs under the baseline against future projections across different Representative Concentration Pathways (RCP 4.5, RCP 8.5) and projection periods (2050s, 2080s). Shows systematic shifts in risk profiles and the widening range of climate model uncertainty.
 f6 <- plot_indicator_directional_shifts(overall_sensitivity, 
                                         tbl_indicators)
 
@@ -169,7 +170,6 @@ ggsave(filename = file.path(output_dir, "figure_6.png"), plot = f6, width = 9, h
 
 
 # Figure 6 - Upstream migration timing and thermal exposure profiles across Fraser River basin salmon Conservation Units.
-# Caption: Migration timing calendar plot visualizing daily migration temperatures and run timing across CUs under RCP 4.5. The background represents daily stream temperatures along the migration path for the baseline (1981-2010; top) and future (2041-2060; bottom) periods. Horizontal black bars denote the spawning and migration windows for each population, illustrating the degree of overlap with stressful thermal thresholds.
 f7 <- migration_compare_plot(
   migr_daily_calendar,
   timing = cu_timing_Fr,
@@ -182,16 +182,12 @@ ggsave(filename = file.path(output_dir, "figure_7.png"), plot = f7, width = 8, h
             
                    
 # Figure 7 - Marine Adaptive Zones (MAZs) and regional marine vulnerability profiles in the Salish Sea and Northeast Pacific.
-# Caption: (Left) Geographic boundaries of Marine Adaptive Zones (MAZs) representing oceanographic domains utilized by juvenile salmon during post-entry migration. (Right) Lollipop plots of standardized marine indicators (sea surface temperature projections [SSTproj], SST warming rates [SSTrate], and cumulative human impacts [CImpact]) across each MAZ. Points represent MAZ-level averages, and error bars show spatial variation.
 f8 <- combined_maz_marine_plot(maz_all, MAZ)
 
 ggsave(filename = file.path(output_dir, "figure_8.png"), plot = f8, width = 12, height = 9)   
 
 
-
-
 # Figure 8 - Heatmap of individual standardized indicator scores, category-level scores, and overall vulnerability portfolios across all salmon Conservation Units.
-# Caption: Heatmap illustrating standardized scores (from 0.0 to 1.0) for individual indicators, category-level vulnerability scores, and the integrated overall score (baseline average, shown on left) across CUs. Rows represent CUs, sorted by overall vulnerability, grouped by their species and SMU simple identifiers.
 f9 <- indicator_cu_tile_plot(all_std_long_baseline,
                        scores_tidy_baseline)
 
@@ -223,25 +219,35 @@ f12c <- plot_species_bump_plot(overall_sensitivity, "Coho")
 ggsave(filename = file.path(output_dir, "figure_12.png"), plot = f12, width = 8, height = 7)
 
 
-# Figure 13 - Interspecific comparison of integrated freshwater spawning and rearing vulnerability scores.
-# Caption: Violin plots comparing the density distribution and median values of the final integrated spawning and rearing vulnerability scores under the baseline, grouped by salmon species (Chinook, Sockeye, Coho, Chum, and Pink). Shows how species life history traits (e.g., freshwater rearing residency) influence relative exposure.
-f13 <- plot_cvis_vulnerability_violins(scores_tidy_baseline)
-
-ggsave(filename = file.path(output_dir, "figure_13.png"), plot = f13)
-
 # Supplemental figures ----------------------------------------------------
 
-png(file.path(output_dir, "sfig_1.png"), width = 1000, height = 1000, res = 120)
+png(file.path(output_dir, "sfig_corr.png"), width = 1000, height = 1000, res = 120)
 plot_indicator_redundancy_corr(overall_sensitivity$correlation_indicators)
 dev.off()
 
-
 jack_global <- overall_sensitivity$influence_summary %>%
-  filter((method == "avgall" | method == "avg_all") & SPECIES_NAME == "ALL")
-sfig2 <- plot_jackknife_influence(jack_global, cat_label_map)
-ggsave(filename = file.path(output_dir, "sfig_2.png"), plot = sfig2, width = 10, height = 8)
+  filter((method == "catavg" | method == "catavg") & SPECIES_NAME == "ALL")
+sfig_jack <- plot_jackknife_influence(jack_global, cat_label_map)
+ggsave(filename = file.path(output_dir, "sfig_jacknife.png"), plot = sfig_jack, width = 10, height = 8)
 
 
+hydrologic_reg <- fraser_hydrologic_regime_comparison_plot()
+ggsave(filename = file.path(output_dir, "sfig_hydroreg.png"), plot = hydrologic_reg, width = 10, height = 5)
+
+# Supplemental Figure for stream attributes (basin-wide)
+sfig_stream_attr <- stream_indicator_multipanel_plot(
+  fwModels = fw_sp_ind,
+  cu_boundary = NULL,
+  lakes_cu = lakes_Fr,
+  variables = c("model_access_salmon", "stream_order", "gradient", "elevation"),
+  plot_titles = c("Stream Accessibility", "Stream Order", "Gradient", "Elevation"),
+  ncol = 2
+)
+ggsave(filename = file.path(output_dir, "sfig_streams.png"), plot = sfig_stream_attr, width = 10, height = 8)
+
+
+
+test_fw <- filter(fw_models, model_access_salmon != "NATURAL_BARRIER")
 
 # ==================== 5. Summary Table for Manuscript ====================
 

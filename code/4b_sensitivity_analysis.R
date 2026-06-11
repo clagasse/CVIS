@@ -51,7 +51,7 @@ ind_baseline <- all_std_long %>%
     # Use the per-indicator baseline model defined in tbl_standardize
     left_join(tbl_standardize %>% select(abbrev, dsmodel_baseline_ind = dsmodel_baseline), by = c("indicator" = "abbrev")) %>%
     filter(dsmodel == dsmodel_baseline_ind) %>%
-    group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, category, indicator, stat) %>%
+    group_by(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL, category, indicator, stat) %>%
     summarise(
         base_raw = mean(value, na.rm = TRUE),
         base_std = mean(std_value, na.rm = TRUE),
@@ -72,7 +72,7 @@ ind_others <- all_std_long %>%
     # Filter to only the baseline model for quantifying GCM/Scenario variation
     left_join(tbl_standardize %>% select(abbrev, dsmodel_baseline_ind = dsmodel_baseline), by = c("indicator" = "abbrev")) %>%
     filter(dsmodel == dsmodel_baseline_ind) %>%
-    group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, category, indicator, gcm, rcp, period_code) %>%
+    group_by(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL, category, indicator, gcm, rcp, period_code) %>%
     summarise(
         raw = mean(value, na.rm = TRUE),
         std = mean(std_value, na.rm = TRUE),
@@ -82,7 +82,7 @@ ind_others <- all_std_long %>%
 # 2.1 GCM Deviations for indicators
 ind_gcm_dev <- ind_others %>%
     filter(rcp == sens_rcp_base, period_code == sens_period_base, gcm %in% sens_gcms) %>%
-    left_join(ind_baseline, by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "category", "indicator")) %>%
+    left_join(ind_baseline, by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_LABEL", "category", "indicator")) %>%
     mutate(
         raw_dev = raw - base_raw_mean,
         std_dev = std - base_std_mean,
@@ -95,7 +95,7 @@ ind_gcm_dev <- ind_others %>%
 ind_scen_dev <- map_dfr(sens_scenarios, function(s) {
     ind_others %>%
         filter(rcp == s[1], period_code == s[2], gcm == sens_gcm_base) %>%
-        left_join(ind_baseline, by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "category", "indicator")) %>%
+        left_join(ind_baseline, by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_LABEL", "category", "indicator")) %>%
         mutate(
             raw_dev = raw - base_raw_mean,
             std_dev = std - base_std_mean,
@@ -114,20 +114,20 @@ ind_model_dev <- all_std_long %>%
     # Identify variations from the baseline model
     left_join(tbl_standardize %>% select(abbrev, dsmodel_baseline_ind = dsmodel_baseline), by = c("indicator" = "abbrev")) %>%
     filter(dsmodel != dsmodel_baseline_ind) %>%
-    left_join(ind_baseline, by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "category", "indicator")) %>%
+    left_join(ind_baseline, by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_LABEL", "category", "indicator")) %>%
     mutate(
         raw_dev = value - base_raw_mean,
         std_dev = std_value - base_std_mean,
         abs_raw_dev = abs(raw_dev),
         abs_std_dev = abs(std_dev)
     ) %>%
-    group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, category, indicator) %>%
+    group_by(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL, category, indicator) %>%
     summarise(
         across(c(raw_dev, std_dev, abs_raw_dev, abs_std_dev), ~ mean(., na.rm = TRUE)),
         .groups = "drop"
     ) %>%
     mutate(source = "dsmethod") %>%
-    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, category, indicator, source, raw_dev, std_dev, abs_raw_dev, abs_std_dev)
+    select(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL, category, indicator, source, raw_dev, std_dev, abs_raw_dev, abs_std_dev)
 
 # 2.4 stdmethod Deviations for indicators (Linear vs. Exponential)
 ind_stdmethod_dev <- all_std_long %>%
@@ -136,7 +136,7 @@ ind_stdmethod_dev <- all_std_long %>%
     filter(rcp == sens_rcp_base, period_code == sens_period_base, gcm == sens_gcm_base) %>%
     left_join(tbl_standardize %>% select(abbrev, dsmodel_baseline_ind = dsmodel_baseline), by = c("indicator" = "abbrev")) %>%
     filter(dsmodel == dsmodel_baseline_ind) %>%
-    left_join(ind_baseline, by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "category", "indicator")) %>%
+    left_join(ind_baseline, by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_LABEL", "category", "indicator")) %>%
     mutate(
         raw_dev = value - base_raw_mean,
         std_dev = std_value - base_std_mean,
@@ -144,13 +144,13 @@ ind_stdmethod_dev <- all_std_long %>%
         abs_std_dev = abs(std_dev),
         source = "stdmethod"
     ) %>%
-    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, category, indicator, source, raw_dev, std_dev, abs_raw_dev, abs_std_dev)
+    select(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL, category, indicator, source, raw_dev, std_dev, abs_raw_dev, abs_std_dev)
 
 ind_dev_long <- bind_rows(
-    ind_gcm_dev %>% select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, category, indicator, source, raw_dev, std_dev, abs_raw_dev, abs_std_dev),
-    ind_scen_dev %>% select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, category, indicator, source, raw_dev, std_dev, abs_raw_dev, abs_std_dev),
-    ind_model_dev %>% select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, category, indicator, source, raw_dev, std_dev, abs_raw_dev, abs_std_dev),
-    ind_stdmethod_dev %>% select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, category, indicator, source, raw_dev, std_dev, abs_raw_dev, abs_std_dev)
+    ind_gcm_dev %>% select(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL, category, indicator, source, raw_dev, std_dev, abs_raw_dev, abs_std_dev),
+    ind_scen_dev %>% select(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL, category, indicator, source, raw_dev, std_dev, abs_raw_dev, abs_std_dev),
+    ind_model_dev %>% select(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL, category, indicator, source, raw_dev, std_dev, abs_raw_dev, abs_std_dev),
+    ind_stdmethod_dev %>% select(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL, category, indicator, source, raw_dev, std_dev, abs_raw_dev, abs_std_dev)
 )
 
 ind_dev_wide <- ind_dev_long %>%
@@ -164,7 +164,7 @@ ind_dev_wide <- ind_dev_long %>%
 # Repeat across all CUs to get an average
 # Put all results in a dataframe with a row summarizing these metrics for each indicator/CU
 ind_cu_summary <- ind_dev_wide %>%
-    left_join(ind_baseline, by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "category", "indicator"))
+    left_join(ind_baseline, by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_LABEL", "category", "indicator"))
 
 # ...and for all CUs
 ind_all_summary <- ind_dev_wide %>%
@@ -172,7 +172,7 @@ ind_all_summary <- ind_dev_wide %>%
     summarise(
         FULL_CU_IN = "ALL",
         SPECIES_NAME = "ALL",
-        CVIS_NAME = "ALL",
+        CVIS_LABEL = "ALL",
         across(where(is.numeric), ~ mean(., na.rm = TRUE)),
         .groups = "drop"
     )
@@ -256,7 +256,7 @@ sens_bounds <- dat %>%
 baselines <- dat %>%
     filter(rcp == sens_rcp_base, period_code == sens_period_base, gcm == sens_gcm_base) %>%
     filter((category == "all" & method == sens_method_overall_base) | (category != "all" & method == sens_method_category_base)) %>%
-    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, SMU_SIMPLE, category, 
+    select(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL, SMU_SIMPLE, category, 
            base_score = score100_all, 
            base_rank_all = rankall, 
            base_rank_sp = rankspecies)
@@ -315,7 +315,7 @@ for (mod in all_models) {
 
     if (nrow(mod_dat) > 0) {
         mod_scores <- mod_dat %>%
-            group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, SMU_SIMPLE) %>%
+            group_by(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL, SMU_SIMPLE) %>%
             calculate_combined_scores() %>%
             left_join(sens_bounds, by = c("category", "method")) %>%
             mutate(
@@ -337,7 +337,7 @@ if (length(model_variants) > 0) {
     model_variants_df <- bind_rows(model_variants)
 } else {
     model_variants_df <- tibble(
-        FULL_CU_IN = character(), SPECIES_NAME = character(), CVIS_NAME = character(), SMU_SIMPLE = character(),
+        FULL_CU_IN = character(), SPECIES_NAME = character(), CVIS_LABEL = character(), SMU_SIMPLE = character(),
         category = character(), method = character(), score = numeric(), source = character(),
         score100_all = numeric(), rankall = numeric(), rankspecies = numeric()
     )
@@ -347,7 +347,7 @@ if (length(model_variants) > 0) {
 # Uses ranks from the dataframe (which come from scores_tidy for GCM/RCP scenarios)
 calc_devs <- function(df, baseline_df) {
     df %>%
-        left_join(baseline_df, by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "SMU_SIMPLE", "category")) %>%
+        left_join(baseline_df, by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_LABEL", "SMU_SIMPLE", "category")) %>%
         mutate(
             raw_dev = score100_all - base_score,
             abs_dev = abs(raw_dev),
@@ -369,7 +369,7 @@ for (cat in relevant_categories) {
     gcm_dev <- cat_dat %>%
         filter(rcp == sens_rcp_base, period_code == sens_period_base, method == b_method, gcm %in% gcm_sources) %>%
         calc_devs(cat_baseline) %>%
-        select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, SMU_SIMPLE, category, base_score, base_rank_all, base_rank_sp, 
+        select(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL, SMU_SIMPLE, category, base_score, base_rank_all, base_rank_sp, 
                source = gcm, raw_dev, abs_dev, rank_diff_all, rank_diff_sp, rankall, rankspecies) %>%
         mutate(source = paste0("GCM", source))
 
@@ -378,7 +378,7 @@ for (cat in relevant_categories) {
         cat_dat %>%
             filter(rcp == s[1], period_code == s[2], gcm == sens_gcm_base, method == b_method) %>%
             calc_devs(cat_baseline) %>%
-            select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, SMU_SIMPLE, category, base_score, base_rank_all, base_rank_sp, 
+            select(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL, SMU_SIMPLE, category, base_score, base_rank_all, base_rank_sp, 
                    raw_dev, abs_dev, rank_diff_all, rank_diff_sp, rankall, rankspecies) %>%
             mutate(source = paste0("RCP", s[1], "_P", s[2]))
     })
@@ -387,7 +387,7 @@ for (cat in relevant_categories) {
     m_dev <- cat_dat %>%
         filter(rcp == sens_rcp_base, period_code == sens_period_base, gcm == sens_gcm_base, method %in% method_sources) %>%
         calc_devs(cat_baseline) %>%
-        select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, SMU_SIMPLE, category, base_score, base_rank_all, base_rank_sp, 
+        select(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL, SMU_SIMPLE, category, base_score, base_rank_all, base_rank_sp, 
                source = method, raw_dev, abs_dev, rank_diff_all, rank_diff_sp, rankall, rankspecies) %>%
         mutate(source = paste0("Method_", source))
 
@@ -401,12 +401,12 @@ for (cat in relevant_categories) {
             filter(category == cat, method == b_method, source %in% rel_mods) %>%
             calc_devs(cat_baseline) %>%
             mutate(source = "dsmethod") %>%
-            group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, SMU_SIMPLE, category, base_score, base_rank_all, base_rank_sp, source) %>%
+            group_by(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL, SMU_SIMPLE, category, base_score, base_rank_all, base_rank_sp, source) %>%
             summarise(
                 across(c(raw_dev, abs_dev, rank_diff_all, rank_diff_sp, rankall, rankspecies), ~ mean(., na.rm = TRUE)),
                 .groups = "drop"
             ) %>%
-            select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, SMU_SIMPLE, category, base_score, base_rank_all, base_rank_sp, 
+            select(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL, SMU_SIMPLE, category, base_score, base_rank_all, base_rank_sp, 
                    source, raw_dev, abs_dev, rank_diff_all, rank_diff_sp, rankall, rankspecies)
     }
 
@@ -423,7 +423,7 @@ for (cat in relevant_categories) {
                 gcm = as.character(gcm)
             ) %>%
             calc_devs(cat_baseline) %>%
-            select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, SMU_SIMPLE, category, base_score, base_rank_all, base_rank_sp, 
+            select(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL, SMU_SIMPLE, category, base_score, base_rank_all, base_rank_sp, 
                    raw_dev, abs_dev, rank_diff_all, rank_diff_sp, rankall, rankspecies) %>%
             mutate(source = "stdmethod")
     }
@@ -480,27 +480,27 @@ jk_dat <- all_std_long %>%
 
 jk_proj_tbl_base <- jk_dat %>%
     filter(rcp == sens_rcp_base, period_code == sens_period_base, gcm == sens_gcm_base) %>%
-    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, indicator, category, proj_value = std_value)
+    select(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL, indicator, category, proj_value = std_value)
 
 jk_static_tbl <- jk_dat %>%
     filter(gcm == "0", period_code == "0") %>%
-    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, indicator, category, static_value = std_value) %>%
+    select(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL, indicator, category, static_value = std_value) %>%
     distinct()
 
 jk_inds_per_cu <- jk_dat %>%
-    distinct(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, indicator, category)
+    distinct(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL, indicator, category)
 
 baseline_vals <- jk_inds_per_cu %>%
-    left_join(jk_proj_tbl_base, by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "indicator", "category")) %>%
-    left_join(jk_static_tbl, by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "indicator", "category")) %>%
+    left_join(jk_proj_tbl_base, by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_LABEL", "indicator", "category")) %>%
+    left_join(jk_static_tbl, by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_LABEL", "indicator", "category")) %>%
     mutate(std_value = coalesce(proj_value, static_value)) %>%
-    group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, indicator, category) %>%
+    group_by(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL, indicator, category) %>%
     summarise(std_value = mean(std_value, na.rm = TRUE), .groups = "drop") %>%
     mutate(std_value = ifelse(is.nan(std_value), NA_real_, std_value))
 
 # Calculate actual baseline scores (0-1 scale first)
 baseline_scores_raw <- baseline_vals %>%
-    group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME) %>%
+    group_by(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL) %>%
     calculate_combined_scores()
 
 # Determine fixed scaling bounds based ON THE FULL BASELINE
@@ -517,7 +517,7 @@ jk_bounds <- baseline_scores_raw %>%
 baseline_scores <- baseline_scores_raw %>%
     left_join(jk_bounds, by = c("method", "category")) %>%
     mutate(base_score_100 = if_else(mx > mn, (score - mn) / (mx - mn) * 100, score * 100)) %>%
-    select(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, method, category, base_score_100)
+    select(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL, method, category, base_score_100)
 
 # Jackknife Loop
 unique_indicators <- sort(unique(baseline_vals$indicator))
@@ -529,7 +529,7 @@ for (ind in unique_indicators) {
     # Exclude one indicator and re-score
     jk_scores <- baseline_vals %>%
         filter(indicator != ind) %>%
-        group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME) %>%
+        group_by(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL) %>%
         calculate_combined_scores() %>%
         mutate(excluded_element = ind, excluded_type = "indicator")
 
@@ -543,7 +543,7 @@ for (cat_group in unique_categories) {
     # Exclude all indicators in category and re-score
     jk_scores <- baseline_vals %>%
         filter(category != cat_group) %>%
-        group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME) %>%
+        group_by(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL) %>%
         calculate_combined_scores() %>%
         mutate(excluded_element = cat_group, excluded_type = "category")
 
@@ -556,7 +556,7 @@ jackknife_all <- bind_rows(jackknife_results)
 jackknife_analysis <- jackknife_all %>%
     left_join(jk_bounds, by = c("method", "category")) %>%
     mutate(jk_score_100 = if_else(mx > mn, (score - mn) / (mx - mn) * 100, score * 100)) %>%
-    left_join(baseline_scores, by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "method", "category")) %>%
+    left_join(baseline_scores, by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_LABEL", "method", "category")) %>%
     mutate(
         raw_dev = jk_score_100 - base_score_100,
         abs_dev = abs(raw_dev)
@@ -634,7 +634,7 @@ global_score_summary <- all_devs_long %>%
 
 # Summary of indicator-level metrics per species
 ind_species_summary <- ind_dev_long %>%
-    left_join(ind_baseline, by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "category", "indicator")) %>%
+    left_join(ind_baseline, by = c("FULL_CU_IN", "SPECIES_NAME", "CVIS_LABEL", "category", "indicator")) %>%
     group_by(SPECIES_NAME, category, indicator, source) %>%
     summarise(
         mean_raw_dev = mean(raw_dev, na.rm = TRUE),

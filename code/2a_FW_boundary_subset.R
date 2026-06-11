@@ -35,8 +35,13 @@ base_network <- switch(2, "bcfpa", "tscapes")
 
 if (base_network == "tscapes") {
   load(file.path(paths$fw, "fw_models_tscapes.Rds"))
+  fw_models_acc <- filter(fw_models, model_access_salmon %in% c("OBSERVED", "INFERRED"))
+  
   stream_base <- st_geometry(fw_models)
+  stream_base_acc <- st_geometry(fw_models_acc) #accessible streams only
+  
   stream_cu_picks <- matrix(ncol = n.CUs, nrow = nrow(fw_models))
+  stream_acc_cu_picks <- matrix(ncol = n.CUs, nrow = nrow(fw_models_acc)) 
 }
 
 if (base_network == "bcfpa") {
@@ -46,13 +51,18 @@ if (base_network == "bcfpa") {
 }
 
 # create matrix choosing streams contained within each CU boundary
-colnames(stream_cu_picks) <- cu_seq
+colnames(stream_cu_picks)     <- cu_seq
+colnames(stream_acc_cu_picks) <- cu_seq
 
 # ==================== 3. Intersect Streams with CU Boundaries ====================
 for (i in 1:n.CUs) {
   cu_pick <- cu_boundary[cu_boundary$FULL_CU_IN == cu_seq[i], ]
+  
   pick_st <- lengths(st_intersects(st_zm(stream_base), cu_pick)) > 0
   stream_cu_picks[, i] <- pick_st
+  
+  pick_st <- lengths(st_intersects(st_zm(stream_base_acc), cu_pick)) > 0
+  stream_acc_cu_picks[, i] <- pick_st
 
   print(paste(cu_seq[i], "boundary stream selection done"))
 }

@@ -832,6 +832,7 @@ if (base_network == "tscapes") {
 load(file.path(paths$fw, "fw_models_tscapes.Rds"))
 fw_models_df <- st_drop_geometry(fw_models)
 
+
 ### High flow stats
 
 flow_long <- fw_models_df %>%
@@ -957,6 +958,11 @@ cols_to_keep <- names(fw_sp_ind) %>%
 
 fw_sp_ind <- fw_sp_ind %>%
   select(all_of(cols_to_keep))
+
+#filter to accessible streams only
+
+fw_sp_ind <- fw_sp_ind %>%
+  filter(model_access_salmon %in% c("OBSERVED", "INFERRED"))
 
 save(fw_sp_ind, file = file.path(paths$fw, "fw_stream_indicators_sp.Rds"))
 

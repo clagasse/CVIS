@@ -269,7 +269,7 @@ static_dat <- all_std_long %>%
   select(FULL_CU_IN, indicator, static_value = std_value)
 
 analysis_dat <- all_std_long %>%
-  distinct(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, indicator) %>%
+  distinct(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL, indicator) %>%
   left_join(dynamic_dat %>% select(FULL_CU_IN, indicator, std_value, category), by = c("FULL_CU_IN", "indicator")) %>%
   left_join(static_dat, by = c("FULL_CU_IN", "indicator")) %>%
   mutate(std_value = coalesce(std_value, static_value)) %>%
@@ -277,12 +277,12 @@ analysis_dat <- all_std_long %>%
   left_join(tbl_indicators %>% select(abbrev, name, category_long = category), by = c("indicator" = "abbrev"))
 
 pca_input_wide <- analysis_dat %>%
-  group_by(FULL_CU_IN, SPECIES_NAME, CVIS_NAME, indicator) %>%
+  group_by(FULL_CU_IN, SPECIES_NAME, CVIS_LABEL, indicator) %>%
   summarise(val = mean(std_value, na.rm = TRUE), .groups = "drop") %>%
   pivot_wider(names_from = indicator, values_from = val)
 
 pca_ready <- pca_input_wide %>%
-  select(-FULL_CU_IN, -SPECIES_NAME, -CVIS_NAME) %>%
+  select(-FULL_CU_IN, -SPECIES_NAME, -CVIS_LABEL) %>%
   mutate(across(everything(), ~ ifelse(is.na(.), mean(., na.rm = TRUE), .)))
 
 zero_var <- sapply(pca_ready, function(x) var(x, na.rm = TRUE) == 0 | is.na(var(x, na.rm = TRUE)))
@@ -309,7 +309,7 @@ vuln_scores <- scores_tidy %>%
   select(FULL_CU_IN, total_vulnerability = score100_all)
 
 analysis_combined <- vuln_scores %>%
-  left_join(pca_input_wide %>% select(-SPECIES_NAME, -CVIS_NAME), by = "FULL_CU_IN") %>%
+  left_join(pca_input_wide %>% select(-SPECIES_NAME, -CVIS_LABEL), by = "FULL_CU_IN") %>%
   left_join(cu_cluster_scores, by = "FULL_CU_IN") %>%
   left_join(metadata_cu, by = "FULL_CU_IN")
 

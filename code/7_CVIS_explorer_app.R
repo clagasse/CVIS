@@ -1102,24 +1102,12 @@ server <- function(input, output, session) {
 
     spatial <- cu_spatial()
 
-    p <- ggplot() +
-      geom_sf(data = spatial$boundary, color = "black", alpha = 0.3)
-
-    if (nrow(spatial$lakes) > 0) {
-      p <- p + geom_sf(data = spatial$lakes, color = "darkblue", alpha = 0.7)
-    }
-
-    p <- p +
-      geom_sf(data = spatial$nuseds, aes(fill = SPECIES), alpha = 0.6) +
-      geom_sf(data = st_zm(spatial$fw_sp), aes(color = model_rs)) +
-      coord_sf(
-        xlim = st_bbox(spatial$boundary)[c(1, 3)],
-        ylim = st_bbox(spatial$boundary)[c(2, 4)]
-      ) +
-      labs(
-        colour = "BC FishPass",
-        fill = "NUSEDS sites"
-      )
+    p <- stream_accessible_plot(
+      stream_data = spatial$fw_sp,
+      nuseds_data = spatial$nuseds,
+      cu_boundary = spatial$boundary,
+      lakes_cu = spatial$lakes
+    )
 
     print(p)
   })

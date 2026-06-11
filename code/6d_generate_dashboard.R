@@ -1,3 +1,22 @@
+# ==============================================================================
+# CVIS CU HTML Report Stitcher & Dashboard Generator (6d_generate_dashboard.R)
+#
+# Description:
+#   Iterates through all Conservation Unit (CU) Rmd reports compiled under paths$reports,
+#   Base64-encodes them, and injects them into a single self-contained HTML dashboard
+#   template. Provides a responsive search and filter sidebar interface for easy browsing.
+#
+# Inputs:
+#   - Individual CU report HTML files under paths$reports/CU_reports/
+#   - processed_data/CU/cu_run.Rds metadata (via 0_setup.R)
+#
+# Outputs:
+#   - paths$reports/CVIS_CU_Supplemental_Report.html (Self-contained Master Dashboard)
+#
+# Dependencies:
+#   - Requires 0_setup.R, base64enc, and compiled individual CU reports.
+# ==============================================================================
+
 library(here)
 library(base64enc)
 
@@ -17,11 +36,11 @@ cat("Packaging compiled CU reports into self-contained HTML dashboard...\n")
 cu_items <- list()
 for (i in 1:nrow(cu_run)) {
   cu_code <- cu_run$FULL_CU_IN[i]
-  cu_name <- cu_run$CU_NAME[i]
+  cu_name <- cu_run$CVIS_LABEL[i]
   cu_species <- cu_run$SPECIES_NAME[i]
   
   # Path to compiled individual report
-  report_file <- file.path(paths$reports, "CU_reports", paste0(cu_code, "_CVIS_Data_report.html"))
+  report_file <- file.path(paths$reports, "CU_reports", paste0(cu_code, "_CVIS_profile.html"))
   
   if (file.exists(report_file)) {
     # Base64-encode the HTML file
@@ -51,7 +70,7 @@ html_template <- r"---(<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Climate Vulnerability Indicators for Salmon (CVIS) Supplement - CU Data Reports</title>
+  <title>CVIS Supplement - CU Data Reports</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -317,7 +336,7 @@ html_template <- r"---(<!DOCTYPE html>
   <div class="sidebar">
     <div class="sidebar-header">
       <h1>CU Reports</h1>
-      <p>Climate Vulnerability Indicators for Salmon</p>
+      <p>CVIS Supplement</p>
       <button class="btn-home" onclick="showAbout()">Home / About Project</button>
     </div>
     <div class="search-container">
@@ -333,22 +352,19 @@ html_template <- r"---(<!DOCTYPE html>
     <!-- About Landing screen -->
     <div class="about-screen" id="about-landing">
       <div class="about-header">
-        <h2>Climate Vulnerability Indicators for Salmon (CVIS)</h2>
-        <p>Supplement - Conservation Unit Reports</p>
+        <h2>CVIS Supplement - Conservation Unit Reports</h2>
       </div>
  
       <div class="about-section">
-        <h3>About the Project</h3>
-        <p>This supplemental report presents individual Conservation Unit (CU) profiles and indicator data for the Climate Vulnerability Indicators for Salmon (CVIS) framework. Click on any of the CUs in the left sidebar to view its individual profile, maps, life-stage timing, and indicator summary tables.</p>
+        <p>This supplemental report presents individual Conservation Unit (CU) profiles and indicator data for the Climate Vulnerability Indicators for Salmon (CVIS) framework. Click on any of the CUs in the left sidebar to view its vulnerability profile and indicator summary.</p>
         
         <p>Each individual report contains the following sections:</p>
         <ul>
-          <li><strong>Overview:</strong> A composite summary of Overall Vulnerability and category vulnerability scores compared across all CUs, alongside a complete baseline raw and standardized indicator table and locator maps.</li>
+          <li><strong>Overview:</strong> A summary of overall vulnerability scores and individual indicator values. Also includes a comparison of life history timing and the location of the CU boundary and marine adaptive zone.</li>
           <li><strong>Demographics:</strong> Recent Wild Salmon Policy (WSP) status assessments and generational spawner abundance trends.</li>
-          <li><strong>Timing:</strong> Timeline of annual life-history stage schedules (run timing, migration, and peak spawning).</li>
-          <li><strong>Spawning & Rearing:</strong> Freshwater rearing habitat stream networks, stream temperature projections, warming rates, summer/winter flow alterations, and habitat niche suitability.</li>
-          <li><strong>Migration:</strong> Upstream adult migration route characteristics, including migration distance and daily mainstem stream temperatures synced to CU migration windows.</li>
-          <li><strong>Marine:</strong> Nearshore marine climate exposure (SST projections, decadal warming rates, and cumulative human impacts) across Marine Adaptive Zones (MAZs).</li>
+          <li><strong>Spawning & Rearing:</strong> Projected stream water temperature and warming rates, summer and winter flow alterations, cumulative watershed threats, and BC Fishpass stream network and habitat access statistics.</li>
+          <li><strong>Migration:</strong> Upstream adult migration information, including the migration path and temperatures during upstream migration.</li>
+          <li><strong>Marine:</strong> Nearshore marine indicators (SST projections, decadal warming rates, and cumulative human impacts) for the specific CU marine adaptive zone and compared to other marine adaptive zones.</li>
           <li><strong>Sensitivity Analysis:</strong> Variations in overall scoring and standardized risk scores across different climate models (GCMs), downscaling methods, and aggregation algorithms.</li>
         </ul>
       </div>
@@ -356,15 +372,18 @@ html_template <- r"---(<!DOCTYPE html>
       <div class="about-section">
         <h3>Analysis Assumptions</h3>
         <ul>
-          <li><strong>Climate Scenario:</strong> Baseline vulnerability scores evaluate the RCP 4.5 emission pathway.</li>
-          <li><strong>Time Period:</strong> Projections evaluate Mid-Century (2041-2060) changes.</li>
+          <li>Indicator values and vulnerability scores are focused on a default scenario and do not show variation across scenarios. See the sensitivity analysis section for comparisons across scenarios 
+          and read the model documentation for further details on assumptions and sources of uncertainty.</li>
+          <li><strong>Climate Scenario:</strong> Default vulnerability scores use the RCP 4.5 emissions scenario, representing moderate greenhouse gas mitigation.</li>
+          <li><strong>Time Period:</strong> Default indicators for environmental change use the mid-century period (2041-2060) compared to a historical baseline (generally 1981-2000).</li>
+          <li><strong>Global Climate Model:</strong> Indicators use the ensemble mean of global climate models under the default scenario.</li>
         </ul>
       </div>
  
       <div class="disclaimer-box">
         <h4>Draft Data Disclaimer</h4>
         <p><strong>DRAFT - Not for further distribution without permission of the authors</strong></p>
-        <p>This data and analysis are preliminary and subject to change. The indicators presented here are under active development and have not been peer-reviewed. Results should be interpreted with caution and are intended for exploratory analysis only.</p>
+        <p>This data and analysis are preliminary and subject to change. Please contact the authors before further distribution.</p>
       </div>
     </div>
  
