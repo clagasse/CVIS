@@ -65,21 +65,23 @@ A full description of methods and results are detailed in a technical report cur
 │   │
 │   ├── 4_scoring_utils.R            # Utility helpers for indicator scaling and scoring
 │   ├── 4a_CU_scoring.R              # 0-1 normalization and portfolio aggregations
-│   ├── 4b_CU_sensitivity_analysis.R # Sensitivity analysis across runs and parameters
-│   ├── 4c_indicator_sensitivity_summary.R # Indicator sensitivity summary compiling
+│   ├── 4b_sensitivity_analysis.R    # Quantitative analysis of vulnerability score sensitivity, rank displacements, and jackknife leverage analysis
+│   ├── 4c_sensitivity_summary.R     # Consolidating sensitivity metrics, risk drivers, and ANOVA
+│   ├── 4d_bootstrap_analysis.R      # Bootstrap uncertainty analysis and robustness classification
 │   │
 │   ├── 5a_plots_CU.R                # Individual CU lollipop and map plots
 │   ├── 5b_plots_compare.R           # Comparative multi-CU indicator plots
 │   ├── 5c_plots_sensitivity_indicators.R # Plotting indicator sensitivity ranges
-│   ├── 5d_plots_sensitivity_scoring.R # Plotting scoring aggregation rank deviations
+│   ├── 5d_table_summaries.R         # Generates publication-grade HTML summary and sensitivity tables (via gt)
+│   ├── 5e_plots_study_area.R        # Generates Fraser Basin study area maps and species facets
 │   │
 │   ├── 6_CVIS_report.Rmd            # Master CVIS report template
 │   ├── 6_figures_manuscript.R       # Generating and exporting manuscript figures
-│   ├── 6a_CU_indicator_report.Rmd   # Individual CU summary report template
-│   ├── 6b_Sensitivity_Appendix.Rmd  # Methodological sensitivity appendix template
-│   ├── 6c_CVIS_supplemental_report.Rmd # Supplemental data reporting template
-│   │
-│   └── 7_CVIS_explorer_app.R        # Shiny App for interactive mapping and exploration
+│   ├── 6a_S1_indicators_description.Rmd # Supplement S1 report (Indicator descriptions and baseline outputs)
+│   ├── 6b_S2_CU_reports.Rmd         # Supplement S2 report template (Individual CU profiles)
+│   ├── 6d_generate_dashboard.R      # Self-contained master HTML dashboard builder
+│   ├── deploy_reports.R             # Master script to compile reports and deploy assets to /docs for GitHub Pages
+│   └── precompute_cu_lakes.R        # Precomputes lake intersection percentages for Salmon Conservation Units to speed up spatial indicators mapping
 │
 ├── processed_data/
 │   ├── CU/                          # Aggregated CU metadata and genetics data
@@ -128,16 +130,16 @@ The CVIS analysis pipeline can be executed in modular stages using `code/0a_cons
 1.  **Setup & Initialization** (`code/0_setup.R`): Configures global analysis options (such as target CUs, emission scenarios, and models), registers centralized directories, and loads dependencies. Sibling raw data folders (`0_data_climate`, `0_data_spatial`, `0_data_salmon`) resolve outside the repository to remain Git-clean.
 2.  **Freshwater Indicator Analysis** (scripts 1a-2d): Imports CU metadata and traces spawner pathways. Calculates dry-season temperatures, winter flow anomalies, and thermal migration corridor stressors.
 3.  **Marine Nearshore Analysis** (scripts 3a-3d): Standardizes ocean sea surface temperature (SST) and salinity datasets to extract entry-window conditions.
-4.  **Vulnerability Scoring & Aggregation** (scripts 4a-4c): Normalizes all raw indicators to a standard 0-1 scale. Aggregates scores across lifecycle categories using multiple methods, including arithmetic means, extreme-value scaling (cube-roots), and red flag thresholds.
-5.  **Visualization & Reporting** (scripts 5a-6c): Compiles comparative summaries, renders individual and regional HTML dashboards, and outputs them directly to `output/reports/`.
-6.  **Interactive Exploration**: Launches the interactive Shiny Explorer application (`code/7_CVIS_explorer_app.R`) to visualize indicators and mapped CU vulnerabilites.
+4.  **Vulnerability Scoring, Sensitivity & Uncertainty Analysis** (scripts 4a-4d): Normalizes all raw indicators to a standard 0-1 scale. Aggregates scores across lifecycle categories using multiple methods (arithmetic means, extreme-value scaling, and red flags). Performs sensitivity analysis (ANOVA/PCA) and bootstrapping to evaluate score stability and robustness.
+5.  **Visualization, Summaries & Dashboard Stitching** (scripts 5a-5e and 6a-6d): Renders lollipop and map plots, compiles publication-grade HTML summary and sensitivity tables (via `gt`), and renders individual CU HTML profiles.
+6.  **Report Deployment & Exploration**: Runs `code/deploy_reports.R` to compile and deploy the self-contained reports and master dashboard to the `/docs` folder, facilitating static hosting and easy browsing of the results (e.g., via GitHub Pages).
 
 ### Core Dependencies
 
 The framework leverages several categories of R packages:
 -   **Spatial Analysis**: `sf`, `terra`, `fwapgr` (Freshwater Atlas integration), `gstat`
 -   **Data Processing**: `dplyr`, `tidyr`, `purrr`, `data.table`, `stars` (NetCDF raster manipulation)
--   **Visualizations & Outputs**: `ggplot2`, `shiny`, `rmarkdown`
+-   **Visualizations & Outputs**: `ggplot2`, `gt`, `rmarkdown`
 
 ## Output
 
@@ -148,7 +150,7 @@ The framework produces:
 -   **Spatial visualizations** of stream-level indicators
 -   **Comparative plots** across CUs, species, and scenarios
 -   **HTML reports** for individual CUs and watershed-wide summaries (placed in `output/reports/`)
--   **Interactive Shiny App** for visual results exploration and scenario mapping (`code/7_CVIS_explorer_app.R`)
+-   **Self-contained HTML Dashboard** (`docs/6b_S2_CU_reports.html`) for searching, filtering, and interactive browsing of individual Conservation Unit profiles on GitHub Pages.
 
 ## Contributing
 

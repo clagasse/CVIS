@@ -42,6 +42,8 @@ if (base_network == "tscapes") {
   
   stream_cu_picks <- matrix(ncol = n.CUs, nrow = nrow(fw_models))
   stream_acc_cu_picks <- matrix(ncol = n.CUs, nrow = nrow(fw_models_acc)) 
+  
+  colnames(stream_acc_cu_picks) <- cu_seq
 }
 
 if (base_network == "bcfpa") {
@@ -52,7 +54,6 @@ if (base_network == "bcfpa") {
 
 # create matrix choosing streams contained within each CU boundary
 colnames(stream_cu_picks)     <- cu_seq
-colnames(stream_acc_cu_picks) <- cu_seq
 
 # ==================== 3. Intersect Streams with CU Boundaries ====================
 for (i in 1:n.CUs) {
@@ -61,12 +62,14 @@ for (i in 1:n.CUs) {
   pick_st <- lengths(st_intersects(st_zm(stream_base), cu_pick)) > 0
   stream_cu_picks[, i] <- pick_st
   
-  pick_st <- lengths(st_intersects(st_zm(stream_base_acc), cu_pick)) > 0
-  stream_acc_cu_picks[, i] <- pick_st
+  if (base_network == "tscapes") {
+    pick_st <- lengths(st_intersects(st_zm(stream_base_acc), cu_pick)) > 0
+    stream_acc_cu_picks[, i] <- pick_st
+  }
 
   print(paste(cu_seq[i], "boundary stream selection done"))
 }
 
 # ==================== 4. Save Outputs ====================
-if (base_network == "tscapes") save(stream_cu_picks, file = file.path(paths$fw, "fw_streampicks_tscapes.Rdata"))
+if (base_network == "tscapes") save(stream_cu_picks, stream_acc_cu_picks, file = file.path(paths$fw, "fw_streampicks_tscapes.Rdata"))
 if (base_network == "bcfpa") save(stream_cu_picks, file = file.path(paths$fw, "fw_streampicks_bcfpa.Rdata"))

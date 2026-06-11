@@ -115,7 +115,7 @@ migr_cu <- migr_list[[cu_i]]
 fw_sp_ind_cu <- subset_fw_models(
   fw_models = fw_sp_ind,
   cu_i = cu_i,
-  stream_cu_picks = stream_cu_picks,
+  stream_cu_picks = stream_acc_cu_picks,
   cu_run = cu_run,
   spp_lookup = spp_lookup,
   to_factor = TRUE,

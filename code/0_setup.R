@@ -73,6 +73,7 @@ library(scico) # scientific colour palettes
 library(gridExtra) # grid-based plots, used for indicator plots
 # library(ggsci)   # colour palettes - pal_futurama
 library(ggdist) # for half-violin / raincloud plots
+library(ggrepel) # for label positioning in plots
 
 formals(read_csv)$show_col_types <- F # use read_csv quietly
 
@@ -144,10 +145,10 @@ T_model <- "tw8" # temperature model tw8 = thermalscapes August temp, alternativ
 
 fw_habitat_selection <- switch(1,
   "rs",
-  "acc"
+  "all"
 ) # choose how to subset stream network for spawning and rearing indicators
 # rs = use BCfishpass rearing and spawning habitat (from accessible habitat)
-# acc = use all BCfishpass accessible habitat
+# all = use all streams 
 
 historical_code <- "0" # historical climatology period for temperature models
 # 0 = 1981-2000,  1 = 2001-2020.  For flow 0 = 1981-2010

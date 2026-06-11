@@ -25,6 +25,8 @@
 #   - Requires ggplot2, sf, dplyr, stringr, patchwork, ggtext, and standard CVIS data inputs.
 # ==============================================================================
 
+library(pacea)
+
 # Long format plots -------------------------------------------------------
 
 #' Lollipop plot (long-format) for a single RCP/period with GCM variation
@@ -54,7 +56,6 @@ plot_lollipop <- function(data,
                           threshold_value = NA_real_,
                           show_gcm_points = FALSE,
                           tbl = tbl_indicators) {
-  require(ggtext)
   
   # For backwards compatibility:
   all_std_long <- data
@@ -1335,7 +1336,6 @@ indicator_cu_tile_plot <- function(all_std_long,
                                    risk_palette = cvis_risk_palette,
                                    palette_direction = -1,
                                    cu_code_emphasize = NULL) {
-  require(ggtext)
   # 1. Filter indicators dynamically with fallback to baseline (0)
   d_ind_list <- split(all_std_long, all_std_long$indicator)
   for (ind in names(d_ind_list)) {
@@ -1531,7 +1531,6 @@ plot_methods_compare_tile <- function(scores_tidy,
                                       gcm_pick = "9",
                                       risk_palette = cvis_risk_palette,
                                       palette_direction = -1) {
-  require(ggtext)
   
   # ---- Input checks ----
   req_cols <- c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "CU_COMMON_NAME", "SMU_SIMPLE", "method", "category", "score100_all")
@@ -1708,11 +1707,6 @@ combined_maz_marine_plot <- function(maz_all,
                                      use_standardized = FALSE,
                                      risk_palette = cvis_risk_palette,
                                      palette_direction = -1) {
-  require(dplyr)
-  require(ggplot2)
-  require(sf)
-  require(tidyr)
-  require(patchwork)
 
   # 1. Filter out Offshore MAZ for regional view
   MAZ_reg <- MAZ %>% filter(MAZ_Acrony != "Offshore")
@@ -1730,7 +1724,6 @@ combined_maz_marine_plot <- function(maz_all,
     } else if (exists("paths") && !is.null(paths$marine) && file.exists(file.path(paths$marine, "bc_coast.Rds"))) {
       outline <- readRDS(file.path(paths$marine, "bc_coast.Rds"))
     } else {
-      library(pacea)
       outline <- pacea::bc_coast
     }
   }
@@ -2026,7 +2019,7 @@ migration_compare_plot <- function(migr_daily_all,
                                    period_choose = c("1981-2010", "2041-2060"),
                                    spatial_path_choose = "CK-12",
                                    min_stream_order = 9) {
-  require(ggtext)
+  
 
   # Species palette
   spp_colors <- get("species_palette", envir = .GlobalEnv)
@@ -2548,7 +2541,6 @@ plot_cvis_vulnerability_violins <- function(scores_tidy_baseline, cu_code = NULL
                           shape = 23, size = 4.0, fill = "#ED8936", color = "black", stroke = 1.2, inherit.aes = FALSE)
     }
   } else {
-    library(ggdist)
     p <- ggplot(plot_data, aes(x = category_label, y = score, fill = category_label)) +
       # Line separator between Overall Vulnerability and individual categories
       geom_vline(xintercept = 1.5, linetype = "dashed", color = "grey60", linewidth = 0.6) +

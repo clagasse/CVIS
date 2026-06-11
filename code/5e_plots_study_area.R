@@ -15,11 +15,12 @@ if (!exists("paths")) {
   source(here("code", "0_setup.R"))
 }
 
+library(sf)
+library(tidyverse)
+library(patchwork)
+library(ggrepel)
+
 plot_fraser_basin_study_area <- function(save_path = NULL) {
-  library(sf)
-  library(tidyverse)
-  library(patchwork)
-  library(ggrepel)
 
   cat("Loading spatial layers for study area map...\n")
   # Load MAZ from processed_data/marine if not in environment

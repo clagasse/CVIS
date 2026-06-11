@@ -26,6 +26,8 @@
 # ==============================================================================
 
 # Helper function for geometry simplification to reduce HTML file sizes and rendering times
+library(pacea)
+
 simplify_geom_if_needed <- function(sf_obj, dTolerance = NULL) {
   if (is.null(sf_obj) || !inherits(sf_obj, "sf")) {
     return(sf_obj)
@@ -627,7 +629,7 @@ stream_accessible_plot <- function(stream_data,
 
   ## stream map
   p1 <- ggplot() +
-    geom_sf(data = cu_boundary_i, color = "black", fill = NA, alpha = 0.3)
+    geom_sf(data = cu_boundary_i, color = "black", alpha = 0.0.05)
 
   if (nrow(lakes_cu) > 0) {
     p1 <- p1 + geom_sf(data = lakes_cu, color = "darkgrey", alpha = 0.8)
@@ -641,7 +643,7 @@ stream_accessible_plot <- function(stream_data,
     ))
 
   if (!is.null(nuseds_data) && nrow(nuseds_data) > 0) {
-    p1 <- p1 + geom_sf(data = nuseds_data, aes(fill = SPECIES), size = 2.5, alpha = 0.9, show.legend = FALSE)
+    p1 <- p1 + geom_sf(data = nuseds_data, aes(fill = SPECIES), size = 2., alpha = 0.7, show.legend = FALSE)
   }
 
   p1 <- p1 +
@@ -1218,7 +1220,6 @@ migration_path_timing_plot <- function(migr_path = NULL,
     } else if (exists("paths") && !is.null(paths$marine) && file.exists(file.path(paths$marine, "bc_coast.Rds"))) {
       bc_coast_proj <- sf::st_transform(readRDS(file.path(paths$marine, "bc_coast.Rds")), target_crs)
     } else {
-      library(pacea)
       bc_coast_proj <- sf::st_transform(pacea::bc_coast, target_crs)
     }
 
@@ -2110,10 +2111,6 @@ plot_cu_vulnerability_summary <- function(cu_code,
                                           scores_tidy = NULL,
                                           all_std_long = NULL,
                                           indicators_metadata = NULL) {
-  library(tidyverse)
-  library(patchwork)
-  library(ggtext)
-  
   # Resolve inputs
   if (is.null(scores_tidy)) {
     if (exists("scores_tidy_baseline", envir = .GlobalEnv)) {

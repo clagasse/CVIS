@@ -223,12 +223,10 @@ fw_cu <- ss_all %>%
   filter(FULL_CU_IN == cu_i) %>%
   distinct(FULL_CU_IN, .keep_all = TRUE)
 
-stream_cu_sub <- stream_cu_picks[,colnames(stream_cu_picks) == cu_i]
-
 fw_sp_cu <- subset_fw_models(
   fw_models = fw_sp_ind,
   cu_i = cu_i,
-  stream_cu_picks = stream_cu_picks,
+  stream_cu_picks = stream_acc_cu_picks,
   cu_run = cu_run,
   spp_lookup = spp_lookup,
   to_factor = TRUE
@@ -484,7 +482,7 @@ acc_plot <- stream_accessible_plot(fw_sp_cu,
 acc_plot
 ```
 
-**Fig. S2.7.** Accessible streams within the CU boundary coloured by BC Fishpass modelled linear/spawning habitat (red = spawning or rearing habitat; blue = accessible but not spawning or rearing habitat). NuSEDS spawning sites are also shown. Stream segments that are not accessible are not shown.
+**Fig. S2.7.** Accessible streams within the CU boundary coloured by BC Fishpass modelled linear/spawning habitat. NuSEDS spawning sites are also shown. Stream segments that are not accessible are not shown.
 
 ## Migration
 
