@@ -185,6 +185,25 @@ ns_end_offset <- 2 # amount of months after peak ocean entry month for calculati
 min_gen_red <- 1000 # if generational avg spawners is below this value and RapidStatus is None, status will be adjusted to Red
 
 
+# ==================== 3.5 Scoring and Standardization Configuration ====================
+# Configuration settings for indicator standardization and portfolio scoring (used in 4a_CU_scoring.R)
+
+# Baseline settings for indicator scaling
+# If you want to standardize scores and ranges relative to a specific baseline setup,
+# set these variables (e.g., scale_baseline_rcp <- "45"). If NA, ranges will be
+# calculated dynamically for each scenario/group.
+scale_baseline_rcp <- NA # e.g. "45"
+scale_baseline_period <- NA # e.g. "3"
+
+# Which variables are used when grouping CU indicator results for standardization?
+# This determines the min-max range applied when standardizing from 0 to 1.
+# The default is to group separately across all GCMs, RCPs, periods, and downscalers.
+grouping_vars_pick <- c("gcm", "rcp", "period_code", "dsmodel")
+
+# Threshold for station coverage overlap (exclude CUs below this for flow8pdelta)
+min_station_coverage <- 0.1
+
+
 # ==================== 4. Sensitivity Analysis Configuration ====================
 
 # Baseline scenario for sensitivity comparisons

@@ -277,7 +277,7 @@ nuseds_Fr$FULL_CU_IN <- adjust_CU_IN(nuseds_Fr$FULL_CU_IN)
 cu_timing <- cu_timing %>%
   rename(sp_dat_qual = dat_qual) %>%
   mutate(oe_age = as.numeric(str_sub(oe_age, start = 1, end = 1))) %>%
-  left_join(select(cu_list, cuid, CVIS_LABEL, FULL_CU_IN, CU_NAME, SPECIES_NAME), join_by(cuid), multiple = "first") %>%
+  left_join(select(filter(cu_list, !is.na(cuid)), cuid, CVIS_LABEL, FULL_CU_IN, CU_NAME, SPECIES_NAME), join_by(cuid), multiple = "first") %>%
   relocate(FULL_CU_IN, CVIS_LABEL, CU_NAME, SPECIES_NAME)
 
 cu_timing <- infill_average(cu_timing,

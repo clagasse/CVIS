@@ -34,19 +34,9 @@ library(here)
 setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
 
-# ---- Baseline Settings for Scaling ----
-# If you want to standardize scores and ranges relative to a specific baseline setup,
-# set these variables. If NA, ranges will be calculated dynamically for each group.
-scale_baseline_rcp <- NA # e.g. "45"
-scale_baseline_period <- NA # e.g. "3"
-
-# Threshold for station coverage overlap (exclude CUs below this for flow8pdelta)
-min_station_coverage <- 0.1
-
-#which variables are used when grouping CU indicator results for standardization?
-# This determines what min-max range is applied when standardizing from 0 to 1
-# default is to group separately across all scenarios and climate models
-grouping_vars_pick <- c("gcm", "rcp", "period_code", "dsmodel")
+# Note: Baseline settings for scaling (scale_baseline_rcp, scale_baseline_period), 
+# grouping variables (grouping_vars_pick), and station coverage thresholds (min_station_coverage)
+# have been moved to code/0_setup.R to keep all parameters centralized.
 
 # --- Load Data ---
 

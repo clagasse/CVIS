@@ -33,7 +33,7 @@ library(pacea)
 #' Always shows all CUs; missing data show as blank (no segment/point).
 #'
 #' @param data           Long-format table with (at least):
-#'   rcp, period_code, indicator, gcm, CVIS_NAME, SPECIES_NAME, FULL_CU_IN,
+#'   rcp, period_code, indicator, gcm, CVIS_LABEL, SPECIES_NAME, FULL_CU_IN,
 #'   (optional) dsmodel, std_value (and optionally raw_value/value for raw plotting)
 #' @param indicator_pick Character; indicator id to plot (e.g., "stream_temp")
 #' @param dsmodel_pick   Optional character scalar/vector; if provided, filter to these dsmodel values
@@ -649,10 +649,10 @@ spatial_fw_rearing_indicators_plot <- function(data,
       arrange(abbrev)
     
     cu_boundary_plot <- cu_boundary_plot %>%
-      left_join(select(indicator_names, abbrev, name_with_abbrev), by = c("indicator" = "abbrev")) %>%
+      left_join(select(indicator_names, abbrev, clean_name), by = c("indicator" = "abbrev")) %>%
       mutate(
         indicator_lbl = coalesce(clean_name, indicator),
-        indicator_lbl = factor(indicator_lbl, levels = indicator_names$name_with_abbrev)
+        indicator_lbl = factor(indicator_lbl, levels = indicator_names$clean_name)
       )
     
     facet_var <- "indicator_lbl"
@@ -698,7 +698,7 @@ xy_indicator_plot <- function(data,
                               point_col = "SPECIES_NAME") {
   plot_data_x <- subset_ind_table(data,
     indicators_choose = x_pick,
-    id_col = "CVIS_NAME",
+    id_col = "CVIS_LABEL",
     sp_col = point_col,
     get_raw = use_raw,
     get_gcm = T
@@ -710,7 +710,7 @@ xy_indicator_plot <- function(data,
 
   plot_data_y <- subset_ind_table(data,
     indicators_choose = y_pick,
-    id_col = "CVIS_NAME",
+    id_col = "CVIS_LABEL",
     sp_col = point_col,
     get_raw = use_raw,
     get_gcm = T
@@ -827,7 +827,7 @@ cu_status_table <- function(status_data,
     ) %>%
     select(
       # FULL_CU_IN,
-      CVIS_NAME,
+      CVIS_LABEL,
       SPECIES_NAME,
       RapidStatus,
       status_order,
@@ -841,10 +841,10 @@ cu_status_table <- function(status_data,
 
   # Sort according to user specification
   table_data <- switch(sort_by,
-    "status" = arrange(table_data, status_order, SPECIES_NAME, CVIS_NAME),
+    "status" = arrange(table_data, status_order, SPECIES_NAME, CVIS_LABEL),
     "abundance" = arrange(table_data, desc(GenAverage)),
-    "cu_name" = arrange(table_data, SPECIES_NAME, CVIS_NAME),
-    arrange(table_data, status_order, SPECIES_NAME, CVIS_NAME) # default
+    "cu_name" = arrange(table_data, SPECIES_NAME, CVIS_LABEL),
+    arrange(table_data, status_order, SPECIES_NAME, CVIS_LABEL) # default
   )
 
   # Define status colors
@@ -862,7 +862,7 @@ cu_status_table <- function(status_data,
     # Column labels
     cols_label(
       # FULL_CU_IN = "CU ID",
-      CVIS_NAME = "CU Name",
+      CVIS_LABEL = "CU Name",
       SPECIES_NAME = "Species",
       RapidStatus = "Status",
       ConfidenceRating5 = "Confidence",
@@ -939,7 +939,7 @@ cu_status_table <- function(status_data,
 #' are colored by life stage, and CU names are colored by species.
 #'
 #' @param cu_timing_long Data frame in long format containing life history timing
-#'   data with columns: FULL_CU_IN, CVIS_NAME, SPECIES_NAME, life_stage, start,
+#'   data with columns: FULL_CU_IN, CVIS_LABEL, SPECIES_NAME, life_stage, start,
 #'   peak, end, dat_qual
 #' @param cu_select Character vector of CU IDs to include. If NULL, includes all CUs
 #' @param species_select Character vector of species names to include. If NULL, includes all species
@@ -1009,10 +1009,10 @@ indicator_cu_tile_plot <- function(all_std_long,
   }
   
   ind_dat <- bind_rows(d_ind_list) %>%
-    group_by(FULL_CU_IN, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, SPECIES_NAME, indicator) %>%
+    group_by(FULL_CU_IN, CVIS_LABEL, CU_COMMON_NAME, SMU_SIMPLE, SPECIES_NAME, indicator) %>%
     slice_head(n = 1) %>%
     ungroup() %>%
-    select(FULL_CU_IN, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, SPECIES_NAME, indicator, value = std_value)
+    select(FULL_CU_IN, CVIS_LABEL, CU_COMMON_NAME, SMU_SIMPLE, SPECIES_NAME, indicator, value = std_value)
   
   if (!is.null(indicators_metadata) && "abbrev" %in% names(indicators_metadata) && "category" %in% names(indicators_metadata)) {
     meta_df <- indicators_metadata %>% select(indicator = abbrev, category)
@@ -1038,10 +1038,10 @@ indicator_cu_tile_plot <- function(all_std_long,
   }
   
   score_dat <- score_dat %>%
-    group_by(FULL_CU_IN, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, SPECIES_NAME) %>%
+    group_by(FULL_CU_IN, CVIS_LABEL, CU_COMMON_NAME, SMU_SIMPLE, SPECIES_NAME) %>%
     slice_head(n = 1) %>%
     ungroup() %>%
-    select(FULL_CU_IN, CVIS_NAME, CU_COMMON_NAME, SMU_SIMPLE, SPECIES_NAME, value = score100_all) %>%
+    select(FULL_CU_IN, CVIS_LABEL, CU_COMMON_NAME, SMU_SIMPLE, SPECIES_NAME, value = score100_all) %>%
     mutate(value = value / 100, indicator = "catavg", category = "overall")
   
   # Combine
@@ -1183,7 +1183,7 @@ plot_methods_compare_tile <- function(scores_tidy,
                                       palette_direction = -1) {
   
   # ---- Input checks ----
-  req_cols <- c("FULL_CU_IN", "SPECIES_NAME", "CVIS_NAME", "CU_COMMON_NAME", "SMU_SIMPLE", "method", "category", "score100_all")
+  req_cols <- c("FULL_CU_IN", "SPECIES_NAME", "CVIS_LABEL", "CU_COMMON_NAME", "SMU_SIMPLE", "method", "category", "score100_all")
   if (!all(req_cols %in% names(scores_tidy))) {
     stop("Missing required columns in 'scores_tidy': ", paste(setdiff(req_cols, names(scores_tidy)), collapse = ", "))
   }
@@ -1690,7 +1690,7 @@ migration_compare_plot <- function(migr_daily_all,
     dplyr::arrange(SPECIES_NAME, rt_start) %>%
     dplyr::mutate(
       label_color = spp_colors[as.character(SPECIES_NAME)],
-      id_label_html = paste0("<span style='color:", label_color, "'>", FULL_CU_IN, "</span>"),
+      id_label_html = paste0("<span style='color:", label_color, "'>", CVIS_LABEL, "</span>"),
       CU_label = factor(id_label_html, levels = unique(id_label_html))
     )
 
@@ -2085,12 +2085,6 @@ plot_raw_baseline_violins <- function(all_std_long_baseline, tbl_indicators, cu_
     theme(
       legend.position = "bottom",
       legend.box = "vertical"
-    )
-
-  # Add global titles and caption via plot_annotation
-  p_combined <- p_combined +
-    plot_annotation(
-      caption = "Raw Value (units vary by indicator)"
     )
 
   return(p_combined)

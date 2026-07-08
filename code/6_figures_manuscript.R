@@ -90,6 +90,23 @@ load(file.path(paths$output, "sensitivity_analysis.Rdata")) # loads overall_sens
 
 load(file.path(paths$output, "uncertainty_analysis_results.Rdata"))
 
+# Rename/copy CVIS_LABEL to CVIS_NAME to ensure compatibility with plotting and table scripts
+if ("CVIS_LABEL" %in% names(all_std_long) && !"CVIS_NAME" %in% names(all_std_long)) {
+  all_std_long$CVIS_NAME <- all_std_long$CVIS_LABEL
+}
+if ("CVIS_LABEL" %in% names(scores_tidy) && !"CVIS_NAME" %in% names(scores_tidy)) {
+  scores_tidy$CVIS_NAME <- scores_tidy$CVIS_LABEL
+}
+if ("CVIS_LABEL" %in% names(all_std_long_baseline) && !"CVIS_NAME" %in% names(all_std_long_baseline)) {
+  all_std_long_baseline$CVIS_NAME <- all_std_long_baseline$CVIS_LABEL
+}
+if ("CVIS_LABEL" %in% names(scores_tidy_baseline) && !"CVIS_NAME" %in% names(scores_tidy_baseline)) {
+  scores_tidy_baseline$CVIS_NAME <- scores_tidy_baseline$CVIS_LABEL
+}
+if (!is.null(overall_sensitivity$deviations) && "CVIS_LABEL" %in% names(overall_sensitivity$deviations) && !"CVIS_NAME" %in% names(overall_sensitivity$deviations)) {
+  overall_sensitivity$deviations$CVIS_NAME <- overall_sensitivity$deviations$CVIS_LABEL
+}
+
 # ==================== 3. Subset Case Study Data ====================
 
 cu_i <- casestudy_CU
@@ -147,7 +164,7 @@ f4 <- stream_indicator_multipanel_plot(fw_sp_ind,
   variables = c("cthr_anad", "tw8proj_9_45_3", "tw8rate_9_45_3", "flow8pdelta_9_45_3", "flow18pdelta_9_45_3", "favchange_chinook_85_3"),
   plot_titles = c("Cumulative Threat Score", "August Mean Temperature", "Rate of Temp. Change", "Change in August Flow", "Change in Nov-Jan Flow", "Change in ENM Favourability"),
   risk_palette = cvis_risk_palette,
-  palette_directions = c(-1, -1, -1, -1, 1, 1, -1, 1))
+  palette_directions = c(-1, -1, -1, 1, -1, 1))
 
 #save as png
 ggsave(filename = file.path(output_dir, "figure_4.png"), plot = f4, width = 12, height = 8)
@@ -236,14 +253,14 @@ ggsave(filename = file.path(output_dir, "sfig_hydroreg.png"), plot = hydrologic_
 
 # Supplemental Figure for stream attributes (basin-wide)
 sfig_stream_attr <- stream_indicator_multipanel_plot(
-  fwModels = fw_sp_ind,
+  fwModels = fw_models,
   cu_boundary = NULL,
   lakes_cu = lakes_Fr,
-  variables = c("model_access_salmon", "stream_order", "gradient", "elevation"),
-  plot_titles = c("Stream Accessibility", "Stream Order", "Gradient", "Elevation"),
-  ncol = 2
+  variables = c("model_access_salmon", "stream_order", "elevation"),
+  plot_titles = c("Stream Accessibility", "Stream Order", "Elevation"),
+  ncol = 3
 )
-ggsave(filename = file.path(output_dir, "sfig_streams.png"), plot = sfig_stream_attr, width = 10, height = 8)
+ggsave(filename = file.path(output_dir, "sfig_streams.png"), plot = sfig_stream_attr, width = 10, height = 5)
 
 
 

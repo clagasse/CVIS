@@ -30,7 +30,7 @@ setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
 
 # Execution Toggles: Toggle steps of the pipeline on (TRUE) or off (FALSE)
-run_data_load      <- F
+run_data_load      <- T
 run_fw_prep        <- FALSE # Run raw stream networks and PCIC flow model prep (1b, 1c, 1d)
 run_fw_stats       <- FALSE # Run stream intersections, rearing, and migration stats (2a, 2b, 2c, 2d)
 run_marine_prep    <- FALSE # Run raw marine NetCDF and spatial GDB imports (3a)

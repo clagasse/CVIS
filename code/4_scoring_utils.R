@@ -548,7 +548,7 @@ standardize_long_indicator <- function(data,
   }
 
   if (!is.na(baseline_rcp)) {
-    grouping_vars <- setdiff(grouping_vars, "rcp")
+    grouping_vars <- setdiff(grouping_vars, c("rcp", "dsmodel"))
   }
   if (!is.na(baseline_period)) {
     grouping_vars <- setdiff(grouping_vars, "period_code")
@@ -575,7 +575,20 @@ standardize_long_indicator <- function(data,
       )
 
     if (!is.na(baseline_rcp)) {
-      calibration_data_final <- calibration_data_final %>% filter(rcp == baseline_rcp | is.na(rcp))
+      # Filter to baseline dsmodel if present in std_params and in data, only when doing baseline calibration
+      dsmodel_base <- std_params$dsmodel_baseline
+      if (!is.null(dsmodel_base) && !is.na(dsmodel_base) && "dsmodel" %in% names(calibration_data_final)) {
+        calibration_data_final <- calibration_data_final %>% 
+          filter(dsmodel == dsmodel_base | is.na(dsmodel))
+      }
+
+      if ("rcp" %in% names(calibration_data_final)) {
+        calibration_data_final <- calibration_data_final %>%
+          filter(
+            (period_code == "0" & (rcp == "0" | rcp == baseline_rcp | is.na(rcp))) | 
+            (period_code %in% c("3", "5") & (rcp == baseline_rcp | is.na(rcp)))
+          )
+      }
     }
     if (!is.na(baseline_period)) {
       calibration_data_final <- calibration_data_final %>% filter(period_code == baseline_period | is.na(period_code))
@@ -650,8 +663,9 @@ standardize_long_indicator <- function(data,
         xmax_g <- first(xmax_calib)
 
         params_g <- std_params
-        params_g$xmin <- xmin_g
-        params_g$xmax <- xmax_g
+        # Defensive programming: only overwrite if the calibrated value is not NA/NaN
+        if (!is.null(xmin_g) && !is.na(xmin_g)) params_g$xmin <- xmin_g
+        if (!is.null(xmax_g) && !is.na(xmax_g)) params_g$xmax <- xmax_g
 
         # Apply function to the vector of values in this group
         do.call(std_fun, c(list(x = value), params_g))

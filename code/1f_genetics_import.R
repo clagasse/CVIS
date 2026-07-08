@@ -30,17 +30,28 @@
 # genetics_ck <- read_csv(file.path(paths$salmon, "Genetics", "chinook_genomicoffsets_heterozygosity.csv"))
 
 # ==================== 2. Read Population Level Data ====================
-genetics_pop <- read_csv(file.path(paths$salmon, "Genetics","offset_het_imputed_dat_sockeye_coho_chinook Mar2026.csv")) %>%
+genetics_old <- read_csv(file.path(paths$salmon, "Genetics","offset_het_imputed_dat_sockeye_coho_chinook Mar2026.csv")) %>%
   rename(
     FULL_CU_IN = CU,
     hetzyg = het
   ) %>%
   mutate(FULL_CU_IN = adjust_CU_IN(FULL_CU_IN))
 
+genetics_pop <- read_csv(file.path(paths$salmon, "Genetics","offset_het_imputed_dat_sockeye_coho_chinook_updated_july6.csv")) %>%
+  rename(
+    FULL_CU_IN = CU
+    #hetzyg = het
+  ) %>%
+  mutate(FULL_CU_IN = adjust_CU_IN(FULL_CU_IN)) %>%
+  left_join(select(genetics_old, site, FULL_CU_IN, hetzyg), join_by(site, FULL_CU_IN)) %>%  #get hetzyg from previous data file
+  select(-species)
 
+# genetics_pop <- genetics_old %>%
+#   mutate(period = "2041-2060")
+  
 # ==================== 3. Aggregate Populations to CU Level ====================
 genetics_cu <- genetics_pop %>%
-  group_by(species, FULL_CU_IN) %>%
+  group_by(FULL_CU_IN, period) %>%
   summarize(
     n_pop_genetics = n(),
     genoff_45_mean = mean(go45, na.rm = T),
@@ -70,21 +81,26 @@ genetics_long <- genetics_cu %>%
   mutate(
     gcm         = if_else(indicator == "genoff", 9L, 0L),
     rcp         = if_else(as.character(rcp) == "", "0", rcp),
-    period_code = if_else(indicator == "genoff", 3L, 0L),
-    dsmodel     = "observed"
+    period_code = case_when(
+      indicator == "genoff" & period == "2041-2060" ~ 3L,
+      indicator == "genoff" & period == "2080-2100" ~ 5L,
+      indicator == "hetzyg" ~ 0L,
+      TRUE ~ 0),
+    dsmodel     = "observed",
+    period      = if_else(indicator == "hetzyg", "Historical", period)
   ) %>%
-  left_join(select(tbl_indicators, abbrev, category), join_by(indicator == abbrev))
+  left_join(select(tbl_indicators, abbrev, category), join_by(indicator == abbrev)) %>%
+  # Filter to only keep population genetics where the species matches the CU species
+  inner_join(select(cu_run, FULL_CU_IN, SPECIES_NAME), by = "FULL_CU_IN") %>%
+  # Remove duplicate rows (e.g. for hetzyg which got duplicated across periods)
+  distinct()
 
-
-min_go85 <- quantile(genetics_cu$genoff_85_mean)
 
 if (interactive()) {
   ggplot() +
-    geom_boxplot(data = genetics_cu, aes(y = genoff_45_mean, colour = species))
+    geom_boxplot(data = genetics_cu, aes(y = genoff_45_mean))
 }
 
 
 save(genetics_long, file = file.path(paths$CU, "genetics_dat.Rds"))
 
-
-str_detect(genetics_cu$FULL_CU_IN, "US")

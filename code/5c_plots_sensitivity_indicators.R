@@ -33,7 +33,7 @@ plot_indicator_sensitivity <- function(ind_sens_summary, source_colors = sens_so
     scale_fill_manual(values = source_colors, na.value = "grey50", name = "Source of variation") +
     labs(
       title = "Indicator Sensitivity to Climate and Downscaling Method Variation",
-      subtitle = "Average absolute deviation from baseline across all CUs",
+      subtitle = "Average absolute deviation from default across all CUs",
       x = "Indicator",
       y = "Mean Absolute Deviation"
     ) +
@@ -44,7 +44,25 @@ plot_indicator_sensitivity <- function(ind_sens_summary, source_colors = sens_so
 # 1b. Indicator Directional Shift Violins
 plot_indicator_directional_shifts <- function(overall_sensitivity, tbl_indicators, source_colors = sens_source_palette) {
   ind_source_levels <- c("Baseline", "GCM1", "GCM4", "GCM6", "RCP45_P5", "RCP85_P3", "RCP85_P5", "dsmethod", "stdmethod")
-  ind_source_labels <- c("Baseline", "CanESM2 (GCM 1)", "HadGEM2 (GCM 4)", "MPI (GCM 6)", "RCP 4.5, End-century (P5)", "RCP 8.5, Mid-century", "RCP 8.5, End-century", "Downscaling Method", "Standardize Meth")
+  ind_source_labels <- c("Default Scenario", "CanESM2 (GCM 1)", "HadGEM2 (GCM 4)", "MPI (GCM 6)", "RCP 4.5, End-century (P5)", "RCP 8.5, Mid-century", "RCP 8.5, End-century", "Downscaling Method", "Standardize Meth")
+
+  # Fetch category name and color lookups with safe global fallbacks
+  cat_names <- if (exists("cat_label_map", envir = .GlobalEnv)) {
+    get("cat_label_map", envir = .GlobalEnv)
+  } else {
+    c("fwrs" = "Spawning & Rearing", "migr" = "Upstream Migration", "mar"  = "Nearshore Marine", "dem"  = "Demographics", "gen"  = "Genetics")
+  }
+  
+  cat_colors <- if (exists("indicator_palette", envir = .GlobalEnv)) {
+    get("indicator_palette", envir = .GlobalEnv)
+  } else {
+    c("Demographics" = "#9E6B7A", "Spawning & Rearing" = "#8AA382", "Upstream Migration" = "#7D8CA3", "Nearshore Marine" = "#698B93", "Genetics" = "#D9946C")
+  }
+
+  # Arrange indicators by category order and abbrev
+  ordered_indicators <- tbl_indicators %>%
+    arrange(factor(category, levels = names(cat_names)), abbrev) %>%
+    pull(abbrev)
 
   ind_shift_cus <- overall_sensitivity$indicator_metrics %>%
     filter(FULL_CU_IN != "ALL") %>%
@@ -67,10 +85,24 @@ plot_indicator_directional_shifts <- function(overall_sensitivity, tbl_indicator
     filter(has_variation) %>%
     group_by(indicator) %>% filter(n_distinct(source) > 1) %>% ungroup() %>%
     filter(source %in% ind_source_levels) %>%
-    mutate(source = factor(source, levels = rev(ind_source_levels), labels = rev(ind_source_labels)))
+    mutate(
+      source = factor(source, levels = rev(ind_source_levels), labels = rev(ind_source_labels)),
+      indicator = factor(indicator, levels = intersect(ordered_indicators, unique(indicator)))
+    )
   
-  baseline_refs <- ind_shift_cus %>% group_by(indicator) %>% summarise(ref_mean = mean(base_raw_mean, na.rm = TRUE), .groups = "drop")
-  ind_label_units <- tbl_indicators %>% mutate(facet_label = paste0(abbrev, "\n(", unit_short, ")")) %>% select(abbrev, facet_label) %>% tibble::deframe()
+  baseline_refs <- ind_shift_cus %>% 
+    group_by(indicator) %>% 
+    summarise(ref_mean = mean(base_raw_mean, na.rm = TRUE), .groups = "drop")
+  
+  # Format facet labels as colored HTML strings
+  ind_label_units <- tbl_indicators %>% 
+    mutate(
+      cat_long = cat_names[category],
+      color = coalesce(cat_colors[cat_long], "black"),
+      facet_label = paste0("<span style='color:", color, "'><strong>", abbrev, "</strong></span><br><span style='color:", color, ";font-size:6.5pt'>(", unit_short, ")</span>")
+    ) %>% 
+    select(abbrev, facet_label) %>% 
+    tibble::deframe()
   
   shift_colors <- c("Baseline" = "black", source_colors)
   names(shift_colors) <- sapply(names(shift_colors), function(x) {
@@ -85,8 +117,12 @@ plot_indicator_directional_shifts <- function(overall_sensitivity, tbl_indicator
     scale_fill_manual(values = shift_colors, na.value = "grey50", guide = "none") +
     scale_color_manual(values = shift_colors, na.value = "grey50", guide = "none") +
     labs(x = "Raw Indicator Value (units vary)", y = "Source of variation") +
-    theme_cvis() + 
-    theme(strip.text = element_text(face = "bold", size = 7, color = "black"), axis.text.y = element_text(size = 8))
+    theme_cvis() +
+    theme(
+      strip.text = ggtext::element_markdown(size = 7.5, lineheight = 1.1),
+      axis.text.y = element_text(size = 8),
+      axis.text.x = element_text(angle = 45, hjust = 1, size = 7)
+    )
 }
 
 # 1c. Indicator XY Sensitivity Plot (Raw vs. Standardized)
