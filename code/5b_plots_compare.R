@@ -1055,17 +1055,17 @@ indicator_cu_tile_plot <- function(all_std_long,
   
   # Order CUs by SPECIES_NAME then by SMU then by FULL_CU_IN, then form colored labels
   cu_order <- plot_dat %>%
-    distinct(FULL_CU_IN, CU_COMMON_NAME, SPECIES_NAME, SMU_SIMPLE) %>%
+    distinct(FULL_CU_IN, CVIS_LABEL, SPECIES_NAME, SMU_SIMPLE) %>%
     arrange(SPECIES_NAME, SMU_SIMPLE, FULL_CU_IN) %>%
     mutate(
       color = smu_palette[as.character(SMU_SIMPLE)],
       color = ifelse(is.na(color), "black", color),
       colored_label = if (!is.null(cu_code_emphasize)) {
         ifelse(FULL_CU_IN == cu_code_emphasize,
-               paste0("<strong>➔ <span style='color:", color, "'>", CU_COMMON_NAME, "</span></strong>"),
-               paste0("<span style='color:", color, "'>", CU_COMMON_NAME, "</span>"))
+               paste0("<strong>➔ <span style='color:", color, "'>", CVIS_LABEL, "</span></strong>"),
+               paste0("<span style='color:", color, "'>", CVIS_LABEL, "</span>"))
       } else {
-        paste0("<span style='color:", color, "'>", CU_COMMON_NAME, "</span>")
+        paste0("<span style='color:", color, "'>", CVIS_LABEL, "</span>")
       }
     )
   
@@ -1251,12 +1251,12 @@ plot_methods_compare_tile <- function(scores_tidy,
 
   # Order CUs by SPECIES_NAME then by SMU then by FULL_CU_IN, then form colored labels
   cu_order <- plot_dat %>%
-    distinct(FULL_CU_IN, CU_COMMON_NAME, SPECIES_NAME, SMU_SIMPLE) %>%
+    distinct(FULL_CU_IN, CVIS_LABEL, SPECIES_NAME, SMU_SIMPLE) %>%
     arrange(SPECIES_NAME, SMU_SIMPLE, FULL_CU_IN) %>%
     mutate(
       color = smu_palette[as.character(SMU_SIMPLE)],
       color = ifelse(is.na(color), "black", color),
-      colored_label = paste0("<span style='color:", color, "'>", CU_COMMON_NAME, "</span>")
+      colored_label = paste0("<span style='color:", color, "'>", CVIS_LABEL, "</span>")
     )
 
   plot_dat <- plot_dat %>%

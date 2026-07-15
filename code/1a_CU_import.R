@@ -272,7 +272,26 @@ nuseds_Fr$FULL_CU_IN <- adjust_CU_IN(nuseds_Fr$FULL_CU_IN)
 #   ))
 
 
-# ==================== 6. Process PSF Timing Data ====================
+
+
+# ==================== 6. Subset CUs to Run ====================
+
+# Select subset of CUs to run for analysis
+cu_run <- cu_list %>%
+  filter(
+    DFO_AREA %in% DFO_area_include,
+    FULL_CU_IN %notin% CU_exclude,
+    CU_TYPE %in% CU_type_include,
+    SPECIES_NAME %in% species_include
+  ) %>%
+  arrange(SPECIES_NAME)
+
+cu_seq <- cu_run$FULL_CU_IN # Create vector of CUs to analyze, ordered CK, CM, CO, PKO, SEL, SER, SH
+n.CUs <- nrow(cu_run)
+
+
+
+# ==================== 7. Process PSF Timing Data ====================
 
 cu_timing <- cu_timing %>%
   rename(sp_dat_qual = dat_qual) %>%
@@ -311,7 +330,7 @@ cu_timing <- cu_timing %>%
   ) %>%
   arrange(species, oe_age)
 
-cu_timing_Fr <- filter(cu_timing, region == "fraser", !is.na(cuid))
+cu_timing_Fr <- filter(cu_timing, FULL_CU_IN %in% cu_run$FULL_CU_IN)
 
 cu_timing_long <- cu_timing_Fr %>%
   pivot_longer(
@@ -343,22 +362,6 @@ cu_timing_long <- cu_timing_Fr %>%
 # add freshwater residence timing indicators to cu_list
 cu_list <- cu_list %>%
   left_join(select(cu_timing, FULL_CU_IN, fwres_mean), join_by(FULL_CU_IN))
-
-
-# ==================== 7. Subset CUs to Run ====================
-
-# Select subset of CUs to run for analysis
-cu_run <- cu_list %>%
-  filter(
-    DFO_AREA %in% DFO_area_include,
-    FULL_CU_IN %notin% CU_exclude,
-    CU_TYPE %in% CU_type_include,
-    SPECIES_NAME %in% species_include
-  ) %>%
-  arrange(SPECIES_NAME)
-
-cu_seq <- cu_run$FULL_CU_IN # Create vector of CUs to analyze, ordered CK, CM, CO, PKO, SEL, SER, SH
-n.CUs <- nrow(cu_run)
 
 
 # ==================== 8. Compile Long Format CU Lists ====================

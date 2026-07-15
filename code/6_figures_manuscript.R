@@ -148,92 +148,83 @@ cu_timing_i <- cu_timing_Fr[cu_timing_Fr$FULL_CU_IN == cu_i, ]
 
 # Figure 3 - Distributions of raw (unstandardized) indicator values across all Fraser River basin Conservation Units under the baseline scenario.
 # Caption: Violin plot visualizing the density, spread, and median values of raw environmental indicators across all 50 CUs under the baseline. Indicators are grouped by vulnerability category (Spawning & Rearing, Upstream Migration, Nearshore Marine, Demographic, and Genetic) to show the underlying range of historical environmental conditions and population attributes.
-f3 <- plot_raw_baseline_violins(
+f_violins <- plot_raw_baseline_violins(
   all_std_long_baseline = all_std_long_baseline,
   tbl_indicators = tbl_indicators
 )
 
-ggsave(filename = file.path(output_dir, "figure_3.png"), plot = f3,
+ggsave(filename = file.path(output_dir, "figure_violins.png"), plot = f_violins,
        width = 11, height = 8.5, dpi = 150) 
 
-# Figure 4 - High-resolution spatial mapping of freshwater spawning and rearing indicators within Fraser basin
+# Figure 4 - High-resolution spatial mapping of freshwater spawning and rearing indicators within Fraser basin (SKIPPED - long execution time)
+# f_streams <- stream_indicator_multipanel_plot(fw_sp_ind,
+#   cu_boundary = NULL,
+#   lakes_Fr,
+#   variables = c("cthr_anad", "tw8proj_9_45_3", "tw8rate_9_45_3", "flow8pdelta_9_45_3", "flow18pdelta_9_45_3", "favchange_chinook_85_3"),
+#   plot_titles = c("Cumulative Threat Score", "August Mean Temperature", "Rate of Temp. Change", "Change in August Flow", "Change in Nov-Jan Flow", "Change in ENM Favourability"),
+#   risk_palette = cvis_risk_palette,
+#   palette_directions = c(-1, -1, -1, 1, -1, 1))
+# ggsave(filename = file.path(output_dir, "figure_streams.png"), plot = f4, width = 12, height = 8)
 
-f4 <- stream_indicator_multipanel_plot(fw_sp_ind,
-  cu_boundary = NULL,
-  lakes_Fr,
-  variables = c("cthr_anad", "tw8proj_9_45_3", "tw8rate_9_45_3", "flow8pdelta_9_45_3", "flow18pdelta_9_45_3", "favchange_chinook_85_3"),
-  plot_titles = c("Cumulative Threat Score", "August Mean Temperature", "Rate of Temp. Change", "Change in August Flow", "Change in Nov-Jan Flow", "Change in ENM Favourability"),
-  risk_palette = cvis_risk_palette,
-  palette_directions = c(-1, -1, -1, 1, -1, 1))
-
-#save as png
-ggsave(filename = file.path(output_dir, "figure_4.png"), plot = f4, width = 12, height = 8)
-
-# Figure 4 - Basin-wide spatial distribution of standardized freshwater spawning and rearing vulnerability scores for Chinook salmon.
-# Caption: Maps the spatial distribution of the aggregated freshwater spawning and rearing (fwrs) category score for Chinook salmon CUs across the Fraser River basin. Spawning and rearing stream networks within each CU boundary are colored based on their standardized score (the length-weighted average of the seven underlying freshwater indicators). High values (warm colors) indicate high cumulative vulnerability, while low values (cool colors) represent physical and climatic refugia.
-f5 <- spatial_fw_rearing_indicators_plot(all_std_long_baseline,
-                                         cu_boundary,
-                                         outline = Fr_basin,
-                                         species_pick = "Chinook")
-
-ggsave(filename = file.path(output_dir, "figure_5.png"), plot = f5, width = 10, height = 9)   
+# Figure 4 - Basin-wide spatial distribution of standardized freshwater spawning and rearing vulnerability scores for Chinook salmon. (SKIPPED - long execution time)
+# f_basinstd <- spatial_fw_rearing_indicators_plot(all_std_long_baseline,
+#                                          cu_boundary,
+#                                          outline = Fr_basin,
+#                                          species_pick = "Chinook")
+# ggsave(filename = file.path(output_dir, "figure_basinstd.png"), plot = f5, width = 10, height = 9)   
 
 # Figure 5 - Directional shifts and expansion of climate hazard exposure across CUs under future projection scenarios.
-f6 <- plot_indicator_directional_shifts(overall_sensitivity, 
+f_shifts <- plot_indicator_directional_shifts(overall_sensitivity, 
                                         tbl_indicators)
 
-ggsave(filename = file.path(output_dir, "figure_6.png"), plot = f6, width = 9, height = 7) 
+ggsave(filename = file.path(output_dir, "figure_shifts.png"), plot = f_shifts, width = 9, height = 7) 
 
 
 
 # Figure 6 - Upstream migration timing and thermal exposure profiles across Fraser River basin salmon Conservation Units.
-f7 <- migration_compare_plot(
+f_migration <- migration_compare_plot(
   migr_daily_calendar,
   timing = cu_timing_Fr,
   rcp = "45",
   period_choose = c("1981-2010", "2041-2060")
 )
 
-ggsave(filename = file.path(output_dir, "figure_7.png"), plot = f7, width = 8, height = 6)
+ggsave(filename = file.path(output_dir, "figure_migration.png"), plot = f_migration, width = 8, height = 6)
 
             
                    
 # Figure 7 - Marine Adaptive Zones (MAZs) and regional marine vulnerability profiles in the Salish Sea and Northeast Pacific.
-f8 <- combined_maz_marine_plot(maz_all, MAZ)
+f_maz<- combined_maz_marine_plot(maz_all, MAZ)
 
-ggsave(filename = file.path(output_dir, "figure_8.png"), plot = f8, width = 12, height = 9)   
+ggsave(filename = file.path(output_dir, "figure_maz.png"), plot = f_maz, width = 12, height = 9)   
 
 
 # Figure 8 - Heatmap of individual standardized indicator scores, category-level scores, and overall vulnerability portfolios across all salmon Conservation Units.
-f9 <- indicator_cu_tile_plot(all_std_long_baseline,
+f_heatmap <- indicator_cu_tile_plot(all_std_long_baseline,
                        scores_tidy_baseline)
 
 
-ggsave(filename = file.path(output_dir, "figure_9.png"), plot = f9,
+ggsave(filename = file.path(output_dir, "figure_heatmap.png"), plot = f_heatmap,
        width = 8, height = 9) 
 
 
-# Figure 10 - Quantitative sensitivity analysis of overall vulnerability scores across sources of modeling variation.
+# Figure 9 - Quantitative sensitivity analysis of overall vulnerability scores across sources of modeling variation.
 all_scores <- mc_results %>% filter(category == "all")
-f10 <- plot_combined_uncertainty_spread(all_scores, species_palette)
+f_bootstrap <- plot_combined_uncertainty_spread(all_scores, species_palette)
 
-ggsave(filename = file.path(output_dir, "figure_10.png"), plot = f10, width = 9, height = 9)
-
-
-# Figure 11 - Quantitative sensitivity analysis of overall vulnerability scores across sources of modeling variation.
-# Caption: Boxplots illustrating deviations in overall vulnerability scores for each CU resulting from four primary sources of model variation: Global Climate Model selection, emissions scenario, standardization curves, and indicator weighting schemes. The relative spread indicates which modeling choice contributes the greatest score variance.
-f11 <- plot_score_deviations(overall_sensitivity$deviations)
-
-ggsave(filename = file.path(output_dir, "figure_11.png"), plot = f11, width = 9, height = 9)
+ggsave(filename = file.path(output_dir, "figure_bootboxes.png"), plot = f_bootstrap, width = 9, height = 9)
 
 
-# Figure 12 - Robustness of relative vulnerability rankings for Chinook salmon CUs across sensitivity scenarios.
-# Caption: Bump plot tracking changes in relative vulnerability rank for individual Chinook salmon CUs (y-axis) across different model sensitivity runs (x-axis), representing alternative weightings, climate projections, and aggregation formulas. Crossing lines identify rankings sensitive to specific modeling options.
-f12 <- plot_species_bump_plot(overall_sensitivity, "Chinook")
-f12b <- plot_species_bump_plot(overall_sensitivity, "Sockeye")
-f12c <- plot_species_bump_plot(overall_sensitivity, "Coho")
 
-ggsave(filename = file.path(output_dir, "figure_12.png"), plot = f12, width = 8, height = 7)
+
+
+# # Figure 12 - Robustness of relative vulnerability rankings for Chinook salmon CUs across sensitivity scenarios.
+# # Caption: Bump plot tracking changes in relative vulnerability rank for individual Chinook salmon CUs (y-axis) across different model sensitivity runs (x-axis), representing alternative weightings, climate projections, and aggregation formulas. Crossing lines identify rankings sensitive to specific modeling options.
+# f12 <- plot_species_bump_plot(overall_sensitivity, "Chinook")
+# f12b <- plot_species_bump_plot(overall_sensitivity, "Sockeye")
+# f12c <- plot_species_bump_plot(overall_sensitivity, "Coho")
+# 
+# ggsave(filename = file.path(output_dir, "figure_12.png"), plot = f12, width = 8, height = 7)
 
 
 # Supplemental figures ----------------------------------------------------
@@ -247,24 +238,31 @@ jack_global <- overall_sensitivity$influence_summary %>%
 sfig_jack <- plot_jackknife_influence(jack_global, cat_label_map)
 ggsave(filename = file.path(output_dir, "sfig_jacknife.png"), plot = sfig_jack, width = 10, height = 8)
 
+# Supplemental Figure 4: Downscaling deviations by indicator
+sfig_ds_deviations <- plot_indicator_downscaling_deviations(overall_sensitivity)
+ggsave(filename = file.path(output_dir, "sfig_ds_deviations.png"), plot = sfig_ds_deviations, width = 11, height = 5)
 
 hydrologic_reg <- fraser_hydrologic_regime_comparison_plot()
 ggsave(filename = file.path(output_dir, "sfig_hydroreg.png"), plot = hydrologic_reg, width = 10, height = 5)
 
-# Supplemental Figure for stream attributes (basin-wide)
-sfig_stream_attr <- stream_indicator_multipanel_plot(
-  fwModels = fw_models,
-  cu_boundary = NULL,
-  lakes_cu = lakes_Fr,
-  variables = c("model_access_salmon", "stream_order", "elevation"),
-  plot_titles = c("Stream Accessibility", "Stream Order", "Elevation"),
-  ncol = 3
-)
-ggsave(filename = file.path(output_dir, "sfig_streams.png"), plot = sfig_stream_attr, width = 10, height = 5)
+# Supplemental Figure for stream attributes (basin-wide) (SKIPPED - long execution time)
+# sfig_stream_attr <- stream_indicator_multipanel_plot(
+#   fwModels = fw_models,
+#   cu_boundary = NULL,
+#   lakes_cu = lakes_Fr,
+#   variables = c("model_access_salmon", "stream_order", "elevation"),
+#   plot_titles = c("Stream Accessibility", "Stream Order", "Elevation"),
+#   ncol = 3
+# )
+# ggsave(filename = file.path(output_dir, "sfig_streams.png"), plot = sfig_stream_attr, width = 10, height = 5)
 
 
+# Figure 11 - Quantitative sensitivity analysis of overall vulnerability scores across sources of modeling variation.
+# Caption: Boxplots illustrating deviations in overall vulnerability scores for each CU resulting from four primary sources of model variation: Global Climate Model selection, emissions scenario, standardization curves, and indicator weighting schemes. The relative spread indicates which modeling choice contributes the greatest score variance.
+sfig_deviations <- plot_score_deviations(overall_sensitivity$deviations)
 
-test_fw <- filter(fw_models, model_access_salmon != "NATURAL_BARRIER")
+ggsave(filename = file.path(output_dir, "sfig_deviations.png"), plot = sfig_deviations, width = 9, height = 9)
+
 
 # ==================== 5. Summary Table for Manuscript ====================
 

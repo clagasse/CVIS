@@ -164,6 +164,54 @@ plot_indicator_redundancy_corr <- function(cor_matrix_ind) {
   corrplot(cor_matrix_ind, method = "pie", type = "lower", mar = c(0, 0, 1, 0))
 }
 
+# 1e. Indicator Downscaling Method Deviations Boxplots
+plot_indicator_downscaling_deviations <- function(overall_sensitivity) {
+  ind_dat <- overall_sensitivity$indicator_metrics %>%
+    filter(FULL_CU_IN != "ALL", indicator %in% c("flow8pdelta", "tw8proj", "tw8rate")) %>%
+    mutate(
+      val_Default = base_raw_mean,
+      val_Alternative = base_raw_mean + raw_dev_dsmethod
+    ) %>%
+    tidyr::pivot_longer(cols = c(val_Default, val_Alternative), names_to = "scenario", names_prefix = "val_", values_to = "raw_val") %>%
+    mutate(
+      scenario = factor(scenario, levels = c("Default", "Alternative")),
+      indicator_label = case_when(
+        indicator == "flow8pdelta" ~ "August Stream Flow Change (fraction)",
+        indicator == "tw8proj" ~ "August Projected Stream Temp (°C)",
+        indicator == "tw8rate" ~ "August Stream Temp Warming Rate (°C/decade)",
+        TRUE ~ indicator
+      )
+    )
+  
+  ggplot(ind_dat, aes(x = scenario, y = raw_val)) +
+    geom_violin(alpha = 0.4, fill = "grey95", color = "grey60", scale = "width", width = 0.5) +
+    geom_line(aes(group = FULL_CU_IN), color = "grey70", alpha = 0.5, linewidth = 0.4) +
+    geom_point(aes(color = std_dev_dsmethod), alpha = 0.85, size = 2) +
+    facet_wrap(~indicator_label, scales = "free_y", ncol = 3) +
+    scale_color_gradient2(
+      low = "#3060AF", 
+      mid = "#EBCC5A", 
+      high = "#C21A1D", 
+      midpoint = 0,
+      name = "Change in Standardized Risk Score",
+      limits = c(-1, 1),
+      breaks = c(-1, -0.5, 0, 0.5, 1)
+    ) +
+    labs(
+      x = "Downscaling Model Scenario",
+      y = "Raw Indicator Value"
+    ) +
+    theme_cvis() +
+    theme(
+      strip.text = element_text(size = 9.5, face = "bold"),
+      axis.title.y = element_text(size = 10),
+      axis.title.x = element_text(size = 10),
+      legend.position = "bottom",
+      legend.title = element_text(size = 9),
+      legend.text = element_text(size = 8)
+    )
+}
+
 
 
 
@@ -188,11 +236,12 @@ plot_score_deviations <- function(deviations, source_colors = sens_source_palett
         source = case_when(
             source_type == "Method" ~ str_remove(source_label, "^Method_"),
             TRUE ~ source_label
-        )
+        ),
+        source = if_else(source == "flag", "thr-exceed", source)
     )
 
-  # Move stdmethod beside dsmethod, ordering GCMs, RCPs, dsmethod, stdmethod, flag, cube, avgall, avgcube
-  source_levels <- c("GCM1", "GCM4", "GCM6", "RCP45_P5", "RCP85_P3", "RCP85_P5", "dsmethod", "stdmethod", "flag", "cube", "avgall", "avgcube")
+  # Move stdmethod beside dsmethod, ordering GCMs, RCPs, dsmethod, stdmethod, thr-exceed, cube, avgall, avgcube
+  source_levels <- c("GCM1", "GCM4", "GCM6", "RCP45_P5", "RCP85_P3", "RCP85_P5", "dsmethod", "stdmethod", "thr-exceed", "cube", "avgall", "avgcube")
   dev_raw <- dev_raw %>%
     mutate(source = factor(source, levels = source_levels))
 
@@ -337,7 +386,7 @@ plot_species_bump_plot <- function(overall_sensitivity, species_name) {
     ungroup()
   
   source_order <- c("GCM1", "GCM4", "GCM6", "Baseline", "RCP45_P5", "RCP85_P3", "dsmethod", "Method_cube", "Method_avgcube", "Method_flag", "stdmethod")
-  source_labels_bump <- c("CanESM2", "HadGEM2", "MPI-ESM", "Baseline", "RCP 4.5 (P5)", "RCP 8.5 (P3)", "DS Method", "Cube-M", "Avg-Cube", "Flag", "Std Meth")
+  source_labels_bump <- c("CanESM2", "HadGEM2", "MPI-ESM", "Baseline", "RCP 4.5 (P5)", "RCP 8.5 (P3)", "DS Method", "Cube-M", "Avg-Cube", "Thr-Exceed", "Std Meth")
   dev_full <- dev_full %>% mutate(source = factor(source, levels = source_order, labels = source_labels_bump))
   
   mrd_stats_sp <- overall_sensitivity$species_score_summary %>%
@@ -519,6 +568,26 @@ if (sys.nframe() == 0) {
   load(file.path(paths$output, "indicator_sensitivity_summary.Rdata"))
   load(file.path(paths$output, "uncertainty_analysis_results.Rdata"))
   
+  # Remap "flag" to "thr-exceed" in pre-computed objects to ensure consistent labeling across plots
+  if (exists("score_sens_summary")) {
+    score_sens_summary <- score_sens_summary %>%
+      mutate(source = if_else(source == "flag", "thr-exceed", source))
+  }
+  if (exists("overall_sensitivity")) {
+    if (!is.null(overall_sensitivity$score_sensitivity_summary)) {
+      overall_sensitivity$score_sensitivity_summary <- overall_sensitivity$score_sensitivity_summary %>%
+        mutate(source = if_else(source == "flag", "thr-exceed", source))
+    }
+    if (!is.null(overall_sensitivity$species_score_summary)) {
+      overall_sensitivity$species_score_summary <- overall_sensitivity$species_score_summary %>%
+        mutate(source = if_else(source == "flag", "thr-exceed", source))
+    }
+    if (!is.null(overall_sensitivity$global_score_summary)) {
+      overall_sensitivity$global_score_summary <- overall_sensitivity$global_score_summary %>%
+        mutate(source = if_else(source == "flag", "thr-exceed", source))
+    }
+  }
+
   source_colors <- sens_source_palette
   
   # -------------------- A. Indicator Plots --------------------
@@ -540,6 +609,10 @@ if (sys.nframe() == 0) {
   png(file.path(ind_fig_path, "indicator_redundancy_corrplot.png"), width = 1000, height = 1000, res = 120)
   plot_indicator_redundancy_corr(overall_sensitivity$correlation_indicators)
   dev.off()
+  
+  # 5. Downscaling Deviations by Indicator
+  p_ds_ind <- plot_indicator_downscaling_deviations(overall_sensitivity)
+  ggsave(file.path(ind_fig_path, "indicator_downscaling_deviations.png"), p_ds_ind, width = 10, height = 7)
   
 
   
@@ -576,7 +649,7 @@ if (sys.nframe() == 0) {
   
   # 8. Jackknife Influence
   jack_global <- overall_sensitivity$influence_summary %>%
-    filter((method == "avgall" | method == "avg_all") & SPECIES_NAME == "ALL")
+    filter((method == "catavg" | method == "cat_avg") & SPECIES_NAME == "ALL")
   p_jack <- plot_jackknife_influence(jack_global, cat_label_map)
   ggsave(file.path(sens_fig_path, "jackknife_leverage_overall.png"), p_jack, width = 10, height = 8)
   
