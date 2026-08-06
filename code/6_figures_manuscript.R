@@ -44,6 +44,27 @@ source(file.path(here(), "code", "0_setup.R"))
 output_dir <- file.path(paths$figures, "manuscript")
 dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
+# Helper function to save figures as both PNG (for draft embeds) and PDF (for journal submission)
+save_cvis_figure <- function(filename, plot, width, height, dpi = 300) {
+  base_name <- tools::file_path_sans_ext(filename)
+  # Save PNG
+  ggsave(
+    filename = file.path(output_dir, paste0(base_name, ".png")),
+    plot = plot,
+    width = width,
+    height = height,
+    dpi = dpi
+  )
+  # Save PDF
+  ggsave(
+    filename = file.path(output_dir, paste0(base_name, ".pdf")),
+    plot = plot,
+    width = width,
+    height = height,
+    device = "pdf"
+  )
+}
+
 # select case study CUs for manuscript
 casestudy_CU <- switch(1, "CK-12", "CM-02", "PKO-01")
 
@@ -153,15 +174,14 @@ f_violins <- plot_raw_baseline_violins(
   tbl_indicators = tbl_indicators
 )
 
-ggsave(filename = file.path(output_dir, "figure_violins.png"), plot = f_violins,
-       width = 11, height = 8.5, dpi = 150) 
+save_cvis_figure("figure_violins", f_violins, width = 11, height = 8.5, dpi = 150) 
 
 # Figure 4 - High-resolution spatial mapping of freshwater spawning and rearing indicators within Fraser basin (SKIPPED - long execution time)
 # f_streams <- stream_indicator_multipanel_plot(fw_sp_ind,
 #   cu_boundary = NULL,
 #   lakes_Fr,
 #   variables = c("cthr_anad", "tw8proj_9_45_3", "tw8rate_9_45_3", "flow8pdelta_9_45_3", "flow18pdelta_9_45_3", "favchange_chinook_85_3"),
-#   plot_titles = c("Cumulative Threat Score", "August Mean Temperature", "Rate of Temp. Change", "Change in August Flow", "Change in Nov-Jan Flow", "Change in ENM Favourability"),
+#   plot_titles = c("Cumulative Threat Score", "August Mean Temperature", "Rate of Temp. Change", "Change in August Flow", "Change in Nov-Jan Flow", "Change in ENM Favourability (Chinook)"),
 #   risk_palette = cvis_risk_palette,
 #   palette_directions = c(-1, -1, -1, 1, -1, 1))
 # ggsave(filename = file.path(output_dir, "figure_streams.png"), plot = f4, width = 12, height = 8)
@@ -177,7 +197,7 @@ ggsave(filename = file.path(output_dir, "figure_violins.png"), plot = f_violins,
 f_shifts <- plot_indicator_directional_shifts(overall_sensitivity, 
                                         tbl_indicators)
 
-ggsave(filename = file.path(output_dir, "figure_shifts.png"), plot = f_shifts, width = 9, height = 7) 
+save_cvis_figure("figure_shifts", f_shifts, width = 9, height = 7) 
 
 
 
@@ -189,14 +209,14 @@ f_migration <- migration_compare_plot(
   period_choose = c("1981-2010", "2041-2060")
 )
 
-ggsave(filename = file.path(output_dir, "figure_migration.png"), plot = f_migration, width = 8, height = 6)
+save_cvis_figure("figure_migration", f_migration, width = 8, height = 6)
 
             
                    
 # Figure 7 - Marine Adaptive Zones (MAZs) and regional marine vulnerability profiles in the Salish Sea and Northeast Pacific.
 f_maz<- combined_maz_marine_plot(maz_all, MAZ)
 
-ggsave(filename = file.path(output_dir, "figure_maz.png"), plot = f_maz, width = 12, height = 9)   
+save_cvis_figure("figure_maz", f_maz, width = 12, height = 9)   
 
 
 # Figure 8 - Heatmap of individual standardized indicator scores, category-level scores, and overall vulnerability portfolios across all salmon Conservation Units.
@@ -204,15 +224,14 @@ f_heatmap <- indicator_cu_tile_plot(all_std_long_baseline,
                        scores_tidy_baseline)
 
 
-ggsave(filename = file.path(output_dir, "figure_heatmap.png"), plot = f_heatmap,
-       width = 8, height = 9) 
+save_cvis_figure("figure_heatmap", f_heatmap, width = 8, height = 9) 
 
 
 # Figure 9 - Quantitative sensitivity analysis of overall vulnerability scores across sources of modeling variation.
 all_scores <- mc_results %>% filter(category == "all")
 f_bootstrap <- plot_combined_uncertainty_spread(all_scores, species_palette)
 
-ggsave(filename = file.path(output_dir, "figure_bootboxes.png"), plot = f_bootstrap, width = 9, height = 9)
+save_cvis_figure("figure_bootboxes", f_bootstrap, width = 9, height = 9)
 
 
 
@@ -233,21 +252,25 @@ png(file.path(output_dir, "sfig_corr.png"), width = 1000, height = 1000, res = 1
 plot_indicator_redundancy_corr(overall_sensitivity$correlation_indicators)
 dev.off()
 
+pdf(file.path(output_dir, "sfig_corr.pdf"), width = 8, height = 8)
+plot_indicator_redundancy_corr(overall_sensitivity$correlation_indicators)
+dev.off()
+
 jack_global <- overall_sensitivity$influence_summary %>%
   filter((method == "catavg" | method == "catavg") & SPECIES_NAME == "ALL")
 sfig_jack <- plot_jackknife_influence(jack_global, cat_label_map)
-ggsave(filename = file.path(output_dir, "sfig_jacknife.png"), plot = sfig_jack, width = 10, height = 8)
+save_cvis_figure("sfig_jacknife", sfig_jack, width = 10, height = 8)
 
 # Supplemental Figure 4: Downscaling deviations by indicator
 sfig_ds_deviations <- plot_indicator_downscaling_deviations(overall_sensitivity)
-ggsave(filename = file.path(output_dir, "sfig_ds_deviations.png"), plot = sfig_ds_deviations, width = 11, height = 5)
+save_cvis_figure("sfig_ds_deviations", sfig_ds_deviations, width = 11, height = 5)
 
 # Supplemental Figure 5: Stock-Level and CU-Level Bootstrap Uncertainty Boxplots
 sfig_smu_bootstrap <- plot_smu_bootstrap_uncertainty(mc_results, species_palette)
-ggsave(filename = file.path(output_dir, "sfig_smu_bootstrap.png"), plot = sfig_smu_bootstrap, width = 16, height = 14, dpi = 150)
+save_cvis_figure("sfig_smu_bootstrap", sfig_smu_bootstrap, width = 16, height = 14, dpi = 150)
 
 hydrologic_reg <- fraser_hydrologic_regime_comparison_plot()
-ggsave(filename = file.path(output_dir, "sfig_hydroreg.png"), plot = hydrologic_reg, width = 10, height = 5)
+save_cvis_figure("sfig_hydroreg", hydrologic_reg, width = 10, height = 5)
 
 # Supplemental Figure for stream attributes (basin-wide) (SKIPPED - long execution time)
 # sfig_stream_attr <- stream_indicator_multipanel_plot(
@@ -265,7 +288,7 @@ ggsave(filename = file.path(output_dir, "sfig_hydroreg.png"), plot = hydrologic_
 # Caption: Boxplots illustrating deviations in overall vulnerability scores for each CU resulting from four primary sources of model variation: Global Climate Model selection, emissions scenario, standardization curves, and indicator weighting schemes. The relative spread indicates which modeling choice contributes the greatest score variance.
 sfig_deviations <- plot_score_deviations(overall_sensitivity$deviations)
 
-ggsave(filename = file.path(output_dir, "sfig_deviations.png"), plot = sfig_deviations, width = 9, height = 9)
+save_cvis_figure("sfig_deviations", sfig_deviations, width = 9, height = 9)
 
 
 # ==================== 5. Summary Table for Manuscript ====================
