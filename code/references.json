@@ -4840,5 +4840,46 @@
         "title": "Review of genetically based targets for enhanced contributions to Canadian pacific Chinook Salmon populations",
         "type": "article-journal",
         "volume": "2018/001"
+    },
+    {
+        "URL": "https://dspace.library.uvic.ca/items/34db6102-c368-475a-91cd-49bd6d4002e2",
+        "author": [
+            {
+                "family": "Schnorbus",
+                "given": "Markus A."
+            },
+            {
+                "family": "Schoeneberg",
+                "given": "T"
+            },
+            {
+                "family": "Tai",
+                "given": "T"
+            },
+            {
+                "family": "Larabi",
+                "given": "S"
+            },
+            {
+                "family": "Zeeman",
+                "given": "L"
+            }
+        ],
+        "id": "schnorbus2024",
+        "issued": {
+            "date-parts": [
+                [
+                    2024
+                ]
+            ]
+        },
+        "key": "LBCVQNHN",
+        "libraryid": "1",
+        "page": "60 pp",
+        "providerkey": "2509FBBE-5BB0-44C4-B119-6083A81ED673",
+        "publisher": "Pacific Climate Impacts Consortium",
+        "publisher-place": "University of Victoria, Victoria, BC",
+        "title": "Development of Freshwater Hazard Indicators to Assess Climate Change Impacts to Salmon",
+        "type": "report"
     }
 ]

@@ -242,6 +242,10 @@ ggsave(filename = file.path(output_dir, "sfig_jacknife.png"), plot = sfig_jack, 
 sfig_ds_deviations <- plot_indicator_downscaling_deviations(overall_sensitivity)
 ggsave(filename = file.path(output_dir, "sfig_ds_deviations.png"), plot = sfig_ds_deviations, width = 11, height = 5)
 
+# Supplemental Figure 5: Stock-Level and CU-Level Bootstrap Uncertainty Boxplots
+sfig_smu_bootstrap <- plot_smu_bootstrap_uncertainty(mc_results, species_palette)
+ggsave(filename = file.path(output_dir, "sfig_smu_bootstrap.png"), plot = sfig_smu_bootstrap, width = 16, height = 14, dpi = 150)
+
 hydrologic_reg <- fraser_hydrologic_regime_comparison_plot()
 ggsave(filename = file.path(output_dir, "sfig_hydroreg.png"), plot = hydrologic_reg, width = 10, height = 5)
 

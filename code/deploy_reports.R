@@ -15,8 +15,9 @@
 
 # Toggles for what to build
 build_6a <- TRUE       # Supplement S1: Description of Indicators
-build_6b <- TRUE       # Supplement S2: CU Reports Dashboard
-build_6e <- FALSE      # Supplement S3: Visual Results Overview
+build_s2 <- TRUE       # Supplement S2: Input Datasets & Models
+build_6b <- TRUE       # Supplement S3: CU Reports Dashboard
+build_6e <- FALSE      # Supplement S4: Visual Results Overview
 
 # Toggle to re-render reports or just copy existing compiled reports
 # TRUE: Re-render the Rmd templates (takes longer)
@@ -91,9 +92,50 @@ if (build_6a) {
   }
 }
 
+# ==================== 2.5 Build Supplemental Report S2 ====================
+if (build_s2) {
+  cat("--- Building Supplemental Report S2 (S2 Input Datasets) ---\n")
+  
+  if (render_reports) {
+    temp_out_file <- paste0(Sys.Date(), "_S2_data_sources_report.html")
+    
+    # Render Rmd file to output/reports/
+    rmarkdown::render(
+      file.path(paths$code, "Supplement_S2_data.Rmd"),
+      output_file = temp_out_file,
+      output_dir = paths$reports,
+      output_format = "html_document",
+      envir = globalenv()
+    )
+    src_html <- file.path(paths$reports, temp_out_file)
+  } else {
+    # Find the most recently modified pre-existing report
+    matching_files <- list.files(paths$reports, pattern = "_S2_data_sources_report\\.html$", full.names = TRUE)
+    if (length(matching_files) > 0) {
+      info <- file.info(matching_files)
+      src_html <- rownames(info)[which.max(info$mtime)]
+      cat("Using most recent pre-existing Report S2: ", basename(src_html), "\n")
+    } else {
+      src_html <- NULL
+      warning("Could not find any existing Report S2 files matching '*_S2_data_sources_report.html' in ", paths$reports, "\n")
+    }
+  }
+  
+  # Copy compiled HTML to docs folder with static filename
+  if (!is.null(src_html)) {
+    dest_html <- file.path(docs_dir, "Supplement_S2_data.html")
+    if (file.exists(src_html)) {
+      file.copy(src_html, dest_html, overwrite = TRUE)
+      cat("✓ Report S2 copied to:", dest_html, "\n\n")
+    } else {
+      warning("Could not find compiled Report S2 at ", src_html, "\n")
+    }
+  }
+}
+
 # ==================== 3. Build Supplemental Report 6b ====================
 if (build_6b) {
-  cat("--- Building Supplemental Report 6b (S2 CU Reports Dashboard) ---\n")
+  cat("--- Building Supplemental Report 6b (S3 CU Reports Dashboard) ---\n")
   
   # Ensure target CU reports output directory exists
   cu_reports_dir <- file.path(paths$reports, "CU_reports")

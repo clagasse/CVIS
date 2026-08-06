@@ -971,58 +971,106 @@ save(fw_sp_ind, file = file.path(paths$fw, "fw_stream_indicators_sp.Rds"))
 
 # ==================== 5. Ruzzante Statistical Low Flow Projections ====================
 
-stations_stats <- read_csv(file.path(paths$climate, "Ruzzante_low_flows", "stations_performance.csv"))
+streamflow_root <- "D:/Streamflow"
+streamflow_stn_dir <- file.path(streamflow_root, "station_data")
+streamflow_proj_dir <- file.path(streamflow_root, "streamflow_projections_csv")
 
-# watershed hydrologic regimes
-watershed_flow <- st_read(file.path(paths$climate, "Ruzzante_low_flows", "watersheds.gpkg")) %>%
+# Load station metadata from new FRDR dataset
+stations_stats <- read_csv(file.path(streamflow_stn_dir, "stations.csv"), show_col_types = FALSE) %>%
+  rename(ID = gauge_id, Station.Name = station_name, Lon = lon, Lat = lat)
+
+# If historical stations_performance.csv exists, join regime column for backward compatibility
+old_perf_path <- file.path(paths$climate, "Ruzzante_low_flows", "stations_performance.csv")
+if (file.exists(old_perf_path)) {
+  old_perf <- read_csv(old_perf_path, show_col_types = FALSE) %>%
+    select(ID, regime) %>%
+    distinct(ID, .keep_all = TRUE)
+  stations_stats <- left_join(stations_stats, old_perf, by = "ID")
+}
+if (!"regime" %in% names(stations_stats)) {
+  stations_stats$regime <- "Snowfall" # Default fallback regime if unavailable
+}
+
+# Watershed catchment polygons
+watershed_flow <- st_read(file.path(streamflow_stn_dir, "catchment_polygons.gpkg"), quiet = TRUE) %>%
   st_transform(crs = 3005) %>%
-  left_join(select(stations_stats, ID, regime), by = c("ID" = "ID")) %>%
+  rename(ID = gauge_id) %>%
+  left_join(select(stations_stats, ID, regime), by = "ID") %>%
   mutate(regime = as.factor(regime))
 
-stations_flow <- st_read(file.path(paths$climate, "Ruzzante_low_flows", "stations.gpkg")) %>%
+# Gauge station point locations
+stations_flow <- st_as_sf(stations_stats, coords = c("Lon", "Lat"), crs = 4269, remove = FALSE) %>%
   st_transform(crs = 3005)
 
 flow_in_cu <- lengths(st_contains(cu_boundary, stations_flow)) > 0
 cu_boundary$has_flow <- flow_in_cu
 
-# list of stations/watersheds with projections
-projections_list <- list.files(file.path(paths$climate, "Ruzzante_low_flows", "regressionProjections"), pattern = ".csv")
+# Identify stations intersecting CUs to optimize file reading
+cu_boundary_union <- st_union(cu_boundary)
+stns_in_cu <- stations_flow[lengths(st_intersects(stations_flow, cu_boundary_union)) > 0, ]
+target_ids <- unique(stns_in_cu$ID)
 
-# import csv for each water station
-# assign into 20 year periods and nest by period
-for (i in 1:length(projections_list)) {
-  projections_csv <- read_csv(file.path(paths$climate, "Ruzzante_low_flows", "regressionProjections",
-                                        projections_list[i])) %>%
-    rename(gcm_name = source_id,
-           rcp = experiment_id) %>%
-    mutate(
-      ID = as.character(ID),
-      rcp = stringr::str_sub(rcp, -2, -1),
-      rcp = dplyr::if_else(rcp == "al", "0", rcp),
-      period = if_else(Year >= 1981 & Year <= 2010, "0",
-        # if_else(Year >= 2001 & Year <= 2020, 1,
-        if_else(Year >= 2021 & Year <= 2040, "2",
-          if_else(Year >= 2041 & Year <= 2060, "3",
-            if_else(Year >= 2061 & Year <= 2080, "4",
-              if_else(Year >= 2081 & Year <= 2100, "5", NA))))))  %>%
-    nest(.by = c("ID", "gcm_name",  "rcp", "variant_label", "period")) %>%
-    filter((period < 2 & rcp == "0") |
-      (period >= 2 & rcp != "0"))
+proj_files <- file.path(streamflow_proj_dir, paste0("streamflow_", target_ids, ".csv"))
+proj_files <- proj_files[file.exists(proj_files)]
 
-  if (i == 1) watershed_proj <- projections_csv
-  else if (i > 1) watershed_proj <- bind_rows(watershed_proj, projections_csv)
+cat("Loading projections for", length(proj_files), "stations in CVIS study area...\n")
+
+process_stn_file <- function(filepath) {
+  stn_id <- stringr::str_extract(basename(filepath), "(?<=streamflow_)[^.]+")
+  
+  # Fast read with data.table::fread selecting needed columns
+  dt <- data.table::fread(
+    filepath,
+    select = c("year", "month", "data_type", "experiment_id", "source_id", "variant_label", "discharge_cms")
+  )
+  
+  # Filter for projections and target months (August = 8, Nov = 11, Dec = 12, Jan = 1)
+  dt <- dt[data_type == "projection" & month %in% c(1, 8, 11, 12)]
+  
+  if (nrow(dt) == 0) return(NULL)
+  
+  dt[, `:=`(
+    ID = stn_id,
+    gcm_name = source_id,
+    rcp = stringr::str_sub(experiment_id, -2, -1)
+  )]
+  dt[rcp == "al", rcp := "0"]
+  
+  dt[, period := data.table::fifelse(year >= 1981 & year <= 2010, "0",
+                 data.table::fifelse(year >= 2021 & year <= 2040, "2",
+                 data.table::fifelse(year >= 2041 & year <= 2060, "3",
+                 data.table::fifelse(year >= 2061 & year <= 2080, "4",
+                 data.table::fifelse(year >= 2081 & year <= 2100, "5", NA_character_)))))]
+  
+  dt <- dt[!is.na(period)]
+  dt <- dt[(period < "2" & rcp == "0") | (period >= "2" & rcp != "0")]
+  
+  # Summarize to yearly August mean flow and Nov-Dec-Jan mean flow
+  res <- dt[, .(
+    predMean.m3s_8 = mean(discharge_cms[month == 8], na.rm = TRUE),
+    predMean.m3s_ndj = mean(discharge_cms[month %in% c(1, 11, 12)], na.rm = TRUE)
+  ), by = .(ID, gcm_name, rcp, variant_label, period, year)]
+  
+  return(res)
 }
 
-# get average across model variants for each period and scenario
-wp_vm <- watershed_proj %>%
-  mutate(mean = map_dbl(data, ~ mean(.x$predMean.m3s_8))) %>%
-  nest(.by = c("ID", "rcp", "gcm_name", "period")) 
+res_list <- lapply(proj_files, process_stn_file)
+all_stns_yearly <- data.table::rbindlist(res_list)
+
+# Compute averages across model variants for each period, scenario, and GCM
+wp_vm <- tibble::as_tibble(all_stns_yearly) %>%
+  nest(.by = c("ID", "gcm_name", "rcp", "variant_label", "period")) %>%
+  mutate(
+    mean = map_dbl(data, ~ mean(.x$predMean.m3s_8, na.rm = TRUE)),
+    mean_ndj = map_dbl(data, ~ mean(.x$predMean.m3s_ndj, na.rm = TRUE))
+  ) %>%
+  nest(.by = c("ID", "rcp", "gcm_name", "period"))
 
 # save averaged flow projections
-save(wp_vm, file = file.path(paths$fw, "Statistical_flow_projections.Rds"))
+save(wp_vm, file = file.path(paths$fw, paste0(today, "_Statistical_flow_projections.Rds")))
 
 # save spatial objects to R file
-save(watershed_flow, stations_flow, stations_stats, file = file.path(paths$fw, "flow_gauge_data.Rdata"))
+save(watershed_flow, stations_flow, stations_stats, file = file.path(paths$fw, paste0(today, "_flow_gauge_data.Rdata")))
 
 # #get average across all GCMs for each year
 # wp_stats <- wp_vm %>%

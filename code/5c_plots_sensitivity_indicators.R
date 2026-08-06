@@ -167,7 +167,7 @@ plot_indicator_redundancy_corr <- function(cor_matrix_ind) {
 # 1e. Indicator Downscaling Method Deviations Boxplots
 plot_indicator_downscaling_deviations <- function(overall_sensitivity) {
   ind_dat <- overall_sensitivity$indicator_metrics %>%
-    filter(FULL_CU_IN != "ALL", indicator %in% c("flow8pdelta", "tw8proj", "tw8rate")) %>%
+    filter(FULL_CU_IN != "ALL", indicator %in% c("flow8pdelta", "flow18pdelta", "tw8proj", "tw8rate")) %>%
     mutate(
       val_Default = base_raw_mean,
       val_Alternative = base_raw_mean + raw_dev_dsmethod
@@ -177,6 +177,7 @@ plot_indicator_downscaling_deviations <- function(overall_sensitivity) {
       scenario = factor(scenario, levels = c("Default", "Alternative")),
       indicator_label = case_when(
         indicator == "flow8pdelta" ~ "August Stream Flow Change (fraction)",
+        indicator == "flow18pdelta" ~ "Winter Stream Flow Change (fraction)",
         indicator == "tw8proj" ~ "August Projected Stream Temp (°C)",
         indicator == "tw8rate" ~ "August Stream Temp Warming Rate (°C/decade)",
         TRUE ~ indicator
@@ -187,7 +188,7 @@ plot_indicator_downscaling_deviations <- function(overall_sensitivity) {
     geom_violin(alpha = 0.4, fill = "grey95", color = "grey60", scale = "width", width = 0.5) +
     geom_line(aes(group = FULL_CU_IN), color = "grey70", alpha = 0.5, linewidth = 0.4) +
     geom_point(aes(color = std_dev_dsmethod), alpha = 0.85, size = 2) +
-    facet_wrap(~indicator_label, scales = "free_y", ncol = 3) +
+    facet_wrap(~indicator_label, scales = "free_y", ncol = 2) +
     scale_color_gradient2(
       low = "#3060AF", 
       mid = "#EBCC5A", 
@@ -308,7 +309,73 @@ plot_jackknife_influence <- function(jack_global, parent_cat_palette) {
     theme_cvis()
 }
 
-# 2d. Rank Consistency Heatmap
+# 2d. Stock-Level and CU-Level Bootstrap Results Boxplots
+plot_smu_bootstrap_uncertainty <- function(mc_results, species_colors = species_palette) {
+  all_scores <- mc_results %>% filter(category == "all")
+  
+  # Main plot ordering by median score
+  smu_order <- all_scores %>%
+    group_by(SMU_SIMPLE) %>%
+    summarise(median_score = median(score100, na.rm = TRUE)) %>%
+    arrange(median_score) %>%
+    pull(SMU_SIMPLE)
+  
+  main_data <- all_scores %>%
+    mutate(SMU_SIMPLE = factor(SMU_SIMPLE, levels = smu_order))
+  
+  p_main <- ggplot(main_data, aes(x = score100, y = SMU_SIMPLE, fill = SPECIES_NAME)) +
+    geom_boxplot(outlier.shape = NA, alpha = 0.7, color = "grey30", linewidth = 0.5) +
+    scale_fill_manual(values = species_colors, limits = names(species_colors), name = "Species", drop = FALSE) +
+    labs(
+      x = "Vulnerability Score (0-100)",
+      y = "Stock (SMU)"
+    ) +
+    theme_cvis() +
+    theme(
+      axis.text.y = element_text(size = 9, face = "bold")
+    )
+  
+  # Sub-panes for stocks with multiple CUs
+  multi_cu_smus <- all_scores %>%
+    distinct(FULL_CU_IN, SMU_SIMPLE) %>%
+    group_by(SMU_SIMPLE) %>%
+    summarise(cu_count = n()) %>%
+    filter(cu_count > 1) %>%
+    pull(SMU_SIMPLE)
+  
+  sub_data <- all_scores %>%
+    filter(SMU_SIMPLE %in% multi_cu_smus) %>%
+    mutate(
+      # Wrap long CU labels at ~22 chars to prevent overflow
+      CVIS_LABEL_WRAP = stringr::str_wrap(CVIS_LABEL, width = 22),
+      CVIS_LABEL_WRAP = reorder(CVIS_LABEL_WRAP, score100, FUN = median),
+      SMU_SIMPLE = factor(SMU_SIMPLE, levels = intersect(smu_order, multi_cu_smus))
+    )
+  
+  p_sub <- ggplot(sub_data, aes(x = score100, y = CVIS_LABEL_WRAP, fill = SPECIES_NAME)) +
+    geom_boxplot(outlier.shape = NA, alpha = 0.7, color = "grey30", linewidth = 0.4, show.legend = FALSE) +
+    facet_wrap(~SMU_SIMPLE, scales = "free_y", ncol = 2) +
+    scale_fill_manual(values = species_colors, limits = names(species_colors), name = "Species", drop = FALSE) +
+    scale_x_continuous(limits = c(0, 100), breaks = c(0, 25, 50, 75, 100)) +
+    labs(
+      x = "Vulnerability Score (0-100)",
+      y = NULL
+    ) +
+    theme_cvis() +
+    theme(
+      strip.text = element_text(size = 8.5, face = "bold"),
+      axis.text.y = element_text(size = 7.5, lineheight = 0.85),
+      panel.spacing = unit(0.6, "lines")
+    )
+  
+  p_combined <- p_main + p_sub + 
+    plot_layout(widths = c(1, 1.8), guides = "collect") & 
+    theme(legend.position = "bottom", legend.direction = "horizontal")
+    
+  return(p_combined)
+}
+
+# 2e. Rank Consistency Heatmap
 plot_rank_consistency_heatmap <- function(cor_mat) {
   cor_melted <- reshape2::melt(cor_mat)
   ggplot(cor_melted, aes(Var1, Var2, fill = value)) +
@@ -709,6 +776,10 @@ if (sys.nframe() == 0) {
   # 17. Uncertainty Variance Decomposition
   p_var <- plot_uncertainty_variance_decomposition(anova_unc)
   ggsave(file.path(uncertainty_fig_path, "variance_decomposition.png"), p_var, width = 10, height = 6, dpi = 300)
+  
+  # 18. SMU Bootstrap Boxplot
+  p_smu_boot <- plot_smu_bootstrap_uncertainty(mc_results, species_palette)
+  ggsave(file.path(uncertainty_fig_path, "smu_bootstrap_uncertainty.png"), p_smu_boot, width = 16, height = 11, dpi = 150)
   
   cat("Standalone plot generation complete. All figures saved.\n")
 }

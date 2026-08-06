@@ -1473,7 +1473,7 @@ generate_cvis_indicator_description_table <- function(
     ) %>%
     tab_style(
       style = list(
-        cell_text(color = "black", weight = "bold", size = px(11))
+        cell_text(color = "black", weight = "bold", size = px(14))
       ),
       locations = cells_row_groups()
     ) %>%
@@ -1485,7 +1485,7 @@ generate_cvis_indicator_description_table <- function(
       table.font.size = 10,
       heading.title.font.size = 13,
       heading.subtitle.font.size = 11,
-      row_group.font.size = 11,
+      row_group.font.size = 14,
       row_group.font.weight = "bold",
       column_labels.font.weight = "bold",
       column_labels.background.color = "white",

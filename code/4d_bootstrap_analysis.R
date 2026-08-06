@@ -174,7 +174,7 @@ for (k in 1:N_iterations) {
     "tw8rate",      d_temp,   g_k,  rcp_k, target_period,
     "tw8proj",      d_temp,   g_k,  rcp_k, target_period,
     "flow8pdelta",  d_flow,   g_flow, rcp_k, target_period,
-    "flow18pdelta", "streamdyn", g_k, rcp_k, target_period,
+    "flow18pdelta", d_flow,   g_flow, rcp_k, target_period,
     "migrTproj",    "pcicgrid",  g_k, rcp_k, target_period,
     "migrQpdelta",  "pcicgrid",  g_k, rcp_k, target_period,
     "SSTproj",      d_mar,    "9",  rcp_k, target_period,

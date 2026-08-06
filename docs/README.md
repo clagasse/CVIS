@@ -78,7 +78,8 @@ A full description of methods and results are detailed in a technical report cur
 │   ├── 6_CVIS_report.Rmd            # Master CVIS report template
 │   ├── 6_figures_manuscript.R       # Generating and exporting manuscript figures
 │   ├── 6a_S1_indicators_description.Rmd # Supplement S1 report (Indicator descriptions and baseline outputs)
-│   ├── 6b_S2_CU_reports.Rmd         # Supplement S2 report template (Individual CU profiles)
+│   ├── Supplement_S2_data.Rmd       # Supplement S2 report (Input datasets and models)
+│   ├── 6b_S2_CU_reports.Rmd         # Supplement S3 report template (Individual CU profiles)
 │   ├── 6d_generate_dashboard.R      # Self-contained master HTML dashboard builder
 │   ├── deploy_reports.R             # Master script to compile reports and deploy assets to /docs for GitHub Pages
 │   └── precompute_cu_lakes.R        # Precomputes lake intersection percentages for Salmon Conservation Units to speed up spatial indicators mapping

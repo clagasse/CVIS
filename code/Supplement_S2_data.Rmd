@@ -1,0 +1,393 @@
+---
+title: "Supplement S2: Input Datasets and Models for CVIS"
+date: "`r format(Sys.Date(), '%d %B %Y')`"
+output:
+  html_document:
+    toc: true
+    number-sections: true
+    toc_float: true
+    toc_collapsed: true
+    toc_depth: 3
+    theme: flatly
+    css: "scientific_style.css"
+    fig_caption: true
+---
+
+This supplemental document describes the input datasets, environmental models, and biological databases used in the Climate Vulnerability Indicators for Salmon (CVIS) framework.
+
+## Overview of Datasets
+
+The table below lists all 19 datasets, categorized by life-stage/mechanism, along with their associated vulnerability indicators and citations.
+
+<table class="table overview-table">
+  <thead>
+    <tr>
+      <th style="width: 35%;">Dataset Name</th>
+      <th style="width: 15%;">Type</th>
+      <th style="width: 25%;">Associated Indicators</th>
+      <th style="width: 25%;">Citation</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr class="row-freshwater">
+      <td><a href="#stream-thermalscape-scenarios-for-british-columbia-canada">Stream thermalscape scenarios for British Columbia, Canada</a></td>
+      <td><span class="badge badge-freshwater">Freshwater</span></td>
+      <td><code>tw8proj</code>, <code>tw8rate</code></td>
+      <td>Weller, J.D., Moore, R.D., and Iacarella, J.C. 2024. Stream thermalscape scenarios for British Columbia, Canada. Canadian Water Resources Journal 49(2): 233–252. Taylor. doi:10.1080/07011784.2023.2267028.</td>
+    </tr>
+    <tr class="row-freshwater">
+      <td><a href="#pcic-variable-infiltration-capacity-with-glaciers-vicgl-hydrological-model">PCIC Variable Infiltration Capacity with Glaciers (VIC-GL) hydrological model</a></td>
+      <td><span class="badge badge-freshwater">Freshwater</span></td>
+      <td><code>migrTproj</code>, <code>migrQpdelta</code>, <code>tw8proj</code>, <code>tw8rate</code></td>
+      <td>Schnorbus, M.A, 2024: Pacific Region VICGL-DynWat Model Deployment. Pacific Climate Impacts Consortium, University of Victoria, Victoria, BC, 89 pp. https://dspace.library.uvic.ca/items/cd2c3ad3-ca03-44e2-8a34-5f7a02849e2d</td>
+    </tr>
+    <tr class="row-freshwater">
+      <td><a href="#vicgl-stream-network-flow-model">VIC-GL stream network flow model</a></td>
+      <td><span class="badge badge-freshwater">Freshwater</span></td>
+      <td><code>flow8pdelta</code>, <code>flow18pdelta</code></td>
+      <td>Iacarella, J.C., Paterson, K., Potapova, A., and Weller, J.D. 2025. Geospatial Indicators and Metrics for Threats to Fish Habitat in the Fraser River Basin with Thompson-Nicola as a Case Study. DFO Can. Sci. Advis. Sec. Res. Doc. 2025/013.</td>
+    </tr>
+    <tr class="row-freshwater">
+      <td><a href="#geospatial-indicators-and-metrics-for-threats-to-fish-habitat">Geospatial indicators and metrics for threats to fish habitat</a></td>
+      <td><span class="badge badge-freshwater">Freshwater</span></td>
+      <td><code>cthr</code></td>
+      <td>Iacarella, J.C., Paterson, K., Potapova, A., and Weller, J.D. 2025. Geospatial Indicators and Metrics for Threats to Fish Habitat in the Fraser River Basin with Thompson-Nicola as a Case Study. DFO Can. Sci. Advis. Sec. Res. Doc. 2025/013.</td>
+    </tr>
+    <tr class="row-freshwater">
+      <td><a href="#environmental-niche-models-of-salmon-habitat-favourability">Environmental niche models of salmon habitat favourability</a></td>
+      <td><span class="badge badge-freshwater">Freshwater</span></td>
+      <td><code>favchange</code></td>
+      <td>Iacarella, J.C., and Weller, J.D. 2023. Predicting favourable streams for anadromous salmon spawning and natal rearing under climate change. Canadian Journal of Fisheries and Aquatic Sciences 13: 1–13. doi:10.1139/cjfas-2023-0096.</td>
+    </tr>
+    <tr class="row-freshwater">
+      <td><a href="#statistical-flow-projections-at-bc-hydrometric-stations">Statistical flow projections at BC hydrometric stations</a></td>
+      <td><span class="badge badge-freshwater">Freshwater</span></td>
+      <td><code>flow8pdelta</code>, <code>flow18pdelta</code></td>
+      <td>Ruzzante, S., Gleeson, T., Moore, J., Ulaski, M., Hatfield, T., Schnorbus, M., and Peacock, S. 2026, May 14. Drying summers threaten western North American river ecosystems and a keystone migratory fish. Ecology and Evolutionary Biology. doi:10.31223/X5SV1J.</td>
+    </tr>
+    <tr class="row-freshwater">
+      <td><a href="#bcfishpass-accessibility-model">BCFishpass Accessibility Model</a></td>
+      <td><span class="badge badge-freshwater">Freshwater</span></td>
+      <td><code>tw8proj</code>, <code>tw8rate</code>, <code>flow8pdelta</code>, <code>flow18pdelta</code>, <code>cthr</code>, <code>favchange</code></td>
+      <td>N/A</td>
+    </tr>
+    <tr class="row-freshwater">
+      <td><a href="#bcfishpass-intrinsic-habitat-model">BCFishpass Intrinsic Habitat Model</a></td>
+      <td><span class="badge badge-freshwater">Freshwater</span></td>
+      <td><code>tw8proj</code>, <code>tw8rate</code>, <code>flow8pdelta</code>, <code>flow18pdelta</code>, <code>cthr</code>, <code>favchange</code></td>
+      <td>Rebellato, B.D., Bailey, R.E., Mazany-Wright, N., Mount, C.A., Montgomery, F.A., Norris, S.M., Piczak, M.L., Winther, I., and Lapointe, N.W.R. 2024. Canadian Wildlife Federation Effects of rail infrastructure on Pacific salmon and steelhead habitat connectivity in British Columbia. Available from https://aquaticbarriers.ca/.</td>
+    </tr>
+    <tr class="row-freshwater">
+      <td><a href="#cu-boundaries">CU boundaries</a></td>
+      <td><span class="badge badge-freshwater">Freshwater</span></td>
+      <td><code>tw8proj</code>, <code>tw8rate</code>, <code>flow8pdelta</code>, <code>flow18pdelta</code>, <code>cthr</code>, <code>favchange</code></td>
+      <td>N/A</td>
+    </tr>
+    <tr class="row-salmon">
+      <td><a href="#freshwater-lifecycle-timing-of-pacific-salmon-and-steelhead-oncorhynchus-spp-in-canada">Freshwater life-cycle timing of Pacific salmon and steelhead (Oncorhynchus spp.) in Canada</a></td>
+      <td><span class="badge badge-salmon">Salmon</span></td>
+      <td><code>fwres</code>, <code>migrTproj</code>, <code>migrQpdelta</code></td>
+      <td>Wilson, S.M., and Peacock, S.J. 2025. Freshwater life-cycle timing of Pacific salmon and steelhead ( Oncorhynchus spp.) in Canada. Can. J. Fish. Aquat. Sci. 82: 1–17. doi:10.1139/cjfas-2024-0213.</td>
+    </tr>
+    <tr class="row-salmon">
+      <td><a href="#new-spawner-escapement-databases-nuseds">New spawner escapement databases (NuSEDS)</a></td>
+      <td><span class="badge badge-salmon">Salmon</span></td>
+      <td><code>migrdist</code>, <code>migrTproj</code>, <code>migrQpdelta</code></td>
+      <td>N/A</td>
+    </tr>
+    <tr class="row-salmon">
+      <td><a href="#wild-salmon-policy-rapid-status-assessments">Wild Salmon Policy Rapid Status Assessments</a></td>
+      <td><span class="badge badge-salmon">Salmon</span></td>
+      <td><code>CUstatus</code>, <code>CUnmat</code></td>
+      <td>Pestal, G., MacDonald, B.L., Grant, S., and Holt, C.A. 2023. State of the Salmon: Rapid status assessment approach for Pacific salmon under Canada’s wild salmon policy. Can. Tech. Rep. Fish. Aquat. Sci. (3570).</td>
+    </tr>
+    <tr class="row-salmon">
+      <td><a href="#whole-genome-analysis-of-pacific-salmon">Whole genome analysis of Pacific salmon</a></td>
+      <td><span class="badge badge-salmon">Salmon</span></td>
+      <td><code>hetzyg</code>, <code>genoff</code></td>
+      <td>N/A</td>
+    </tr>
+    <tr class="row-marine">
+      <td><a href="#bc-continental-margin-model-bccm">BC Continental Margin Model (BCCM)</a></td>
+      <td><span class="badge badge-marine">Marine</span></td>
+      <td><code>SSTproj</code>, <code>SSTrate</code></td>
+      <td>Peña, M.A., and Fine, I. 2024. Future Physical and Biogeochemical Ocean Conditions under Climate Change along the British Columbia Continental Margin. Atmosphere-Ocean 62(1): 2–23. doi:10.1080/07055900.2023.2239186.</td>
+    </tr>
+    <tr class="row-marine">
+      <td><a href="#salishseacast">SalishSeaCast</a></td>
+      <td><span class="badge badge-marine">Marine</span></td>
+      <td><code>SSTproj</code>, <code>SSTrate</code></td>
+      <td>Amber Holdsworth, Natasha Ridenour</td>
+    </tr>
+    <tr class="row-marine">
+      <td><a href="#hotssea">HOTSSea</a></td>
+      <td><span class="badge badge-marine">Marine</span></td>
+      <td><code>SSTproj</code>, <code>SSTrate</code></td>
+      <td>Greig Oldford</td>
+    </tr>
+    <tr class="row-marine">
+      <td><a href="#downscaled-sst-projections-using-quantile-delta-mapping">Downscaled SST projections using quantile delta mapping</a></td>
+      <td><span class="badge badge-marine">Marine</span></td>
+      <td><code>SSTproj</code>, <code>SSTrate</code></td>
+      <td>N/A</td>
+    </tr>
+    <tr class="row-marine">
+      <td><a href="#cumulative-impacts-from-anthropogenic-activities-and-stressors-on-marine-ecosystems-in-pacific-canada">Cumulative impacts from anthropogenic activities and stressors on marine ecosystems in Pacific Canada</a></td>
+      <td><span class="badge badge-marine">Marine</span></td>
+      <td><code>CImpact</code></td>
+      <td>Murray, C.C., Kelly, N.E., Nelson, J.C., Murphy, G.E.P., and Agbayani, S. 2024. Cumulative impact mapping and vulnerability of Canadian marine ecosystems to anthropogenic activities and stressors. 2024/024. vi + 46 p. DFO Can. Sci. Advis. Sec. Res. Doc.</td>
+    </tr>
+    <tr class="row-marine">
+      <td><a href="#marine-adaptive-zones">Marine adaptive zones</a></td>
+      <td><span class="badge badge-marine">Marine</span></td>
+      <td><code>SSTproj</code>, <code>SSTrate</code>, <code>Cimpact</code></td>
+      <td>N/A</td>
+    </tr>
+  </tbody>
+</table>
+
+## Dataset Details
+
+### Stream thermalscape scenarios for British Columbia, Canada
+
+- **Type**: Freshwater
+- **Extent**: BC
+- **Resolution**: all reaches with catchments >1km2
+- **Output variables**: August mean stream temperature
+- **Associated indicators**: `tw8proj`, `tw8rate`
+- **Description**: An existing statistical stream temperature model developed for British Columbia (BC), Canada, was refit to predict August mean stream temperatures, a common index of stream thermal regime also used in thermalscapes developed for the western United States (US). Thermalscapes of predicted August mean stream temperature were produced for 680,000 km of stream network at approximately 400 m intervals. Temperature predictions were averaged for 20-year periods from 1981-2100 to produce 86 scenarios: one for each historical period (i.e. 1981-2000, 2001-2020), and 21 for each future period (i.e. six global climate models and an ensemble average under three representative concentration pathways).
+- **Data URL**: [Link to Data Resource](https://datadryad.org/stash/dataset/doi:10.5061/dryad.bzkh189fk)
+- **Citation**: Weller, J.D., Moore, R.D., and Iacarella, J.C. 2024. Stream thermalscape scenarios for British Columbia, Canada. Canadian Water Resources Journal 49(2): 233–252. Taylor. doi:10.1080/07011784.2023.2267028.
+- **Climate model suite**: CMIP5
+- **Number of GCMs**: 6
+- **Global Climate Models**: HadGEM2-ES; MPI-ESM-LR; CanESM2; GFDL-CM3; MIROC-ESM; CSIRO-Mk3-6-0
+- **Emissions Scenarios**: RCP 2.6, RCP4.5, RCP8.5
+- **Hindcast Period**: 1981-2000, 2001-2020
+- **Projection Period**: 2021-2040; 2041-2060; 2061-2080; 2081-2100
+
+### PCIC Variable Infiltration Capacity with Glaciers (VIC-GL) hydrological model
+
+- **Type**: Freshwater
+- **Extent**: BC Gauged watersheds
+- **Resolution**: 1/16 degree (approx 5x6km) grid cells
+- **Output variables**: Daily stream temperature, flow
+- **Associated indicators**: `migrTproj`, `migrQpdelta`, `tw8proj`, `tw8rate`
+- **Description**: Hydrologic projections were produced using an upgraded version of the Variable Infiltration Capacity model, called VIC-GL, that explicitly models glacier mass balance (accumulation, melt and runoff) and glacier dynamics (change in glacier area). VIC-GL is a spatially distributed macro-scale hydrologic model that calculates water and energy balances in a grid cell, with sub-grid variability of the soil column, land surface vegetation classes and topography represented statistically. The model computes the water fluxes for a range of hydrologic processes such as evapotranspiration, snow accumulation, snowmelt, infiltration, soil moisture and surface and subsurface runoffs."
+- **Data URL**: [Link to Data Resource](https://www.pacificclimate.org/data/gridded-hydrologic-model-output)
+- **Citation**: Schnorbus, M.A, 2024: Pacific Region VICGL-DynWat Model Deployment. Pacific Climate Impacts Consortium, University of Victoria, Victoria, BC, 89 pp. https://dspace.library.uvic.ca/items/cd2c3ad3-ca03-44e2-8a34-5f7a02849e2d
+- **Climate model suite**: CMIP5
+- **Number of GCMs**: 6
+- **Global Climate Models**: HadGEM2-ES; ACCESS1-0; MPI-ESM-LR; CanESM2; CCSM4; CNMR-CM5
+- **Emissions Scenarios**: RCP4.5, RCP8.5
+- **Hindcast Period**: 1940-2006
+- **Projection Period**: 2007-2100
+
+### VIC-GL stream network flow model
+
+- **Type**: Freshwater
+- **Extent**: Fraser basin
+- **Resolution**: all stream reaches
+- **Output variables**: Monthly flow
+- **Associated indicators**: `flow8pdelta`, `flow18pdelta`
+- **Description**: The VIC-GL model downscaled from 5x7km grid to stream reach resolution, providing min/mean/max monthly discharge rates under various future climate scenarios and 20-year climate averages up to end of century
+- **Citation**: Iacarella, J.C., Paterson, K., Potapova, A., and Weller, J.D. 2025. Geospatial Indicators and Metrics for Threats to Fish Habitat in the Fraser River Basin with Thompson-Nicola as a Case Study. DFO Can. Sci. Advis. Sec. Res. Doc. 2025/013.
+- **Climate model suite**: CMIP5
+- **Number of GCMs**: 6
+- **Global Climate Models**: HadGEM2-ES; ACCESS1-0; MPI-ESM-LR; CanESM2; CCSM4; CNMR-CM5
+- **Emissions Scenarios**: RCP4.5, RCP8.5
+- **Hindcast Period**: 1981-2010
+- **Projection Period**: 2021-2040; 2041-2060; 2061-2080; 2081-2100
+
+### Geospatial indicators and metrics for threats to fish habitat
+
+- **Type**: Freshwater
+- **Extent**: Fraser basin
+- **Resolution**: all stream reaches
+- **Output variables**: 9 anthropogenic threat layers and 4 climate-change related threats
+- **Associated indicators**: `cthr`
+- **Description**: We conducted a cumulative threat assessment for the Fraser River Basin stream network to estimate threats \important to managing Pacific salmon and Species at Risk in freshwater, and to characterize spatial patterns in threat levels across streams and habitat extents of focal species. We presented a methodology that builds on existing geospatial assessments in British Columbia for estimating human-mediated threats of Aquatic Invasive Species, flow alteration, in-stream habitat destruction, latitudinal fragmentation, longitudinal fragmentation, riparian disturbance, nutrients, pollution, and sedimentation, as well as climate change-based threats of flood risk, low stream flow, high stream flow, and high stream temperatures. We provided estimates and summaries of threats across streams, watersheds, and Pacific salmon and Species at Risk habitat extents.
+- **Citation**: Iacarella, J.C., Paterson, K., Potapova, A., and Weller, J.D. 2025. Geospatial Indicators and Metrics for Threats to Fish Habitat in the Fraser River Basin with Thompson-Nicola as a Case Study. DFO Can. Sci. Advis. Sec. Res. Doc. 2025/013.
+
+### Environmental niche models of salmon habitat favourability
+
+- **Type**: Freshwater
+- **Extent**: BC
+- **Resolution**: stream reaches
+- **Output variables**: habitat favourability
+- **Associated indicators**: `favchange`
+- **Description**: The study applied a comprehensive suite of ENM statistical approaches to five Pacific salmon species, focusing on freshwater spawning and natal rearing habitat. ENMs were developed for spawning ranges across British Columbia (BC), Canada, and western US, and projected future scenarios for BC.
+- **Citation**: Iacarella, J.C., and Weller, J.D. 2023. Predicting favourable streams for anadromous salmon spawning and natal rearing under climate change. Canadian Journal of Fisheries and Aquatic Sciences 13: 1–13. doi:10.1139/cjfas-2023-0096.
+- **Climate model suite**: CMIP5
+- **Number of GCMs**: 6
+- **Global Climate Models**: HadGEM2-ES; MPI-ESM-LR; CanESM2; GFDL-CM3; MIROC-ESM; CSIRO-Mk3-6-0
+- **Emissions Scenarios**: RCP 2.6, RCP4.5, RCP8.5
+- **Hindcast Period**: 1981-2020
+- **Projection Period**: 2021-2040; 2041-2060; 2061-2080; 2081-2100
+
+### Statistical flow projections at BC hydrometric stations
+
+- **Type**: Freshwater
+- **Extent**: California to Alaska
+- **Resolution**: Hydrometric gauges
+- **Output variables**: Monthly flow
+- **Associated indicators**: `flow8pdelta`, `flow18pdelta`
+- **Description**: We project future streamflow changes at 399 gauged near-natural streams in river basins that support Chinook salmon. We develop highly skilled statistical hydrologic models for each gauge, including the effects of glacier loss, and project monthly streamflow for each gauge to the year 2100 using a weighted ensemble of 47 CMIP6 models.
+- **Data URL**: [Link to Data Resource](https://www.frdr-dfdr.ca/repo/dataset/604c7dd2-9ff2-4563-856c-9e436359e7f4)
+- **Citation**: Ruzzante, S., Gleeson, T., Moore, J., Ulaski, M., Hatfield, T., Schnorbus, M., and Peacock, S. 2026, May 14. Drying summers threaten western North American river ecosystems and a keystone migratory fish. Ecology and Evolutionary Biology. doi:10.31223/X5SV1J.
+- **Climate model suite**: CMIP6
+- **Number of GCMs**: 47
+- **Emissions Scenarios**: SSP1-2.6, SSP2-4.5, SSP3-7.0, and SSP5-8.5
+- **Projection Period**: 2021-2100
+
+### BCFishpass Accessibility Model
+
+- **Type**: Freshwater
+- **Extent**: BC
+- **Resolution**: all stream reaches
+- **Associated indicators**: `tw8proj`, `tw8rate`, `flow8pdelta`, `flow18pdelta`, `cthr`, `favchange`
+- **Description**: BCFishpass is a collection of scripts to create and maintain an aquatic connectivity / fish passage database for British Columbia. The model applied here categorizes accessibility of stream to given fish species based on natural and anthropogenic barriers.
+- **Data URL**: Model access — bcfishpass v0.7.14 documentation
+
+### BCFishpass Intrinsic Habitat Model
+
+- **Type**: Freshwater
+- **Extent**: BC
+- **Resolution**: all stream reaches
+- **Associated indicators**: `tw8proj`, `tw8rate`, `flow8pdelta`, `flow18pdelta`, `cthr`, `favchange`
+- **Description**: BCFishpass model of potential spawning and rearing habitat for select species based on stream gradient and either modelled discharge or modelled channel width. The criteria used to define spawning and rearing habitat by species is described in Rebellato et al 2024.
+- **Data URL**: [Link to Data Resource](https://smnorris.github.io/bcfishpass/03_model_habitat_linear.html)
+- **Citation**: Rebellato, B.D., Bailey, R.E., Mazany-Wright, N., Mount, C.A., Montgomery, F.A., Norris, S.M., Piczak, M.L., Winther, I., and Lapointe, N.W.R. 2024. Canadian Wildlife Federation Effects of rail infrastructure on Pacific salmon and steelhead habitat connectivity in British Columbia. Available from https://aquaticbarriers.ca/.
+
+### CU boundaries
+
+- **Type**: Freshwater
+- **Extent**: BC & Yukon
+- **Output variables**: boundary polygons
+- **Associated indicators**: `tw8proj`, `tw8rate`, `flow8pdelta`, `flow18pdelta`, `cthr`, `favchange`
+- **Data URL**: [Link to Data Resource](https://open.canada.ca/data/en/dataset/1ac00a39-4770-443d-8a6b-9656c06df6a3)
+
+### Freshwater life-cycle timing of Pacific salmon and steelhead (Oncorhynchus spp.) in Canada
+
+- **Type**: Salmon
+- **Extent**: All CUs
+- **Output variables**: start, peak, and end timing for 5 life stage transitions
+- **Associated indicators**: `fwres`, `migrTproj`, `migrQpdelta`
+- **Description**: Pacific salmon (Oncorhynchus spp.) have complex life cycles that span freshwater and marine environments and unfold over many thousands of kilometers. Currently, there is no central repository of life-cycle timing for unique salmon and steelhead populations throughout their Canadian range. We have compiled a dataset of timing for key freshwater life-cycle events - fry migration from incubation to rearing grounds, juvenile migration from rearing grounds to the ocean, adult entry into rivers, and spawning - for salmon and steelhead trout from British Columbia and the Yukon, Canada.
+- **Data URL**: [Link to Data Resource](https://datadryad.org/dataset/doi:10.5061/dryad.wm37pvmwx#readme)
+- **Citation**: Wilson, S.M., and Peacock, S.J. 2025. Freshwater life-cycle timing of Pacific salmon and steelhead ( Oncorhynchus spp.) in Canada. Can. J. Fish. Aquat. Sci. 82: 1–17. doi:10.1139/cjfas-2024-0213.
+
+### New spawner escapement databases (NuSEDS)
+
+- **Type**: Salmon
+- **Extent**: All CUs
+- **Output variables**: escapement and spawner estimates
+- **Associated indicators**: `migrdist`, `migrTproj`, `migrQpdelta`
+- **Description**: The Salmon Escapement Database (NuSEDS) is the DFO Pacific Region’s central database that stores individual spawner survey data records, spawner abundance estimates and the linkages between the two.
+- **Data URL**: [Link to Data Resource](https://open.canada.ca/data/en/dataset/c48669a3-045b-400d-b730-48aafe8c5ee6)
+
+### Wild Salmon Policy Rapid Status Assessments
+
+- **Type**: Salmon
+- **Extent**: Fraser basin CUs
+- **Output variables**: annual status, spawner abundance, and trends
+- **Associated indicators**: `CUstatus`, `CUnmat`
+- **Description**: Recent Wild Salmon Policy (WSP) conservation status of a CU categorized as either Red, Amber, or Green. Status was assessed using the Rapid Status Assessment Approach that uses a Yes/No decision tree considering the number of recent spawners, trends in abundance, data type (absolute or relative abundance), and biological benchmarks. The input data, thresholds and appropriate metrics, and final status of Fraser CUs in 2022/2023 were evaluated and agreed upon by expert judgement throughout the Rapid Status process.
+- **Citation**: Pestal, G., MacDonald, B.L., Grant, S., and Holt, C.A. 2023. State of the Salmon: Rapid status assessment approach for Pacific salmon under Canada’s wild salmon policy. Can. Tech. Rep. Fish. Aquat. Sci. (3570).
+
+### Whole genome analysis of Pacific salmon
+
+- **Type**: Salmon
+- **Extent**: California to Alaska
+- **Output variables**: heterozygosity, genomic offset
+- **Associated indicators**: `hetzyg`, `genoff`
+
+### BC Continental Margin Model (BCCM)
+
+- **Type**: Marine
+- **Extent**: BC Shelf
+- **Resolution**: 3km2
+- **Output variables**: SST, SSS, pH, primary production, O2
+- **Associated indicators**: `SSTproj`, `SSTrate`
+- **Description**: A coupled ocean-biogeochemical model, the British Columbia Continental Margin Model (BCCM), has been developed to examine seasonal and interannual variability of the physical and biogeochemical environment as well as effects of climate change. The model domain includes the entire Pacific coast of Canada and extends from the Alaska Border (~55.5 °N) to south of the Columbia River (~47 °N) and about 400 km in the offshore direction (Figure 7). The model grid has a horizontal resolution of 3 km and 42 non-uniform vertical levels, with clustering near the surface. Model results have been compared against observations (tide gauge data, altimetry, temperature, salinity, nutrient profiles, and geostrophic currents) over 1981 and 2010 period showing the model is successful in reproducing the main features of the region.
+- **Data URL**: Northeastern Pacific Canadian Ocean Ecosystem Model (NEP36-CanOE) Climate Projections - Open Government Portal (canada.ca)
+- **Citation**: Peña, M.A., and Fine, I. 2024. Future Physical and Biogeochemical Ocean Conditions under Climate Change along the British Columbia Continental Margin. Atmosphere-Ocean 62(1): 2–23. doi:10.1080/07055900.2023.2239186.
+- **Climate model suite**: CMIP5
+- **Number of GCMs**: 1
+- **Global Climate Models**: CanESM2/CanRCM4
+- **Emissions Scenarios**: RCP4.5, RCP8.5
+- **Hindcast Period**: 1981-2010
+- **Projection Period**: 2041-2070
+
+### SalishSeaCast
+
+- **Type**: Marine
+- **Extent**: Salish Sea
+- **Resolution**: 500m2
+- **Output variables**: SST, SSS, pH, primary production, O2
+- **Associated indicators**: `SSTproj`, `SSTrate`
+- **Description**: high resolution climate simulations (~500m) for the Salish Sea with biogeochemistry for the years 1986-2005 and 2046-2065 for moderate mitigation (RCP 4.5) and no mitigation (RCP 8.5) scenarios
+- **Citation**: Amber Holdsworth, Natasha Ridenour
+- **Climate model suite**: CMIP5
+- **Number of GCMs**: 1
+- **Global Climate Models**: CanESM2/CanRCM4
+- **Emissions Scenarios**: RCP4.5, RCP8.5
+- **Hindcast Period**: 1986-2005
+- **Projection Period**: 2046-2065
+
+### HOTSSea
+
+- **Type**: Marine
+- **Extent**: Salish Sea
+- **Resolution**: 2x2km
+- **Output variables**: SST, SSS, pH
+- **Associated indicators**: `SSTproj`, `SSTrate`
+- **Description**: The Hindcast of the Salish Sea (HOTSSea) v1 with temporal coverage from 1980–2018, developed using the NEMO ocean engine. 
+- **Data URL**: [Link to Data Resource](https://gmd.copernicus.org/preprints/gmd-2024-58/)
+- **Citation**: Greig Oldford
+
+### Downscaled SST projections using quantile delta mapping
+
+- **Type**: Marine
+- **Extent**: Global
+- **Output variables**: SST, pH, SSS, Disolved inorganic carbon concentration, Total alkalinity (there are more variables for atmospheric and sea ice conditions)
+- **Associated indicators**: `SSTproj`, `SSTrate`
+- **Description**: Monthly data sets contain actual values while the other data sets have anomalies (percentage change relative to historical baseline). The ensemble models are summarized with minimums, maximums, means and percentiles (5th, 25th, 50th/median, 75th, 95th). This data is surface only.
+- **Climate model suite**: CMIP6
+- **Number of GCMs**: 28
+- **Global Climate Models**: ACCESS-CM2 	FGOALS-g3 
+ACCESS-ESM1-5 	GFDL-ESM4 
+AWI-CM-1-1-MR 	IITM-ESM 
+BCC-CSM2-MR 	INM-CM4-8 
+CAMS-CSM1-0 	INM-CM5-0 
+CAS-ESM2-0 	IPSL-CM6A-LR 
+CESM2-WACCM 	KACE-1-0-G 
+CMCC-CM2-SR5 	MIROC6 
+CMCC-ESM2 	MPI-ESM1-2-HR 
+CanESM5 	MPI-ESM1-2-LR 
+EC-Earth3 	MRI-ESM2-0 
+EC-Earth3-Veg 	NorESM2-LM 
+EC-Earth3-Veg-LR 	NorESM2-MM 
+FGOALS-f3-L 	TaiESM1
+- **Emissions Scenarios**: SSP1-2.6, SSP2-4.5, SSP3-7.0, and SSP5-8.5
+- **Projection Period**: annual projections to 2100
+
+### Cumulative impacts from anthropogenic activities and stressors on marine ecosystems in Pacific Canada
+
+- **Type**: Marine
+- **Extent**: BC Shelf
+- **Resolution**: 1x1km
+- **Output variables**: Cumulative impact scores for habitat types: all, shallow pelagic, deep pelagic, benthic habitat, eelgrass, sponge reef, kelp forest
+- **Associated indicators**: `CImpact`
+- **Description**: Fisheries and Oceans Canada has conducted a cumulative human impact mapping analysis for Pacific Canada to support ongoing Marine Spatial Planning. Cumulative impact mapping (CIM) combines spatial information on human activities, habitats, and a matrix of vulnerability weights into an intuitive relative ‘cumulative impact score’ that shows where cumulative human impacts are greatest and least. To map cumulative impacts, a recently developed ecosystem vulnerability assessment for Pacific Canadian waters (Murray et al. 2022) was combined with spatial information on thirty-eight (38) different habitat types and forty-five (45) human activities following the methodology from Halpern et al.(2008) and Murray et al. (2015). The cumulative impact map is provided in a 1x1 km grid used for oceans management by Fisheries and Oceans Canada. For further information, please contact the data provider.
+- **Data URL**: [Link to Data Resource](https://open.canada.ca/data/en/dataset/8a08603a-a60c-4ca5-aab8-614ed14bc68f)
+- **Citation**: Murray, C.C., Kelly, N.E., Nelson, J.C., Murphy, G.E.P., and Agbayani, S. 2024. Cumulative impact mapping and vulnerability of Canadian marine ecosystems to anthropogenic activities and stressors. 2024/024. vi + 46 p. DFO Can. Sci. Advis. Sec. Res. Doc.
+
+### Marine adaptive zones
+
+- **Type**: Marine
+- **Extent**: BC Shelf
+- **Output variables**: boundary polygons
+- **Associated indicators**: `SSTproj`, `SSTrate`, `Cimpact`
+- **Description**: Marine adaptive zones were used by Holtby and Ciruna (2007) to associate Pacific salmon with marine rearing areas and delineate conservation units. The marine adaptive zones we used were adapted from those described by Holtby and Ciruna into polygons representing seven distinct marine areas of the British Columbia coast.
+- **Data URL**: Adapted from https://data.salmonwatersheds.ca/result?datasetid=503
+

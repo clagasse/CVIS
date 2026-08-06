@@ -37,7 +37,7 @@ genetics_old <- read_csv(file.path(paths$salmon, "Genetics","offset_het_imputed_
   ) %>%
   mutate(FULL_CU_IN = adjust_CU_IN(FULL_CU_IN))
 
-genetics_pop <- read_csv(file.path(paths$salmon, "Genetics","offset_het_imputed_dat_sockeye_coho_chinook_updated_july6.csv")) %>%
+genetics_pop <- read_csv(file.path(paths$salmon, "Genetics","offset_het_imputed_dat_sockeye_coho_chinook_updated_july8.csv")) %>%
   rename(
     FULL_CU_IN = CU
     #hetzyg = het

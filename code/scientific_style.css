@@ -7,7 +7,7 @@
 /* === Core Page Layout === */
 body {
   font-family: 'Lora', Georgia, 'Times New Roman', serif;
-  font-size: 15px; /* Slightly smaller default font size for better readability and compactness */
+  font-size: 16.5px; /* Slightly larger default font size for better readability and readability */
   line-height: 1.75;
   color: #2d3748; /* Off-black charcoal for readability */
   background-color: #f8fafc; /* Very soft off-white background */
@@ -226,7 +226,7 @@ table, .table {
   width: 100%;
   margin: 2em auto;
   font-family: 'Inter', -apple-system, sans-serif;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
 }
 
 table th, .table th {
@@ -439,4 +439,42 @@ img, p img {
 /* Hide empty headers to avoid rendering margins/borders for structural tabset containers */
 h1:empty, h2:empty, h3:empty, h4:empty, h5:empty, h6:empty {
   display: none !important;
+}
+
+/* Color-coded rows for data overview table */
+.row-freshwater {
+  background-color: #f0f9ff !important;
+}
+.row-salmon {
+  background-color: #fff1f2 !important;
+}
+.row-marine {
+  background-color: #f0fdf4 !important;
+}
+
+/* Styled badges for types */
+.badge {
+  display: inline-block;
+  padding: 3px 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  text-align: center;
+}
+.badge-freshwater {
+  background-color: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+.badge-salmon {
+  background-color: #ffe4e6;
+  color: #b91c1c;
+  border: 1px solid #fecdd3;
+}
+.badge-marine {
+  background-color: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
 }

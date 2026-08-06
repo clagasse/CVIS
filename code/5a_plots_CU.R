@@ -1506,13 +1506,15 @@ cu_hydrologic_regime <- function(cu_boundary_i,
 
 
 # ==================== 7b. Fraser Hydrologic Regimes & Flow Change Comparison ====================
-# Compares hydrologic regimes with change in August flow for the entire Fraser Basin
+# Compares hydrologic regimes with change in August flow & Winter flow across the Fraser Basin
 fraser_hydrologic_regime_comparison_plot <- function(watershed_flow = NULL,
                                                      stream_data = NULL,
                                                      lakes_df = NULL,
                                                      fraser_boundary = NULL,
-                                                     variable = "flow8pdelta_9_45_3",
-                                                     xlim = c(-1, 0),
+                                                     variable_aug = "flow8pdelta_9_45_3",
+                                                     variable_win = "flow18pdelta_9_45_3",
+                                                     xlim_aug = c(-1, 0),
+                                                     xlim_win = c(-0.5, 1),
                                                      unit_label = "Proportional Change",
                                                      risk_palette = cvis_risk_palette,
                                                      palette_direction = 1,
@@ -1523,8 +1525,15 @@ fraser_hydrologic_regime_comparison_plot <- function(watershed_flow = NULL,
       watershed_flow <- get("watershed_flow", envir = .GlobalEnv)
     } else {
       temp_env <- new.env()
-      load(file.path(paths$fw, "flow_gauge_data.Rdata"), envir = temp_env)
-      watershed_flow <- temp_env$watershed_flow
+      fgd_file <- file.path(paths$fw, "flow_gauge_data.Rdata")
+      if (file.exists(fgd_file)) {
+        load(fgd_file, envir = temp_env)
+        watershed_flow <- temp_env$watershed_flow
+      } else if (file.exists("D:/Streamflow/station_data/catchment_polygons.gpkg")) {
+        watershed_flow <- st_read("D:/Streamflow/station_data/catchment_polygons.gpkg", quiet = TRUE) %>%
+          rename(ID = gauge_id) %>%
+          mutate(regime = factor("Snowfall"))
+      }
     }
   }
   if (is.null(stream_data) && exists("fw_sp_ind", envir = .GlobalEnv)) {
@@ -1548,10 +1557,13 @@ fraser_hydrologic_regime_comparison_plot <- function(watershed_flow = NULL,
   stream_data <- simplify_geom_if_needed(stream_data)
   if (!is.null(lakes_df)) lakes_df <- simplify_geom_if_needed(lakes_df)
 
-  # Check if variable exists in stream_data
-  if (!variable %in% names(stream_data)) {
-    stop(paste("Variable", variable, "not found in stream_data."))
+  # Transform CRS and crop watershed_flow to Fraser boundary for focused display
+  if (sf::st_crs(watershed_flow) != sf::st_crs(fraser_boundary)) {
+    watershed_flow <- sf::st_transform(watershed_flow, sf::st_crs(fraser_boundary))
   }
+  watershed_flow_valid <- tryCatch(sf::st_make_valid(watershed_flow), error = function(e) watershed_flow)
+  fraser_bbox <- sf::st_bbox(fraser_boundary)
+  watershed_flow_cropped <- suppressWarnings(sf::st_crop(watershed_flow_valid, fraser_bbox))
 
   # Determine inset coordinates based on quadrant
   inset_coords <- switch(inset_quad,
@@ -1559,26 +1571,23 @@ fraser_hydrologic_regime_comparison_plot <- function(watershed_flow = NULL,
     "BR" = list(left = 0.62, bottom = 0.03, right = 0.97, top = 0.32),
     "TL" = list(left = 0.03, bottom = 0.68, right = 0.38, top = 0.97),
     "TR" = list(left = 0.62, bottom = 0.68, right = 0.97, top = 0.97),
-    list(left = 0.03, bottom = 0.03, right = 0.38, top = 0.32) # default
+    list(left = 0.03, bottom = 0.03, right = 0.38, top = 0.32)
   )
 
-  # ==================== PANEL A: Hydrologic Regimes ====================
+  # ==================== PANEL A: Hydrologic Regimes (Cropped to Fraser) ====================
   p_regime <- ggplot() +
     geom_sf(data = fraser_boundary, color = "black", fill = "grey95", linewidth = 0.6) +
-    geom_sf(data = watershed_flow, aes(fill = regime), alpha = 0.65, color = NA) +
-    scale_fill_brewer(palette = "Set2", guide = "none")
-
-  p_regime <- p_regime +
-    coord_sf(datum = NA) +
+    geom_sf(data = watershed_flow_cropped, aes(fill = regime), alpha = 0.65, color = NA) +
+    scale_fill_brewer(palette = "Set2", guide = "none") +
+    coord_sf(datum = NA, xlim = fraser_bbox[c(1,3)], ylim = fraser_bbox[c(2,4)]) +
     labs(title = "Hydrologic Regimes") +
     theme_void() +
     theme(
-      plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
-      plot.margin = margin(5, 5, 5, 5)
+      plot.title = element_text(size = 11, face = "bold", hjust = 0.5),
+      plot.margin = margin(3, 3, 3, 3)
     )
 
-  # Inset bar plot for distribution of regimes
-  regime_counts <- as.data.frame(sf::st_drop_geometry(watershed_flow)) %>%
+  regime_counts <- as.data.frame(sf::st_drop_geometry(watershed_flow_cropped)) %>%
     filter(!is.na(regime)) %>%
     group_by(regime) %>%
     summarise(count = n(), .groups = "drop") %>%
@@ -1593,109 +1602,23 @@ fraser_hydrologic_regime_comparison_plot <- function(watershed_flow = NULL,
     theme(
       axis.line.y = element_line(color = "black", linewidth = 0.5),
       axis.text.y = element_text(color = "black", size = 6, face = "bold"),
-      axis.text.x = element_text(color = "black", size = 6.5, face = "bold", angle = 45, hjust = 1),
+      axis.text.x = element_text(color = "black", size = 6, face = "bold", angle = 45, hjust = 1),
       axis.ticks.y = element_line(color = "black", linewidth = 0.5),
       plot.background = element_rect(fill = "white", color = NA),
       plot.margin = margin(1, 2, 8, 2)
     )
 
   p_regime_combined <- p_regime + patchwork::inset_element(
-    p_regime_hist,
-    left = inset_coords$left,
-    bottom = inset_coords$bottom,
-    right = inset_coords$right,
-    top = inset_coords$top,
-    align_to = "panel"
+    p_regime_hist, left = inset_coords$left, bottom = inset_coords$bottom,
+    right = inset_coords$right, top = inset_coords$top, align_to = "panel"
   )
 
-  # ==================== PANEL B: Change in August Flow ====================
-  panel_data <- stream_data[!is.na(sf::st_drop_geometry(stream_data)[[variable]]), ]
-  panel_data <- suppressWarnings(sf::st_crop(panel_data, sf::st_bbox(fraser_boundary)))
-
-  var_sym <- sym(variable)
-  
-  if ("stream_order" %in% names(panel_data)) {
-    panel_data$stream_order <- as.numeric(panel_data$stream_order)
-    p_flow <- ggplot() +
-      geom_sf(data = fraser_boundary, color = "black", fill = "grey95", linewidth = 0.6) +
-      geom_sf(data = panel_data, aes(color = !!var_sym, linewidth = stream_order)) +
-      scale_linewidth_continuous(range = c(0.1, 0.9), guide = "none")
-  } else {
-    p_flow <- ggplot() +
-      geom_sf(data = fraser_boundary, color = "black", fill = "grey95", linewidth = 0.6) +
-      geom_sf(data = panel_data, aes(color = !!var_sym))
-  }
-
-  p_flow <- p_flow +
-    scale_color_cvis(
-      palette = risk_palette,
-      direction = palette_direction,
-      limits = xlim,
-      guide = "none",
-      oob = scales::squish
-    )
-
-  p_flow <- p_flow +
-    coord_sf(datum = NA) +
-    labs(title = "August Flow (PCIC model)") +
-    theme_void() +
-    theme(
-      plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
-      plot.margin = margin(5, 5, 5, 5)
-    )
-
-  # Inset histogram
-  p_flow_hist <- ggplot(sf::st_drop_geometry(panel_data), aes(x = !!var_sym)) +
-    geom_histogram(aes(fill = after_stat(x)), bins = 15, color = "white", linewidth = 0.1, show.legend = FALSE, na.rm = TRUE) +
-    scale_fill_cvis(
-      palette = risk_palette,
-      direction = palette_direction,
-      limits = xlim,
-      oob = scales::squish
-    ) +
-    scale_x_continuous(
-      limits = xlim,
-      oob = scales::squish,
-      breaks = c(xlim[1], (xlim[1] + xlim[2])/2, xlim[2]),
-      labels = function(x) sprintf("%.1f", x)
-    ) +
-    labs(x = unit_label) +
-    theme_void() +
-    theme(
-      axis.line.x = element_line(color = "black", linewidth = 0.5),
-      axis.text.x = element_text(color = "black", size = 7, face = "bold", margin = margin(t = 6)),
-      axis.ticks.x = element_line(color = "black", linewidth = 0.5),
-      axis.title.x = if (!is.null(unit_label)) element_text(color = "black", size = 6.5, face = "bold", margin = margin(t = 6)) else element_blank(),
-      plot.background = element_rect(fill = "white", color = NA),
-      plot.margin = margin(1, 2, 12, 2)
-    )
-
-  p_flow_combined <- p_flow + patchwork::inset_element(
-    p_flow_hist,
-    left = inset_coords$left,
-    bottom = inset_coords$bottom,
-    right = inset_coords$right,
-    top = inset_coords$top,
-    align_to = "panel"
-  )
-
-  # ==================== PANEL C: Change in August Flow (Stations) ====================
-  # Parse RCP and Period from the variable name (e.g., flow8pdelta_9_45_3)
-  rcp_val <- "45"
-  period_val <- "3"
-  m_var <- stringr::str_match(variable, "^flow8pdelta_\\d+_(\\d+)_(\\d)$")
-  if (!is.na(m_var[1, 1])) {
-    rcp_val <- m_var[1, 2]
-    period_val <- m_var[1, 3]
-  }
-
-  # Load Statistical_flow_projections if needed
+  # ==================== PANEL B: August Flow (Station Model) ====================
   if (!exists("wp_vm", envir = .GlobalEnv)) {
     load(file.path(paths$fw, "Statistical_flow_projections.Rds"), envir = .GlobalEnv)
   }
   wp_vm <- get("wp_vm", envir = .GlobalEnv)
 
-  # Load stations_flow if needed
   if (exists("stations_flow", envir = .GlobalEnv)) {
     stations_flow <- get("stations_flow", envir = .GlobalEnv)
   } else {
@@ -1704,110 +1627,201 @@ fraser_hydrologic_regime_comparison_plot <- function(watershed_flow = NULL,
     stations_flow <- temp_env$stations_flow
   }
 
-  # Crop stations and watersheds to Fraser boundary
   stations_flow <- simplify_geom_if_needed(stations_flow)
   if (sf::st_crs(stations_flow) != sf::st_crs(fraser_boundary)) {
     stations_flow <- sf::st_transform(stations_flow, sf::st_crs(fraser_boundary))
   }
-  stations_flow <- suppressWarnings(sf::st_crop(stations_flow, sf::st_bbox(fraser_boundary)))
+  stations_flow_cropped <- suppressWarnings(sf::st_crop(stations_flow, fraser_bbox))
 
-  if (sf::st_crs(watershed_flow) != sf::st_crs(fraser_boundary)) {
-    watershed_flow <- sf::st_transform(watershed_flow, sf::st_crs(fraser_boundary))
+  rcp_val <- "45"
+  period_val <- "3"
+  m_var <- stringr::str_match(variable_aug, "^flow8pdelta_\\d+_(\\d+)_(\\d)$")
+  if (!is.na(m_var[1, 1])) {
+    rcp_val <- m_var[1, 2]
+    period_val <- m_var[1, 3]
   }
-  watershed_flow <- tryCatch(sf::st_make_valid(watershed_flow), error = function(e) watershed_flow)
-  watershed_flow_cropped <- suppressWarnings(sf::st_crop(watershed_flow, sf::st_bbox(fraser_boundary)))
 
-  # Extract flow8pdelta for each station using wp_vm
-  wp_flat <- wp_vm %>%
+  wp_flat_aug <- wp_vm %>%
     dplyr::mutate(mean_val = sapply(data, function(df) {
       if (is.null(df) || nrow(df) == 0) return(NA_real_)
       mean(df$mean, na.rm = TRUE)
     })) %>%
     dplyr::select(ID, rcp, gcm_name, period, mean = mean_val)
 
-  # Filter to historical baseline (period 0, rcp 0)
-  wp_hist <- wp_flat %>%
+  wp_hist_aug <- wp_flat_aug %>%
     dplyr::filter(period == "0") %>%
     dplyr::group_by(ID, gcm_name) %>%
     dplyr::summarise(mean_hist = mean(mean, na.rm = TRUE), .groups = "drop")
 
-  # Filter to future scenario
-  wp_future <- wp_flat %>%
-    dplyr::filter(rcp == rcp_val, period == period_val)
+  wp_future_aug <- wp_flat_aug %>% dplyr::filter(rcp == rcp_val, period == period_val)
 
-  # Join and calculate flow8pdelta for each station and GCM (historical baseline is GCM-independent)
-  wp_delta <- wp_future %>%
-    dplyr::left_join(wp_hist %>% dplyr::select(ID, mean_hist), by = "ID") %>%
-    dplyr::mutate(delta = (mean - mean_hist) / mean_hist)
-
-  # Average across GCMs for each station to get ensemble average
-  wp_ensemble_delta <- wp_delta %>%
+  wp_delta_aug <- wp_future_aug %>%
+    dplyr::left_join(wp_hist_aug %>% dplyr::select(ID, mean_hist), by = "ID") %>%
+    dplyr::mutate(delta = (mean - mean_hist) / mean_hist) %>%
     dplyr::group_by(ID) %>%
     dplyr::summarise(value = mean(delta, na.rm = TRUE), .groups = "drop")
 
-  # Join with watershed_flow
-  watershed_flow_delta <- watershed_flow_cropped %>%
-    dplyr::left_join(wp_ensemble_delta, by = c("ID" = "ID"))
+  watershed_flow_aug <- watershed_flow_cropped %>%
+    dplyr::left_join(wp_delta_aug, by = "ID")
 
-  p_station <- ggplot() +
+  p_stn_aug <- ggplot() +
     geom_sf(data = fraser_boundary, color = "black", fill = "grey95", linewidth = 0.6) +
-    geom_sf(data = watershed_flow_delta, aes(fill = value), alpha = 0.65, color = NA) +
-    scale_fill_cvis(
-      palette = risk_palette,
-      direction = palette_direction,
-      limits = xlim,
-      guide = "none",
-      oob = scales::squish
-    ) +
-    geom_sf(data = stations_flow, color = "black", size = 1)
-
-  p_station <- p_station +
-    coord_sf(datum = NA) +
+    geom_sf(data = watershed_flow_aug, aes(fill = value), alpha = 0.65, color = NA) +
+    scale_fill_cvis(palette = risk_palette, direction = palette_direction, limits = xlim_aug, guide = "none", oob = scales::squish) +
+    geom_sf(data = stations_flow_cropped, color = "black", size = 1) +
+    coord_sf(datum = NA, xlim = fraser_bbox[c(1,3)], ylim = fraser_bbox[c(2,4)]) +
     labs(title = "August Flow (Station model)") +
     theme_void() +
-    theme(
-      plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
-      plot.margin = margin(5, 5, 5, 5)
-    )
+    theme(plot.title = element_text(size = 11, face = "bold", hjust = 0.5), plot.margin = margin(3, 3, 3, 3))
 
-  # Inset histogram for Panel C
-  p_station_hist <- ggplot(sf::st_drop_geometry(watershed_flow_delta), aes(x = value)) +
+  p_stn_aug_hist <- ggplot(sf::st_drop_geometry(watershed_flow_aug), aes(x = value)) +
     geom_histogram(aes(fill = after_stat(x)), bins = 15, color = "white", linewidth = 0.1, show.legend = FALSE, na.rm = TRUE) +
-    scale_fill_cvis(
-      palette = risk_palette,
-      direction = palette_direction,
-      limits = xlim,
-      oob = scales::squish
-    ) +
-    scale_x_continuous(
-      limits = xlim,
-      oob = scales::squish,
-      breaks = c(xlim[1], (xlim[1] + xlim[2])/2, xlim[2]),
-      labels = function(x) sprintf("%.1f", x)
-    ) +
+    scale_fill_cvis(palette = risk_palette, direction = palette_direction, limits = xlim_aug, oob = scales::squish) +
+    scale_x_continuous(limits = xlim_aug, oob = scales::squish, breaks = c(xlim_aug[1], (xlim_aug[1] + xlim_aug[2])/2, xlim_aug[2]), labels = function(x) sprintf("%.1f", x)) +
     labs(x = unit_label) +
     theme_void() +
     theme(
       axis.line.x = element_line(color = "black", linewidth = 0.5),
-      axis.text.x = element_text(color = "black", size = 7, face = "bold", margin = margin(t = 6)),
+      axis.text.x = element_text(color = "black", size = 6.5, face = "bold", margin = margin(t = 4)),
       axis.ticks.x = element_line(color = "black", linewidth = 0.5),
-      axis.title.x = if (!is.null(unit_label)) element_text(color = "black", size = 6.5, face = "bold", margin = margin(t = 6)) else element_blank(),
+      axis.title.x = element_text(color = "black", size = 6, face = "bold", margin = margin(t = 4)),
       plot.background = element_rect(fill = "white", color = NA),
-      plot.margin = margin(1, 2, 12, 2)
+      plot.margin = margin(1, 2, 10, 2)
     )
 
-  p_station_combined <- p_station + patchwork::inset_element(
-    p_station_hist,
-    left = inset_coords$left,
-    bottom = inset_coords$bottom,
-    right = inset_coords$right,
-    top = inset_coords$top,
-    align_to = "panel"
-  )
+  p_stn_aug_combined <- p_stn_aug + patchwork::inset_element(p_stn_aug_hist, left = inset_coords$left, bottom = inset_coords$bottom, right = inset_coords$right, top = inset_coords$top, align_to = "panel")
 
-  # Combine panels side-by-side using patchwork
-  p_out <- patchwork::wrap_plots(p_regime_combined, p_station_combined, p_flow_combined, ncol = 3) +
-    ggplot2::theme(plot.title = ggplot2::element_text(size = 14, face = "bold", hjust = 0.5))
+  # ==================== PANEL C: August Flow (Streamdyn Model) ====================
+  if (variable_aug %in% names(stream_data)) {
+    panel_aug_data <- stream_data[!is.na(sf::st_drop_geometry(stream_data)[[variable_aug]]), ]
+    panel_aug_data <- suppressWarnings(sf::st_crop(panel_aug_data, fraser_bbox))
+    var_aug_sym <- sym(variable_aug)
+
+    p_sd_aug <- ggplot() +
+      geom_sf(data = fraser_boundary, color = "black", fill = "grey95", linewidth = 0.6) +
+      geom_sf(data = panel_aug_data, aes(color = !!var_aug_sym, linewidth = as.numeric(stream_order))) +
+      scale_linewidth_continuous(range = c(0.1, 0.9), guide = "none") +
+      scale_color_cvis(palette = risk_palette, direction = palette_direction, limits = xlim_aug, guide = "none", oob = scales::squish) +
+      coord_sf(datum = NA, xlim = fraser_bbox[c(1,3)], ylim = fraser_bbox[c(2,4)]) +
+      labs(title = "August Flow (Streamdyn model)") +
+      theme_void() +
+      theme(plot.title = element_text(size = 11, face = "bold", hjust = 0.5), plot.margin = margin(3, 3, 3, 3))
+
+    p_sd_aug_hist <- ggplot(sf::st_drop_geometry(panel_aug_data), aes(x = !!var_aug_sym)) +
+      geom_histogram(aes(fill = after_stat(x)), bins = 15, color = "white", linewidth = 0.1, show.legend = FALSE, na.rm = TRUE) +
+      scale_fill_cvis(palette = risk_palette, direction = palette_direction, limits = xlim_aug, oob = scales::squish) +
+      scale_x_continuous(limits = xlim_aug, oob = scales::squish, breaks = c(xlim_aug[1], (xlim_aug[1] + xlim_aug[2])/2, xlim_aug[2]), labels = function(x) sprintf("%.1f", x)) +
+      labs(x = unit_label) +
+      theme_void() +
+      theme(
+        axis.line.x = element_line(color = "black", linewidth = 0.5),
+        axis.text.x = element_text(color = "black", size = 6.5, face = "bold", margin = margin(t = 4)),
+        axis.ticks.x = element_line(color = "black", linewidth = 0.5),
+        axis.title.x = element_text(color = "black", size = 6, face = "bold", margin = margin(t = 4)),
+        plot.background = element_rect(fill = "white", color = NA),
+        plot.margin = margin(1, 2, 10, 2)
+      )
+
+    p_sd_aug_combined <- p_sd_aug + patchwork::inset_element(p_sd_aug_hist, left = inset_coords$left, bottom = inset_coords$bottom, right = inset_coords$right, top = inset_coords$top, align_to = "panel")
+  } else {
+    p_sd_aug_combined <- ggplot() + theme_void() + labs(title = "August Flow (Streamdyn model)")
+  }
+
+  # ==================== PANEL D: Winter Flow (Station Model) ====================
+  wp_flat_win <- wp_vm %>%
+    dplyr::mutate(mean_val = sapply(data, function(df) {
+      if (is.null(df) || nrow(df) == 0) return(NA_real_)
+      if ("mean_ndj" %in% names(df)) mean(df$mean_ndj, na.rm = TRUE) else NA_real_
+    })) %>%
+    dplyr::filter(!is.na(mean_val)) %>%
+    dplyr::select(ID, rcp, gcm_name, period, mean_ndj = mean_val)
+
+  if (nrow(wp_flat_win) > 0) {
+    wp_hist_win <- wp_flat_win %>%
+      dplyr::filter(period == "0") %>%
+      dplyr::group_by(ID, gcm_name) %>%
+      dplyr::summarise(mean_hist = mean(mean_ndj, na.rm = TRUE), .groups = "drop")
+
+    wp_future_win <- wp_flat_win %>% dplyr::filter(rcp == rcp_val, period == period_val)
+
+    wp_delta_win <- wp_future_win %>%
+      dplyr::left_join(wp_hist_win %>% dplyr::select(ID, mean_hist), by = "ID") %>%
+      dplyr::mutate(delta = (mean_ndj - mean_hist) / mean_hist) %>%
+      dplyr::group_by(ID) %>%
+      dplyr::summarise(value = mean(delta, na.rm = TRUE), .groups = "drop")
+
+    watershed_flow_win <- watershed_flow_cropped %>% dplyr::left_join(wp_delta_win, by = "ID")
+  } else {
+    watershed_flow_win <- watershed_flow_cropped %>% dplyr::mutate(value = NA_real_)
+  }
+
+  p_stn_win <- ggplot() +
+    geom_sf(data = fraser_boundary, color = "black", fill = "grey95", linewidth = 0.6) +
+    geom_sf(data = watershed_flow_win, aes(fill = value), alpha = 0.65, color = NA) +
+    scale_fill_cvis(palette = risk_palette, direction = -palette_direction, limits = xlim_win, guide = "none", oob = scales::squish) +
+    geom_sf(data = stations_flow_cropped, color = "black", size = 1) +
+    coord_sf(datum = NA, xlim = fraser_bbox[c(1,3)], ylim = fraser_bbox[c(2,4)]) +
+    labs(title = "Winter Flow (Station model)") +
+    theme_void() +
+    theme(plot.title = element_text(size = 11, face = "bold", hjust = 0.5), plot.margin = margin(3, 3, 3, 3))
+
+  p_stn_win_hist <- ggplot(sf::st_drop_geometry(watershed_flow_win), aes(x = value)) +
+    geom_histogram(aes(fill = after_stat(x)), bins = 15, color = "white", linewidth = 0.1, show.legend = FALSE, na.rm = TRUE) +
+    scale_fill_cvis(palette = risk_palette, direction = -palette_direction, limits = xlim_win, oob = scales::squish) +
+    scale_x_continuous(limits = xlim_win, oob = scales::squish, breaks = c(xlim_win[1], (xlim_win[1] + xlim_win[2])/2, xlim_win[2]), labels = function(x) sprintf("%.1f", x)) +
+    labs(x = unit_label) +
+    theme_void() +
+    theme(
+      axis.line.x = element_line(color = "black", linewidth = 0.5),
+      axis.text.x = element_text(color = "black", size = 6.5, face = "bold", margin = margin(t = 4)),
+      axis.ticks.x = element_line(color = "black", linewidth = 0.5),
+      axis.title.x = element_text(color = "black", size = 6, face = "bold", margin = margin(t = 4)),
+      plot.background = element_rect(fill = "white", color = NA),
+      plot.margin = margin(1, 2, 10, 2)
+    )
+
+  p_stn_win_combined <- p_stn_win + patchwork::inset_element(p_stn_win_hist, left = inset_coords$left, bottom = inset_coords$bottom, right = inset_coords$right, top = inset_coords$top, align_to = "panel")
+
+  # ==================== PANEL E: Winter Flow (Streamdyn Model) ====================
+  if (variable_win %in% names(stream_data)) {
+    panel_win_data <- stream_data[!is.na(sf::st_drop_geometry(stream_data)[[variable_win]]), ]
+    panel_win_data <- suppressWarnings(sf::st_crop(panel_win_data, fraser_bbox))
+    var_win_sym <- sym(variable_win)
+
+    p_sd_win <- ggplot() +
+      geom_sf(data = fraser_boundary, color = "black", fill = "grey95", linewidth = 0.6) +
+      geom_sf(data = panel_win_data, aes(color = !!var_win_sym, linewidth = as.numeric(stream_order))) +
+      scale_linewidth_continuous(range = c(0.1, 0.9), guide = "none") +
+      scale_color_cvis(palette = risk_palette, direction = -palette_direction, limits = xlim_win, guide = "none", oob = scales::squish) +
+      coord_sf(datum = NA, xlim = fraser_bbox[c(1,3)], ylim = fraser_bbox[c(2,4)]) +
+      labs(title = "Winter Flow (Streamdyn model)") +
+      theme_void() +
+      theme(plot.title = element_text(size = 11, face = "bold", hjust = 0.5), plot.margin = margin(3, 3, 3, 3))
+
+    p_sd_win_hist <- ggplot(sf::st_drop_geometry(panel_win_data), aes(x = !!var_win_sym)) +
+      geom_histogram(aes(fill = after_stat(x)), bins = 15, color = "white", linewidth = 0.1, show.legend = FALSE, na.rm = TRUE) +
+      scale_fill_cvis(palette = risk_palette, direction = -palette_direction, limits = xlim_win, oob = scales::squish) +
+      scale_x_continuous(limits = xlim_win, oob = scales::squish, breaks = c(xlim_win[1], (xlim_win[1] + xlim_win[2])/2, xlim_win[2]), labels = function(x) sprintf("%.1f", x)) +
+      labs(x = unit_label) +
+      theme_void() +
+      theme(
+        axis.line.x = element_line(color = "black", linewidth = 0.5),
+        axis.text.x = element_text(color = "black", size = 6.5, face = "bold", margin = margin(t = 4)),
+        axis.ticks.x = element_line(color = "black", linewidth = 0.5),
+        axis.title.x = element_text(color = "black", size = 6, face = "bold", margin = margin(t = 4)),
+        plot.background = element_rect(fill = "white", color = NA),
+        plot.margin = margin(1, 2, 10, 2)
+      )
+
+    p_sd_win_combined <- p_sd_win + patchwork::inset_element(p_sd_win_hist, left = inset_coords$left, bottom = inset_coords$bottom, right = inset_coords$right, top = inset_coords$top, align_to = "panel")
+  } else {
+    p_sd_win_combined <- ggplot() + theme_void() + labs(title = "Winter Flow (Streamdyn model)")
+  }
+
+  # Combine panels into a 2x3 layout
+  p_out <- (p_regime_combined | p_stn_aug_combined | p_sd_aug_combined) /
+           (patchwork::plot_spacer() | p_stn_win_combined | p_sd_win_combined) +
+           patchwork::plot_layout(heights = c(1, 1))
 
   return(p_out)
 }

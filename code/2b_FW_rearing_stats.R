@@ -48,10 +48,22 @@ load(file.path(paths$fw, "fw_streampicks_tscapes.Rdata"))
 load(file.path(paths$fw, "fw_models_tscapes.Rds"))
 
 # load statistical model projections of August flows for flow stations  (wp_vm)
-load(file.path(paths$fw, "Statistical_flow_projections.Rds"))
+temp_file <- get_latest_file(paths$fw, "Statistical_flow_projections.Rds")
+load(temp_file)
 
 # load flow stations spatial objects  (watershed_flow, stations_flow, stations_stats)
-load(file.path(paths$fw, "flow_gauge_data.Rdata"))
+temp_file <- get_latest_file(paths$fw, "flow_gauge_data.Rdata")
+load(temp_file)
+
+# load GCM model weights CSV for station flow model weighting
+weights_csv_path <- file.path(paths$fw, "gcm_model_weights.csv")
+
+if (file.exists(weights_csv_path)) {
+  gcm_weights_df <- read_csv(weights_csv_path, show_col_types = FALSE)
+  gcm_weights_lookup <- setNames(gcm_weights_df$wght, gcm_weights_df$gcm_name)
+} else {
+  gcm_weights_lookup <- NULL
+}
 
 # load PCIC grid data for alternative temperature indicators
 PCIC_file_loc <- file.path(paths$climate, "PCIC_averaged", "combined")
@@ -380,7 +392,43 @@ stream_pcic_env_stats <- function(
 }
 
 
-# helper to get qlowgcm and qhighgcm after getting stats
+# Cannon (2024) / Ruzzante et al. (2026) CMIP6 GCM Model Weights Table based on ECS sensitivity
+gcm_weights_default <- c(
+  "ACCESS-CM2" = 0.015, "ACCESS-ESM1-5" = 0.021, "AWI-CM-1-1-MR" = 0.026, "AWI-ESM-1-REcoM" = 0.024,
+  "BCC-CSM2-MR" = 0.028, "CAMS-CSM1-0" = 0.025, "CAS-ESM2-0" = 0.026, "CESM2" = 0.012,
+  "CESM2-WACCM" = 0.013, "CIESM" = 0.011, "CMCC-CM2-SR5" = 0.020, "CMCC-ESM2" = 0.021,
+  "CNRM-CM6-1" = 0.025, "CNRM-CM6-1-HR" = 0.024, "CNRM-ESM2-1" = 0.025, "CanESM5" = 0.005,
+  "CanESM5-1" = 0.006, "CanESM5-CanOE" = 0.005, "EC-Earth3" = 0.023, "EC-Earth3-Veg" = 0.022,
+  "EC-Earth3-Veg-LR" = 0.023, "FGOALS-f3-L" = 0.026, "FGOALS-g3" = 0.027, "FIO-ESM-2-0" = 0.024,
+  "GFDL-ESM4" = 0.031, "GISS-E2-1-G" = 0.030, "GISS-E2-1-H" = 0.029, "GISS-E2-2-G" = 0.028,
+  "HadGEM3-GC31-LL" = 0.008, "IITM-ESM" = 0.026, "INM-CM4-8" = 0.032, "INM-CM5-0" = 0.033,
+  "IPSL-CM6A-LR" = 0.019, "KACE-1-0-G" = 0.018, "KIOST-ESM" = 0.027, "MCM-UA-1-0" = 0.028,
+  "MIROC-ES2H" = 0.029, "MIROC-ES2L" = 0.029, "MIROC6" = 0.030, "MPI-ESM1-2-HR" = 0.027,
+  "MPI-ESM1-2-LR" = 0.028, "MRI-ESM2-0" = 0.027, "NESM3" = 0.017, "NorESM2-LM" = 0.029,
+  "NorESM2-MM" = 0.030, "TaiESM1" = 0.027, "UKESM1-0-LL" = 0.006
+)
+
+# Weighted quantile function (type 7, consistent estimator, Cannon 2024 / Ruzzante 2026)
+AkinshinWeightedQuantile <- function(x, w, probs, na.rm = TRUE) {
+  if (na.rm) {
+    keep <- !is.na(x) & !is.na(w)
+    x <- x[keep]; w <- w[keep]
+  }
+  if (length(x) == 0) return(rep(NA_real_, length(probs)))
+  if (length(x) == 1) return(rep(x, length(probs)))
+  
+  ord <- order(x)
+  x <- x[ord]; w <- w[ord]
+  if (sum(w) == 0) w <- rep(1, length(w))
+  w <- w / sum(w)
+  cum_w <- cumsum(w)
+  
+  sapply(probs, function(p) {
+    approx(cum_w, x, xout = p, ties = "ordered", rule = 2)$y
+  })
+}
+
+# helper to get qlowgcm and qhighgcm after getting stats (with optional GCM model weighting for station flow model)
 compute_gcm_quantiles_long <- function(
     df,
     group_keys = c("FULL_CU_IN", "rcp", "period_code", "dsmodel", "indicator"),
@@ -388,7 +436,9 @@ compute_gcm_quantiles_long <- function(
     ensemble_value = 9, # value used to tag the ensemble rows in the chosen gcm_col (e.g., 9 or "Ensemble")
     low_prob = qlgcm,
     high_prob = qhgcm,
-    stat_mean_regex = "mean$" # which stat labels to treat as 'mean' to roll up across GCMs
+    stat_mean_regex = "mean$", # which stat labels to treat as 'mean' to roll up across GCMs
+    use_weights = FALSE, # set to TRUE only for station flow model
+    weights_lookup = gcm_weights_lookup
     ) {
   # --- Determine which GCM identifier column to use ---
   gcm_col <- match.arg(gcm_col)
@@ -432,13 +482,36 @@ compute_gcm_quantiles_long <- function(
     )
   }
 
-  # --- Compute quantiles across GCMs for each (keys + stat) combination ---
+  # --- Compute quantiles across GCMs (weighted if use_weights=TRUE, else standard unweighted) ---
   q_long <- df_means %>%
     dplyr::group_by(dplyr::across(dplyr::all_of(c(keys, "stat")))) %>%
     dplyr::summarise(
-      mean     = mean(.data$value, na.rm = TRUE),
-      qlowgcm  = stats::quantile(.data$value, probs = low_prob, na.rm = TRUE),
-      qhighgcm = stats::quantile(.data$value, probs = high_prob, na.rm = TRUE),
+      mean     = if (use_weights && !is.null(weights_lookup)) {
+        g_names <- as.character(.data[[gcm_col]])
+        w <- weights_lookup[g_names]
+        w[is.na(w)] <- 1.0
+        val <- .data$value
+        keep <- !is.na(val)
+        if (sum(keep) == 0) NA_real_ else sum(val[keep] * w[keep]) / sum(w[keep])
+      } else {
+        mean(.data$value, na.rm = TRUE)
+      },
+      qlowgcm  = if (use_weights && !is.null(weights_lookup)) {
+        g_names <- as.character(.data[[gcm_col]])
+        w <- weights_lookup[g_names]
+        w[is.na(w)] <- 1.0
+        AkinshinWeightedQuantile(.data$value, w = w, probs = low_prob)
+      } else {
+        unname(stats::quantile(.data$value, probs = low_prob, na.rm = TRUE))
+      },
+      qhighgcm = if (use_weights && !is.null(weights_lookup)) {
+        g_names <- as.character(.data[[gcm_col]])
+        w <- weights_lookup[g_names]
+        w[is.na(w)] <- 1.0
+        AkinshinWeightedQuantile(.data$value, w = w, probs = high_prob)
+      } else {
+        unname(stats::quantile(.data$value, probs = high_prob, na.rm = TRUE))
+      },
       .groups  = "drop"
     ) %>%
     tidyr::pivot_longer(
@@ -629,8 +702,14 @@ station_lowflow_stats <- function(
   kind <- m[1, 3] # e.g., "proj"
 
   # ---- Prep: historical fill + rcp tidy ----
+  target_col <- if (stringr::str_detect(base_ind, "18|ndj")) "mean_ndj" else "mean"
+  if (!target_col %in% names(wp_cu)) {
+    stop("Target column '", target_col, "' not found in wp_cu.")
+  }
+
   wp_cu <- wp_cu %>%
-    dplyr::mutate(mean_hist = ifelse(period == historical, mean, NA_real_)) %>%
+    dplyr::mutate(mean_val = .data[[target_col]]) %>%
+    dplyr::mutate(mean_hist = ifelse(period == historical, mean_val, NA_real_)) %>%
     tidyr::fill(mean_hist, .direction = "down") %>%
     dplyr::mutate(
       period = as.character(period)
@@ -646,10 +725,10 @@ station_lowflow_stats <- function(
 
   # ---- Build the value expression by kind ----
   value_expr <- switch(kind,
-    proj = quote(mean), # station-projected mean
-    rate = quote((mean - mean_hist) / decade_interval),
+    proj = quote(mean_val), # station-projected mean
+    rate = quote((mean_val - mean_hist) / decade_interval),
     pdelta = quote(dplyr::if_else(!is.na(mean_hist) & abs(mean_hist) > hist_zero_tol,
-      (mean - mean_hist) / mean_hist,
+      (mean_val - mean_hist) / mean_hist,
       NA_real_
     )),
     stop("Unrecognized kind: ", kind)
@@ -770,6 +849,7 @@ for (i in 1:n.CUs) {
     filter(ID %in% cu_stations$ID) %>%
     mutate(
       mean = map_dbl(data, ~ mean(.x$mean)),
+      mean_ndj = map_dbl(data, ~ if ("mean_ndj" %in% names(.x)) mean(.x$mean_ndj) else NA_real_),
       sd = map_dbl(data, ~ sd(.x$mean)),
       qlowvariant = map_dbl(data, ~ quantile(.x$mean, probs = qlgcm)),
       qhighvariant = map_dbl(data, ~ quantile(.x$mean, probs = qhgcm))
@@ -900,19 +980,27 @@ for (i in 1:n.CUs) {
   ) %>%
     mutate(FULL_CU_IN = cu_i, .before = 1)
 
-  # Station low flow stats - returns data with rcp, period_code
-  wp_i <- station_lowflow_stats(wp_cu,
+  # Station August low flow stats (flow8pdelta)
+  wp_8_i <- station_lowflow_stats(wp_cu,
     indicator = "flow8pdelta"
   ) %>%
     mutate(FULL_CU_IN = cu_i, .before = 1)
-  if (nrow(wp_i) > 0) {
-    wp_i <- wp_i %>%
-      bind_rows(compute_gcm_quantiles_long(.,
-        ensemble_value = "ensemble"
-      ))
-  } # %>%
-  # filter(rcp %in% rcp_vec,
-  #        gcm_name == "ensemble" | stat = )
+  if (nrow(wp_8_i) > 0) {
+    wp_8_i <- wp_8_i %>%
+      bind_rows(compute_gcm_quantiles_long(., ensemble_value = "ensemble", use_weights = TRUE))
+  }
+
+  # Station Winter flow stats (flow18pdelta)
+  wp_18_i <- station_lowflow_stats(wp_cu,
+    indicator = "flow18pdelta"
+  ) %>%
+    mutate(FULL_CU_IN = cu_i, .before = 1)
+  if (nrow(wp_18_i) > 0) {
+    wp_18_i <- wp_18_i %>%
+      bind_rows(compute_gcm_quantiles_long(., ensemble_value = "ensemble", use_weights = TRUE))
+  }
+
+  wp_i <- bind_rows(wp_8_i, wp_18_i)
 
   # 5) Stack them all
   fw_all_i <- stack_long_stats(
@@ -962,4 +1050,3 @@ fw_all <- fw_all %>%
 # ==================== 5. Save Outputs ====================
 
 save(fw_all, ss_all, file = file.path(paths$fw, paste0(today, "_fw_rearing_indicators.Rdata")))
-save(fw_all, ss_all, file = file.path(paths$fw, "fw_rearing_indicators.Rdata"))

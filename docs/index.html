@@ -157,7 +157,7 @@
     /* Cards Layout */
     .cards-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      grid-template-columns: repeat(3, 1fr);
       gap: 30px;
       margin-bottom: 4rem;
     }
@@ -254,6 +254,7 @@
         margin-bottom: 2rem;
       }
       .cards-grid {
+        grid-template-columns: 1fr;
         gap: 20px;
       }
       .card {
@@ -302,7 +303,7 @@
           <span class="card-badge">Supplement S1</span>
           <h2>Indicator Descriptions & Baseline Outputs</h2>
           <p class="card-description">
-            A detailed documentation of the CVIS framework, detailing the scientific rationale, mathematical formulations, data sources, and standardization functions for the 17 vulnerability indicators. The report includes basin-wide spatial projections and baseline indicator distribution plots across all evaluated Conservation Units.
+            Detailed documentation of the CVIS framework, including scientific rationale, mathematical formulations, and indicator functions. Includes basin-wide spatial projections and baseline distribution plots.
           </p>
         </div>
         <a href="6a_S1_indicators_description.html" class="card-btn" id="btn-open-6a">
@@ -311,13 +312,28 @@
         </a>
       </div>
 
-      <!-- Supplement S2: 6b Card -->
+      <!-- Supplement S2: Data Sources Card -->
       <div class="card">
         <div>
           <span class="card-badge">Supplement S2</span>
+          <h2>Input Datasets & Models</h2>
+          <p class="card-description">
+            List and documentation of the 19 input datasets, environmental models, and biological databases. Details spatial resolution, temporal coverage, model configurations, data links, and academic citations.
+          </p>
+        </div>
+        <a href="Supplement_S2_data.html" class="card-btn" id="btn-open-s2">
+          Open Dataset Report
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+        </a>
+      </div>
+
+      <!-- Supplement S3: 6b Card -->
+      <div class="card">
+        <div>
+          <span class="card-badge">Supplement S3</span>
           <h2>Conservation Unit Reports Dashboard</h2>
           <p class="card-description">
-            An interactive dashboard compiling individual profiles for Pacific salmon Conservation Units in the Fraser River Basin. Each profile contains spatial boundaries, demographic metrics, life-stage phenology, spawning and rearing habitat indicators, upstream migration conditions, marine exposure, and scoring sensitivity analyses.
+            Interactive profiles for Fraser River Pacific salmon Conservation Units. Details spatial boundaries, demographic status, life-stage timing, environmental exposure, and vulnerability sensitivity analyses.
           </p>
         </div>
         <a href="6b_S2_CU_reports.html" class="card-btn" id="btn-open-6b">
