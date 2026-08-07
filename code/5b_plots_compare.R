@@ -649,10 +649,10 @@ spatial_fw_rearing_indicators_plot <- function(data,
       arrange(abbrev)
     
     cu_boundary_plot <- cu_boundary_plot %>%
-      left_join(select(indicator_names, abbrev, clean_name), by = c("indicator" = "abbrev")) %>%
+      left_join(select(indicator_names, abbrev, name_with_abbrev), by = c("indicator" = "abbrev")) %>%
       mutate(
-        indicator_lbl = coalesce(clean_name, indicator),
-        indicator_lbl = factor(indicator_lbl, levels = indicator_names$clean_name)
+        indicator_lbl = coalesce(name_with_abbrev, indicator),
+        indicator_lbl = factor(indicator_lbl, levels = indicator_names$name_with_abbrev)
       )
     
     facet_var <- "indicator_lbl"

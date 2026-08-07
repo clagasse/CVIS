@@ -1464,16 +1464,16 @@ generate_cvis_indicator_description_table <- function(
       )
     ) %>%
     tab_style(
-      style = cell_text(weight = "bold", size = px(15), color = "black"),
+      style = cell_text(weight = "bold", size = "15pt", color = "black"),
       locations = cells_title(groups = "title")
     ) %>%
     tab_style(
-      style = cell_text(size = px(11), style = "italic", color = "black"),
+      style = cell_text(size = "11pt", style = "italic", color = "black"),
       locations = cells_title(groups = "subtitle")
     ) %>%
     tab_style(
       style = list(
-        cell_text(color = "black", weight = "bold", size = px(14))
+        cell_text(color = "black", weight = "bold", size = "14pt")
       ),
       locations = cells_row_groups()
     ) %>%
@@ -1482,11 +1482,12 @@ generate_cvis_indicator_description_table <- function(
       locations = cells_body()
     ) %>%
     tab_options(
-      table.font.size = 10,
-      heading.title.font.size = 13,
-      heading.subtitle.font.size = 11,
-      row_group.font.size = 14,
+      table.font.size = "10.5pt",
+      heading.title.font.size = "14pt",
+      heading.subtitle.font.size = "11pt",
+      row_group.font.size = "14pt",
       row_group.font.weight = "bold",
+      row_group.padding = "8pt",
       column_labels.font.weight = "bold",
       column_labels.background.color = "white",
       table.border.top.color = "black",
@@ -1500,7 +1501,7 @@ generate_cvis_indicator_description_table <- function(
       row_group.border.bottom.color = "#E5E7EB",
       row_group.border.bottom.width = px(1),
       table.width = pct(100),
-      data_row.padding = px(5)
+      data_row.padding = "5pt"
     )
 
   return(gt_table)

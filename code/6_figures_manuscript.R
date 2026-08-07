@@ -48,21 +48,29 @@ dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 save_cvis_figure <- function(filename, plot, width, height, dpi = 300) {
   base_name <- tools::file_path_sans_ext(filename)
   # Save PNG
-  ggsave(
-    filename = file.path(output_dir, paste0(base_name, ".png")),
-    plot = plot,
-    width = width,
-    height = height,
-    dpi = dpi
-  )
+  tryCatch({
+    ggsave(
+      filename = file.path(output_dir, paste0(base_name, ".png")),
+      plot = plot,
+      width = width,
+      height = height,
+      dpi = dpi
+    )
+  }, error = function(e) {
+    warning(paste("Could not save PNG for", base_name, "- is the file open/locked? Error:", e$message))
+  })
   # Save PDF
-  ggsave(
-    filename = file.path(output_dir, paste0(base_name, ".pdf")),
-    plot = plot,
-    width = width,
-    height = height,
-    device = "pdf"
-  )
+  tryCatch({
+    ggsave(
+      filename = file.path(output_dir, paste0(base_name, ".pdf")),
+      plot = plot,
+      width = width,
+      height = height,
+      device = "pdf"
+    )
+  }, error = function(e) {
+    warning(paste("Could not save PDF for", base_name, "- is the file open/locked? Error:", e$message))
+  })
 }
 
 # select case study CUs for manuscript
@@ -167,7 +175,7 @@ cu_timing_i <- cu_timing_Fr[cu_timing_Fr$FULL_CU_IN == cu_i, ]
 # ==================== 4. Generate & Save Figures ====================
 
 
-# Figure 3 - Distributions of raw (unstandardized) indicator values across all Fraser River basin Conservation Units under the baseline scenario.
+# Figure 2 - Distributions of raw (unstandardized) indicator values across all Fraser River basin Conservation Units under the baseline scenario.
 # Caption: Violin plot visualizing the density, spread, and median values of raw environmental indicators across all 50 CUs under the baseline. Indicators are grouped by vulnerability category (Spawning & Rearing, Upstream Migration, Nearshore Marine, Demographic, and Genetic) to show the underlying range of historical environmental conditions and population attributes.
 f_violins <- plot_raw_baseline_violins(
   all_std_long_baseline = all_std_long_baseline,
@@ -176,22 +184,23 @@ f_violins <- plot_raw_baseline_violins(
 
 save_cvis_figure("figure_violins", f_violins, width = 11, height = 8.5, dpi = 150) 
 
-# Figure 4 - High-resolution spatial mapping of freshwater spawning and rearing indicators within Fraser basin (SKIPPED - long execution time)
-# f_streams <- stream_indicator_multipanel_plot(fw_sp_ind,
-#   cu_boundary = NULL,
-#   lakes_Fr,
-#   variables = c("cthr_anad", "tw8proj_9_45_3", "tw8rate_9_45_3", "flow8pdelta_9_45_3", "flow18pdelta_9_45_3", "favchange_chinook_85_3"),
-#   plot_titles = c("Cumulative Threat Score", "August Mean Temperature", "Rate of Temp. Change", "Change in August Flow", "Change in Nov-Jan Flow", "Change in ENM Favourability (Chinook)"),
-#   risk_palette = cvis_risk_palette,
-#   palette_directions = c(-1, -1, -1, 1, -1, 1))
-# ggsave(filename = file.path(output_dir, "figure_streams.png"), plot = f4, width = 12, height = 8)
+# Figure 3 - High-resolution spatial mapping of freshwater spawning and rearing indicators within Fraser basin (SKIPPED - long execution time)
+f_streams <- stream_indicator_multipanel_plot(fw_sp_ind,
+  cu_boundary = NULL,
+  lakes_Fr,
+  variables = c("cthr_anad", "tw8proj_9_45_3", "tw8rate_9_45_3", "flow8pdelta_9_45_3", "flow18pdelta_9_45_3", "favchange_chinook_85_3"),
+  plot_titles = c("Cumulative Threat Score (chtr)", "Projected August Temp. (tw8proj)", "Rate of August Temp. Change (tw8rate)", "Change in August Flow (flow8pdelta)", "Change in Nov-Jan Flow (flow18pdelta)", "Change in ENM Favourability for Chinook (favchange)"),
+  risk_palette = cvis_risk_palette,
+  palette_directions = c(-1, -1, -1, 1, -1, 1))
 
-# Figure 4 - Basin-wide spatial distribution of standardized freshwater spawning and rearing vulnerability scores for Chinook salmon. (SKIPPED - long execution time)
-# f_basinstd <- spatial_fw_rearing_indicators_plot(all_std_long_baseline,
-#                                          cu_boundary,
-#                                          outline = Fr_basin,
-#                                          species_pick = "Chinook")
-# ggsave(filename = file.path(output_dir, "figure_basinstd.png"), plot = f5, width = 10, height = 9)   
+save_cvis_figure("figure_streams.png", f_streams, width = 12, height = 8)
+
+# Figure 4 - Basin-wide spatial distribution of standardized freshwater spawning and rearing vulnerability scores for Chinook salmon.
+f_basinstd <- spatial_fw_rearing_indicators_plot(all_std_long_baseline,
+                                         cu_boundary,
+                                         outline = Fr_basin,
+                                         species_pick = "Chinook")
+save_cvis_figure("figure_basinstd", f_basinstd, width = 10, height = 9)
 
 # Figure 5 - Directional shifts and expansion of climate hazard exposure across CUs under future projection scenarios.
 f_shifts <- plot_indicator_directional_shifts(overall_sensitivity, 
@@ -248,13 +257,21 @@ save_cvis_figure("figure_bootboxes", f_bootstrap, width = 9, height = 9)
 
 # Supplemental figures ----------------------------------------------------
 
-png(file.path(output_dir, "sfig_corr.png"), width = 1000, height = 1000, res = 120)
-plot_indicator_redundancy_corr(overall_sensitivity$correlation_indicators)
-dev.off()
+tryCatch({
+  png(file.path(output_dir, "sfig_corr.png"), width = 1000, height = 1000, res = 120)
+  plot_indicator_redundancy_corr(overall_sensitivity$correlation_indicators)
+  dev.off()
+}, error = function(e) {
+  warning(paste("Could not save PNG for sfig_corr. Error:", e$message))
+})
 
-pdf(file.path(output_dir, "sfig_corr.pdf"), width = 8, height = 8)
-plot_indicator_redundancy_corr(overall_sensitivity$correlation_indicators)
-dev.off()
+tryCatch({
+  pdf(file.path(output_dir, "sfig_corr.pdf"), width = 8, height = 8)
+  plot_indicator_redundancy_corr(overall_sensitivity$correlation_indicators)
+  dev.off()
+}, error = function(e) {
+  warning(paste("Could not save PDF for sfig_corr. Error:", e$message))
+})
 
 jack_global <- overall_sensitivity$influence_summary %>%
   filter((method == "catavg" | method == "catavg") & SPECIES_NAME == "ALL")

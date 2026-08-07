@@ -20,7 +20,8 @@ private_docs
 *.knit.md
 
 # Output figures and data files
-output
+output/figures
+output/reports
 
 #archived code
 code/archive

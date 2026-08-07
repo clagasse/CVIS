@@ -35,9 +35,9 @@ run_fw_prep        <- FALSE # Run raw stream networks and PCIC flow model prep (
 run_fw_stats       <- FALSE # Run stream intersections, rearing, and migration stats (2a, 2b, 2c, 2d)
 run_marine_prep    <- FALSE # Run raw marine NetCDF and spatial GDB imports (3a)
 run_marine_stats   <- FALSE # Run marine stats & grid standardization calculations (3b, 3c)
-run_scoring        <- F  # Run core standardization and scoring calculation engine (4a)
+run_scoring        <- T  # Run core standardization and scoring calculation engine (4a)
 run_indicator_report    <- T  # Generate the detailed indicator reports (6a_S1_indicators_description.Rmd)
-run_reports_indiv       <- F # Generate individual CU report HTML files (Static supplement for publication)
+run_reports_indiv       <- T # Generate individual CU report HTML files (Static supplement for publication)
 
 # ==================== 2. Load Core Spatial and Definition Data ====================
 
