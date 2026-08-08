@@ -30,14 +30,14 @@ setwd(here())
 source(file.path(here(), "code", "0_setup.R"))
 
 # Execution Toggles: Toggle steps of the pipeline on (TRUE) or off (FALSE)
-run_data_load      <- T
+run_data_load      <- F
 run_fw_prep        <- FALSE # Run raw stream networks and PCIC flow model prep (1b, 1c, 1d)
 run_fw_stats       <- FALSE # Run stream intersections, rearing, and migration stats (2a, 2b, 2c, 2d)
 run_marine_prep    <- FALSE # Run raw marine NetCDF and spatial GDB imports (3a)
 run_marine_stats   <- FALSE # Run marine stats & grid standardization calculations (3b, 3c)
-run_scoring        <- T  # Run core standardization and scoring calculation engine (4a)
+run_scoring        <- F  # Run core standardization and scoring calculation engine (4a)
 run_indicator_report    <- T  # Generate the detailed indicator reports (6a_S1_indicators_description.Rmd)
-run_reports_indiv       <- T # Generate individual CU report HTML files (Static supplement for publication)
+run_reports_indiv       <- F # Generate individual CU report HTML files (Static supplement for publication)
 
 # ==================== 2. Load Core Spatial and Definition Data ====================
 
@@ -105,9 +105,9 @@ if (run_indicator_report) {
   cat("\nRendering comprehensive multi-CU CVIS report...\n")
   rmarkdown::render(
     file.path(paths$code, "6a_S1_indicators_description.Rmd"),
-    output_file = paste(today, "S1_indicators_report.html", sep = "_"),
+    output_file = paste(today, "S1_indicators_report.pdf", sep = "_"),
     output_dir = file.path(paths$reports),
-    output_format = "html_document"
+    output_format = "pdf_document"
   )
   cat("Report rendered in:", file.path(paths$reports), "\n")
 }

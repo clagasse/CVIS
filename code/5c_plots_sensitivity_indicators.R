@@ -328,7 +328,7 @@ plot_smu_bootstrap_uncertainty <- function(mc_results, species_colors = species_
     scale_fill_manual(values = species_colors, limits = names(species_colors), name = "Species", drop = FALSE) +
     labs(
       x = "Vulnerability Score (0-100)",
-      y = "Stock (SMU)"
+      y = "Stock Management Unit"
     ) +
     theme_cvis() +
     theme(
@@ -363,8 +363,8 @@ plot_smu_bootstrap_uncertainty <- function(mc_results, species_colors = species_
     ) +
     theme_cvis() +
     theme(
-      strip.text = element_text(size = 8.5, face = "bold"),
-      axis.text.y = element_text(size = 7.5, lineheight = 0.85),
+      strip.text = element_text(size = 7, face = "bold"),
+      axis.text.y = element_text(size = 6, lineheight = 0.85),
       panel.spacing = unit(0.6, "lines")
     )
   

@@ -1670,7 +1670,7 @@ fraser_hydrologic_regime_comparison_plot <- function(watershed_flow = NULL,
     scale_fill_cvis(palette = risk_palette, direction = palette_direction, limits = xlim_aug, guide = "none", oob = scales::squish) +
     geom_sf(data = stations_flow_cropped, color = "black", size = 1) +
     coord_sf(datum = NA, xlim = fraser_bbox[c(1,3)], ylim = fraser_bbox[c(2,4)]) +
-    labs(title = "August Flow - Station model (flow8pdelta)") +
+    labs(title = "August Flow - Station model") +
     theme_void() +
     theme(plot.title = element_text(size = 11, face = "bold", hjust = 0.5), plot.margin = margin(3, 3, 3, 3))
 
@@ -1703,7 +1703,7 @@ fraser_hydrologic_regime_comparison_plot <- function(watershed_flow = NULL,
       scale_linewidth_continuous(range = c(0.1, 0.9), guide = "none") +
       scale_color_cvis(palette = risk_palette, direction = palette_direction, limits = xlim_aug, guide = "none", oob = scales::squish) +
       coord_sf(datum = NA, xlim = fraser_bbox[c(1,3)], ylim = fraser_bbox[c(2,4)]) +
-      labs(title = "August Flow - VIC-GL model (flow8pdelta)") +
+      labs(title = "August Flow - VIC-GL model") +
       theme_void() +
       theme(plot.title = element_text(size = 11, face = "bold", hjust = 0.5), plot.margin = margin(3, 3, 3, 3))
 
@@ -1724,7 +1724,7 @@ fraser_hydrologic_regime_comparison_plot <- function(watershed_flow = NULL,
 
     p_sd_aug_combined <- p_sd_aug + patchwork::inset_element(p_sd_aug_hist, left = inset_coords$left, bottom = inset_coords$bottom, right = inset_coords$right, top = inset_coords$top, align_to = "panel")
   } else {
-    p_sd_aug_combined <- ggplot() + theme_void() + labs(title = "August Flow - VIC-GL model (flow8pdelta)")
+    p_sd_aug_combined <- ggplot() + theme_void() + labs(title = "August Flow - VIC-GL model")
   }
 
   # ==================== PANEL D: Winter Flow (Station Model) ====================
@@ -1761,7 +1761,7 @@ fraser_hydrologic_regime_comparison_plot <- function(watershed_flow = NULL,
     scale_fill_cvis(palette = risk_palette, direction = -palette_direction, limits = xlim_win, guide = "none", oob = scales::squish) +
     geom_sf(data = stations_flow_cropped, color = "black", size = 1) +
     coord_sf(datum = NA, xlim = fraser_bbox[c(1,3)], ylim = fraser_bbox[c(2,4)]) +
-    labs(title = "Winter Flow - Station model (flow18pdelta)") +
+    labs(title = "Winter Flow - Station model") +
     theme_void() +
     theme(plot.title = element_text(size = 11, face = "bold", hjust = 0.5), plot.margin = margin(3, 3, 3, 3))
 
@@ -1794,7 +1794,7 @@ fraser_hydrologic_regime_comparison_plot <- function(watershed_flow = NULL,
       scale_linewidth_continuous(range = c(0.1, 0.9), guide = "none") +
       scale_color_cvis(palette = risk_palette, direction = -palette_direction, limits = xlim_win, guide = "none", oob = scales::squish) +
       coord_sf(datum = NA, xlim = fraser_bbox[c(1,3)], ylim = fraser_bbox[c(2,4)]) +
-      labs(title = "Winter Flow - VIC-GL model (flow18pdelta)") +
+      labs(title = "Winter Flow - VIC-GL model") +
       theme_void() +
       theme(plot.title = element_text(size = 11, face = "bold", hjust = 0.5), plot.margin = margin(3, 3, 3, 3))
 
@@ -1815,7 +1815,7 @@ fraser_hydrologic_regime_comparison_plot <- function(watershed_flow = NULL,
 
     p_sd_win_combined <- p_sd_win + patchwork::inset_element(p_sd_win_hist, left = inset_coords$left, bottom = inset_coords$bottom, right = inset_coords$right, top = inset_coords$top, align_to = "panel")
   } else {
-    p_sd_win_combined <- ggplot() + theme_void() + labs(title = "Winter Flow - VIC-GL model (flow18pdelta)")
+    p_sd_win_combined <- ggplot() + theme_void() + labs(title = "Winter Flow - VIC-GL model")
   }
 
   # Combine panels into a 2x3 layout where the regime map spans both rows in the first column

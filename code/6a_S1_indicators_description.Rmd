@@ -14,6 +14,9 @@ output:
   word_document:
     toc: true
     toc_depth: '3'
+  pdf_document:
+    toc: true
+    toc_depth: '3'
 bibliography: references.json
 csl: canadian-journal-of-fisheries-and-aquatic-sciences.csl
 ---

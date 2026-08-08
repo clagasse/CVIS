@@ -14,10 +14,11 @@
 # ==================== 0. Configurations ====================
 
 # Toggles for what to build
-build_6a <- TRUE       # Supplement S1: Description of Indicators
-build_s2 <- TRUE       # Supplement S2: Input Datasets & Models
-build_6b <- TRUE       # Supplement S3: CU Reports Dashboard
-build_6e <- FALSE      # Supplement S4: Visual Results Overview
+build_6a <- FALSE      # Supplement S1: Description of Indicators (submitted as PDF)
+build_s2 <- FALSE      # Supplement S2: Input Datasets & Models (submitted as PDF)
+build_6b <- FALSE       # Supplement S3: CU Reports Dashboard (hosted online)
+build_s4_figs <- TRUE # Supplement S4: Supplemental Figures PDF (submitted as PDF)
+build_6e <- FALSE      # Supplement S4 (Visual Results Overview - deactivated)
 
 # Toggle to re-render reports or just copy existing compiled reports
 # TRUE: Re-render the Rmd templates (takes longer)
@@ -35,6 +36,23 @@ docs_dir <- file.path(here::here(), "docs")
 # ==================== 1. Initialization ====================
 
 library(here)
+
+# Set Pandoc path if running outside RStudio (e.g. from standard terminal)
+if (Sys.getenv("RSTUDIO_PANDOC") == "") {
+  pandoc_paths <- c(
+    "C:/Program Files/RStudio/resources/app/bin/quarto/bin/tools",
+    "C:/Program Files/RStudio/resources/app/bin/quarto/bin",
+    "C:/Program Files/RStudio/resources/app/bin/pandoc",
+    "C:/Program Files/RStudio/bin/pandoc",
+    "C:/Program Files/quarto/bin"
+  )
+  for (path in pandoc_paths) {
+    if (dir.exists(path)) {
+      Sys.setenv(RSTUDIO_PANDOC = path)
+      break
+    }
+  }
+}
 
 # Load environment configuration and paths
 if (!exists("paths")) {
@@ -189,13 +207,13 @@ if (build_6b) {
   docs_cu_dir <- file.path(docs_dir, "CU_reports")
   dir.create(docs_cu_dir, showWarnings = FALSE, recursive = TRUE)
   
-  # 1. Copy the master dashboard HTML with static name
+  # 1. Copy the master dashboard HTML directly as index.html
   src_dash <- file.path(paths$reports, "CVIS_CU_Supplemental_Report.html")
-  dest_dash <- file.path(docs_dir, "6b_S2_CU_reports.html")
+  dest_dash <- file.path(docs_dir, "index.html")
   
   if (file.exists(src_dash)) {
     file.copy(src_dash, dest_dash, overwrite = TRUE)
-    cat("✓ Stitched dashboard copied to:", dest_dash, "\n")
+    cat("✓ Stitched dashboard copied directly to index.html:", dest_dash, "\n")
   } else {
     warning("Could not find stitched dashboard at ", src_dash, "\n")
   }
@@ -276,6 +294,36 @@ if (build_6e) {
     dir.create(dest_files, showWarnings = FALSE, recursive = TRUE)
     file.copy(src_files, docs_dir, recursive = TRUE, overwrite = TRUE)
     cat("✓ Report 6e figures folder copied to:", dest_files, "\n\n")
+  }
+}
+
+# ==================== 5. Build Supplemental Figures DOCX (S4) ====================
+if (build_s4_figs) {
+  cat("--- Building Supplemental Figures DOCX (S4 Figures) ---\n")
+  
+  if (render_reports) {
+    temp_out_file <- "Supplement_S4_figures.docx"
+    
+    # Render Rmd file to output/reports/
+    rmarkdown::render(
+      file.path(paths$code, "Supplement_S4_figures.Rmd"),
+      output_file = temp_out_file,
+      output_dir = paths$reports,
+      output_format = "word_document",
+      envir = globalenv()
+    )
+    src_docx <- file.path(paths$reports, temp_out_file)
+  } else {
+    src_docx <- file.path(paths$reports, "Supplement_S4_figures.docx")
+  }
+  
+  # Copy compiled DOCX to docs folder
+  if (file.exists(src_docx)) {
+    dest_docx <- file.path(docs_dir, "Supplement_S4_figures.docx")
+    file.copy(src_docx, dest_docx, overwrite = TRUE)
+    cat("✓ Supplemental Figures DOCX copied to:", dest_docx, "\n\n")
+  } else {
+    warning("Could not find compiled Supplemental Figures DOCX at ", src_docx, "\n")
   }
 }
 

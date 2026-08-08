@@ -1,0 +1,63 @@
+---
+title: "Supplementary Information: Supplemental Figures"
+subtitle: "An Indicator Framework for Evaluating Variation in Climate Change Vulnerability of Pacific Salmon Conservation Units"
+author: "Cory R. Lagasse, Josephine C. Iacarella, Colin J. Bailey, Timothy M. Healy"
+date: "`r format(Sys.Date(), '%d %B %Y')`"
+output:
+  word_document:
+    toc: false
+    fig_caption: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, results = 'asis')
+fig_dir <- "C:/Users/LAGASSEC/OneDrive - DFO-MPO/0.Workspace/CVIS/output/figures/manuscript"
+```
+
+# Supplemental Figures
+
+```{r supfig_1, fig.cap = "Supplemental Figure 1 - Accessibility, elevation, and stream order of stream segments within the Fraser River basin. Accessibility information is adapted from the BC Fishpass habitat accessibility model and shows stream segments modelled as accessible or with observations of anadromous fish.", fig.align='center', out.width='100%'}
+knitr::include_graphics(file.path(fig_dir, "sfig_streamattr.tiff"))
+```
+
+---
+
+```{r supfig_2, fig.cap = "Supplemental Figure 2 - CU boundaries for Chinook salmon within the Fraser River basin coloured by standardized risk scores for habitat and environmental change indicators for freshwater rearing (blue = low risk, yellow = moderate risk, red = high risk). Values shown represent the default scenario of RCP 4.5, the mid-century time period, and the ensemble mean of global climate models for environmental change indicators.", fig.align='center', out.width='100%'}
+knitr::include_graphics(file.path(fig_dir, "sfig_basinstd.tiff"))
+```
+
+---
+
+```{r supfig_3, fig.cap = "Supplemental Figure 3 - Inferred hydrologic regime and comparison of proportional change in flow projected by two downscaling models. The station model uses a statistical downscaling of flow observations from hydrometric stations, and the PCIC model uses a dynamic variable infiltration capacity model fitted to 1/16°x1/16° grids. Hydrologic regime classifications are adapted from Ruzzante et al. 2025. ", fig.align='center', out.width='100%'}
+knitr::include_graphics(file.path(fig_dir, "sfig_hydroreg.tiff"))
+```
+
+---
+
+```{r supfig_4, fig.cap = "Supplemental Figure 4 - Bootstrapping quantiles of relative vulnerability scores for stock management units in the Fraser River basin (left column), and for CUs within stock management units (middle and right column). Bootstrap results represent 500 draws among global climate models, emissions scenarios, downscaling methods, and overall vulnerability scoring method. Panels with CU values (middle and right columns) show stock management units with multiple CUs. Fraser Pink, Fraser Chum, and Fraser Fall Run Chinook, and Fraser Sockeye Early Stuart stocks consist of a single CU represented in the left column.", fig.align='center', out.width='100%'}
+knitr::include_graphics(file.path(fig_dir, "sfig_smu_bootstrap.tiff"))
+```
+
+---
+
+```{r supfig_5, fig.cap = "Supplemental Figure 5 - Distribution of deviations in vulnerability scores from the default scenario for all 50 CUs when using different global climate models, downscaling methods, emissions scenarios, time periods, standardization functions, and scoring methods. The top panel shows deviations in overall vulnerability scores while bottom panels show deviations in relevant category scores, with each score scaled from 0 to 100 across all CUs within each scenario. ", fig.align='center', out.width='100%'}
+knitr::include_graphics(file.path(fig_dir, "sfig_deviations.tiff"))
+```
+
+---
+
+```{r supfig_6, fig.cap = "Supplemental Figure 6 - Paired distributions of indicator values for the default and alternative downscaling methods evaluated among freshwater rearing indicators (columns). Point colors represent the deviation in standardized risk score from the default downscaling method to the alternative model, with blue indicating a negative deviation in risk and red indicating a positive deviation.", fig.align='center', out.width='100%'}
+knitr::include_graphics(file.path(fig_dir, "sfig_ds_deviations.tiff"))
+```
+
+---
+
+```{r supfig_7, fig.cap = "Supplemental Figure 7 - Pearson correlation matrix of standardized indicator values under the default scenario of the ensemble mean of global climate models, RCP 4.5 emissions scenario, and the mid-century period.", fig.align='center', out.width='100%'}
+knitr::include_graphics(file.path(fig_dir, "sfig_corr.tiff"))
+```
+
+---
+
+```{r supfig_8, fig.cap = "Supplemental Figure 8 - Jackknife (leave-one-out) results showing the deviation in overall vulnerability score when excluding an indicator category (top panel) and when excluding individual indicators (bottom panel). Results are based on scores under the default scenario of the ensemble mean of global climate models, RCP 4.5 emissions scenario, and the mid-century period.", fig.align='center', out.width='100%'}
+knitr::include_graphics(file.path(fig_dir, "sfig_jacknife.tiff"))
+```
