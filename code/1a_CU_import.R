@@ -359,8 +359,10 @@ cu_timing_long <- cu_timing_Fr %>%
   )) %>%
   arrange(species, oe_age)
 
-# add freshwater residence timing indicators to cu_list
+# add freshwater residence timing indicators to cu_list and cu_run
 cu_list <- cu_list %>%
+  left_join(select(cu_timing, FULL_CU_IN, fwres_mean), join_by(FULL_CU_IN))
+cu_run <- cu_run %>%
   left_join(select(cu_timing, FULL_CU_IN, fwres_mean), join_by(FULL_CU_IN))
 
 
