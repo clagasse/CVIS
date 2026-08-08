@@ -151,7 +151,7 @@ The framework produces:
 -   **Spatial visualizations** of stream-level indicators
 -   **Comparative plots** across CUs, species, and scenarios
 -   **HTML reports** for individual CUs and watershed-wide summaries (placed in `output/reports/`)
--   **Self-contained HTML Dashboard** (`docs/6b_S2_CU_reports.html`) for searching, filtering, and interactive browsing of individual Conservation Unit profiles on GitHub Pages.
+-   **Self-contained HTML Dashboard** (`docs/index.html`) for searching, filtering, and interactive browsing of individual Conservation Unit profiles on GitHub Pages.
 
 ## Contributing
 
